@@ -19,7 +19,7 @@ interface AuthContextType {
     name: string,
     role: string,
     email?: string
-  ) => Promise<boolean>;
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   switchRole: (role: string) => void;
   isLoading: boolean;
@@ -82,25 +82,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string,
     role: string,
-    email?: string
-  ): Promise<boolean> => {
+    email?: string,
+    honeypot?: string
+  ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, name, role, email }),
+        body: JSON.stringify({
+          username,
+          password,
+          name,
+          role,
+          email,
+          confirm_email_address: honeypot,
+        }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         // Do not set user here; account is created but not verified yet
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, error: data.error || "Signup failed" };
     } catch (error) {
-      console.error("Login failed:", error);
-      return false;
+      console.error("Signup failed:", error);
+      return { success: false, error: "Network error during signup" };
     } finally {
       setIsLoading(false);
     }

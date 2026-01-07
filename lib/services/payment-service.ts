@@ -16,6 +16,7 @@ import {
   addSaleData,
   getInventoryItems,
   saveInventoryItems,
+  updateInventoryItem,
   getOrderNumber,
 } from "../data";
 
@@ -283,24 +284,28 @@ export class PaymentService {
     items: OrderItem[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const inventory: InventoryItem[] = getInventoryItems();
-
-      const updated: InventoryItem[] = inventory.map((inv) => ({ ...inv }));
+      const inventory: InventoryItem[] = await getInventoryItems();
 
       for (const ordered of items) {
         // Try match by name; fall back to skip if not found
-        const idx = updated.findIndex(
+        const invItem = inventory.find(
           (i) => i.name === ordered.name || i.id === ordered.id
         );
-        if (idx === -1) continue;
+        if (!invItem) continue;
 
         // inventory quantity in this project is stored as string in many places
-        const currentQty = parseFloat(String(updated[idx].quantity)) || 0;
+        const currentQty = parseFloat(String(invItem.quantity)) || 0;
         const reduceBy = Number(ordered.quantity) || 0;
-        updated[idx].quantity = String(Math.max(0, currentQty - reduceBy));
+        const newQty = String(Math.max(0, currentQty - reduceBy));
+
+        if (newQty !== String(currentQty)) {
+          await updateInventoryItem({
+            ...invItem,
+            quantity: newQty,
+          });
+        }
       }
 
-      saveInventoryItems(updated);
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };

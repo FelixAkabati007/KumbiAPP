@@ -79,17 +79,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     loadOrders();
   }, [loadOrders]);
 
-  // Cross-tab real-time updates using the storage event
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "kitchen_orders") {
-        loadOrders();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [loadOrders]);
-
   // Save orders to API and dispatch events
   const saveOrders = useCallback(async (newOrders: KitchenOrder[]) => {
     // Dispatch custom event for real-time updates (local only)
@@ -164,12 +153,14 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       if (status === "completed") {
         const order = orders.find((o) => o.id === orderId);
         if (order) {
-           // Client-side archiving logic... (optional, maybe move to backend later)
-           // Keeping existing logic for now
-           const sales = getSalesData();
-           const alreadyArchived = sales.some(s => s.orderNumber === order.orderNumber);
-           if (!alreadyArchived) {
-             addSaleData({
+          // Client-side archiving logic... (optional, maybe move to backend later)
+          // Keeping existing logic for now
+          getSalesData().then((sales) => {
+            const alreadyArchived = sales.some(
+              (s) => s.orderNumber === order.orderNumber
+            );
+            if (!alreadyArchived) {
+              addSaleData({
                 id: order.id,
                 orderNumber: order.orderNumber,
                 orderId: order.orderId,
@@ -181,8 +172,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
                 customerName: order.customerRefused ? "" : order.customerName,
                 customerRefused: !!order.customerRefused,
                 paymentMethod: order.paymentMethod,
-             });
-           }
+              });
+            }
+          });
         }
       }
     },
@@ -221,8 +213,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status }),
         });
-        
-        // Note: The order status update (if triggered by item status change) 
+
+        // Note: The order status update (if triggered by item status change)
         // should ideally be handled by the backend or a separate call.
         // For now, we'll let the frontend be optimistic.
       } catch (error) {
@@ -306,7 +298,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      
+
       // Optimistic update
       setOrders((prev) => {
         const updated = [newOrder, ...prev];
@@ -321,11 +313,13 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderData),
         });
-        
+
         if (res.ok) {
           const data = await res.json();
           // Update the temp ID with real ID
-          setOrders(prev => prev.map(o => o.id === tempId ? { ...o, id: data.id } : o));
+          setOrders((prev) =>
+            prev.map((o) => (o.id === tempId ? { ...o, id: data.id } : o))
+          );
         } else {
           console.error("Failed to add order to DB");
         }

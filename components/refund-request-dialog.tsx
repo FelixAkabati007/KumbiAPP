@@ -156,20 +156,13 @@ export function RefundRequestDialog({
           requestedBy: user?.name || "Unknown User",
         });
       } catch (err) {
-        // Handle localStorage or validation errors from backend
+        // Handle validation errors from backend
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("Refunds are not enabled")) {
           toast({
             title: "Refunds Disabled",
             description:
               "Refunds are currently disabled in system settings. Please contact your administrator.",
-            variant: "destructive",
-          });
-        } else if (msg.includes("localStorage")) {
-          toast({
-            title: "Storage Error",
-            description:
-              "Unable to save refund request. Please check your browser settings or try a different browser.",
             variant: "destructive",
           });
         } else {

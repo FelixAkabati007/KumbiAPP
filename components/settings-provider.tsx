@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { getSettings, saveSettings, type AppSettings } from "@/lib/settings";
+import { fetchSettings, getSettings, saveSettings, type AppSettings } from "@/lib/settings";
 
 interface SettingsContextType {
   settings: AppSettings;
@@ -19,10 +19,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => getSettings());
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const savedSettings = getSettings();
-    setSettings(savedSettings);
+    async function loadSettings() {
+      const savedSettings = await fetchSettings();
+      setSettings(savedSettings);
+    }
+    loadSettings();
   }, []);
 
   const updateSettings = (newSettings: Partial<AppSettings>) => {

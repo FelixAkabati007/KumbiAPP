@@ -1,4 +1,3 @@
-import "@/lib/polyfill-storage"; // Patch broken localStorage in Node env
 import type React from "react";
 import { Suspense } from "react";
 import type { Metadata } from "next";
@@ -14,6 +13,21 @@ import { AuthProvider } from "@/components/auth-provider";
 import ErrorBoundary from "@/components/error-boundary";
 import { GlobalErrorHandler } from "@/components/global-error-handler";
 import { LoadingProvider } from "@/components/loading-provider";
+
+// Defensive check for broken localStorage in SSR environment
+if (
+  typeof global !== "undefined" &&
+  typeof (global as any).localStorage !== "undefined" &&
+  typeof (global as any).localStorage.getItem !== "function"
+) {
+  try {
+    // If localStorage is defined but broken (no getItem), remove it so libraries
+    // like next-themes fall back to safe behavior instead of crashing.
+    delete (global as any).localStorage;
+  } catch (e) {
+    console.warn("Failed to patch broken localStorage:", e);
+  }
+}
 
 const inter = Inter({ subsets: ["latin"] });
 

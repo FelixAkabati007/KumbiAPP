@@ -5,8 +5,11 @@ export async function GET() {
   try {
     const result = await query("SELECT data FROM settings WHERE id = 1");
     if (result.rows.length > 0) {
-      return NextResponse.json(result.rows[0].data);
+      const settingsData = result.rows[0].data;
+      // Ensure we return an empty object if data is null/undefined to prevent client crashes
+      return NextResponse.json(settingsData || {});
     }
+    // Return empty object instead of empty JSON to satisfy typed clients
     return NextResponse.json({});
   } catch (error) {
     console.error("Failed to fetch settings:", error);
@@ -17,6 +20,12 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const data = await req.json();
+    
+    // Basic validation
+    if (!data || typeof data !== 'object') {
+       return NextResponse.json({ error: "Invalid settings data" }, { status: 400 });
+    }
+
     await query(`
       INSERT INTO settings (id, data, updated_at)
       VALUES (1, $1, NOW())

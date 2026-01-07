@@ -33,11 +33,12 @@ export function UserNav() {
   );
 
   useEffect(() => {
-    function updateAvatar() {
-      const existing = localStorage.getItem(storageKey) || "";
-      setAvatarSrc(existing);
+    function updateAvatar(e?: Event) {
+      if (e instanceof CustomEvent && e.detail?.src !== undefined) {
+         setAvatarSrc(e.detail.src);
+      }
     }
-    updateAvatar();
+    // No initial load from localStorage
     window.addEventListener("avatarUpdated", updateAvatar as EventListener);
     return () => {
       window.removeEventListener(

@@ -51,23 +51,8 @@ export function PrinterSettingsForm({
 
   const handleTestPrinter = async () => {
     try {
-      // We need to override the service's internal config usage for printReceipt
-      // because printReceipt fetches settings from localStorage (getSettings).
-      // However, the test() method calls printReceipt.
-      //
-      // ISSUE: ThermalPrinterService.printReceipt gets configs from getSettings(),
-      // NOT from the instance config passed to constructor (mostly).
-      // Actually, looking at printReceipt implementation:
-      // const settings = getSettings();
-      // const configs: PrinterConfig[] = [settings.system.thermalPrinter];
-      // ...
-      // body: JSON.stringify({ receipt: data, configs })
-      //
-      // So it ignores the 'config' passed to constructor for the API call payload!
-      // This means we can't easily test *unsaved* settings using the current ThermalPrinterService.printReceipt.
-      //
-      // FIX: I should probably modify ThermalPrinterService.printReceipt to accept optional configs override,
-      // OR I can just call the API directly here for testing.
+      // Test the printer configuration directly using the API.
+      // We send the current form config to the print endpoint.
 
       // Let's call API directly here for testing to ensure we test the CURRENT form values.
       const testReceipt = {

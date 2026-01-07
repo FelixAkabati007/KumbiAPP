@@ -3,34 +3,28 @@ import { query } from "@/lib/db";
 import { comparePassword, signToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { recordSignupAttempt, isRateLimited } from "@/lib/rate-limit";
+import { loginSchema } from "@/lib/validations/auth";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
-    const cleanEmail =
-      typeof email === "string" ? email.trim().toLowerCase() : "";
-    const cleanPassword = typeof password === "string" ? password : "";
-    if (!cleanEmail || !cleanPassword) {
+    const body = await req.json();
+
+    // Zod Validation
+    const validationResult = loginSchema.safeParse(body);
+    if (!validationResult.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing credentials",
+          error: validationResult.error.errors[0].message,
           code: "validation_error",
         },
         { status: 400 }
       );
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid email address",
-          code: "validation_error",
-        },
-        { status: 400 }
-      );
-    }
+    
+    const { email, password } = validationResult.data;
+    const cleanEmail = email.toLowerCase();
+
     const ip =
       (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
       req.headers.get("x-real-ip") ||
@@ -63,7 +57,7 @@ export async function POST(req: Request) {
     }
 
     const user = result.rows[0];
-    const isValid = await comparePassword(cleanPassword, user.password_hash);
+    const isValid = await comparePassword(password, user.password_hash);
 
     if (!isValid) {
       return NextResponse.json(

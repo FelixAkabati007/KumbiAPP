@@ -49,10 +49,6 @@ function OrderDisplayContent() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   useEffect(() => {
-    const handleOrdersUpdate = () => refreshOrders();
-
-    window.addEventListener("ordersUpdated", handleOrdersUpdate);
-
     // Initialize current time on client to avoid SSR time mismatch
     setCurrentTime(new Date());
     const interval = setInterval(() => {
@@ -61,7 +57,6 @@ function OrderDisplayContent() {
     }, 3000);
 
     return () => {
-      window.removeEventListener("ordersUpdated", handleOrdersUpdate);
       clearInterval(interval);
     };
   }, [refreshOrders]);
@@ -158,10 +153,11 @@ function OrderDisplayContent() {
 
   // Reset handler
   const handleResetKitchen = () => {
-    localStorage.removeItem("kitchen_orders");
-    refreshOrders();
+    // Ideally this should call an API endpoint to archive all active orders
+    toast.error(
+      "Resetting kitchen display is disabled in Database mode. Please complete orders individually."
+    );
     setResetDialogOpen(false);
-    toast.success("Kitchen Display has been reset.");
   };
 
   return (

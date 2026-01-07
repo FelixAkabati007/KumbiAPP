@@ -55,6 +55,7 @@ export default function PaymentsPage() {
           return {
             id: txn.transaction_id,
             orderNumber: orderNumber,
+            orderId: metadata.orderId,
             date: txn.created_at,
             items: items,
             total:
@@ -66,6 +67,7 @@ export default function PaymentsPage() {
             customerName:
               metadata.customer_name || metadata.customerName || "Guest",
             paymentMethod: txn.payment_method || "cash",
+            customerRefused: metadata.customerRefused,
           };
         });
         setData(salesData);

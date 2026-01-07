@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { LogoDisplay } from "@/components/logo-display";
 import type { SalesData, OrderItem, RefundRequest } from "@/lib/types";
-import { getSalesData, addSaleData } from "@/lib/data";
+import { addSaleData } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 
 type KitchenOrderLike = {
@@ -95,143 +95,84 @@ function ReportsPage() {
   const [dateFilter, setDateFilter] = useState<string>("today");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const loadData = async () => {
+    try {
+      const [txRes, refRes] = await Promise.all([
+        fetch("/api/transactions?limit=2000"),
+        fetch("/api/refunds"),
+      ]);
+
+      const transactions = await txRes.json();
+      const refundsData = await refRes.json();
+
+      if (Array.isArray(refundsData)) {
+        setRefunds(
+          refundsData.map((r: RawRefund) => ({
+            id: r.id,
+            orderId: r.orderid,
+            orderNumber: r.ordernumber,
+            customerName: r.customername,
+            originalAmount:
+              typeof r.originalamount === "string"
+                ? Number.parseFloat(r.originalamount)
+                : r.originalamount,
+            refundAmount:
+              typeof r.refundamount === "string"
+                ? Number.parseFloat(r.refundamount)
+                : r.refundamount,
+            paymentMethod: r.paymentmethod,
+            reason: r.reason,
+            authorizedBy: r.authorizedby,
+            additionalNotes: r.additionalnotes,
+            status: r.status as RefundRequest["status"],
+            requestedBy: r.requestedby || "",
+            requestedAt: new Date(r.requestedat),
+            approvedBy: r.approvedby,
+            approvedAt: r.approvedat ? new Date(r.approvedat) : undefined,
+            completedAt: r.completedat ? new Date(r.completedat) : undefined,
+            refundMethod: r.refundmethod,
+            transactionId: r.transactionid,
+          })) as RefundRequest[]
+        );
+      }
+
+      let serverSales: SalesData[] = [];
+      if (Array.isArray(transactions)) {
+        serverSales = transactions.map((tx: Transaction) => ({
+          id: tx.id,
+          orderNumber: tx.metadata?.orderNumber || tx.transaction_id,
+          orderId: tx.metadata?.orderId,
+          date: tx.created_at,
+          items: Array.isArray(tx.items) ? tx.items : [],
+          total:
+            typeof tx.amount === "string"
+              ? Number.parseFloat(tx.amount)
+              : tx.amount,
+          orderType: tx.metadata?.orderType || "dine-in",
+          tableNumber: tx.metadata?.tableNumber,
+          customerName: tx.metadata?.customerName || tx.customer_id,
+          paymentMethod: tx.payment_method,
+        }));
+      }
+
+      // Sort by date descending
+      serverSales.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      setData(serverSales);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+      setData([]);
+    }
+  };
+
   useEffect(() => {
-    function migrateCompletedOrdersToSales() {
-      if (typeof window === "undefined") return;
-      const sales = getSalesData();
-      if (sales.length === 0) {
-        const kitchenOrdersRaw = localStorage.getItem("kitchen_orders");
-        if (kitchenOrdersRaw) {
-          try {
-            const kitchenOrders = JSON.parse(
-              kitchenOrdersRaw
-            ) as KitchenOrderLike[];
-            kitchenOrders
-              .filter((order) => order.status === "completed")
-              .forEach((order) => {
-                addSaleData({
-                  id: order.id,
-                  orderNumber: order.orderNumber,
-                  date:
-                    order.updatedAt ||
-                    order.createdAt ||
-                    new Date().toISOString(),
-                  items: order.items,
-                  total: order.total,
-                  orderType: order.orderType,
-                  tableNumber: order.tableNumber,
-                  customerName: order.customerName,
-                  paymentMethod: order.paymentMethod,
-                });
-              });
-          } catch {}
-        }
-      }
-    }
-
-    async function load() {
-      migrateCompletedOrdersToSales();
-
-      try {
-        const [txRes, refRes] = await Promise.all([
-          fetch("/api/transactions?limit=2000"),
-          fetch("/api/refunds"),
-        ]);
-
-        const transactions = await txRes.json();
-        const refundsData = await refRes.json();
-
-        if (Array.isArray(refundsData)) {
-          setRefunds(
-            refundsData.map((r: RawRefund) => ({
-              id: r.id,
-              orderId: r.orderid,
-              orderNumber: r.ordernumber,
-              customerName: r.customername,
-              originalAmount:
-                typeof r.originalamount === "string"
-                  ? Number.parseFloat(r.originalamount)
-                  : r.originalamount,
-              refundAmount:
-                typeof r.refundamount === "string"
-                  ? Number.parseFloat(r.refundamount)
-                  : r.refundamount,
-              paymentMethod: r.paymentmethod,
-              reason: r.reason,
-              authorizedBy: r.authorizedby,
-              additionalNotes: r.additionalnotes,
-              status: r.status as RefundRequest["status"],
-              requestedBy: r.requestedby || "",
-              requestedAt: new Date(r.requestedat),
-              approvedBy: r.approvedby,
-              approvedAt: r.approvedat ? new Date(r.approvedat) : undefined,
-              completedAt: r.completedat ? new Date(r.completedat) : undefined,
-              refundMethod: r.refundmethod,
-              transactionId: r.transactionid,
-            })) as RefundRequest[]
-          );
-        }
-
-        let serverSales: SalesData[] = [];
-        if (Array.isArray(transactions)) {
-          serverSales = transactions.map((tx: Transaction) => ({
-            id: tx.id,
-            orderNumber: tx.metadata?.orderNumber || tx.transaction_id,
-            orderId: tx.metadata?.orderId,
-            date: tx.created_at,
-            items: Array.isArray(tx.items) ? tx.items : [],
-            total:
-              typeof tx.amount === "string"
-                ? Number.parseFloat(tx.amount)
-                : tx.amount,
-            orderType: tx.metadata?.orderType || "dine-in",
-            tableNumber: tx.metadata?.tableNumber,
-            customerName: tx.metadata?.customerName || tx.customer_id,
-            paymentMethod: tx.payment_method,
-          }));
-        }
-
-        const localSales = getSalesData();
-
-        // Merge strategy: Use Server Sales, append Local Sales that are NOT in Server Sales
-        const serverIds = new Set(serverSales.map((s) => s.id));
-        const serverOrderNumbers = new Set(
-          serverSales.map((s) => s.orderNumber)
-        );
-
-        const uniqueLocalSales = localSales.filter(
-          (local) =>
-            !serverIds.has(local.id) &&
-            !serverOrderNumbers.has(local.orderNumber)
-        );
-
-        const allSales = [...serverSales, ...uniqueLocalSales];
-
-        // Sort by date descending
-        allSales.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-
-        setData(allSales);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-        setData(getSalesData());
-      }
-    }
-
-    load();
-    // Real-time updates if sales data changes in another tab
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "salesData") {
-        load();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    loadData();
   }, []);
 
   // Demo sales generator
-  function generateDemoSales() {
+  async function generateDemoSales() {
     if (typeof window === "undefined") return;
     const demoSales = [
       {
@@ -323,8 +264,8 @@ function ReportsPage() {
         paymentMethod: "mobile",
       },
     ];
-    demoSales.forEach(addSaleData);
-    setData(getSalesData());
+    await Promise.all(demoSales.map(addSaleData));
+    loadData();
   }
 
   const filteredData = useMemo(() => {

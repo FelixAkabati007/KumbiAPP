@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useMemo } from "react";
+import { useSettings } from "@/components/settings-provider";
 
 interface ReceiptSettings {
   includeLogo: boolean;
@@ -33,101 +34,88 @@ export function ReceiptSettingsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [settings, setSettings] = useState<ReceiptSettings>(() => ({
-    includeLogo: true,
-    includeBarcode: true,
-    includeFooter: true,
-    paperSize: "80mm",
-    fontSize: "normal",
-    headerText: "",
-    includeHeader: true,
-    businessAddress: "",
-    businessPhone: "",
-    businessEmail: "",
-  }));
+  const { settings: appSettings, updateSettings: updateAppSettings } =
+    useSettings();
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const settings: ReceiptSettings = useMemo(() => {
+    const printer = appSettings.system.thermalPrinter;
+    const account = appSettings.account;
 
-    try {
-      const savedSettings = localStorage.getItem("receiptSettings");
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(parsedSettings);
-      }
-    } catch (error) {
-      console.error("Error loading receipt settings:", error);
-    }
+    // Map font size string to enum
+    let fontSize: "small" | "normal" | "large" = "normal";
+    if (printer.fontSize === "9") fontSize = "small";
+    else if (printer.fontSize === "16") fontSize = "large";
 
-    // Also load legacy settings for backward compatibility
-    const savedHeader = localStorage.getItem("receiptHeaderText");
-    const savedHeaderToggle = localStorage.getItem("receiptHeaderToggle");
-    const savedAddress = localStorage.getItem("receiptBusinessAddress");
-    const savedPhone = localStorage.getItem("receiptBusinessPhone");
-    const savedEmail = localStorage.getItem("receiptBusinessEmail");
-
-    setSettings((prev) => ({
-      ...prev,
-      headerText: savedHeader || prev.headerText,
-      includeHeader:
-        savedHeaderToggle === null
-          ? prev.includeHeader
-          : savedHeaderToggle === "true",
-      businessAddress: savedAddress || prev.businessAddress,
-      businessPhone: savedPhone || prev.businessPhone,
-      businessEmail: savedEmail || prev.businessEmail,
-    }));
-  }, []);
+    return {
+      includeLogo: printer.includeLogo,
+      includeBarcode: printer.includeBarcode,
+      includeFooter: printer.includeFooter,
+      paperSize: printer.paperWidth === 80 ? "80mm" : "58mm",
+      fontSize: fontSize,
+      headerText: account.restaurantName,
+      includeHeader: true, // Default to true as it's not explicitly in AppSettings
+      businessAddress: account.address,
+      businessPhone: account.phone,
+      businessEmail: account.email,
+    };
+  }, [appSettings]);
 
   const updateSettings = (newSettings: Partial<ReceiptSettings>) => {
-    setSettings((prev) => {
-      const updatedSettings = { ...prev, ...newSettings };
+    // Map back to AppSettings
+    const newPrinterConfig = { ...appSettings.system.thermalPrinter };
+    const newAccountConfig = { ...appSettings.account };
 
-      // Save to localStorage
-      localStorage.setItem("receiptSettings", JSON.stringify(updatedSettings));
+    if (newSettings.includeLogo !== undefined)
+      newPrinterConfig.includeLogo = newSettings.includeLogo;
+    if (newSettings.includeBarcode !== undefined)
+      newPrinterConfig.includeBarcode = newSettings.includeBarcode;
+    if (newSettings.includeFooter !== undefined)
+      newPrinterConfig.includeFooter = newSettings.includeFooter;
+    if (newSettings.paperSize !== undefined)
+      newPrinterConfig.paperWidth = newSettings.paperSize === "80mm" ? 80 : 58;
+    if (newSettings.fontSize !== undefined) {
+      if (newSettings.fontSize === "small") newPrinterConfig.fontSize = "9";
+      else if (newSettings.fontSize === "large")
+        newPrinterConfig.fontSize = "16";
+      else newPrinterConfig.fontSize = "12";
+    }
 
-      return updatedSettings;
+    if (newSettings.headerText !== undefined)
+      newAccountConfig.restaurantName = newSettings.headerText;
+    if (newSettings.businessAddress !== undefined)
+      newAccountConfig.address = newSettings.businessAddress;
+    if (newSettings.businessPhone !== undefined)
+      newAccountConfig.phone = newSettings.businessPhone;
+    if (newSettings.businessEmail !== undefined)
+      newAccountConfig.email = newSettings.businessEmail;
+
+    updateAppSettings({
+      system: {
+        ...appSettings.system,
+        thermalPrinter: newPrinterConfig,
+      },
+      account: newAccountConfig,
     });
   };
 
   const saveHeader = () => {
-    localStorage.setItem("receiptHeaderText", settings.headerText);
-    localStorage.setItem(
-      "receiptHeaderToggle",
-      settings.includeHeader.toString(),
-    );
+    // No-op, auto-saved via updateSettings
   };
 
   const deleteHeader = () => {
-    localStorage.removeItem("receiptHeaderText");
-    localStorage.removeItem("receiptHeaderToggle");
-    setSettings((prev) => ({
-      ...prev,
-      headerText: "",
-      includeHeader: false,
-    }));
+    updateSettings({ headerText: "", includeHeader: false });
   };
 
   const saveBusinessInfo = () => {
-    localStorage.setItem(
-      "receiptBusinessAddress",
-      settings.businessAddress || "",
-    );
-    localStorage.setItem("receiptBusinessPhone", settings.businessPhone || "");
-    localStorage.setItem("receiptBusinessEmail", settings.businessEmail || "");
+    // No-op, auto-saved via updateSettings
   };
 
   const deleteBusinessInfo = () => {
-    localStorage.removeItem("receiptBusinessAddress");
-    localStorage.removeItem("receiptBusinessPhone");
-    localStorage.removeItem("receiptBusinessEmail");
-    setSettings((prev) => ({
-      ...prev,
+    updateSettings({
       businessAddress: "",
       businessPhone: "",
       businessEmail: "",
-    }));
+    });
   };
 
   return (
@@ -150,7 +138,7 @@ export function useReceiptSettings() {
   const context = useContext(ReceiptSettingsContext);
   if (context === undefined) {
     throw new Error(
-      "useReceiptSettings must be used within a ReceiptSettingsProvider",
+      "useReceiptSettings must be used within a ReceiptSettingsProvider"
     );
   }
   return context;

@@ -24,37 +24,27 @@ type StoredPref = {
   expiresAt?: number;
 };
 
-const LS_KEY = "khh_theme_pref";
-
 export function getThemePreference(): StoredPref | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as StoredPref;
-    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-      localStorage.removeItem(LS_KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
+  // LocalStorage removed for strict Neon-only compliance.
+  // In a full implementation, this might fetch from a user profile endpoint.
+  // For now, return null to fall back to system defaults.
+  return null;
 }
 
 export function setThemePreference(
   key: ThemeKey,
   config?: ThemeConfig,
-  ttlHours?: number,
+  ttlHours?: number
 ) {
   if (typeof window === "undefined") return;
+  // LocalStorage removed.
+  // We still dispatch the event so the current session updates instantly.
   const expiresAt =
     ttlHours && ttlHours > 0 ? Date.now() + ttlHours * 3600_000 : undefined;
-  const payload: StoredPref = { key, config, expiresAt };
-  localStorage.setItem(LS_KEY, JSON.stringify(payload));
+
   try {
     window.dispatchEvent(
-      new CustomEvent("themeChanged", { detail: { key, config, expiresAt } }),
+      new CustomEvent("themeChanged", { detail: { key, config, expiresAt } })
     );
   } catch {}
 }

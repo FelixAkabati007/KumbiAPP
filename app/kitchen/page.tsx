@@ -50,7 +50,6 @@ import {
 } from "@/lib/order-context";
 import type { OrderItem } from "@/lib/types";
 import { playNotificationSound } from "@/lib/notifications";
-import { resetOrderCounters } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 
 function KitchenContent() {
@@ -127,8 +126,8 @@ function KitchenContent() {
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
           order.items.some((item) =>
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
       );
     }
 
@@ -198,14 +197,14 @@ function KitchenContent() {
         client,
         totalOrders: clientOrders.length,
         pendingOrders: clientOrders.filter(
-          (order) => order.status === "pending",
+          (order) => order.status === "pending"
         ).length,
         inProgressOrders: clientOrders.filter(
-          (order) => order.status === "in-progress",
+          (order) => order.status === "in-progress"
         ).length,
         readyOrders: clientOrders.filter((order) => order.status === "ready")
           .length,
-      }),
+      })
     );
 
     return stats.sort((a, b) => b.totalOrders - a.totalOrders);
@@ -214,7 +213,7 @@ function KitchenContent() {
   const handleItemStatusChange = (
     orderId: string,
     itemId: string,
-    status: OrderItem["status"],
+    status: OrderItem["status"]
   ) => {
     updateOrderItemStatus(orderId, itemId, status);
     toast({
@@ -225,7 +224,7 @@ function KitchenContent() {
 
   const handleOrderPriorityChange = (
     orderId: string,
-    priority: KitchenOrder["priority"],
+    priority: KitchenOrder["priority"]
   ) => {
     updateOrderPriority(orderId, priority);
     toast({
@@ -324,55 +323,13 @@ function KitchenContent() {
   // Enhanced reset handler for Kitchen Display with data preservation and analytics
   const handleResetKitchen = async () => {
     try {
-      // Attempt to preserve data before reset
-      const pendingOrders = orders.filter(
-        (o) => o.status === "pending" || o.status === "in-progress",
-      );
-      if (pendingOrders.length > 0) {
-        // Log analytics for pending orders before reset
-        console.info(
-          `Reset initiated with ${pendingOrders.length} pending orders`,
-        );
-      }
-
-      // Archive current orders state
-      const timestamp = new Date().toISOString();
-      const archiveKey = `kitchen_archive_${timestamp}`;
-      localStorage.setItem(archiveKey, JSON.stringify(orders));
-
-      // Reset counters with data preservation
-      resetOrderCounters(true);
-
-      // Clear active kitchen orders
-      localStorage.removeItem("kitchen_orders");
-
-      // Reset local UI state
-      setSearchQuery("");
-      setStatusFilter("all");
-      setPriorityFilter("all");
-      setSortBy("createdAt");
-      setSortOrder("desc");
-
-      // Synchronize across all displays
-      window.dispatchEvent(
-        new CustomEvent("ordersUpdated", {
-          detail: {
-            timestamp,
-            reason: "kitchen_reset",
-            preservedDataKey: archiveKey,
-          },
-        }),
-      );
-
-      // Refresh data
-      refreshOrders();
-
-      setResetDialogOpen(false);
       toast({
-        title: "Kitchen Reset Complete",
-        description: "Kitchen display has been reset and data archived",
-        duration: 5000,
+        title: "Not Supported",
+        description:
+          "Kitchen reset is disabled in Database mode. Please complete orders individually.",
+        variant: "destructive",
       });
+      setResetDialogOpen(false);
     } catch (error) {
       console.error("Failed to reset kitchen:", error);
       toast({
@@ -648,7 +605,7 @@ function KitchenContent() {
                         <div className="flex items-center gap-2">
                           <Badge
                             className={`rounded-full text-xs ${getPriorityColor(
-                              order.priority,
+                              order.priority
                             )}`}
                           >
                             {order.priority}
@@ -683,7 +640,7 @@ function KitchenContent() {
                         onValueChange={(value) =>
                           handleOrderPriorityChange(
                             order.id,
-                            value as KitchenOrder["priority"],
+                            value as KitchenOrder["priority"]
                           )
                         }
                       >
@@ -751,7 +708,7 @@ function KitchenContent() {
                           <div className="flex items-center gap-2">
                             <Badge
                               className={`rounded-full text-xs ${getStatusColor(
-                                item.status,
+                                item.status
                               )}`}
                             >
                               {item.status || "pending"}
@@ -762,7 +719,7 @@ function KitchenContent() {
                                 handleItemStatusChange(
                                   order.id,
                                   item.id,
-                                  value as OrderItem["status"],
+                                  value as OrderItem["status"]
                                 )
                               }
                             >

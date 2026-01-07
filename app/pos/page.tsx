@@ -69,15 +69,10 @@ import { RoleGuard } from "@/components/role-guard";
 function POSContent() {
   const [appSettings, setAppSettings] = useState(getSettings());
   const receiptRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const updateSettings = () => setAppSettings(getSettings());
-    window.addEventListener("settingsUpdated", updateSettings);
-    window.addEventListener("storage", updateSettings);
-    return () => {
-      window.removeEventListener("settingsUpdated", updateSettings);
-      window.removeEventListener("storage", updateSettings);
-    };
-  }, []);
+
+  // Settings are now managed via context or server-side if migrated.
+  // For now, getSettings() reads from env/constants.
+
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const { addOrder } = useOrders();
@@ -116,14 +111,15 @@ function POSContent() {
 
   // Load menu items
   useEffect(() => {
-    const items = getMenuItems();
-    setMenuItems(items);
-    setFilteredItems(items);
-    setOrderNumber(
-      getOrderNumber && typeof getOrderNumber === "function"
-        ? getOrderNumber()
-        : ""
-    );
+    // getMenuItems is async now (fetches from API)
+    getMenuItems().then((items) => {
+      setMenuItems(items);
+      setFilteredItems(items);
+    });
+
+    // For order numbers, we use the async getter or generate a temp one
+    getOrderNumber().then((num) => setOrderNumber(num));
+
     setOrderId(
       generateOrderId && typeof generateOrderId === "function"
         ? generateOrderId()
@@ -131,24 +127,8 @@ function POSContent() {
     );
   }, []);
 
-  // Reload menu items when they are updated elsewhere (menu page saved them)
-  useEffect(() => {
-    const reload = () => {
-      const items = getMenuItems();
-      setMenuItems(items);
-      setFilteredItems(items);
-    };
-
-    // Listen for custom event dispatched by saveMenuItems
-    window.addEventListener("menuItemsUpdated", reload);
-    // Also listen to storage events (in case another tab updated localStorage)
-    window.addEventListener("storage", reload);
-
-    return () => {
-      window.removeEventListener("menuItemsUpdated", reload);
-      window.removeEventListener("storage", reload);
-    };
-  }, []);
+  // Reload menu items periodically or when triggered (via polling if needed)
+  // We can add a refresh button or poll. For now, initial load is enough.
 
   // Filter items based on search and category
   useEffect(() => {
@@ -451,11 +431,10 @@ function POSContent() {
         setCustomerNameRefused(false);
         setTableNumber("");
         setPaymentMethod("cash");
-        setOrderNumber(
-          getOrderNumber && typeof getOrderNumber === "function"
-            ? getOrderNumber()
-            : ""
-        );
+
+        // Fetch next order number asynchronously
+        getOrderNumber().then((num) => setOrderNumber(num));
+
         setOrderId(
           generateOrderId && typeof generateOrderId === "function"
             ? generateOrderId()

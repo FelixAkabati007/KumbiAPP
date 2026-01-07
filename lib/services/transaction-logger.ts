@@ -22,9 +22,6 @@ class TransactionLogger {
         timestamp: log.timestamp,
       });
 
-      // Store in local storage as fallback
-      this.storeLog(log);
-
       // Persist to database
       await this.persistTransaction(log);
 
@@ -51,23 +48,9 @@ class TransactionLogger {
     } catch (error) {
       console.error(
         "Failed to persist transaction to DB, queuing for retry:",
-        error,
+        error
       );
       await offlineQueue.enqueue("/api/transactions/log", "POST", log);
-    }
-  }
-
-  private storeLog(log: TransactionLog): void {
-    try {
-      if (typeof window === "undefined") return;
-      const logs = JSON.parse(localStorage.getItem("transaction_logs") || "[]");
-      logs.unshift(log);
-      localStorage.setItem(
-        "transaction_logs",
-        JSON.stringify(logs.slice(0, 100)),
-      ); // Keep last 100 logs
-    } catch (error) {
-      console.error("Logging failed:", error);
     }
   }
 
@@ -97,7 +80,7 @@ class TransactionLogger {
     } catch (error) {
       console.error(
         "Failed to send monitoring alert, queuing for retry:",
-        error,
+        error
       );
       await offlineQueue.enqueue("/api/monitoring/alert", "POST", alertData);
     }

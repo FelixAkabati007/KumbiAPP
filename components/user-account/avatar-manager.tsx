@@ -35,16 +35,12 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
 
   const storageKey = useMemo(
     () => (user?.id ? `user_avatar_${user.id}` : "user_avatar_anonymous"),
-    [user?.id],
+    [user?.id]
   );
 
   useEffect(() => {
-    try {
-      const existing = localStorage.getItem(storageKey) || "";
-      if (existing) setSrc(existing);
-    } catch (err) {
-      console.warn("Failed to read avatar from localStorage", err);
-    }
+    // In strict Neon-only mode, we no longer load from localStorage.
+    // If backend persistence is added later, fetch from API here.
   }, [storageKey]);
 
   // Revoke blob URLs on unmount to prevent memory leaks
@@ -129,13 +125,13 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
 
       const dataUrl = canvas.toDataURL("image/png");
       try {
-        localStorage.setItem(storageKey, dataUrl);
-        // Dispatch event so all components update instantly
+        // localStorage persistence removed for strict Neon-only compliance
+        // Dispatch event so all components update instantly in current session
         window.dispatchEvent(
-          new CustomEvent("avatarUpdated", { detail: { src: dataUrl } }),
+          new CustomEvent("avatarUpdated", { detail: { src: dataUrl } })
         );
       } catch (err) {
-        console.warn("Failed to save avatar to localStorage", err);
+        console.warn("Failed to dispatch avatar update", err);
       }
       // Revoke previous blob URL if present
       if (objectUrlRef.current && objectUrlRef.current.startsWith("blob:")) {
@@ -157,12 +153,12 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
 
   const resetAvatar = () => {
     try {
-      localStorage.removeItem(storageKey);
+      // localStorage removal skipped as it's already disabled
       window.dispatchEvent(
-        new CustomEvent("avatarUpdated", { detail: { src: "" } }),
+        new CustomEvent("avatarUpdated", { detail: { src: "" } })
       );
     } catch (err) {
-      console.warn("Failed to remove avatar from localStorage", err);
+      console.warn("Failed to dispatch avatar reset", err);
     }
     if (objectUrlRef.current && objectUrlRef.current.startsWith("blob:")) {
       URL.revokeObjectURL(objectUrlRef.current);

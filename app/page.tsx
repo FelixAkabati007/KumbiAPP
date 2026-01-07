@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, UserRole, AppSection } from "@/lib/roles";
-import { getReceiptStats } from "@/lib/data";
 import { UserNav } from "@/components/user-nav";
 
 function DashboardContent() {
@@ -118,9 +117,7 @@ function DashboardContent() {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
-  // Receipt stats are sourced from localStorage (client-only).
-  // Use an effect to load them after mount so server and client markup match
-  // during hydration and we avoid branching on `typeof window` in render.
+  // Load receipt stats from Neon
   const [receiptStats, setReceiptStats] = useState<{
     today: number;
     week: number;
@@ -129,16 +126,64 @@ function DashboardContent() {
   } | null>(null);
 
   useEffect(() => {
-    // safe-guard: only run on client
-    if (typeof window === "undefined") return;
-    try {
-      setReceiptStats(getReceiptStats());
-    } catch (err) {
-      // swallow errors during initial hydration; keep UI stable
-      // will show nothing until stats are available
-      // eslint-disable-next-line no-console
-      console.warn("Failed to load receipt stats:", err);
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadStats() {
+      try {
+        const res = await fetch("/api/transactions?limit=1000", {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          // Silently fail for now to avoid console noise on aborts/timeouts
+          if (res.status === 404) return;
+          throw new Error(`Failed to load transactions: ${res.statusText}`);
+        }
+
+        const transactions = await res.json();
+        if (!isMounted) return;
+
+        const now = new Date();
+        let today = 0,
+          week = 0,
+          month = 0;
+
+        // Helper dates
+        const startOfDay = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        transactions.forEach((tx: any) => {
+          const txDate = new Date(tx.created_at);
+          if (txDate >= startOfDay) today++;
+          if (txDate >= startOfWeek) week++;
+          if (txDate >= startOfMonth) month++;
+        });
+
+        setReceiptStats({
+          today,
+          week,
+          month,
+          total: transactions.length,
+        });
+      } catch (error: any) {
+        if (error.name === "AbortError") return;
+        console.error("Failed to load dashboard stats:", error);
+      }
     }
+    loadStats();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, []);
 
   // Double-click/double-tap handler
@@ -169,24 +214,25 @@ function DashboardContent() {
   }, [exitFullscreen]);
 
   // Reset dashboard handler (admin only)
-  const handleResetDashboard = () => {
+  const handleResetDashboard = async () => {
     if (!user || user.role !== "admin") return;
     if (
       window.confirm(
-        "Are you sure you want to reset all dashboard data except POS, Menu, and Inventory? This cannot be undone.",
+        "Are you sure you want to reset all dashboard data (Sales/Transactions)? This cannot be undone."
       )
     ) {
-      // Clear kitchen orders, order board, sales data, reports, settings (not POS/menu/inventory)
-      localStorage.removeItem("kitchen_orders");
-      localStorage.removeItem("salesData");
-      localStorage.removeItem("reportsData");
-      // Optionally clear other keys, but NOT menuItems, inventoryItems, or POS data
-      toast({
-        title: "Dashboard reset",
-        description:
-          "All dashboard data except POS, Menu, and Inventory has been cleared.",
-      });
-      window.location.reload();
+      try {
+        // In Neon-only mode, we do not support client-side reset.
+        // Database truncation should be handled via a dedicated admin API or database console.
+        toast({
+          title: "Not Supported",
+          description:
+            "Dashboard reset via this button is disabled in Database mode for safety. Please contact admin to truncate tables if strictly necessary.",
+          variant: "destructive",
+        });
+      } catch (error) {
+        console.error("Reset failed", error);
+      }
     }
   };
 

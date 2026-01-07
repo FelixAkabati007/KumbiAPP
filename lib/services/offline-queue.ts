@@ -16,7 +16,9 @@ export class OfflineQueueService {
   private isProcessing = false;
 
   private constructor() {
-    this.loadQueue();
+    // In-memory queue only for Neon-only mode.
+    // No localStorage loading.
+    
     // Try to process queue on startup and when online status changes
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => this.processQueue());
@@ -33,24 +35,13 @@ export class OfflineQueueService {
   }
 
   private loadQueue() {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem(QUEUE_KEY);
-      if (stored) {
-        this.queue = JSON.parse(stored);
-      }
-    } catch (e) {
-      console.error("Failed to load offline queue", e);
-    }
+    // LocalStorage persistence removed.
+    this.queue = [];
   }
 
   private saveQueue() {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(this.queue));
-    } catch (e) {
-      console.error("Failed to save offline queue", e);
-    }
+    // LocalStorage persistence removed.
+    // Queue is in-memory only.
   }
 
   async enqueue(url: string, method: string, body: unknown) {

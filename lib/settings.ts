@@ -214,47 +214,56 @@ const defaultSettings: AppSettings = {
 
 // Async function to fetch settings from API
 export async function fetchSettings(): Promise<AppSettings> {
+  if (typeof window === "undefined") return defaultSettings;
   try {
     const res = await fetch("/api/settings");
-    if (res.ok) {
-      const data = await res.json();
-      // Merge with defaults
-      return {
-        ...defaultSettings,
-        ...data,
-        notifications: { ...defaultSettings.notifications, ...data.notifications },
-        account: { ...defaultSettings.account, ...data.account },
-        system: { ...defaultSettings.system, ...data.system },
-        security: { ...defaultSettings.security, ...data.security },
-      };
+    if (!res.ok) {
+      if (res.status === 404) return defaultSettings;
+      throw new Error(`Failed to fetch settings: ${res.statusText}`);
     }
+    const data = await res.json();
+    if (Object.keys(data).length === 0) return defaultSettings;
+
+    // Deep merge with default settings to ensure all fields exist
+    return {
+      ...defaultSettings,
+      ...data,
+      notifications: {
+        ...defaultSettings.notifications,
+        ...(data.notifications || {}),
+      },
+      account: { ...defaultSettings.account, ...(data.account || {}) },
+      system: {
+        ...defaultSettings.system,
+        ...(data.system || {}),
+        cashDrawer: {
+          ...defaultSettings.system.cashDrawer,
+          ...(data.system?.cashDrawer || {}),
+        },
+        barcodeScanner: {
+          ...defaultSettings.system.barcodeScanner,
+          ...(data.system?.barcodeScanner || {}),
+        },
+        refunds: {
+          ...defaultSettings.system.refunds,
+          ...(data.system?.refunds || {}),
+        },
+      },
+    };
   } catch (error) {
     console.error("Failed to fetch settings:", error);
+    return defaultSettings;
   }
-  return defaultSettings;
 }
 
 // Kept for synchronous compatibility during migration, but prefers API if possible
 export function getSettings(useDefaults = false): AppSettings {
-  if (typeof window === "undefined" || useDefaults) return defaultSettings;
-  // Fallback to local storage for instant render, but components should fetch fresh data
-  const stored = localStorage.getItem("appSettings");
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return defaultSettings;
-    }
-  }
+  // Synchronous access is deprecated in Neon-only mode.
+  // Returns defaults to avoid blocking render. Components must use fetchSettings().
   return defaultSettings;
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  if (typeof window === "undefined") return;
-  
-  // Optimistic local update
-  localStorage.setItem("appSettings", JSON.stringify(settings));
-
   // Sync with DB
   try {
     await fetch("/api/settings", {
@@ -268,7 +277,6 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 }
 
 export function getCurrentLogo(): string {
-  if (typeof window === "undefined") return "";
-  const settings = getSettings();
-  return settings.account.logo || "";
+  // Deprecated synchronous access
+  return defaultSettings.account.logo || "";
 }

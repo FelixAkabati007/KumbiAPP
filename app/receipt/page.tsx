@@ -13,8 +13,9 @@ import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { RefundRequestDialog } from "@/components/refund-request-dialog";
 import type { SalesData, OrderItem } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
-import { getReceiptStats, findSaleByOrderNumber } from "@/lib/data";
+import { findSaleByOrderNumber } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
+import { getReceiptStats } from "@/lib/receipt-utils";
 
 interface ReceiptData {
   orderNumber: string;
@@ -96,7 +97,7 @@ function ReceiptContent() {
         const subtotal =
           (parsed.items?.reduce(
             (sum: number, item: OrderItem) => sum + item.price * item.quantity,
-            0,
+            0
           ) as number) || 0;
         const tax = parsed.tax ?? +(subtotal * 0.125).toFixed(2);
         const total = parsed.total ?? +(subtotal + tax).toFixed(2);
@@ -125,19 +126,19 @@ function ReceiptContent() {
   }, [searchParams]);
 
   // Search handler
-  const handleSearch = () => {
+  const handleSearch = async () => {
     setSearchTouched(true);
     if (!searchOrderNumber) {
       setFoundSale(null);
       return;
     }
-    const sale = findSaleByOrderNumber(searchOrderNumber.trim());
+    const sale = await findSaleByOrderNumber(searchOrderNumber.trim());
     setFoundSale(sale || null);
   };
 
   // Optionally, search on Enter
   const handleSearchInputKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
+    e: React.KeyboardEvent<HTMLInputElement>
   ) => {
     if (e.key === "Enter") handleSearch();
   };
@@ -378,7 +379,7 @@ function ReceiptContent() {
                                 ₵{(item.price * item.quantity).toFixed(2)}
                               </span>
                             </div>
-                          ),
+                          )
                         )}
                       </div>
                     </div>
@@ -392,7 +393,7 @@ function ReceiptContent() {
                             .reduce(
                               (sum: number, item: OrderItem) =>
                                 sum + item.price * item.quantity,
-                              0,
+                              0
                             )
                             .toFixed(2)}
                         </span>{" "}

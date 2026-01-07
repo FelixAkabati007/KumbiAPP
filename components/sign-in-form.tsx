@@ -1,8 +1,9 @@
 "use client";
 
-import type React from "react";
-
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,69 +13,40 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Lock, Sparkles, Mail, Utensils } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Utensils } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { useLoading } from "@/components/loading-provider";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export function SignInForm() {
   const { login, isDatabaseReady } = useAuth();
   const { showLoading, hideLoading, isLoading } = useLoading();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [validationErrors, setValidationErrors] = useState<{
-    email?: string;
-    password?: string;
-  }>({});
 
-  const validateForm = () => {
-    const errors: { email?: string; password?: string } = {};
+  const form = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-    if (!formData.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
-    }
-
-    if (!formData.password) {
-      errors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      errors.password = "Password must be at least 6 characters";
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Clear validation error when user starts typing
-    if (validationErrors[name as keyof typeof validationErrors]) {
-      setValidationErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-
-    // Clear general error
-    if (error) setError("");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
+  const onSubmit = async (data: LoginInput) => {
     setError("");
     showLoading("Signing in...");
 
     try {
-      const success = await login(formData.email, formData.password);
+      const success = await login(data.email, data.password);
 
       if (success) {
         // Use window.location.href to force a full reload and ensure cookies are sent
@@ -132,7 +104,7 @@ export function SignInForm() {
               Enter your credentials to access the sales terminal
               {!isDatabaseReady && (
                 <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Demo Mode: Use admin@demo.com / admin123
+                  Connecting to Neon database...
                 </div>
               )}
             </CardDescription>
@@ -147,133 +119,104 @@ export function SignInForm() {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email Address
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Enter your email address"
+                            type="email"
+                            className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                            disabled={isLoading || !isDatabaseReady}
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage className="text-xs text-red-600 dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Password
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter your password"
+                            className="pl-10 pr-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                            disabled={isLoading || !isDatabaseReady}
+                            {...field}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            disabled={isLoading}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="sr-only">
+                              {showPassword ? "Hide password" : "Show password"}
+                            </span>
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage className="text-xs text-red-600 dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg transition-all duration-300 transform hover:scale-[1.02] rounded-2xl py-6 text-lg font-medium"
+                  disabled={isLoading || !isDatabaseReady}
                 >
-                  Email Address
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`pl-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50 ${
-                      validationErrors.email
-                        ? "border-red-300 dark:border-red-600"
-                        : ""
-                    }`}
-                    disabled={isLoading}
-                  />
-                </div>
-                {validationErrors.email && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {validationErrors.email}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`pl-10 pr-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50 ${
-                      validationErrors.password
-                        ? "border-red-300 dark:border-red-600"
-                        : ""
-                    }`}
-                    disabled={isLoading}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-                {validationErrors.password && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {validationErrors.password}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white rounded-2xl shadow-lg relative overflow-hidden h-12"
-                disabled={isLoading}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 animate-pulse"></div>
-                {isLoading ? (
-                  <div className="flex items-center gap-2 relative z-10">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Signing In...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 relative z-10">
-                    <Sparkles className="h-4 w-4" />
-                    Sign In
-                  </div>
-                )}
-              </Button>
-            </form>
-
-            {/* Demo credentials info */}
-            {!isDatabaseReady && (
-              <div className="text-center space-y-2">
-                <div className="text-xs text-gray-500 dark:text-gray-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-700">
-                  <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">
-                    Demo Credentials:
-                  </p>
-                  <p>Admin: admin@demo.com / admin123</p>
-                  <p>Cashier: cashier@demo.com / cashier123</p>
-                  <p>Manager: manager@demo.com / manager123</p>
-                  <p>Chef: chef@demo.com / chef123</p>
-                </div>
-              </div>
-            )}
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Signing in...
+                    </span>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+              </form>
+            </Form>
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <div className="text-center space-y-2">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+          <p>
             Don&apos;t have an account?{" "}
-            <a
-              href="/signup"
-              className="text-orange-600 dark:text-orange-400 hover:underline font-medium"
+            <Button
+              variant="link"
+              className="p-0 h-auto font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+              onClick={() => (window.location.href = "/sign-up")}
             >
-              Sign up here
-            </a>
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 Kumbisaly Heritage Restaurant. All rights reserved.
+              Create Account
+            </Button>
           </p>
         </div>
       </div>

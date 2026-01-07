@@ -35,9 +35,15 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { getMenuItems, saveMenuItems } from "@/lib/data";
+import {
+  getMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+} from "@/lib/data";
 import type { MenuItem } from "@/lib/types";
 import { RoleGuard } from "@/components/role-guard";
+import { useToast } from "@/components/ui/use-toast";
 
 // Hosts allowed for next/image optimization. Keep this list explicit and small.
 const allowedImageHosts = new Set([
@@ -57,16 +63,16 @@ const isValidMenuItem = (item: unknown): item is MenuItem => {
     typeof it.price === "number" &&
     typeof it.inStock === "boolean" &&
     ["ghanaian", "continental", "beverages", "desserts", "sides"].includes(
-      String(it.category),
+      String(it.category)
     )
   );
 };
 
 const isValidCategory = (
-  category: string,
+  category: string
 ): category is MenuItem["category"] => {
   return ["ghanaian", "continental", "beverages", "desserts", "sides"].includes(
-    category,
+    category
   );
 };
 
@@ -93,13 +99,14 @@ function MenuContent() {
 
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem>(
-    createEmptyMenuItem(),
+    createEmptyMenuItem()
   );
   const [isNewItem, setIsNewItem] = useState(false);
   const [formErrors, setFormErrors] = useState<{
@@ -138,7 +145,7 @@ function MenuContent() {
           if (!isValid) {
             console.warn(
               "⚠️ [MenuPage] Invalid item found and filtered out:",
-              item,
+              item
             );
           }
           return isValid;
@@ -155,7 +162,7 @@ function MenuContent() {
       } catch (error) {
         console.error("❌ [MenuPage] Error loading menu items:", error);
         setError(
-          "Failed to load menu items. Please refresh the page to try again.",
+          "Failed to load menu items. Please refresh the page to try again."
         );
         setItems([]);
       } finally {
@@ -165,34 +172,6 @@ function MenuContent() {
 
     loadItems();
   }, []); // Empty dependency array - only run on mount
-
-  // Save menu items to storage when items change
-  useEffect(() => {
-    if (items.length === 0 || isLoading) {
-      // eslint-disable-next-line no-console
-      console.debug(
-        "⏭️ [MenuPage] Skipping save - no items to save or still loading",
-      );
-      return;
-    }
-
-    const saveItems = async () => {
-      // eslint-disable-next-line no-console
-      console.debug("💾 [MenuPage] Saving menu items to storage", {
-        count: items.length,
-      });
-
-      try {
-        await saveMenuItems(items);
-        console.log("✅ [MenuPage] Items saved successfully");
-      } catch (error) {
-        console.error("❌ [MenuPage] Error saving menu items:", error);
-        // Don't show error to user for auto-save failures
-      }
-    };
-
-    saveItems();
-  }, [items, isLoading]); // Depend on items and loading state
 
   // Memoize filtered items computation
   const memoizedFilteredItems = useMemo(() => {
@@ -217,7 +196,7 @@ function MenuContent() {
         (item) =>
           item.name.toLowerCase().includes(searchLower) ||
           item.description.toLowerCase().includes(searchLower) ||
-          item.barcode?.toLowerCase().includes(searchLower),
+          item.barcode?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -317,21 +296,25 @@ function MenuContent() {
       setIsSaving(true);
 
       if (isNewItem) {
-        const newId = `item_${Date.now()}_${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        const newItem: MenuItem = { ...editingItem, id: newId };
-        console.debug("🆕 [MenuPage] Creating new item with ID", newId);
-        setItems((prevItems) => [...prevItems, newItem]);
-        console.debug("✅ [MenuPage] New item added");
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...itemData } = editingItem;
+        console.debug("🆕 [MenuPage] Creating new item");
+        const savedItem = await createMenuItem(itemData);
+        if (savedItem) {
+          setItems((prevItems) => [...prevItems, savedItem]);
+          console.debug("✅ [MenuPage] New item added", savedItem.id);
+        }
       } else {
-        console.debug("📝 [MenuPage] Updating existing item");
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.id === editingItem.id ? editingItem : item,
-          ),
-        );
-        console.debug("✅ [MenuPage] Item updated");
+        console.debug("📝 [MenuPage] Updating existing item", editingItem.id);
+        const success = await updateMenuItem(editingItem);
+        if (success) {
+          setItems((prevItems) =>
+            prevItems.map((item) =>
+              item.id === editingItem.id ? editingItem : item
+            )
+          );
+          console.debug("✅ [MenuPage] Item updated");
+        }
       }
 
       setIsDialogOpen(false);
@@ -346,37 +329,52 @@ function MenuContent() {
     }
   }, [editingItem, isNewItem, validateForm, isSaving]);
 
-  const handleDeleteItem = useCallback((id: string) => {
-    console.debug("🗑️ [MenuPage] Deleting item with ID", id);
-    try {
-      setItems((prevItems) => {
-        const itemToDelete = prevItems.find((item) => item.id === id);
+  const handleDeleteItem = useCallback(
+    async (id: string) => {
+      console.debug("🗑️ [MenuPage] Deleting item with ID", id);
+      try {
+        const itemToDelete = items.find((item) => item.id === id);
+
         if (!itemToDelete) {
-          console.error("❌ [MenuPage] Item not found for deletion", id);
-          alert("Item not found. It may have already been deleted.");
-          return prevItems;
+          console.warn("⚠️ [MenuPage] Item not found for deletion", id);
+          return;
         }
 
         if (
           confirm(
-            `Are you sure you want to delete "${itemToDelete.name}"? This action cannot be undone.`,
+            `Are you sure you want to delete "${itemToDelete.name}"? This action cannot be undone.`
           )
         ) {
-          console.debug("✅ [MenuPage] Item deleted", {
-            id: itemToDelete.id,
-            name: itemToDelete.name,
-          });
-          return prevItems.filter((item) => item.id !== id);
+          const success = await deleteMenuItem(id);
+          if (success) {
+            setItems((prevItems) => prevItems.filter((item) => item.id !== id));
+            console.debug("✅ [MenuPage] Item deleted", {
+              id: itemToDelete.id,
+              name: itemToDelete.name,
+            });
+            toast({
+              title: "Item Deleted",
+              description: `"${itemToDelete.name}" has been removed from the menu.`,
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: "Failed to delete item",
+              variant: "destructive",
+            });
+          }
         }
-
-        console.debug("❌ [MenuPage] Deletion cancelled by user");
-        return prevItems;
-      });
-    } catch (err) {
-      console.error("❌ [MenuPage] Error deleting item:", err);
-      alert("Error deleting item. Please try again.");
-    }
-  }, []);
+      } catch (error) {
+        console.error("❌ [MenuPage] Error deleting item:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete item. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [items, toast]
+  );
 
   const handleSearchChange = useCallback((value: string) => {
     console.debug("🔍 [MenuPage] Search term changed", value);
@@ -406,7 +404,7 @@ function MenuContent() {
         "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
       );
     },
-    [],
+    []
   );
 
   const handleDialogClose = useCallback(() => {
@@ -421,14 +419,14 @@ function MenuContent() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setEditingItem((prev) => ({ ...prev, name: e.target.value }));
     },
-    [],
+    []
   );
 
   const handleDescriptionChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setEditingItem((prev) => ({ ...prev, description: e.target.value }));
     },
-    [],
+    []
   );
 
   const handlePriceChange = useCallback(
@@ -443,7 +441,7 @@ function MenuContent() {
 
       setEditingItem((prev) => ({ ...prev, price: numericValue }));
     },
-    [],
+    []
   );
 
   const handleCategorySelectChange = useCallback((value: string) => {
@@ -462,7 +460,7 @@ function MenuContent() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setEditingItem((prev) => ({ ...prev, barcode: e.target.value }));
     },
-    [],
+    []
   );
 
   const handleStockChange = useCallback((value: string) => {
@@ -473,7 +471,7 @@ function MenuContent() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setEditingItem((prev) => ({ ...prev, image: e.target.value }));
     },
-    [],
+    []
   );
 
   // Check user permissions - wait for auth to complete first

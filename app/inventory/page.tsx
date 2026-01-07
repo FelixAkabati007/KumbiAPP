@@ -38,7 +38,9 @@ import {
 } from "@/components/ui/select";
 import {
   getInventoryItems,
-  saveInventoryItems,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
   exportInventoryData,
 } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
@@ -64,49 +66,22 @@ function InventoryContent() {
 
   // Load inventory items on component mount
   useEffect(() => {
-    const loadedItems = getInventoryItems ? getInventoryItems() : [];
-    setItems(loadedItems);
-    setSummary({
-      totalItems: loadedItems.length,
-      lowStockItems: loadedItems.filter(
-        (item: InventoryItem) =>
-          Number.parseFloat(item.quantity) <=
-          Number.parseFloat(item.reorderLevel)
-      ).length,
-      totalValue: loadedItems.reduce(
-        (total: number, item: InventoryItem) =>
-          total + Number.parseFloat(item.cost),
-        0
-      ),
-      categories: loadedItems.reduce(
-        (categories: { [key: string]: number }, item: InventoryItem) => {
-          categories[item.category] = (categories[item.category] || 0) + 1;
-          return categories;
-        },
-        {} as { [key: string]: number }
-      ),
-    });
-  }, []);
-
-  // Save items to localStorage whenever items change
-  useEffect(() => {
-    if (items.length > 0) {
-      if (saveInventoryItems) {
-        saveInventoryItems(items);
-      }
+    async function load() {
+      const loadedItems = await getInventoryItems();
+      setItems(loadedItems);
       setSummary({
-        totalItems: items.length,
-        lowStockItems: items.filter(
+        totalItems: loadedItems.length,
+        lowStockItems: loadedItems.filter(
           (item: InventoryItem) =>
             Number.parseFloat(item.quantity) <=
             Number.parseFloat(item.reorderLevel)
         ).length,
-        totalValue: items.reduce(
+        totalValue: loadedItems.reduce(
           (total: number, item: InventoryItem) =>
             total + Number.parseFloat(item.cost),
           0
         ),
-        categories: items.reduce(
+        categories: loadedItems.reduce(
           (categories: { [key: string]: number }, item: InventoryItem) => {
             categories[item.category] = (categories[item.category] || 0) + 1;
             return categories;
@@ -115,7 +90,8 @@ function InventoryContent() {
         ),
       });
     }
-  }, [items]);
+    load();
+  }, []);
 
   // Filter items based on search query and active tab
   useEffect(() => {
@@ -160,17 +136,26 @@ function InventoryContent() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     if (confirm("Are you sure you want to delete this item?")) {
-      setItems(items.filter((item) => item.id !== id));
-      toast({
-        title: "Item Deleted",
-        description: "Inventory item has been removed",
-      });
+      const success = await deleteInventoryItem(id);
+      if (success) {
+        setItems(items.filter((item) => item.id !== id));
+        toast({
+          title: "Item Deleted",
+          description: "Inventory item has been removed",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete item",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     if (!editingItem) return;
 
     if (
@@ -187,31 +172,49 @@ function InventoryContent() {
       return;
     }
 
-    if (isNewItem) {
-      const newItem = {
-        ...editingItem,
-        id: Math.random().toString(36).substring(2, 9),
-        lastUpdated: new Date().toISOString(),
-      };
-      setItems([...items, newItem]);
+    try {
+      if (isNewItem) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...newItemData } = editingItem;
+        const itemToCreate = {
+          ...newItemData,
+          lastUpdated: new Date().toISOString(),
+        };
+        const savedItem = await createInventoryItem(itemToCreate);
+        if (savedItem) {
+          setItems([...items, savedItem]);
+          toast({
+            title: "Item Added",
+            description: `${savedItem.name} has been added to inventory`,
+          });
+        }
+      } else {
+        const updatedItem = {
+          ...editingItem,
+          lastUpdated: new Date().toISOString(),
+        };
+        const success = await updateInventoryItem(updatedItem);
+        if (success) {
+          setItems(
+            items.map((item) =>
+              item.id === editingItem.id ? updatedItem : item
+            )
+          );
+          toast({
+            title: "Item Updated",
+            description: `${editingItem.name} has been updated`,
+          });
+        }
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to save inventory item:", error);
       toast({
-        title: "Item Added",
-        description: `${newItem.name} has been added to inventory`,
-      });
-    } else {
-      setItems(
-        items.map((item) =>
-          item.id === editingItem.id
-            ? { ...editingItem, lastUpdated: new Date().toISOString() }
-            : item
-        )
-      );
-      toast({
-        title: "Item Updated",
-        description: `${editingItem.name} has been updated`,
+        title: "Error",
+        description: "Failed to save item",
+        variant: "destructive",
       });
     }
-    setIsDialogOpen(false);
   };
 
   const handleExport = () => {
