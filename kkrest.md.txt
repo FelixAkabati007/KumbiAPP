@@ -1,0 +1,262 @@
+# KHHREST - Restaurant Management System
+
+A comprehensive Point-of-Sale (POS) system built with Next.js 15 and Neon PostgreSQL, designed for the restaurant industry.
+
+## 🚨 IMPORTANT: READ BEFORE USING
+
+**Status:** 🔴 **NOT PRODUCTION READY** - Critical fixes required
+
+This application currently has architectural issues that must be fixed before production use. See the analysis documents below.
+
+### 📚 Essential Documentation (START HERE)
+
+1. **[ANALYSIS_SUMMARY.md](./ANALYSIS_SUMMARY.md)** - Executive overview, risk assessment, and roadmap
+2. **[QUICK_FIX_GUIDE.md](./QUICK_FIX_GUIDE.md)** - Step-by-step implementation for critical fixes (2-4 hours)
+3. **[IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md)** - Detailed checklist for developers
+4. **[COMPREHENSIVE_ANALYSIS_AND_FIXES.md](./COMPREHENSIVE_ANALYSIS_AND_FIXES.md)** - Complete technical analysis (23 issues)
+5. **[ARCHITECTURE_VISUAL_GUIDE.md](./ARCHITECTURE_VISUAL_GUIDE.md)** - Visual diagrams and flow charts
+
+### 🔴 Critical Issues Identified
+
+- **Dual data storage** - localStorage + database (not synchronized)
+- **Demo authentication** - No real user accounts (security risk)
+- **Order management broken** - Frontend doesn't read from database
+- **Missing API endpoints** - Menu, inventory, sales need implementation
+- **No audit trails** - Can't track who performed actions
+
+**Estimated time to fix:** 3-4 weeks | **Critical fixes:** 8-12 hours
+
+## 🚀 Quick Start (After Fixes)
+
+### Prerequisites
+
+- Node.js 18+ (LTS recommended)
+- npm or pnpm
+- Neon PostgreSQL database
+- **Required:** Complete critical fixes from `QUICK_FIX_GUIDE.md`
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Install additional packages for fixes
+npm install bcryptjs jsonwebtoken uuid
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your credentials
+```
+
+### Environment Variables
+
+```env
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+
+# Authentication (REQUIRED)
+JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
+SESSION_SECRET=your-session-secret-key
+
+# Payment Gateway (Optional)
+PAYSTACK_SECRET_KEY=sk_test_xxxxx
+PAYSTACK_PUBLIC_KEY=pk_test_xxxxx
+
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NODE_ENV=development
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+Visit `http://localhost:3000/` in your browser.
+
+### Production Build
+
+```bash
+npm run build
+npm start
+```
+
+## 📊 Current State vs. Target State
+
+### Current (Broken)
+- ❌ Data stored in browser localStorage
+- ❌ Lost on browser clear
+- ❌ No multi-device sync
+- ❌ Demo mode authentication
+- ❌ No security
+
+### After Fixes (Working)
+- ✅ All data in Neon database
+- ✅ Persistent and backed up
+- ✅ Real-time synchronization
+- ✅ Secure authentication with JWT
+- ✅ Role-based access control
+
+## 🏗️ Tech Stack
+
+- **Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS
+- **Backend:** Next.js API Routes, Neon PostgreSQL
+- **Authentication:** JWT, bcrypt (to be implemented)
+- **Payment:** Paystack integration
+- **UI:** Radix UI, Lucide icons
+
+## 📋 Features
+
+### Current Features
+- ✅ Order management (UI only)
+- ✅ Menu management (UI only)
+- ✅ Kitchen display
+- ✅ Refund system (partial)
+- ✅ Payment processing
+- ✅ Thermal printer support
+
+### Missing Features (Need Implementation)
+- ❌ Database integration for menu/orders
+- ❌ Real authentication system
+- ❌ Table management
+- ❌ Shift/till management
+- ❌ Sales reporting
+- ❌ Tax calculation
+- ❌ Reservations
+- ❌ Multi-location support
+
+## 🔧 Database Setup
+
+### Schema Migration
+
+```bash
+# Run schema in Neon console
+# Use database-schema.sql
+
+# After Phase 1 fixes, run improvements
+# See QUICK_FIX_GUIDE.md for SQL scripts
+```
+
+### Database Structure
+
+- `users` - User accounts and authentication
+- `menuitems` - Menu items catalog
+- `kitchenorders` + `kitchen_orderitems` - Order tracking
+- `salesdata` - Sales records
+- `inventoryitems` - Inventory tracking
+- `refundrequests` - Refund management
+- `transaction_logs` - Audit trail
+
+## 🧪 Testing
+
+### Test Authentication (After Fixes)
+
+```bash
+# Create test user
+curl -X POST http://localhost:3000/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","email":"test@example.com","password":"test123","name":"Test User","role":"cashier"}'
+
+# Login
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test123"}'
+```
+
+### Test API Endpoints
+
+```bash
+# Get menu items
+curl http://localhost:3000/api/menu
+
+# Create menu item
+curl -X POST http://localhost:3000/api/menu \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Item","price":10.00,"category":"test","instock":true}'
+```
+
+## 📖 Documentation
+
+### For Developers
+- `IMPLEMENTATION_CHECKLIST.md` - Task-by-task checklist
+- `ARCHITECTURE_VISUAL_GUIDE.md` - Visual diagrams
+- `COMPREHENSIVE_ANALYSIS_AND_FIXES.md` - Full technical details
+
+### For Project Managers
+- `ANALYSIS_SUMMARY.md` - Executive summary and roadmap
+
+### Existing Documentation
+- `SETUP_GUIDE.md` - Original setup instructions
+- `BUGS_FIXED.md` - Previously fixed issues
+- `APP_LOGIC_OVERVIEW.md` - Application architecture
+
+## 🎯 Implementation Roadmap
+
+### Phase 1: Critical Fixes (Week 1) - 8-12 hours
+- Fix authentication system
+- Connect menu to database
+- Connect orders to database
+- Connect inventory to database
+- Add transaction logging
+
+### Phase 2: Restaurant Features (Week 2)
+- Table management
+- Shift/till management
+- Refund security improvements
+- Audit trails
+
+### Phase 3: Reporting & Scaling (Week 3)
+- Sales reports and analytics
+- Tax calculation
+- Reservations system
+- Multi-location support
+
+### Phase 4: Testing & Deployment (Week 4)
+- Comprehensive testing
+- Security audit
+- Performance optimization
+- Production deployment
+
+## ⚠️ Known Issues
+
+See `COMPREHENSIVE_ANALYSIS_AND_FIXES.md` for complete list of 23 issues.
+
+### Critical Issues
+1. localStorage used instead of database
+2. Demo authentication (not functional)
+3. Missing API endpoints
+4. No data synchronization
+5. No audit trails
+
+### Risk Level: 🔴 HIGH
+**Cannot be used in production without implementing Phase 1 fixes.**
+
+## 📞 Support
+
+For technical issues:
+1. Check `TROUBLESHOOTING.md` (if exists)
+2. Review `BUGS_FIXED.md` for known solutions
+3. Check Neon database connection with `/api/health`
+4. Review browser console for errors
+
+## 🤝 Contributing
+
+Before contributing:
+1. Read `COMPREHENSIVE_ANALYSIS_AND_FIXES.md`
+2. Understand the architectural issues
+3. Follow the implementation checklist
+4. Test thoroughly before committing
+
+## 📄 License
+
+[Add your license here]
+
+## 🙏 Acknowledgments
+
+Built with Next.js, Neon, and the power of modern web technologies.
+
+---
+
+**⚠️ REMINDER:** This app requires critical fixes before production use. Start with `QUICK_FIX_GUIDE.md`.

@@ -1,0 +1,6 @@
+node_modules
+.next
+coverage
+supabase/
+functions/
+apps/**/node_modules
