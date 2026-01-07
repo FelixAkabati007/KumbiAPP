@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { hasPermission, rolePermissions, UserRole, AppSection } from "../../lib/roles";
+import {
+  hasPermission,
+  rolePermissions,
+  UserRole,
+  AppSection,
+} from "../../lib/roles";
 
 describe("RBAC System", () => {
   describe("Role Permissions", () => {
@@ -76,10 +81,31 @@ describe("RBAC System", () => {
       "/inventory": ["admin", "manager", "kitchen"],
       "/reports": ["admin", "manager"],
       "/menu": ["admin", "manager"],
+      "/refunds": ["admin", "manager", "staff"],
+      "/order-display": ["admin", "manager", "staff", "kitchen"],
+      "/receipt": ["admin", "manager", "staff"],
       "/system": ["admin", "manager"],
     };
 
+    const apiPermissions: Record<string, string[]> = {
+      "/api/settings": ["admin", "manager"],
+      "/api/inventory": ["admin", "manager", "kitchen"],
+      "/api/menu": ["admin", "manager"],
+      "/api/refunds": ["admin", "manager", "staff"],
+      "/api/orders": ["admin", "manager", "staff", "kitchen"],
+      "/api/reports": ["admin", "manager"],
+    };
+
     function isRouteAllowed(role: string, path: string): boolean {
+      // API check
+      const protectedApiRoute = Object.keys(apiPermissions).find((route) =>
+        path.startsWith(route)
+      );
+      if (protectedApiRoute) {
+        return apiPermissions[protectedApiRoute].includes(role);
+      }
+
+      // Page check
       const protectedRoute = Object.keys(routePermissions).find((route) =>
         path.startsWith(route)
       );
@@ -97,6 +123,43 @@ describe("RBAC System", () => {
       expect(isRouteAllowed("staff", "/pos")).toBe(true);
       expect(isRouteAllowed("staff", "/settings")).toBe(false);
       expect(isRouteAllowed("staff", "/kitchen")).toBe(false);
+    });
+
+    it("should allow kitchen to access Inventory but not Reports", () => {
+      expect(isRouteAllowed("kitchen", "/inventory")).toBe(true);
+      expect(isRouteAllowed("kitchen", "/reports")).toBe(false);
+      expect(isRouteAllowed("kitchen", "/pos")).toBe(false);
+    });
+
+    it("should allow staff to access Refunds but not Menu editing", () => {
+      expect(isRouteAllowed("staff", "/refunds")).toBe(true);
+      expect(isRouteAllowed("staff", "/menu")).toBe(false);
+    });
+
+    it("should allow manager to access everything", () => {
+      expect(isRouteAllowed("manager", "/inventory")).toBe(true);
+      expect(isRouteAllowed("manager", "/menu")).toBe(true);
+      expect(isRouteAllowed("manager", "/refunds")).toBe(true);
+    });
+
+    it("should allow staff to access POS API but not Settings API", () => {
+      expect(isRouteAllowed("staff", "/api/orders")).toBe(true);
+      expect(isRouteAllowed("staff", "/api/settings")).toBe(false);
+    });
+
+    it("should allow staff to access Receipt and Order Display", () => {
+      expect(isRouteAllowed("staff", "/receipt")).toBe(true);
+      expect(isRouteAllowed("staff", "/order-display")).toBe(true);
+    });
+
+    it("should allow kitchen to access Inventory API but not Reports API", () => {
+      expect(isRouteAllowed("kitchen", "/api/inventory")).toBe(true);
+      expect(isRouteAllowed("kitchen", "/api/reports")).toBe(false);
+    });
+
+    it("should allow kitchen to access Order Display but not Receipt", () => {
+      expect(isRouteAllowed("kitchen", "/order-display")).toBe(true);
+      expect(isRouteAllowed("kitchen", "/receipt")).toBe(false);
     });
 
     it("should allow kitchen to access Kitchen and Inventory", () => {
