@@ -1,5 +1,5 @@
 // Role definitions and permissions for the POS system
-export type UserRole = "admin" | "manager" | "cashier" | "chef";
+export type UserRole = "admin" | "manager" | "staff" | "kitchen";
 
 export type AppSection =
   | "pos"
@@ -38,7 +38,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     system: true,
     refunds: true,
   },
-  chef: {
+  kitchen: {
     pos: false,
     kitchen: true,
     orderBoard: true,
@@ -50,7 +50,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     system: false,
     refunds: false,
   },
-  cashier: {
+  staff: {
     pos: true,
     kitchen: false,
     orderBoard: true,
@@ -60,7 +60,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     payments: true,
     receipt: true,
     system: false,
-    refunds: true, // Allow cashiers to access refunds
+    refunds: true, // Allow staff to access refunds
   },
 };
 

@@ -30,9 +30,9 @@ export function SettingsPanels() {
   // Safely narrow user role to the known union for indexing rolePermissions
   const role: UserRole = useMemo(() => {
     const r = user?.role;
-    return r === "admin" || r === "manager" || r === "cashier" || r === "chef"
+    return r === "admin" || r === "manager" || r === "staff" || r === "kitchen"
       ? r
-      : "cashier";
+      : "staff";
   }, [user?.role]);
 
   const roleSections = useMemo(() => rolePermissions[role], [role]);
