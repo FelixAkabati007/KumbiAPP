@@ -2,25 +2,76 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { comparePassword, signToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { recordSignupAttempt, isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
+    const cleanEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
+    const cleanPassword = typeof password === "string" ? password : "";
+    if (!cleanEmail || !cleanPassword) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing credentials",
+          code: "validation_error",
+        },
+        { status: 400 }
+      );
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid email address",
+          code: "validation_error",
+        },
+        { status: 400 }
+      );
+    }
+    const ip =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("x-real-ip") ||
+      null;
+    await recordSignupAttempt(cleanEmail, ip);
+    const limited = await isRateLimited(cleanEmail, ip, 15, 10);
+    if (limited) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Too many login attempts",
+          code: "rate_limited",
+        },
+        { status: 429 }
+      );
+    }
 
-    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const result = await query("SELECT * FROM users WHERE email = $1", [
+      cleanEmail,
+    ]);
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Invalid credentials" },
+        {
+          success: false,
+          error: "Invalid credentials",
+          code: "invalid_credentials",
+        },
         { status: 401 }
       );
     }
 
     const user = result.rows[0];
-    const isValid = await comparePassword(password, user.password_hash);
+    const isValid = await comparePassword(cleanPassword, user.password_hash);
 
     if (!isValid) {
       return NextResponse.json(
-        { success: false, error: "Invalid credentials" },
+        {
+          success: false,
+          error: "Invalid credentials",
+          code: "invalid_credentials",
+        },
         { status: 401 }
       );
     }
@@ -62,7 +113,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
-      { success: false, error: "Login failed" },
+      { success: false, error: "Login failed", code: "server_error" },
       { status: 500 }
     );
   }

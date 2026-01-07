@@ -218,35 +218,8 @@ export class RefundService {
     const targetTransactionId = transactionId || current.transactionId;
 
     try {
-      // Execute Paystack Refund if applicable
-      if (refundMethod === "mobile" || refundMethod === "paystack") {
-        if (!targetTransactionId) {
-          throw new Error("Transaction ID required for mobile refund");
-        }
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        try {
-          const response = await fetch("/api/paystack/refund", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              reference: targetTransactionId,
-              amount: current.refundAmount,
-            }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || "Paystack refund failed");
-          }
-        } catch (error) {
-          clearTimeout(timeoutId);
-          throw error;
-        }
+      if (refundMethod === "mobile") {
+        throw new Error("Non-cash refunds are unsupported");
       } else if (refundMethod === "cash") {
         const cashDrawer = getCashDrawerService();
         await cashDrawer.open();

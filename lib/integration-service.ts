@@ -304,120 +304,37 @@ class IntegrationService {
     customerRefused?: boolean;
     orderType?: string;
     tableNumber?: string;
-    email?: string; // Added for Paystack
+    email?: string;
   }): Promise<boolean> {
     let transactionReference = "";
 
     try {
-      // Handle Mobile Money / Paystack Payment
+      // Handle Mobile Money (unsupported)
       if (paymentData.method === "mobile") {
-        // Default email if not provided (Paystack requires email)
-        const email = paymentData.email || "customer@khhrest.com";
-
-        try {
-          // 1. Initialize Transaction
-          const initRes = await fetch("/api/paystack/initialize", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email,
-              amount: paymentData.amount,
-              metadata: {
-                orderNumber: paymentData.orderNumber,
-                customerName: paymentData.customerName,
-              },
-            }),
-          });
-
-          if (!initRes.ok) throw new Error("Failed to initialize payment");
-          const initData = await initRes.json();
-          const { authorization_url, reference } = initData.data;
-          transactionReference = reference;
-
-          // 2. Open Payment Window
-          const width = 500;
-          const height = 600;
-          const left = window.screen.width / 2 - width / 2;
-          const top = window.screen.height / 2 - height / 2;
-          const popup = window.open(
-            authorization_url,
-            "Paystack Payment",
-            `width=${width},height=${height},top=${top},left=${left}`
-          );
-
-          // 3. Poll for Verification
-          let verified = false;
-          let attempts = 0;
-          const maxAttempts = 60; // 3 minutes approx (3s interval)
-
-          while (!verified && attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            attempts++;
-
-            const verifyRes = await fetch(
-              `/api/paystack/verify?reference=${reference}`
-            );
-            if (verifyRes.ok) {
-              const verifyData = await verifyRes.json();
-              if (verifyData.data.status === "success") {
-                verified = true;
-                if (popup && !popup.closed) popup.close();
-              } else if (
-                verifyData.data.status === "failed" ||
-                verifyData.data.status === "reversed"
-              ) {
-                throw new Error(
-                  `Payment failed: ${verifyData.data.gateway_response}`
-                );
-              }
-            }
-
-            if (popup && popup.closed && !verified) {
-              // User closed the window manually before completion
-              // We could choose to abort or continue polling if they completed it just before closing
-              // But usually safe to abort or check one last time.
-              const finalCheck = await fetch(
-                `/api/paystack/verify?reference=${reference}`
-              );
-              if (finalCheck.ok) {
-                const finalData = await finalCheck.json();
-                if (finalData.data.status === "success") verified = true;
-              }
-              if (!verified) throw new Error("Payment window closed by user");
-            }
-          }
-
-          if (!verified) throw new Error("Payment verification timed out");
-        } catch (err) {
-          console.error("Mobile payment error:", err);
-
-          await transactionLogger.logTransaction({
-            id: transactionReference || `FAIL-${Date.now()}`,
-            type: "payment",
-            orderId: paymentData.orderNumber,
-            amount: paymentData.amount,
-            status: "failed",
-            timestamp: new Date().toISOString(),
-            metadata: {
-              error:
-                err instanceof Error ? err.message : "Mobile payment failed",
-              provider: "paystack",
-            },
-            paymentMethod: "mobile",
-            customerId: email,
-          });
-
-          this.emitEvent({
-            type: "error",
-            source: "system",
-            data: {
-              error: err instanceof Error ? err.message : "Payment failed",
-              context: "paystack_payment",
-            },
-            timestamp: new Date(),
-          });
-          return false;
-        }
+        await transactionLogger.logTransaction({
+          id: `UNSUPPORTED-${paymentData.orderNumber}-${Date.now()}`,
+          type: "payment",
+          orderId: paymentData.orderNumber,
+          amount: paymentData.amount,
+          status: "failed",
+          timestamp: new Date().toISOString(),
+          metadata: {
+            error: "Non-cash payments are unsupported",
+            provider: "mobile",
+          },
+          paymentMethod: "mobile",
+          customerId: paymentData.email || paymentData.customerName,
+        });
+        this.emitEvent({
+          type: "error",
+          source: "system",
+          data: {
+            error: "Non-cash payments are unsupported",
+            context: "mobile_payment",
+          },
+          timestamp: new Date(),
+        });
+        return false;
       }
 
       // Open cash drawer if cash payment and enabled
@@ -498,7 +415,7 @@ class IntegrationService {
         timestamp: new Date().toISOString(),
         metadata: {
           provider:
-            paymentData.method === "mobile" ? "paystack" : "cash_drawer",
+            paymentData.method === "mobile" ? "mobile" : "cash_drawer",
           items: paymentData.items.length,
         },
         paymentMethod: paymentData.method,
@@ -521,7 +438,7 @@ class IntegrationService {
         metadata: {
           error: message,
           provider:
-            paymentData.method === "mobile" ? "paystack" : "cash_drawer",
+            paymentData.method === "mobile" ? "mobile" : "cash_drawer",
         },
         paymentMethod: paymentData.method,
         customerId: paymentData.email || paymentData.customerName,

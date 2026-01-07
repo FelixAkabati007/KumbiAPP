@@ -15,3 +15,5 @@ if (
     key: () => null,
   } as any;
 }
+
+export {};

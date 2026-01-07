@@ -25,6 +25,7 @@ vi.mock("@/hooks/use-toast", () => ({
 
 vi.mock("@/components/ui/spinner", () => ({
   Spinner: () => null,
+  LoadingSpinner: () => null,
 }));
 
 vi.mock("@/lib/services/payment-service", () => ({

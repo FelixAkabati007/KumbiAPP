@@ -34,7 +34,7 @@ export function PaymentProcessor({
       const result = await paymentService.processPayment(
         order,
         paymentDetails,
-        customer,
+        customer
       );
 
       if (result.success) {
@@ -115,6 +115,11 @@ export function PaymentProcessor({
           <p>Items: {order.items.length}</p>
           <p>Total: ${order.total.toFixed(2)}</p>
           <p>Payment Method: {paymentDetails.method}</p>
+          {paymentDetails.method !== "cash" && (
+            <p className="text-sm text-red-600">
+              Card/mobile payments are currently unsupported
+            </p>
+          )}
         </div>
       </div>
 

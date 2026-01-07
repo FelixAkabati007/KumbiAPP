@@ -59,9 +59,8 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
 SESSION_SECRET=your-session-secret-key
 
-# Payment Gateway (Optional)
-PAYSTACK_SECRET_KEY=sk_test_xxxxx
-PAYSTACK_PUBLIC_KEY=pk_test_xxxxx
+# Payment Gateway
+# Card/mobile payments are currently disabled (no provider). Use cash.
 
 # Application
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -104,7 +103,7 @@ npm start
 - **Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS
 - **Backend:** Next.js API Routes, Neon PostgreSQL
 - **Authentication:** JWT, bcrypt (to be implemented)
-- **Payment:** Paystack integration
+- **Payment:** Cash only (provider-neutral; card/mobile unsupported)
 - **UI:** Radix UI, Lucide icons
 
 ## 📋 Features

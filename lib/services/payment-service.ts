@@ -33,7 +33,7 @@ export class PaymentService {
   async processPayment(
     order: Order,
     paymentDetails: PaymentDetails,
-    customer: Customer,
+    customer: Customer
   ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
     const transaction = { id: `txn-${Date.now()}` } as { id: string };
 
@@ -88,7 +88,7 @@ export class PaymentService {
         paymentDetails,
         customer,
         saleItems,
-        orderNumber,
+        orderNumber
       );
 
       if (!paymentResult.success) {
@@ -127,11 +127,11 @@ export class PaymentService {
       // 4. Update inventory
       // 4. Update inventory using simple local decrement logic
       const inventoryUpdateResult = await this.updateInventoryFromOrder(
-        order.items,
+        order.items
       );
       if (!inventoryUpdateResult.success) {
         throw new Error(
-          `Failed to update inventory: ${inventoryUpdateResult.error}`,
+          `Failed to update inventory: ${inventoryUpdateResult.error}`
         );
       }
 
@@ -182,7 +182,7 @@ export class PaymentService {
   }
 
   private async validatePaymentDetails(
-    details: PaymentDetails,
+    details: PaymentDetails
   ): Promise<boolean> {
     // Implement comprehensive payment validation
     const requiredFields: Array<keyof PaymentDetails> = [
@@ -194,7 +194,7 @@ export class PaymentService {
 
     if (missingFields.length > 0) {
       throw new Error(
-        `Missing required payment fields: ${missingFields.join(", ")}`,
+        `Missing required payment fields: ${missingFields.join(", ")}`
       );
     }
 
@@ -211,7 +211,7 @@ export class PaymentService {
     details: PaymentDetails,
     customer?: Customer,
     items?: OrderItem[],
-    orderNumber?: string,
+    orderNumber?: string
   ): Promise<PaymentResult> {
     // 1. Handle Cash Payments
     if (details.method === "cash") {
@@ -251,75 +251,14 @@ export class PaymentService {
       };
     }
 
-    // 2. Handle Paystack (Mobile Money & Card)
+    // 2. Non-cash methods are currently unsupported (provider-neutral stance)
     if (details.method === "mobile" || details.method === "card") {
-      try {
-        const email = customer?.email || "guest@khhrest.com";
-        const amount = details.amount;
-
-        // Initialize Paystack Transaction
-        const initResponse = await fetch("/api/paystack/initialize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            amount,
-            metadata: {
-              custom_fields: [
-                {
-                  display_name: "Payment Method",
-                  variable_name: "payment_method",
-                  value: details.method,
-                },
-                {
-                  display_name: "Customer Name",
-                  variable_name: "customer_name",
-                  value: customer?.name || "Guest",
-                },
-              ],
-              items: items || [],
-              orderNumber: orderNumber || "Unknown",
-            },
-          }),
-        });
-
-        if (!initResponse.ok) {
-          throw new Error("Failed to initialize payment gateway");
-        }
-
-        const initData = await initResponse.json();
-
-        if (
-          !initData.status ||
-          !initData.data?.authorization_url ||
-          !initData.data?.reference
-        ) {
-          throw new Error("Invalid response from payment gateway");
-        }
-
-        const { authorization_url, reference } = initData.data;
-
-        // Open Paystack Checkout in a new window/tab
-        const paymentWindow = window.open(authorization_url, "_blank");
-
-        if (!paymentWindow) {
-          throw new Error("Popup blocked. Please allow popups for payment.");
-        }
-
-        // Poll for verification
-        return await this.pollTransactionStatus(reference, details.method);
-      } catch (error) {
-        console.error("Paystack payment error:", error);
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Payment initialization failed",
-          method: details.method,
-          timestamp: new Date().toISOString(),
-        };
-      }
+      return {
+        success: false,
+        error: "Card and mobile payments are currently unsupported",
+        method: details.method,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     return {
@@ -330,57 +269,18 @@ export class PaymentService {
     };
   }
 
-  private async pollTransactionStatus(
-    reference: string,
-    method: string,
-  ): Promise<PaymentResult> {
-    const POLL_INTERVAL = 5000; // 5 seconds
-    const TIMEOUT = 300000; // 5 minutes
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < TIMEOUT) {
-      try {
-        const verifyResponse = await fetch(
-          `/api/paystack/verify?reference=${reference}`,
-        );
-        const verifyData = await verifyResponse.json();
-
-        if (verifyData.status && verifyData.data.status === "success") {
-          return {
-            success: true,
-            transactionId: String(verifyData.data.id), // Use Paystack ID or Reference
-            method: method,
-            timestamp: new Date().toISOString(),
-          };
-        } else if (verifyData.status && verifyData.data.status === "failed") {
-          return {
-            success: false,
-            error: "Payment declined or failed",
-            method: method,
-            timestamp: new Date().toISOString(),
-          };
-        }
-
-        // Wait before next poll
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-      } catch (error) {
-        console.warn("Polling error (retrying):", error);
-        // Continue polling despite network glitches
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-      }
-    }
-
+  private async pollTransactionStatus(): Promise<PaymentResult> {
     return {
       success: false,
-      error: "Payment verification timed out",
-      method: method,
+      error: "Polling is disabled",
+      method: "unknown",
       timestamp: new Date().toISOString(),
     };
   }
 
   // Simple inventory decrementer: find inventory items by name and reduce quantity
   private async updateInventoryFromOrder(
-    items: OrderItem[],
+    items: OrderItem[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const inventory: InventoryItem[] = getInventoryItems();
@@ -390,7 +290,7 @@ export class PaymentService {
       for (const ordered of items) {
         // Try match by name; fall back to skip if not found
         const idx = updated.findIndex(
-          (i) => i.name === ordered.name || i.id === ordered.id,
+          (i) => i.name === ordered.name || i.id === ordered.id
         );
         if (idx === -1) continue;
 

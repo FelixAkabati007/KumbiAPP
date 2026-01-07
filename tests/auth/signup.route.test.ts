@@ -72,4 +72,61 @@ describe("Signup API validation", () => {
     expect(res.status).toBe(400);
     expect(body.code).toBe("validation_error");
   });
+
+  it("rejects duplicate email", async () => {
+    // Mock existing user
+    const { query } = await import("../../lib/db");
+    // @ts-expect-error: mocking
+    query.mockResolvedValueOnce({ rows: [{ id: "existing" }] });
+
+    const req = new Request("http://localhost/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "exists@test.com",
+        password: "Password123",
+        name: "Existing User",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await signupPost(req);
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("conflict");
+  });
+
+  it("registers valid user successfully", async () => {
+    // Mock no existing user, then insert success
+    const { query } = await import("../../lib/db");
+    // @ts-expect-error: mocking
+    query
+      .mockResolvedValueOnce({ rows: [] }) // check existence
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "new-user",
+            email: "new@test.com",
+            name: "New User",
+            role: "staff",
+            username: "newuser",
+          },
+        ],
+      }) // insert user
+      .mockResolvedValueOnce({ rows: [] }); // insert token
+
+    const req = new Request("http://localhost/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "new@test.com",
+        password: "Password123",
+        name: "New User",
+        username: "newuser",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await signupPost(req);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.message).toContain("Please return to Sign In page");
+  });
 });
