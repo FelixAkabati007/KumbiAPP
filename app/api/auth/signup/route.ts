@@ -21,7 +21,11 @@ export async function POST(req: Request) {
     const limited = await isRateLimited(email || null, ip, 60, 5);
     if (limited) {
       return NextResponse.json(
-        { success: false, error: "Too many signup attempts. Try later.", code: "rate_limited" },
+        {
+          success: false,
+          error: "Too many signup attempts. Try later.",
+          code: "rate_limited",
+        },
         { status: 429 }
       );
     }
@@ -37,7 +41,11 @@ export async function POST(req: Request) {
 
     if (!clean.email || !clean.password || !clean.name) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields", code: "validation_error" },
+        {
+          success: false,
+          error: "Missing required fields",
+          code: "validation_error",
+        },
         { status: 400 }
       );
     }
@@ -45,7 +53,11 @@ export async function POST(req: Request) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(clean.email)) {
       return NextResponse.json(
-        { success: false, error: "Invalid email address", code: "validation_error" },
+        {
+          success: false,
+          error: "Invalid email address",
+          code: "validation_error",
+        },
         { status: 400 }
       );
     }
@@ -88,14 +100,23 @@ export async function POST(req: Request) {
 
     const result = await query(
       `INSERT INTO users (email, password_hash, name, role, username, email_verified) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, email, name, role, username`,
-      [clean.email, hashedPassword, clean.name, userRole, clean.username || null]
+      [
+        clean.email,
+        hashedPassword,
+        clean.name,
+        userRole,
+        clean.username || null,
+      ]
     );
 
     const user = result.rows[0];
 
     // Generate verification token and store HASH
     const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
     const expiresMinutes = 30;
     await query(
       `INSERT INTO email_verification_tokens (email, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '${expiresMinutes} minutes')`,
@@ -112,7 +133,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Verification email sent. Please check your inbox.",
+      message: "Please return to Sign In page to login.",
     });
   } catch (error) {
     console.error("Signup error:", error);
