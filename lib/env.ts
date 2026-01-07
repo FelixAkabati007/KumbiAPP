@@ -10,6 +10,7 @@ export const env = {
   // App configuration
   NODE_ENV: process.env.NODE_ENV || "development",
   APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  NEXT_PUBLIC_DEBUG_LOGS: process.env.NEXT_PUBLIC_DEBUG_LOGS === "true",
 
   // Feature flags
   ENABLE_CASH_DRAWER: process.env.NEXT_PUBLIC_ENABLE_CASH_DRAWER === "true",
@@ -30,6 +31,7 @@ export const features = {
   barcodeScanner: env.ENABLE_BARCODE_SCANNER,
   // Computed capability flags used in app logic
   hasDatabase: !!env.DATABASE_URL,
+  debugLogs: !!env.NEXT_PUBLIC_DEBUG_LOGS,
 };
 
 // Validate environment variables

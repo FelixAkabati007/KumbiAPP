@@ -141,14 +141,14 @@ export function SignUpForm() {
         formData.password,
         formData.name,
         formData.role,
-        formData.email,
+        formData.email
       );
 
       if (success) {
         setSuccess(
           isDatabaseReady
             ? "Account created successfully! Please check your email for verification."
-            : "Account created successfully! You can now sign in.",
+            : "Account created successfully! You can now sign in."
         );
         setFormData({
           username: "",

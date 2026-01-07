@@ -94,12 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setUser(data.user);
+        // Do not set user here; account is created but not verified yet
         return true;
       }
       return false;
     } catch (error) {
-      console.error("Signup failed:", error);
+      console.error("Login failed:", error);
       return false;
     } finally {
       setIsLoading(false);

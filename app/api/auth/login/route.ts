@@ -25,6 +25,17 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!user.email_verified) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Email not verified",
+          code: "email_unverified",
+        },
+        { status: 403 }
+      );
+    }
+
     const token = signToken({
       id: user.id,
       email: user.email,
