@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { POST as signupPost } from "../../app/api/auth/signup/route";
 
 vi.mock("../../lib/db", () => ({
@@ -95,8 +95,7 @@ describe("Signup API validation", () => {
   it("registers valid user successfully", async () => {
     // Mock no existing user, then insert success
     const { query } = await import("../../lib/db");
-    // @ts-expect-error: mocking
-    query
+    (query as unknown as Mock)
       .mockResolvedValueOnce({ rows: [] }) // check existence
       .mockResolvedValueOnce({
         rows: [

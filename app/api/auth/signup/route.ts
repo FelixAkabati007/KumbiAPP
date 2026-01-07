@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, password, name, role, username, confirm_email_address } =
+    const { email, password, name, role, confirm_email_address } =
       validationResult.data;
 
     // Honeypot check

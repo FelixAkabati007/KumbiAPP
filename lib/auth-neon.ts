@@ -27,11 +27,13 @@ export async function getNeonSession() {
     // However, we can use the `fetchWithToken` to call a protected endpoint or user info endpoint.
 
     // For now, we assume the token is valid if we can get user info
-    const response = await neonClient.auth.getUser(token);
+    // const response = await neonClient.auth.getUser(token);
     // Note: .getUser() is hypothetical based on common SDK patterns;
     // exact method depends on specific BetterAuthVanillaAdapter implementation which acts as a client.
-
-    return response;
+    console.warn(
+      "getNeonSession: getUser method not verified. Returning null."
+    );
+    return null; // response;
   } catch (error) {
     console.error("Neon Auth session verification failed:", error);
     return null;
@@ -40,16 +42,20 @@ export async function getNeonSession() {
 
 export async function signInWithEmail(email: string) {
   // This triggers the magic link or OTP flow
-  return await neonClient.auth.signIn.email({
-    email,
-    callbackURL: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-  });
+  // return await neonClient.auth.signIn.email({
+  //   email,
+  //   callbackURL: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+  // });
+  console.warn(
+    "signInWithEmail not implemented correctly for this SDK version"
+  );
+  return { error: { message: "Not implemented" } };
 }
 
 export async function signUpWithEmail(
   email: string,
-  name?: string,
-  password?: string
+  name: string,
+  password: string
 ) {
   // @ts-ignore - Allowing password if supported by the adapter
   return await neonClient.auth.signUp.email({

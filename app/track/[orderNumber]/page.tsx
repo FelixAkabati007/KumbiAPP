@@ -28,7 +28,7 @@ export default function TrackOrderPage({ params }: TrackOrderPageProps) {
       const resolved = await params;
       const orderNum =
         typeof resolved?.orderNumber === "string" ? resolved.orderNumber : "";
-      const found = findSaleByOrderNumber(orderNum) || null;
+      const found = (await findSaleByOrderNumber(orderNum)) || null;
       if (!canceled) {
         setOrderNumber(orderNum);
         setSale(found);
