@@ -21,7 +21,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    
+
     const { email, password } = validationResult.data;
     const cleanEmail = email.toLowerCase();
 
@@ -101,7 +101,6 @@ export async function POST(req: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
-        username: user.username,
       },
     });
   } catch (error) {

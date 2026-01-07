@@ -60,10 +60,9 @@ export async function POST(req: Request) {
     }
 
     // Check if user exists locally first (fast fail)
-    const existingUser = await query(
-      "SELECT id FROM users WHERE email = $1 OR username = $2",
-      [email, username]
-    );
+    const existingUser = await query("SELECT id FROM users WHERE email = $1", [
+      email,
+    ]);
     if (existingUser.rows.length > 0) {
       return NextResponse.json(
         { success: false, error: "User already exists", code: "conflict" },
@@ -79,69 +78,75 @@ export async function POST(req: Request) {
       try {
         const result = await signUpWithEmail(email, name, password);
         if (result?.error) {
-           return NextResponse.json(
-            { success: false, error: result.error.message || "Neon Auth failed", code: "auth_provider_error" },
+          return NextResponse.json(
+            {
+              success: false,
+              error: result.error.message || "Neon Auth failed",
+              code: "auth_provider_error",
+            },
             { status: 400 }
           );
         }
-        
+
         // Neon Auth Success: Insert into local DB without password hash
         await query(
-          `INSERT INTO users (email, password_hash, name, role, username, email_verified) VALUES ($1, $2, $3, $4, $5, FALSE)`,
-          [email, "NEON_AUTH_MANAGED", name, userRole, username || null]
+          `INSERT INTO users (email, password_hash, name, role, email_verified) VALUES ($1, $2, $3, $4, FALSE)`,
+          [email, "NEON_AUTH_MANAGED", name, userRole]
         );
 
         return NextResponse.json({
           success: true,
           message: "Account created successfully.",
         });
-
       } catch (e: any) {
         console.error("Neon Auth Signup Error:", e);
         return NextResponse.json(
-          { success: false, error: "Authentication provider error", code: "server_error" },
+          {
+            success: false,
+            error: "Authentication provider error",
+            code: "server_error",
+          },
           { status: 500 }
         );
       }
     } else {
-       // Legacy Fallback
-       console.warn("NEON_AUTH_API_URL not set. Using Legacy Auth.");
-       
-       const hashedPassword = await hashPassword(password);
+      // Legacy Fallback
+      console.warn("NEON_AUTH_API_URL not set. Using Legacy Auth.");
 
-       const result = await query(
-         `INSERT INTO users (email, password_hash, name, role, username, email_verified) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, email, name, role, username`,
-         [email, hashedPassword, name, userRole, username || null]
-       );
-   
-       const user = result.rows[0];
-   
-       // Generate verification token
-       const rawToken = crypto.randomBytes(32).toString("hex");
-       const tokenHash = crypto
-         .createHash("sha256")
-         .update(rawToken)
-         .digest("hex");
-       const expiresMinutes = 30;
-       await query(
-         `INSERT INTO email_verification_tokens (email, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '${expiresMinutes} minutes')`,
-         [user.email, tokenHash]
-       );
-   
-       // Send email
-       const appUrl = env.APP_URL || "http://localhost:5173";
-       const link = `${appUrl}/auth/verify?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(
-         user.email
-       )}`;
-       const { subject, text, html } = buildVerificationEmail(link);
-       await sendEmail({ to: user.email, subject, text, html });
-   
-       return NextResponse.json({
-         success: true,
-         message: "Please return to Sign In page to login.",
-       });
+      const hashedPassword = await hashPassword(password);
+
+      const result = await query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified) VALUES ($1, $2, $3, $4, FALSE) RETURNING id, email, name, role`,
+        [email, hashedPassword, name, userRole]
+      );
+
+      const user = result.rows[0];
+
+      // Generate verification token
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(rawToken)
+        .digest("hex");
+      const expiresMinutes = 30;
+      await query(
+        `INSERT INTO email_verification_tokens (email, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '${expiresMinutes} minutes')`,
+        [user.email, tokenHash]
+      );
+
+      // Send email
+      const appUrl = env.APP_URL || "http://localhost:5173";
+      const link = `${appUrl}/auth/verify?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(
+        user.email
+      )}`;
+      const { subject, text, html } = buildVerificationEmail(link);
+      await sendEmail({ to: user.email, subject, text, html });
+
+      return NextResponse.json({
+        success: true,
+        message: "Please return to Sign In page to login.",
+      });
     }
-
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(

@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface AppUser {
   id: string;
-  username: string;
   role: string;
   name: string;
   email: string;
@@ -14,11 +13,11 @@ interface AuthContextType {
   user: AppUser | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (
-    username: string,
+    email: string,
     password: string,
     name: string,
     role: string,
-    email?: string
+    honeypot?: string
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   switchRole: (role: string) => void;
@@ -78,11 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (
-    username: string,
+    email: string,
     password: string,
     name: string,
     role: string,
-    email?: string,
     honeypot?: string
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
@@ -91,11 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username,
+          email,
           password,
           name,
           role,
-          email,
           confirm_email_address: honeypot,
         }),
       });

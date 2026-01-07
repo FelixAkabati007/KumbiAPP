@@ -45,7 +45,6 @@ describe("Signup API validation", () => {
         password: "Aa123456",
         name: "Foo",
         role: "staff",
-        username: "foo",
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -63,7 +62,6 @@ describe("Signup API validation", () => {
         password: "weak",
         name: "Foo",
         role: "staff",
-        username: "foo",
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -107,7 +105,6 @@ describe("Signup API validation", () => {
             email: "new@test.com",
             name: "New User",
             role: "staff",
-            username: "newuser",
           },
         ],
       }) // insert user
@@ -119,7 +116,6 @@ describe("Signup API validation", () => {
         email: "new@test.com",
         password: "Password123",
         name: "New User",
-        username: "newuser",
       }),
       headers: { "Content-Type": "application/json" },
     });

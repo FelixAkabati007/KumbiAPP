@@ -52,7 +52,6 @@ export function SignUpForm() {
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -75,8 +74,7 @@ export function SignUpForm() {
         data.email,
         data.password,
         data.name,
-        data.role,
-        data.username
+        data.role
       );
 
       if (result.success) {
@@ -203,30 +201,6 @@ export function SignUpForm() {
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Username
-                        </FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Crown className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="johndoe"
-                              className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                              disabled={isLoading}
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage className="text-xs text-red-600 dark:text-red-400" />
                       </FormItem>
                     )}
                   />

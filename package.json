@@ -13,6 +13,7 @@
     "db:migrate": "bun scripts/migrate-db.ts",
     "db:sync": "tsx scripts/sync-db.ts",
     "db:verify": "tsx scripts/verify-db-integrity.ts",
+    "db:seed": "tsx scripts/seed-admin.ts",
     "setup": "node scripts/setup-env.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",

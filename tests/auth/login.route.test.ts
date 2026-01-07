@@ -134,7 +134,6 @@ describe("Auth Login Route", () => {
           email: "test@test.com",
           name: "Test User",
           role: "staff",
-          username: "testuser",
           password_hash: "hashed",
           email_verified: true,
         },

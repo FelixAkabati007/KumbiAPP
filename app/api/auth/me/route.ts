@@ -10,7 +10,7 @@ export async function GET() {
     }
 
     const result = await query(
-      "SELECT id, email, name, role, username FROM users WHERE id = $1",
+      "SELECT id, email, name, role FROM users WHERE id = $1",
       [session.id]
     );
     if (result.rows.length === 0) return NextResponse.json({ user: null });
