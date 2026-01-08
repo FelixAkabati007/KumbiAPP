@@ -52,11 +52,12 @@ import {
   generateProductOrderId,
   generateProductOrderNumber,
 } from "@/lib/data";
-import type { MenuItem, OrderItem } from "@/lib/types";
+import type { MenuItem, OrderItem, ReceiptData } from "@/lib/types";
 import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
 import { getSettings } from "@/lib/settings";
 import { useAuth } from "@/components/auth-provider";
+import { useSettings } from "@/components/settings-provider";
 import { OrderProvider, useOrders } from "@/lib/order-context";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import {
@@ -67,7 +68,7 @@ import { hasPermission, UserRole } from "@/lib/roles";
 import { RoleGuard } from "@/components/role-guard";
 
 function POSContent() {
-  const [appSettings, setAppSettings] = useState(getSettings());
+  const { settings: appSettings } = useSettings();
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Settings are now managed via context or server-side if migrated.
@@ -94,6 +95,7 @@ function POSContent() {
   const [orderNumber, setOrderNumber] = useState("");
   const [orderId, setOrderId] = useState("");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   useEffect(() => {
     setCurrentDate(new Date());
@@ -371,29 +373,14 @@ function POSContent() {
             invalidImgs.forEach((img) => {
               img.style.display = "none";
             });
-            const styles = getComputedStyle(node);
-            const fontIsMono = styles.fontFamily
-              ?.toLowerCase()
-              .includes("mono");
-            const hasOrderNumber = !!orderNumber;
-            const hasItems = currentOrder.length > 0;
-            if (fontIsMono && hasOrderNumber && hasItems) {
-              window.print();
-              toast({
-                title: "Receipt Printed",
-                description: "Receipt has been sent to the printer",
-              });
-            } else {
-              toast({
-                title: "Validation Failed",
-                description: !fontIsMono
-                  ? `Font mismatch: got ${styles.fontFamily}`
-                  : !hasOrderNumber
-                    ? "Order number missing"
-                    : "No items to print",
-                variant: "destructive",
-              });
-            }
+
+            // Auto-printing via window.print() is removed to support silent printing
+            // and prevent double receipts. Printing is handled by integration service.
+
+            toast({
+              title: "Transaction Completed",
+              description: "Receipt sent to printer",
+            });
           }
         } catch (error) {
           console.warn("Auto receipt generation warning:", error);
@@ -465,29 +452,12 @@ function POSContent() {
     }
   };
 
-  // Validate and print receipt using in-page DOM to ensure pixel-perfect match
-  const printReceipt = () => {
-    const node = receiptRef.current;
-    if (!node) {
-      toast({
-        title: "Validation Failed",
-        description: "Receipt preview not found",
-        variant: "destructive",
-      });
-      return;
-    }
-    const styles = getComputedStyle(node);
-    const fontIsMono = styles.fontFamily?.toLowerCase().includes("mono");
+  // Validate and print receipt using silent API
+  const printReceipt = async () => {
+    if (isPrinting) return;
     const hasOrderNumber = !!orderNumber;
     const hasItems = currentOrder.length > 0;
-    if (!fontIsMono) {
-      toast({
-        title: "Validation Failed",
-        description: `Font mismatch: got ${styles.fontFamily}`,
-        variant: "destructive",
-      });
-      return;
-    }
+
     if (!hasOrderNumber || !hasItems) {
       toast({
         title: "Validation Failed",
@@ -498,12 +468,66 @@ function POSContent() {
       });
       return;
     }
-    window.print();
-    toast({
-      title: "Receipt Printed",
-      description: "Receipt has been sent to the printer",
-    });
-    // playNotificationSound(); // keep muted to avoid media errors during print
+
+    setIsPrinting(true);
+    try {
+      const subtotal = calculateTotal();
+      const taxRate = appSettings.system?.taxRate || 12.5;
+      const tax = subtotal * (taxRate / 100);
+      const total = subtotal + tax;
+
+      const printData: ReceiptData = {
+        orderNumber,
+        orderId,
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        items: currentOrder.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+          barcode: item.barcode,
+        })),
+        subtotal,
+        tax,
+        total,
+        paymentMethod,
+        customerName: customerNameRefused ? "" : customerName,
+        customerRefused: customerNameRefused,
+        orderType,
+        tableNumber,
+      };
+
+      const configs = [appSettings.system.thermalPrinter];
+      if (appSettings.system.secondaryPrinter?.enabled) {
+        configs.push(appSettings.system.secondaryPrinter);
+      }
+
+      const response = await fetch("/api/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipt: printData, configs }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Print failed");
+      }
+
+      toast({
+        title: "Receipt Printed",
+        description: "Receipt has been sent to the printer",
+      });
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Print Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   // Generate receipt content
@@ -1329,12 +1353,14 @@ function POSContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button
                   onClick={printReceipt}
-                  disabled={currentOrder.length === 0}
+                  disabled={currentOrder.length === 0 || isPrinting}
                   className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-500/20 animate-pulse"></div>
                   <Printer className="mr-2 h-4 w-4 relative z-10" />
-                  <span className="relative z-10">Print Preview</span>
+                  <span className="relative z-10">
+                    {isPrinting ? "Printing..." : "Print Receipt"}
+                  </span>
                 </Button>
 
                 <Button

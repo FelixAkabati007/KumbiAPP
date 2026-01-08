@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
+import { useSettings } from "@/components/settings-provider";
 import { RefundRequestDialog } from "@/components/refund-request-dialog";
 import type { SalesData, OrderItem } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
@@ -45,6 +46,7 @@ function ReceiptContent() {
   const { toast } = useToast();
   const { stats } = useReceiptStats();
   const { settings: receiptSettings } = useReceiptSettings();
+  const { settings: appSettings } = useSettings();
   const printRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
@@ -172,7 +174,7 @@ function ReceiptContent() {
     return { ok: true } as const;
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const validation = validateReceiptPreview();
     if (!validation.ok) {
       const msg =
@@ -192,12 +194,71 @@ function ReceiptContent() {
       });
       return;
     }
-    // In-page print using global print CSS to ensure exact match
-    window.print();
-    toast({
-      title: "Receipt Printed",
-      description: "Receipt has been sent to printer",
-    });
+
+    // Silent print via API
+    try {
+      if (!foundSale) throw new Error("No sale data found");
+
+      const printData = {
+        orderNumber: foundSale.orderNumber,
+        date: new Date(foundSale.date).toLocaleDateString(),
+        time: new Date(foundSale.date).toLocaleTimeString(),
+        items: foundSale.items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+          barcode: item.barcode,
+        })),
+        subtotal: foundSale.items.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        ),
+        tax:
+          foundSale.items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          ) * 0.125, // approx tax
+        total: foundSale.total,
+        paymentMethod: foundSale.paymentMethod,
+        customerName: foundSale.customerName,
+        customerRefused: foundSale.customerRefused,
+        orderType: foundSale.orderType,
+        tableNumber: foundSale.tableNumber,
+        orderId: foundSale.orderId,
+      };
+
+      // Recalculate tax/subtotal more accurately if available or rely on calculated
+      // The API expects specific ReceiptData format.
+
+      const configs = [appSettings.system.thermalPrinter];
+      if (appSettings.system.secondaryPrinter?.enabled) {
+        configs.push(appSettings.system.secondaryPrinter);
+      }
+
+      const response = await fetch("/api/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipt: printData, configs }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Print failed");
+      }
+
+      toast({
+        title: "Receipt Printed",
+        description: "Receipt sent to printer successfully",
+      });
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Print Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {

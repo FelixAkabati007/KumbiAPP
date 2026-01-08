@@ -160,7 +160,15 @@ function ReportsPage() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      setData(serverSales);
+      // Deduplicate by orderNumber to hide double logs
+      const seenOrders = new Set();
+      const uniqueSales = serverSales.filter((sale) => {
+        if (seenOrders.has(sale.orderNumber)) return false;
+        seenOrders.add(sale.orderNumber);
+        return true;
+      });
+
+      setData(uniqueSales);
     } catch (error) {
       console.error("Failed to load data:", error);
       setData([]);
@@ -479,17 +487,6 @@ function ReportsPage() {
               </Button>
             </div>
           )}
-          {/* Clear sales data button and diagnostics */}
-          <div className="mb-6 flex flex-wrap gap-4 items-center">
-            <details className="ml-4">
-              <summary className="cursor-pointer text-xs text-gray-500">
-                Show Raw Sales Data (Diagnostics)
-              </summary>
-              <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs max-w-2xl overflow-x-auto mt-2">
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            </details>
-          </div>
           {/* Filters */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -756,97 +753,6 @@ function ReportsPage() {
                   ))}
                 </div>
               </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Payment Analytics Section */}
-          <Card className="mt-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-blue-200 dark:border-blue-700 rounded-3xl shadow-xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 via-indigo-100/20 to-purple-100/20 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20"></div>
-            <CardHeader className="relative z-10">
-              <CardTitle className="text-lg font-bold text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Payment Analytics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="relative z-10 space-y-6">
-              {/* Payment Method Breakdown */}
-              <div>
-                <h4 className="text-md font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                  Payment Methods
-                </h4>
-                <div className="flex flex-wrap gap-3">
-                  {Object.entries(analytics.paymentMethods).length === 0 && (
-                    <span className="text-gray-500 text-sm">
-                      No payment data
-                    </span>
-                  )}
-                  {Object.entries(analytics.paymentMethods).map(
-                    ([method, count]) => (
-                      <Badge
-                        key={method}
-                        className="rounded-full px-4 py-2 text-sm font-bold bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700"
-                      >
-                        {method.toUpperCase()}: {count}
-                      </Badge>
-                    )
-                  )}
-                </div>
-              </div>
-              {/* Payment Transactions Table */}
-              <div>
-                <h4 className="text-md font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                  Recent Payment Transactions
-                </h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-blue-50 dark:bg-blue-900/20">
-                        <th className="px-3 py-2 text-left font-bold">
-                          Order #
-                        </th>
-                        <th className="px-3 py-2 text-left font-bold">
-                          Amount (₵)
-                        </th>
-                        <th className="px-3 py-2 text-left font-bold">
-                          Method
-                        </th>
-                        <th className="px-3 py-2 text-left font-bold">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredData.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="text-center text-gray-500 py-4"
-                          >
-                            No transactions
-                          </td>
-                        </tr>
-                      )}
-                      {filteredData.slice(0, 10).map((order) => (
-                        <tr
-                          key={order.id}
-                          className="border-b border-blue-100 dark:border-blue-800"
-                        >
-                          <td className="px-3 py-2 font-mono text-blue-700 dark:text-blue-300">
-                            {order.orderNumber}
-                          </td>
-                          <td className="px-3 py-2 text-blue-700 dark:text-blue-300 font-bold">
-                            ₵{order.total.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-2 text-blue-700 dark:text-blue-300">
-                            {order.paymentMethod}
-                          </td>
-                          <td className="px-3 py-2 text-blue-700 dark:text-blue-300">
-                            {new Date(order.date).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </main>

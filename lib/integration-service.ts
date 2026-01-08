@@ -360,6 +360,7 @@ class IntegrationService {
       });
 
       // Archive to sales data
+      // This already logs to the transaction log API via addSaleData -> /api/transactions/log
       addSaleData({
         id: `sale-${paymentData.orderNumber}`,
         orderNumber: paymentData.orderNumber,
@@ -376,27 +377,8 @@ class IntegrationService {
         paymentMethod: paymentData.method,
       });
 
-      await transactionLogger.logTransaction({
-        id:
-          transactionReference ||
-          `TXN-${paymentData.method.toUpperCase()}-${paymentData.orderNumber}-${Date.now()}`,
-        type: "payment",
-        orderId: paymentData.orderNumber,
-        amount: paymentData.amount,
-        status: "success",
-        timestamp: new Date().toISOString(),
-        metadata: {
-          provider:
-            paymentData.method === "mobile"
-              ? "mobile"
-              : paymentData.method === "card"
-                ? "card"
-                : "cash_drawer",
-          items: paymentData.items.length,
-        },
-        paymentMethod: paymentData.method,
-        customerId: paymentData.customerName,
-      });
+      // transactionLogger.logTransaction call removed to prevent double logging
+      // as addSaleData already handles the persistence to the same table.
 
       return true;
     } catch (error) {
