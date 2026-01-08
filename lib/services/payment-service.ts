@@ -163,11 +163,17 @@ export class PaymentService {
         businessName:
           settings?.account?.restaurantName ||
           settings?.businessName ||
-          "KHH RESTAURANT",
+          "Kumbisaly Heritage Restaurant",
         businessAddress:
-          settings?.account?.address || settings?.businessAddress,
-        businessPhone: settings?.account?.phone || settings?.businessPhone,
-        businessEmail: settings?.account?.email || settings?.businessEmail,
+          settings?.account?.address ||
+          settings?.businessAddress ||
+          "Offinso - Abofour, Ashanti, Ghana",
+        businessPhone:
+          settings?.account?.phone || settings?.businessPhone || "0535975442",
+        businessEmail:
+          settings?.account?.email ||
+          settings?.businessEmail ||
+          "info.kumbisalyheritagehotel@gmail.com",
       };
 
       const success = await this.printer.printReceipt(receiptData);

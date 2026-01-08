@@ -26,20 +26,14 @@ async function generateReceipt(
   }
 
   // Use business info from receipt data if available, otherwise fallback
-  const businessName = data.businessName || "KHH RESTAURANT";
+  const businessName = data.businessName || "Kumbisaly Heritage Restaurant";
   printer.println(businessName);
 
-  if (data.businessAddress) {
-    printer.println(data.businessAddress);
-  }
-
-  if (data.businessPhone) {
-    printer.println(`Tel: ${data.businessPhone}`);
-  }
-
-  if (data.businessEmail) {
-    printer.println(data.businessEmail);
-  }
+  printer.println(data.businessAddress || "Offinso - Abofour, Ashanti, Ghana");
+  printer.println(`Tel: ${data.businessPhone || "0535975442"}`);
+  printer.println(
+    data.businessEmail || "info.kumbisalyheritagehotel@gmail.com"
+  );
 
   printer.newLine();
 

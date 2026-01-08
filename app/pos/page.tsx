@@ -1262,22 +1262,21 @@ function POSContent() {
                     )}
                     <h4 className="font-bold text-lg text-orange-800 dark:text-orange-200">
                       <span suppressHydrationWarning>
-                        {appSettings.account.restaurantName || "Restaurant"}
+                        {appSettings.account.restaurantName ||
+                          "Kumbisaly Heritage Restaurant"}
                       </span>
                     </h4>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {appSettings.account.address || "Address"}
+                      {appSettings.account.address ||
+                        "Offinso - Abofour, Ashanti, Ghana"}
                     </p>
-                    {appSettings.account.phone && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Tel: {appSettings.account.phone}
-                      </p>
-                    )}
-                    {appSettings.account.email && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {appSettings.account.email}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Tel: {appSettings.account.phone || "0535975442"}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {appSettings.account.email ||
+                        "info.kumbisalyheritagehotel@gmail.com"}
+                    </p>
                   </div>
 
                   {/* Order Info */}
