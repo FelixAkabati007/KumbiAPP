@@ -374,7 +374,7 @@ function ReceiptContent() {
                       </h4>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         {receiptSettings.businessAddress ||
-                          "Offinso - Abofour, Ashanti, Ghana"}
+                          "Offinso - Abofour, Ashanti, Ghana."}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         Tel: {receiptSettings.businessPhone || "0535975442"}

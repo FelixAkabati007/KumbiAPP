@@ -167,7 +167,7 @@ export class PaymentService {
         businessAddress:
           settings?.account?.address ||
           settings?.businessAddress ||
-          "Offinso - Abofour, Ashanti, Ghana",
+          "Offinso - Abofour, Ashanti, Ghana.",
         businessPhone:
           settings?.account?.phone || settings?.businessPhone || "0535975442",
         businessEmail:

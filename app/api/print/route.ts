@@ -29,7 +29,7 @@ async function generateReceipt(
   const businessName = data.businessName || "Kumbisaly Heritage Restaurant";
   printer.println(businessName);
 
-  printer.println(data.businessAddress || "Offinso - Abofour, Ashanti, Ghana");
+  printer.println(data.businessAddress || "Offinso - Abofour, Ashanti, Ghana.");
   printer.println(`Tel: ${data.businessPhone || "0535975442"}`);
   printer.println(
     data.businessEmail || "info.kumbisalyheritagehotel@gmail.com"
