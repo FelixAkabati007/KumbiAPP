@@ -109,7 +109,7 @@ function KitchenContent() {
     }
     setPreviousOrderCount(orders.length);
   }, [orders.length, previousOrderCount, toast]);
-
+    let filtered = [...orders];
   // Filter and sort orders
   const filteredAndSortedOrders = useMemo(() => {
     let filtered = orders;
