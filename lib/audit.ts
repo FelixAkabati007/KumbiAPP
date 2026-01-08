@@ -12,7 +12,7 @@ export interface AuditLogParams {
 /**
  * Logs an administrative action to the audit_logs table.
  */
-export async function logAdminAction({
+export async function logAudit({
   action,
   entityType,
   entityId,
