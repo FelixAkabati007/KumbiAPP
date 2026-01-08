@@ -1,28 +1,29 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { updateSystemState } from "@/lib/system-sync";
 
 export async function GET() {
   try {
-    const res = await query<
-      {
-        id: string;
-        menu_item_id: string;
-        quantity: string;
-        unit: string | null;
-        reorder_level: string | null;
-        cost_price: string | null;
-        supplier: string | null;
-        last_updated: string | null;
-        name: string | null;
-        barcode: string | null;
-      }
-    >(
+    const res = await query<{
+      id: string;
+      menu_item_id: string;
+      quantity: string;
+      unit: string | null;
+      reorder_level: string | null;
+      cost_price: string | null;
+      supplier: string | null;
+      last_updated: string | null;
+      name: string | null;
+      barcode: string | null;
+    }>(
       `
       SELECT i.*, mi.name, mi.barcode
       FROM inventory i
       LEFT JOIN menu_items mi ON mi.id = i.menu_item_id
       ORDER BY i.last_updated DESC
-      `,
+      `
     );
     const items = res.rows.map((r) => ({
       id: r.id,
@@ -40,23 +41,23 @@ export async function GET() {
     return NextResponse.json(items);
   } catch (error) {
     console.error("Inventory GET failed:", error);
-    return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch inventory" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const session = await getSession();
     const body = await req.json();
-    const {
-      menuItemId,
-      quantity,
-      unit,
-      reorderLevel,
-      cost,
-      supplier,
-    } = body;
+    const { menuItemId, quantity, unit, reorderLevel, cost, supplier } = body;
     if (!menuItemId) {
-      return NextResponse.json({ error: "menuItemId required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "menuItemId required" },
+        { status: 400 }
+      );
     }
     const res = await query<{ id: string }>(
       `
@@ -78,11 +79,25 @@ export async function POST(req: Request) {
         reorderLevel ?? 0,
         cost ?? 0,
         supplier ?? null,
-      ],
+      ]
     );
+    await logAudit({
+      performedBy: session?.id,
+      action: "UPDATE_INVENTORY",
+      entityType: "INVENTORY",
+      entityId: res.rows[0].id,
+      details: body,
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
+
+    await updateSystemState("inventory");
+
     return NextResponse.json({ id: res.rows[0].id }, { status: 201 });
   } catch (error) {
     console.error("Inventory POST failed:", error);
-    return NextResponse.json({ error: "Failed to upsert inventory" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to upsert inventory" },
+      { status: 500 }
+    );
   }
 }

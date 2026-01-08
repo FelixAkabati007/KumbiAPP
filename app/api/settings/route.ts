@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
+import { updateSystemState } from "@/lib/system-sync";
 
 const settingsSchema = z
   .object({
@@ -135,6 +137,18 @@ export async function POST(req: Request) {
     `,
       [JSON.stringify(settingsToSave)]
     );
+
+    // Audit and Sync
+    await logAudit({
+      performedBy: session.id,
+      action: "UPDATE_SETTINGS",
+      entityType: "SYSTEM_SETTINGS",
+      entityId: "1",
+      details: data,
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
+
+    await updateSystemState("settings");
 
     return NextResponse.json({ success: true });
   } catch (error) {

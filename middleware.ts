@@ -21,12 +21,14 @@ const routePermissions: Record<string, string[]> = {
 
 // Define RBAC for API routes
 const apiPermissions: Record<string, string[]> = {
+  "/api/admin": ["admin"],
   "/api/settings": ["admin", "manager"],
   "/api/inventory": ["admin", "manager", "kitchen"],
-  "/api/menu": ["admin", "manager"],
+  "/api/menu": ["admin", "manager", "staff"],
   "/api/refunds": ["admin", "manager", "staff"],
   "/api/orders": ["admin", "manager", "staff", "kitchen"],
   "/api/reports": ["admin", "manager"],
+  "/api/system": ["admin", "manager", "staff", "kitchen"],
 };
 
 export async function middleware(req: NextRequest) {

@@ -1,5 +1,10 @@
 import { expect } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
+import * as dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 expect.extend(matchers);
 const ensureLocalStorage = () => {

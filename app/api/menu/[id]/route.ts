@@ -1,6 +1,8 @@
-
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { updateSystemState } from "@/lib/system-sync";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(
   req: Request,
@@ -38,7 +40,10 @@ export async function GET(
     return NextResponse.json(item);
   } catch (error) {
     console.error("Menu Item GET failed:", error);
-    return NextResponse.json({ error: "Failed to fetch item" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch item" },
+      { status: 500 }
+    );
   }
 }
 
@@ -47,28 +52,26 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session || (session.role !== "admin" && session.role !== "manager")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await req.json();
-    const {
-      name,
-      description,
-      price,
-      category,
-      barcode,
-      inStock,
-      image,
-    } = body;
+    const { name, description, price, category, barcode, inStock, image } =
+      body;
 
     // Validate category and get ID
     let categoryId = null;
     if (category) {
-       const catRes = await query<{ id: string }>(
-         "SELECT id FROM categories WHERE slug = $1", 
-         [category]
-       );
-       if (catRes.rows.length > 0) {
-         categoryId = catRes.rows[0].id;
-       }
+      const catRes = await query<{ id: string }>(
+        "SELECT id FROM categories WHERE slug = $1",
+        [category]
+      );
+      if (catRes.rows.length > 0) {
+        categoryId = catRes.rows[0].id;
+      }
     }
 
     // Build dynamic update query
@@ -76,13 +79,34 @@ export async function PUT(
     const values: any[] = [];
     let idx = 1;
 
-    if (name) { fields.push(`name = $${idx++}`); values.push(name); }
-    if (description !== undefined) { fields.push(`description = $${idx++}`); values.push(description); }
-    if (price !== undefined) { fields.push(`price = $${idx++}`); values.push(price); }
-    if (categoryId) { fields.push(`category_id = $${idx++}`); values.push(categoryId); }
-    if (barcode !== undefined) { fields.push(`barcode = $${idx++}`); values.push(barcode); }
-    if (inStock !== undefined) { fields.push(`is_available = $${idx++}`); values.push(inStock); }
-    if (image !== undefined) { fields.push(`image_url = $${idx++}`); values.push(image); }
+    if (name) {
+      fields.push(`name = $${idx++}`);
+      values.push(name);
+    }
+    if (description !== undefined) {
+      fields.push(`description = $${idx++}`);
+      values.push(description);
+    }
+    if (price !== undefined) {
+      fields.push(`price = $${idx++}`);
+      values.push(price);
+    }
+    if (categoryId) {
+      fields.push(`category_id = $${idx++}`);
+      values.push(categoryId);
+    }
+    if (barcode !== undefined) {
+      fields.push(`barcode = $${idx++}`);
+      values.push(barcode);
+    }
+    if (inStock !== undefined) {
+      fields.push(`is_available = $${idx++}`);
+      values.push(inStock);
+    }
+    if (image !== undefined) {
+      fields.push(`image_url = $${idx++}`);
+      values.push(image);
+    }
 
     if (fields.length === 0) {
       return NextResponse.json({ message: "No changes" });
@@ -97,10 +121,24 @@ export async function PUT(
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    await logAudit({
+      performedBy: session.id,
+      action: "UPDATE_MENU_ITEM",
+      entityType: "MENU",
+      entityId: id,
+      details: body,
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
+
+    await updateSystemState("menu");
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Menu Item PUT failed:", error);
-    return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update item" },
+      { status: 500 }
+    );
   }
 }
 
@@ -109,16 +147,35 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session || (session.role !== "admin" && session.role !== "manager")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const { id } = await params;
     const res = await query("DELETE FROM menu_items WHERE id = $1", [id]);
-    
+
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    await logAudit({
+      performedBy: session.id,
+      action: "DELETE_MENU_ITEM",
+      entityType: "MENU",
+      entityId: id,
+      details: { id },
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
+
+    await updateSystemState("menu");
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Menu Item DELETE failed:", error);
-    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete item" },
+      { status: 500 }
+    );
   }
 }

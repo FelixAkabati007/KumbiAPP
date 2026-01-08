@@ -186,27 +186,43 @@ CREATE TABLE IF NOT EXISTS signup_attempts (
     ip VARCHAR(64),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_signup_attempts_window ON signup_attempts(created_at);
-CREATE INDEX IF NOT EXISTS idx_signup_attempts_email ON signup_attempts(email);
 CREATE INDEX IF NOT EXISTS idx_signup_attempts_ip ON signup_attempts(ip);
--- Security: Row Level Security (RLS)
--- Note: RLS policies require connection-level user context which might not be set in connection pool.
--- We enable it but set policies to TRUE for now to avoid breaking existing access until auth context is wired up.
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN CREATE POLICY "Public read access" ON menu_items FOR
-SELECT USING (true);
-EXCEPTION
-WHEN duplicate_object THEN null;
-END $$;
--- Triggers for updated_at
+CREATE INDEX IF NOT EXISTS idx_signup_attempts_email ON signup_attempts(email);
+-- 8. Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE
+    SET NULL,
+        action VARCHAR(255) NOT NULL,
+        entity_type VARCHAR(100) NOT NULL,
+        entity_id VARCHAR(255),
+        details JSONB,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+-- 9. System Synchronization Events
+CREATE TABLE IF NOT EXISTS system_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_type VARCHAR(100) NOT NULL,
+    payload JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_system_events_created_at ON system_events(created_at);
+-- Helper function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW();
 RETURN NEW;
 END;
 $$ language 'plpgsql';
+-- Apply trigger to tables
 DO $$ BEGIN CREATE TRIGGER update_users_updated_at BEFORE
 UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION
+WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN CREATE TRIGGER update_categories_updated_at BEFORE
+UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 EXCEPTION
 WHEN duplicate_object THEN null;
 END $$;
@@ -262,33 +278,26 @@ CREATE TABLE IF NOT EXISTS kitchenorders (
     paymentmethod VARCHAR NOT NULL,
     status VARCHAR NOT NULL DEFAULT 'pending',
     priority VARCHAR NOT NULL DEFAULT 'normal',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    createdat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    updatedat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     estimatedtime INT,
     notes TEXT,
-    chefnotes TEXT
+    items JSONB NOT NULL
 );
-CREATE TABLE IF NOT EXISTS kitchen_orderitems (
+CREATE TABLE IF NOT EXISTS salesdata (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    kitchenorderid UUID REFERENCES kitchenorders(id) ON DELETE CASCADE,
-    productid VARCHAR(255),
-    name VARCHAR(255),
-    quantity INTEGER NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    category VARCHAR(100),
-    status VARCHAR(50) DEFAULT 'pending',
-    preptime INTEGER,
-    notes TEXT,
-    menuitemid UUID REFERENCES menu_items(id) ON DELETE
-    SET NULL
+    date DATE NOT NULL UNIQUE,
+    totalorders INT NOT NULL DEFAULT 0,
+    totalsales DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    onlineorders INT NOT NULL DEFAULT 0,
+    dineinorders INT NOT NULL DEFAULT 0,
+    createdat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    updatedat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
-CREATE INDEX IF NOT EXISTS idx_kitchenorders_status ON kitchenorders(status);
-CREATE INDEX IF NOT EXISTS idx_kitchenorders_created_at ON kitchenorders(created_at);
-CREATE INDEX IF NOT EXISTS idx_kitchen_orderitems_order ON kitchen_orderitems(kitchenorderid);
 CREATE TABLE IF NOT EXISTS refundrequests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    orderid VARCHAR(255) NOT NULL,
-    ordernumber VARCHAR(255) NOT NULL,
+    orderid VARCHAR NOT NULL,
+    ordernumber VARCHAR NOT NULL,
     customername VARCHAR(255) NOT NULL,
     originalamount DECIMAL(10, 2) NOT NULL,
     refundamount DECIMAL(10, 2) NOT NULL,
