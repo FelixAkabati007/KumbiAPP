@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/auth-provider";
-import { getSettings, saveSettings, type AppSettings } from "@/lib/settings";
+import {
+  getSettings,
+  saveSettings,
+  fetchSettings,
+  type AppSettings,
+} from "@/lib/settings";
 import { rolePermissions, type AppSection, type UserRole } from "@/lib/roles";
 import { Bell, Monitor, Shield, Sparkles } from "lucide-react";
 
@@ -25,6 +30,10 @@ export function SettingsPanels() {
   const { setTheme } = useTheme();
   const { user } = useAuth();
   const [settings, setSettings] = useState<AppSettings>(getSettings());
+
+  useEffect(() => {
+    fetchSettings().then(setSettings);
+  }, []);
 
   const canUpdateSecurity = user?.role === "admin" || user?.role === "manager";
   // Safely narrow user role to the known union for indexing rolePermissions

@@ -124,15 +124,25 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
       ctx.drawImage(img, -offsetX, -offsetY, scaledW, scaledH);
 
       const dataUrl = canvas.toDataURL("image/png");
+      
       try {
-        // localStorage persistence removed for strict Neon-only compliance
+        const res = await fetch("/api/user/avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ avatar: dataUrl }),
+        });
+
+        if (!res.ok) throw new Error("Failed to save avatar");
+
         // Dispatch event so all components update instantly in current session
         window.dispatchEvent(
           new CustomEvent("avatarUpdated", { detail: { src: dataUrl } })
         );
       } catch (err) {
-        console.warn("Failed to dispatch avatar update", err);
+        console.warn("Failed to dispatch avatar update or save to DB", err);
+        throw err;
       }
+      
       // Revoke previous blob URL if present
       if (objectUrlRef.current && objectUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(objectUrlRef.current);
@@ -151,14 +161,27 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
     }
   };
 
-  const resetAvatar = () => {
+  const resetAvatar = async () => {
     try {
-      // localStorage removal skipped as it's already disabled
+      const res = await fetch("/api/user/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: "" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to reset avatar in DB");
+
       window.dispatchEvent(
         new CustomEvent("avatarUpdated", { detail: { src: "" } })
       );
+      toast({ title: "Avatar reset" });
     } catch (err) {
-      console.warn("Failed to dispatch avatar reset", err);
+      console.warn("Failed to reset avatar", err);
+      toast({
+        title: "Error",
+        description: "Could not reset avatar.",
+        variant: "destructive",
+      });
     }
     if (objectUrlRef.current && objectUrlRef.current.startsWith("blob:")) {
       URL.revokeObjectURL(objectUrlRef.current);
@@ -167,7 +190,6 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
     setSrc("");
     setPreviewUrl("");
     onAvatarChange?.("");
-    toast({ title: "Avatar reset" });
   };
 
   return (

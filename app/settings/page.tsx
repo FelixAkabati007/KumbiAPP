@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "next-themes";
 import {
   getSettings,
+  fetchSettings,
   saveSettings,
   type AppSettings,
   type PrinterConfig,
@@ -162,8 +163,7 @@ function SettingsPageContent() {
 
   // Load settings on component mount
   useEffect(() => {
-    const savedSettings = getSettings();
-    setSettingsState(savedSettings);
+    fetchSettings().then(setSettingsState);
   }, []);
 
   // Handle input changes
@@ -265,8 +265,8 @@ function SettingsPageContent() {
   // Remove logo function (unused) removed to satisfy lint rules
 
   // Save all settings
-  const handleSaveSettings = () => {
-    saveSettings(settings);
+  const handleSaveSettings = async () => {
+    await saveSettings(settings);
 
     // Dispatch custom event to update logo across all components
     window.dispatchEvent(new Event("settingsUpdated"));
