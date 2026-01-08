@@ -27,6 +27,7 @@ const apiPermissions: Record<string, string[]> = {
   "/api/menu": ["admin", "manager", "staff"],
   "/api/refunds": ["admin", "manager", "staff"],
   "/api/orders": ["admin", "manager", "staff", "kitchen"],
+  "/api/receipts": ["admin", "manager", "staff"],
   "/api/reports": ["admin", "manager"],
   "/api/system": ["admin", "manager", "staff", "kitchen"],
 };

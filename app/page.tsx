@@ -31,6 +31,7 @@ import { useAuth } from "@/components/auth-provider";
 import { SignInForm } from "@/components/sign-in-form";
 import { useSettings } from "@/components/settings-provider";
 import { useToast } from "@/hooks/use-toast";
+import { useReceiptStats } from "@/hooks/use-receipt-stats";
 import {
   Tooltip,
   TooltipContent,
@@ -118,73 +119,7 @@ function DashboardContent() {
   }, []);
 
   // Load receipt stats from Neon
-  const [receiptStats, setReceiptStats] = useState<{
-    today: number;
-    week: number;
-    month: number;
-    total: number;
-  } | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    async function loadStats() {
-      try {
-        const res = await fetch("/api/transactions?limit=1000", {
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          // Silently fail for now to avoid console noise on aborts/timeouts
-          if (res.status === 404) return;
-          throw new Error(`Failed to load transactions: ${res.statusText}`);
-        }
-
-        const transactions = await res.json();
-        if (!isMounted) return;
-
-        const now = new Date();
-        let today = 0,
-          week = 0,
-          month = 0;
-
-        // Helper dates
-        const startOfDay = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate()
-        );
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        transactions.forEach((tx: any) => {
-          const txDate = new Date(tx.created_at);
-          if (txDate >= startOfDay) today++;
-          if (txDate >= startOfWeek) week++;
-          if (txDate >= startOfMonth) month++;
-        });
-
-        setReceiptStats({
-          today,
-          week,
-          month,
-          total: transactions.length,
-        });
-      } catch (error: any) {
-        if (error.name === "AbortError") return;
-        console.error("Failed to load dashboard stats:", error);
-      }
-    }
-    loadStats();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, []);
+  const { stats: receiptStats } = useReceiptStats();
 
   // Double-click/double-tap handler
   useEffect(() => {

@@ -15,7 +15,7 @@ import type { SalesData, OrderItem } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { findSaleByOrderNumber } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
-import { getReceiptStats } from "@/lib/receipt-utils";
+import { useReceiptStats } from "@/hooks/use-receipt-stats";
 
 interface ReceiptData {
   orderNumber: string;
@@ -43,6 +43,7 @@ export default function ReceiptPage() {
 
 function ReceiptContent() {
   const { toast } = useToast();
+  const { stats } = useReceiptStats();
   const { settings: receiptSettings } = useReceiptSettings();
   const printRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
@@ -514,30 +515,22 @@ function ReceiptContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                {typeof window !== "undefined" &&
-                  (() => {
-                    const stats = getReceiptStats();
-                    return (
-                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <div>
-                          Today:{" "}
-                          <span className="font-semibold">{stats.today}</span>
-                        </div>
-                        <div>
-                          This Week:{" "}
-                          <span className="font-semibold">{stats.week}</span>
-                        </div>
-                        <div>
-                          This Month:{" "}
-                          <span className="font-semibold">{stats.month}</span>
-                        </div>
-                        <div>
-                          Total:{" "}
-                          <span className="font-semibold">{stats.total}</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <div>
+                    Today: <span className="font-semibold">{stats.today}</span>
+                  </div>
+                  <div>
+                    This Week:{" "}
+                    <span className="font-semibold">{stats.week}</span>
+                  </div>
+                  <div>
+                    This Month:{" "}
+                    <span className="font-semibold">{stats.month}</span>
+                  </div>
+                  <div>
+                    Total: <span className="font-semibold">{stats.total}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             {/* Order Data Editor */}

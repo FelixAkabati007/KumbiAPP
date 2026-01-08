@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { updateSystemState } from "@/lib/system-sync";
 
 export async function POST(req: Request) {
   try {
@@ -40,15 +41,18 @@ export async function POST(req: Request) {
         customerId || null,
         JSON.stringify(finalMetadata),
         timestamp || new Date().toISOString(),
-      ],
+      ]
     );
+
+    // Trigger system sync for orders/transactions
+    await updateSystemState("orders");
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to log transaction:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
