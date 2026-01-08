@@ -369,14 +369,23 @@ function ReceiptContent() {
                         </div>
                       )}
                       <h4 className="font-bold text-lg text-orange-800 dark:text-orange-200">
-                        KUMBISALY HERITAGE RESTAURANT
+                        {receiptSettings.headerText ||
+                          "KUMBISALY HERITAGE RESTAURANT"}
                       </h4>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        123 Main Street, Accra, Ghana
+                        {receiptSettings.businessAddress ||
+                          "123 Main Street, Accra, Ghana"}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Tel: +233 20 123 4567
-                      </p>
+                      {receiptSettings.businessPhone && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Tel: {receiptSettings.businessPhone}
+                        </p>
+                      )}
+                      {receiptSettings.businessEmail && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {receiptSettings.businessEmail}
+                        </p>
+                      )}
                     </div>
                     {/* Order Info */}
                     <div className="mb-4 space-y-1">

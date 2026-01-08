@@ -1273,6 +1273,11 @@ function POSContent() {
                         Tel: {appSettings.account.phone}
                       </p>
                     )}
+                    {appSettings.account.email && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {appSettings.account.email}
+                      </p>
+                    )}
                   </div>
 
                   {/* Order Info */}

@@ -11,7 +11,7 @@ import { ReceiptData } from "@/lib/types";
 async function generateReceipt(
   printer: ThermalPrinter,
   data: ReceiptData,
-  config: PrinterConfig,
+  config: PrinterConfig
 ) {
   // Reset formatting
   printer.alignCenter();
@@ -24,19 +24,23 @@ async function generateReceipt(
   if (config.name) {
     printer.println(config.name);
   }
-  
+
   // Use business info from receipt data if available, otherwise fallback
   const businessName = data.businessName || "KHH RESTAURANT";
   printer.println(businessName);
-  
+
   if (data.businessAddress) {
     printer.println(data.businessAddress);
   }
-  
+
   if (data.businessPhone) {
     printer.println(`Tel: ${data.businessPhone}`);
   }
-  
+
+  if (data.businessEmail) {
+    printer.println(data.businessEmail);
+  }
+
   printer.newLine();
 
   // Order Info
@@ -110,7 +114,7 @@ export async function POST(req: Request) {
     if (!receipt || !configs || !Array.isArray(configs)) {
       return NextResponse.json(
         { error: "Invalid request body" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -127,7 +131,7 @@ export async function POST(req: Request) {
         if (config.interfaceType === "tcp") {
           if (!config.ip) {
             throw new Error(
-              `Printer ${config.name} is configured for TCP but missing IP address.`,
+              `Printer ${config.name} is configured for TCP but missing IP address.`
             );
           }
           printerInterface = `tcp://${config.ip}:${config.port || 9100}`;
@@ -165,13 +169,13 @@ export async function POST(req: Request) {
           // If we can't connect, we might want to throw or log.
           // However, let's try to print anyway as check might be flaky.
           console.warn(
-            `Printer ${config.name} (${printerInterface}) reported as not connected.`,
+            `Printer ${config.name} (${printerInterface}) reported as not connected.`
           );
         }
 
         await generateReceipt(printer, receipt, config);
         return { status: "printed", name: config.name };
-      }),
+      })
     );
 
     // Process results
@@ -196,7 +200,7 @@ export async function POST(req: Request) {
     console.error("Print API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error", details: String(error) },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
