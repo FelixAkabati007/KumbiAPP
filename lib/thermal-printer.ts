@@ -90,13 +90,8 @@ export class ThermalPrinterService {
       this.status.isPrinting = true;
       this.notifyListeners();
 
-      const settings = getSettings();
-      const configs: PrinterConfig[] = [settings.system.thermalPrinter];
-
-      // Add secondary printer if enabled
-      if (settings.system.secondaryPrinter?.enabled) {
-        configs.push(settings.system.secondaryPrinter);
-      }
+      // Use the instance config instead of fetching defaults again
+      const configs: PrinterConfig[] = [this.config];
 
       // Send to API
       const response = await fetch("/api/print", {

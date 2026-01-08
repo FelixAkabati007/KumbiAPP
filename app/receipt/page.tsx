@@ -226,6 +226,10 @@ function ReceiptContent() {
         orderType: foundSale.orderType,
         tableNumber: foundSale.tableNumber,
         orderId: foundSale.orderId,
+        businessName: receiptSettings.headerText,
+        businessAddress: receiptSettings.businessAddress,
+        businessPhone: receiptSettings.businessPhone,
+        businessEmail: receiptSettings.businessEmail,
       };
 
       // Recalculate tax/subtotal more accurately if available or rely on calculated

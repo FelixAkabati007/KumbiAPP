@@ -31,10 +31,15 @@ export function PaymentProcessor({
     setIsProcessing(true);
 
     try {
+      // Fetch settings to ensure we have the latest business info
+      const { fetchSettings } = await import("@/lib/settings");
+      const settings = await fetchSettings();
+
       const result = await paymentService.processPayment(
         order,
         paymentDetails,
-        customer
+        customer,
+        settings
       );
 
       if (result.success) {
@@ -64,12 +69,18 @@ export function PaymentProcessor({
           timestamp: new Date().toISOString(),
           // required by ReceiptData in thermal-printer.ts
           orderType,
+          businessName:
+            settings?.account?.restaurantName ||
+            settings?.businessName ||
+            "KHH RESTAURANT",
+          businessAddress:
+            settings?.account?.address || settings?.businessAddress,
+          businessPhone: settings?.account?.phone || settings?.businessPhone,
+          businessEmail: settings?.account?.email || settings?.businessEmail,
         };
 
         // Print receipt
         try {
-          const { getSettings } = await import("@/lib/settings");
-          const settings = await getSettings();
           const { printReceipt } = await import("@/lib/thermal-printer");
 
           if (settings.system?.thermalPrinter?.enabled) {

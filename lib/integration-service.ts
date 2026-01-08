@@ -320,6 +320,12 @@ class IntegrationService {
 
       // Print receipt if thermal printer is enabled
       if (this.settings.system.thermalPrinter.enabled) {
+        // Fetch fresh settings to ensure business details are up to date
+        // Note: In a class method, we might want to update this.settings or just fetch for this operation
+        // For now, we'll try to use the existing settings but ideally we should refresh them.
+        // Since getSettings() is sync and might return defaults, let's try to see if we can get better data.
+        // However, this.settings is initialized in constructor.
+
         const printerService = getThermalPrinterService();
         await printerService.printReceipt({
           orderNumber: paymentData.orderNumber,
@@ -344,6 +350,16 @@ class IntegrationService {
           customerRefused: !!paymentData.customerRefused,
           orderType: "dine-in",
           tableNumber: "",
+          businessName:
+            this.settings.account.restaurantName ||
+            this.settings.businessName ||
+            "KHH RESTAURANT",
+          businessAddress:
+            this.settings.account.address || this.settings.businessAddress,
+          businessPhone:
+            this.settings.account.phone || this.settings.businessPhone,
+          businessEmail:
+            this.settings.account.email || this.settings.businessEmail,
         });
       }
 

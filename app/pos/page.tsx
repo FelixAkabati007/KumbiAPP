@@ -496,6 +496,14 @@ function POSContent() {
         customerRefused: customerNameRefused,
         orderType,
         tableNumber,
+        businessName:
+          appSettings.account.restaurantName ||
+          appSettings.businessName ||
+          "KHH RESTAURANT",
+        businessAddress:
+          appSettings.account.address || appSettings.businessAddress,
+        businessPhone: appSettings.account.phone || appSettings.businessPhone,
+        businessEmail: appSettings.account.email || appSettings.businessEmail,
       };
 
       const configs = [appSettings.system.thermalPrinter];
@@ -537,12 +545,25 @@ function POSContent() {
     const tax = subtotal * 0.125;
     const total = subtotal + tax;
 
+    const businessName =
+      appSettings.account.restaurantName ||
+      appSettings.businessName ||
+      "KHH RESTAURANT";
+    const businessAddress =
+      appSettings.account.address ||
+      appSettings.businessAddress ||
+      "123 Main Street, Accra, Ghana";
+    const businessPhone =
+      appSettings.account.phone ||
+      appSettings.businessPhone ||
+      "+233 20 123 4567";
+
     return `
       <div class="receipt">
         <div class="header">
-          <h2>KUMBISALY HERITAGE RESTAURANT</h2>
-          <p>123 Main Street, Accra, Ghana</p>
-          <p>Tel: +233 20 123 4567</p>
+          <h2>${businessName}</h2>
+          <p>${businessAddress}</p>
+          <p>Tel: ${businessPhone}</p>
         </div>
         
         <div>
@@ -592,7 +613,10 @@ function POSContent() {
         </div>
         
         <div class="footer">
-          <p>Thank you for your visit!</p>
+          <p>${
+            appSettings.system.thermalPrinter.footerText ||
+            "Thank you for your visit!"
+          }</p>
           <p>Please come again</p>
         </div>
       </div>

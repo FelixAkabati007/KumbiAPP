@@ -24,7 +24,19 @@ async function generateReceipt(
   if (config.name) {
     printer.println(config.name);
   }
-  printer.println("KHH RESTAURANT"); // Or use settings.account.restaurantName if passed
+  
+  // Use business info from receipt data if available, otherwise fallback
+  const businessName = data.businessName || "KHH RESTAURANT";
+  printer.println(businessName);
+  
+  if (data.businessAddress) {
+    printer.println(data.businessAddress);
+  }
+  
+  if (data.businessPhone) {
+    printer.println(`Tel: ${data.businessPhone}`);
+  }
+  
   printer.newLine();
 
   // Order Info

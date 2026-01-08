@@ -10,7 +10,7 @@ import {
   getThermalPrinterService,
   ThermalPrinterService,
 } from "../thermal-printer";
-import { getSettings } from "../settings";
+import { getSettings, type AppSettings } from "../settings";
 // Inventory and order persistence are implemented via local helpers for now
 import {
   addSaleData,
@@ -34,9 +34,15 @@ export class PaymentService {
   async processPayment(
     order: Order,
     paymentDetails: PaymentDetails,
-    customer: Customer
+    customer: Customer,
+    settings?: AppSettings
   ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
     const transaction = { id: `txn-${Date.now()}` } as { id: string };
+
+    // Update printer service if settings are provided
+    if (settings?.system?.thermalPrinter) {
+      this.printer = getThermalPrinterService(settings.system.thermalPrinter);
+    }
 
     try {
       // 1. Validate payment details
@@ -152,7 +158,16 @@ export class PaymentService {
         total: orderData.total,
         paymentMethod: (paymentResult as PaymentResult).method,
         customerName: customer?.name,
+        orderType: "sale", // Default to "sale" since Order type doesn't have it explicitly
         // tableNumber: order.tableNumber, // Not present in Order type currently
+        businessName:
+          settings?.account?.restaurantName ||
+          settings?.businessName ||
+          "KHH RESTAURANT",
+        businessAddress:
+          settings?.account?.address || settings?.businessAddress,
+        businessPhone: settings?.account?.phone || settings?.businessPhone,
+        businessEmail: settings?.account?.email || settings?.businessEmail,
       };
 
       const success = await this.printer.printReceipt(receiptData);

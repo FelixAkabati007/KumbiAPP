@@ -104,9 +104,13 @@ export interface ReceiptData {
   paymentMethod: string;
   customerName?: string;
   customerRefused?: boolean;
-  orderType?: string;
   tableNumber?: string;
+  orderType: string;
   orderId?: string;
+  businessName?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  businessEmail?: string;
 }
 
 // Placeholder types for thermal printer test
