@@ -317,17 +317,7 @@ function DashboardContent() {
             {/* User avatar menu */}
             {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
             <UserNav />
-            {/* Only show Reset Dashboard for admin */}
-            {user.role === "admin" && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleResetDashboard}
-                className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20 rounded-2xl bg-transparent"
-              >
-                Reset Dashboard
-              </Button>
-            )}
+            {/* Reset Dashboard button REMOVED per user request */}
           </div>
         </div>
       </header>

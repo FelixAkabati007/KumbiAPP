@@ -193,19 +193,11 @@ function OrderDisplayContent() {
           >
             <RefreshCw className="h-4 w-4" aria-label="Refresh Icon" />
           </Button>
-          {/* Reset Kitchen Display button for admin/manager only */}
+          {/* Reset Kitchen Display button for admin/manager only - REMOVED per user request */}
           {!isLoading &&
             user &&
             (user.role === "admin" || user.role === "manager") && (
               <>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="rounded-2xl ml-2"
-                  onClick={() => setResetDialogOpen(true)}
-                >
-                  Reset Kitchen Display
-                </Button>
                 <Dialog
                   open={resetDialogOpen}
                   onOpenChange={setResetDialogOpen}

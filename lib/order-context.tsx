@@ -186,42 +186,53 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       // Optimistic update
       setOrders((prev) => {
         const updated = prev.map((order) => {
-          if (order.id === orderId) {
-            const updatedItems = order.items.map((item) =>
-              item.id === itemId ? { ...item, status } : item
-            );
-            const updatedOrder = {
-              ...order,
-              items: updatedItems,
-              updatedAt: new Date().toISOString(),
-            };
-            // Auto-update order status based on item statuses
-            updatedOrder.status = updateOrderStatusFromItems(updatedOrder);
-            return updatedOrder;
+          if (order.id !== orderId) return order;
+
+          const updatedItems = order.items.map((item) =>
+            item.id === itemId ? { ...item, status } : item
+          );
+
+          // Auto-update order status based on items
+          let newOrderStatus = order.status;
+          const allReady = updatedItems.every(
+            (item) => item.status === "ready" || item.status === "served"
+          );
+          const anyPreparing = updatedItems.some(
+            (item) => item.status === "preparing"
+          );
+          const anyReady = updatedItems.some(
+            (item) => item.status === "ready" || item.status === "served"
+          );
+
+          if (allReady && order.status !== "completed") {
+            newOrderStatus = "ready";
+          } else if ((anyPreparing || anyReady) && order.status === "pending") {
+            newOrderStatus = "in-progress";
           }
-          return order;
+
+          return {
+            ...order,
+            items: updatedItems,
+            status: newOrderStatus,
+            updatedAt: new Date().toISOString(),
+          };
         });
         saveOrders(updated);
         return updated;
       });
 
-      // API Update
+      // Non-blocking API update
       try {
-        // Update item status
-        await fetch(`/api/orders/items/${itemId}`, {
+        fetch(`/api/orders/${orderId}/items/${itemId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status }),
-        });
-
-        // Note: The order status update (if triggered by item status change)
-        // should ideally be handled by the backend or a separate call.
-        // For now, we'll let the frontend be optimistic.
+        }).catch((err) => console.error("Background sync failed:", err));
       } catch (error) {
         console.error("Failed to update item status:", error);
       }
     },
-    [saveOrders, updateOrderStatusFromItems]
+    [saveOrders]
   );
 
   const updateOrderNotes = useCallback(

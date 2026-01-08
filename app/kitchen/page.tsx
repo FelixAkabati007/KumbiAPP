@@ -210,12 +210,20 @@ function KitchenContent() {
     return stats.sort((a, b) => b.totalOrders - a.totalOrders);
   }, [getOrdersByClient]);
 
-  const handleItemStatusChange = (
+  const handleItemStatusChange = async (
     orderId: string,
     itemId: string,
     status: OrderItem["status"]
   ) => {
+    // Optimistic update
     updateOrderItemStatus(orderId, itemId, status);
+
+    // Play sound for specific statuses without blocking
+    if (status === "ready" || status === "served") {
+      playNotificationSound();
+    }
+
+    // Toast notification
     toast({
       title: "Item Status Updated",
       description: `Item status changed to ${status}`,
@@ -391,14 +399,6 @@ function KitchenContent() {
             className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
           >
             <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="rounded-2xl ml-2"
-            onClick={() => setResetDialogOpen(true)}
-          >
-            Reset Kitchen
           </Button>
           <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
             <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
