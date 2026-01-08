@@ -304,39 +304,11 @@ class IntegrationService {
     customerRefused?: boolean;
     orderType?: string;
     tableNumber?: string;
-    email?: string;
   }): Promise<boolean> {
     let transactionReference = "";
 
     try {
-      // Handle Mobile Money (unsupported)
-      if (paymentData.method === "mobile") {
-        await transactionLogger.logTransaction({
-          id: `UNSUPPORTED-${paymentData.orderNumber}-${Date.now()}`,
-          type: "payment",
-          orderId: paymentData.orderNumber,
-          amount: paymentData.amount,
-          status: "failed",
-          timestamp: new Date().toISOString(),
-          metadata: {
-            error: "Non-cash payments are unsupported",
-            provider: "mobile",
-          },
-          paymentMethod: "mobile",
-          customerId: paymentData.email || paymentData.customerName,
-        });
-        this.emitEvent({
-          type: "error",
-          source: "system",
-          data: {
-            error: "Non-cash payments are unsupported",
-            context: "mobile_payment",
-          },
-          timestamp: new Date(),
-        });
-        return false;
-      }
-
+      // Log transaction attempt for all payment methods
       // Open cash drawer if cash payment and enabled
       if (
         paymentData.method === "cash" &&
@@ -407,7 +379,7 @@ class IntegrationService {
       await transactionLogger.logTransaction({
         id:
           transactionReference ||
-          `CASH-${paymentData.orderNumber}-${Date.now()}`,
+          `TXN-${paymentData.method.toUpperCase()}-${paymentData.orderNumber}-${Date.now()}`,
         type: "payment",
         orderId: paymentData.orderNumber,
         amount: paymentData.amount,
@@ -415,11 +387,15 @@ class IntegrationService {
         timestamp: new Date().toISOString(),
         metadata: {
           provider:
-            paymentData.method === "mobile" ? "mobile" : "cash_drawer",
+            paymentData.method === "mobile"
+              ? "mobile"
+              : paymentData.method === "card"
+                ? "card"
+                : "cash_drawer",
           items: paymentData.items.length,
         },
         paymentMethod: paymentData.method,
-        customerId: paymentData.email || paymentData.customerName,
+        customerId: paymentData.customerName,
       });
 
       return true;
@@ -437,11 +413,10 @@ class IntegrationService {
         timestamp: new Date().toISOString(),
         metadata: {
           error: message,
-          provider:
-            paymentData.method === "mobile" ? "mobile" : "cash_drawer",
+          provider: paymentData.method,
         },
         paymentMethod: paymentData.method,
-        customerId: paymentData.email || paymentData.customerName,
+        customerId: paymentData.customerName,
       });
 
       this.emitEvent({

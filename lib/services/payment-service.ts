@@ -252,11 +252,46 @@ export class PaymentService {
       };
     }
 
-    // 2. Non-cash methods are currently unsupported (provider-neutral stance)
+    // 2. Handle Non-Cash Payments (Card/Mobile) - Logged to Neon for syncing
     if (details.method === "mobile" || details.method === "card") {
+      const transactionId = `TXN-${details.method.toUpperCase()}-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 5)
+        .toUpperCase()}`;
+      const logData = {
+        id: transactionId,
+        amount: details.amount,
+        status: "success",
+        paymentMethod: details.method,
+        customerId: customer?.id,
+        metadata: {
+          customer_name: customer?.name || "Guest",
+          items: items || [],
+          orderNumber: orderNumber || "Unknown",
+          orderType: "dine-in",
+          provider: details.method,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      // Log transaction to DB
+      try {
+        await fetch("/api/transactions/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(logData),
+        });
+      } catch (e) {
+        console.error(
+          `Failed to log ${details.method} transaction, queuing for retry`,
+          e
+        );
+        await offlineQueue.enqueue("/api/transactions/log", "POST", logData);
+      }
+
       return {
-        success: false,
-        error: "Card and mobile payments are currently unsupported",
+        success: true,
+        transactionId,
         method: details.method,
         timestamp: new Date().toISOString(),
       };

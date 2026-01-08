@@ -89,7 +89,6 @@ function POSContent() {
   const [customerNameError, setCustomerNameError] = useState<string | null>(
     null
   );
-  const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -312,7 +311,6 @@ function POSContent() {
         items: currentOrder,
         customerName,
         customerRefused: customerNameRefused,
-        email: customerEmail,
       };
 
       const success = await processPaymentWithIntegration(paymentData);
@@ -1110,24 +1108,6 @@ function POSContent() {
                           Mobile Money
                         </Label>
                       </div>
-                      {paymentMethod === "mobile" && (
-                        <div className="pl-7 pr-2 pb-2 animate-in fade-in slide-in-from-top-2">
-                          <Label
-                            htmlFor="email"
-                            className="text-xs mb-1.5 block text-orange-700 dark:text-orange-300"
-                          >
-                            Customer Email (Required for Paystack)
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="customer@example.com"
-                            value={customerEmail}
-                            onChange={(e) => setCustomerEmail(e.target.value)}
-                            className="h-9 bg-white dark:bg-gray-800 border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
-                          />
-                        </div>
-                      )}
                     </div>
                   </RadioGroup>
                 </div>
