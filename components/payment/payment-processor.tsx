@@ -52,6 +52,7 @@ export function PaymentProcessor({
 
         const receiptData = {
           orderNumber: order.orderNumber,
+          orderId: order.id,
           date: new Date().toLocaleDateString(),
           time: new Date().toLocaleTimeString(),
           items: order.items.map((item) => ({
@@ -123,6 +124,7 @@ export function PaymentProcessor({
         <h3 className="text-lg font-medium mb-2">Order Summary</h3>
         <div className="space-y-2">
           <p>Order #: {order.orderNumber}</p>
+          <p>Order ID: {order.id}</p>
           <p>Items: {order.items.length}</p>
           <p>Total: ${order.total.toFixed(2)}</p>
           <p>Payment Method: {paymentDetails.method}</p>

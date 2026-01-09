@@ -344,7 +344,7 @@ function ReceiptContent() {
                       </div>
                       {foundSale.orderId && (
                         <div className="flex justify-between">
-                          <span className="font-semibold">ID:</span>
+                          <span className="font-semibold">Order ID:</span>
                           <span>{foundSale.orderId}</span>
                         </div>
                       )}

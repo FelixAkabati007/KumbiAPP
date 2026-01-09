@@ -40,6 +40,7 @@ async function generateReceipt(
   // Order Info
   printer.alignLeft();
   printer.println(`Order #: ${data.orderNumber}`);
+  if (data.orderId) printer.println(`Order ID: ${data.orderId}`);
   printer.println(`Date: ${data.date} ${data.time}`);
   if (data.tableNumber) printer.println(`Table: ${data.tableNumber}`);
   if (data.customerName) printer.println(`Customer: ${data.customerName}`);

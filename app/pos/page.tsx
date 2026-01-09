@@ -520,7 +520,7 @@ function POSContent() {
         
         <div>
           <p><strong>Order #:</strong> ${orderNumber}</p>
-          ${orderId ? `<p><strong>ID:</strong> ${orderId}</p>` : ""}
+          ${orderId ? `<p><strong>Order ID:</strong> ${orderId}</p>` : ""}
           <p><strong>Date:</strong> ${date.toLocaleDateString()}</p>
           <p><strong>Time:</strong> ${date.toLocaleTimeString()}</p>
           <p><strong>Type:</strong> ${orderType.toUpperCase()}</p>
@@ -1217,6 +1217,12 @@ function POSContent() {
                       <span className="font-semibold">Order #:</span>
                       <span>{orderNumber || "N/A"}</span>
                     </div>
+                    {orderId && (
+                      <div className="flex justify-between">
+                        <span className="font-semibold">Order ID:</span>
+                        <span>{orderId}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="font-semibold">Date:</span>
                       <span>
