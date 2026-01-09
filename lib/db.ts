@@ -61,9 +61,20 @@ if (pool && pool.listenerCount("error") === 0) {
   });
 }
 
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    await query("SELECT 1");
+    return true;
+  } catch (e) {
+    console.error("Database health check failed:", e);
+    return false;
+  }
+}
+
 /**
  * Execute a query with parameters using the connection pool.
  * This is the primary method for database interactions.
+ * Includes retry logic for transient connection errors.
  *
  * @param text The SQL query text
  * @param params Optional array of parameters
@@ -78,19 +89,46 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
       "Database pool is not initialized. Check DATABASE_URL environment variable."
     );
   }
-  const start = Date.now();
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await pool.query<R>(text, params as any[]);
-    const duration = Date.now() - start;
-    // Log slow queries for performance optimization
-    if (duration > 100) {
-      console.log("Executed query", { text, duration, rows: res.rowCount });
+
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+
+  while (true) {
+    const start = Date.now();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await pool.query<R>(text, params as any[]);
+      const duration = Date.now() - start;
+      // Log slow queries for performance optimization
+      if (duration > 100) {
+        console.log("Executed query", { text, duration, rows: res.rowCount });
+      }
+      return res;
+    } catch (error) {
+      const duration = Date.now() - start;
+      attempt++;
+      
+      // Check if error is retryable (connection issues)
+      const isRetryable = 
+        (error as any).code === '57P01' || // admin_shutdown
+        (error as any).code === '57P02' || // crash_shutdown
+        (error as any).code === '57P03' || // cannot_connect_now
+        (error as any).code === '08003' || // connection_does_not_exist
+        (error as any).code === '08006' || // connection_failure
+        (error as any).code === '08001' || // sqlclient_unable_to_establish_sqlconnection
+        (error as any).message?.includes('connection') ||
+        (error as any).message?.includes('timeout') ||
+        (error as any).message?.includes('ECONNRESET');
+
+      if (attempt >= MAX_RETRIES || !isRetryable) {
+        console.error("Database query error:", { text, error, duration, attempt });
+        throw error;
+      }
+
+      const backoff = 100 * Math.pow(2, attempt); // 200ms, 400ms, 800ms
+      console.warn(`Database query failed (attempt ${attempt}/${MAX_RETRIES}). Retrying in ${backoff}ms...`, { error: (error as Error).message });
+      await new Promise(resolve => setTimeout(resolve, backoff));
     }
-    return res;
-  } catch (error) {
-    console.error("Database query error:", { text, error });
-    throw error;
   }
 }
 

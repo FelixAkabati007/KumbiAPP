@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UnitSelect } from "@/components/ui/unit-select";
 import {
   ArrowLeft,
   Edit,
@@ -131,9 +132,36 @@ function InventoryContent() {
   };
 
   const handleEditItem = (item: InventoryItem) => {
-    setEditingItem({ ...item });
-    setIsNewItem(false);
-    setIsDialogOpen(true);
+    try {
+      if (!item || !item.id) {
+        throw new Error("Invalid item data");
+      }
+
+      // Create a clean copy with defaults to ensure data integrity
+      const itemToEdit: InventoryItem = {
+        id: item.id,
+        name: item.name || "",
+        sku: item.sku || "",
+        category: item.category || "ingredient",
+        quantity: item.quantity?.toString() || "0",
+        unit: item.unit || "units",
+        reorderLevel: item.reorderLevel?.toString() || "0",
+        cost: item.cost?.toString() || "0",
+        supplier: item.supplier || "",
+        lastUpdated: item.lastUpdated || new Date().toISOString(),
+      };
+
+      setEditingItem(itemToEdit);
+      setIsNewItem(false);
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to prepare item for editing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load item details. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -629,13 +657,11 @@ function InventoryContent() {
                     >
                       Unit
                     </Label>
-                    <Input
-                      id="unit"
+                    <UnitSelect
                       value={editingItem.unit}
-                      onChange={(e) =>
-                        setEditingItem({ ...editingItem, unit: e.target.value })
+                      onChange={(value) =>
+                        setEditingItem({ ...editingItem, unit: value })
                       }
-                      className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
                   </div>
                 </div>
