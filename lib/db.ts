@@ -107,27 +107,36 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
     } catch (error) {
       const duration = Date.now() - start;
       attempt++;
-      
+
       // Check if error is retryable (connection issues)
-      const isRetryable = 
-        (error as any).code === '57P01' || // admin_shutdown
-        (error as any).code === '57P02' || // crash_shutdown
-        (error as any).code === '57P03' || // cannot_connect_now
-        (error as any).code === '08003' || // connection_does_not_exist
-        (error as any).code === '08006' || // connection_failure
-        (error as any).code === '08001' || // sqlclient_unable_to_establish_sqlconnection
-        (error as any).message?.includes('connection') ||
-        (error as any).message?.includes('timeout') ||
-        (error as any).message?.includes('ECONNRESET');
+      const pgError = error as { code?: string; message?: string };
+      const isRetryable =
+        pgError.code === "57P01" || // admin_shutdown
+        pgError.code === "57P02" || // crash_shutdown
+        pgError.code === "57P03" || // cannot_connect_now
+        pgError.code === "08003" || // connection_does_not_exist
+        pgError.code === "08006" || // connection_failure
+        pgError.code === "08001" || // sqlclient_unable_to_establish_sqlconnection
+        pgError.message?.includes("connection") ||
+        pgError.message?.includes("timeout") ||
+        pgError.message?.includes("ECONNRESET");
 
       if (attempt >= MAX_RETRIES || !isRetryable) {
-        console.error("Database query error:", { text, error, duration, attempt });
+        console.error("Database query error:", {
+          text,
+          error,
+          duration,
+          attempt,
+        });
         throw error;
       }
 
       const backoff = 100 * Math.pow(2, attempt); // 200ms, 400ms, 800ms
-      console.warn(`Database query failed (attempt ${attempt}/${MAX_RETRIES}). Retrying in ${backoff}ms...`, { error: (error as Error).message });
-      await new Promise(resolve => setTimeout(resolve, backoff));
+      console.warn(
+        `Database query failed (attempt ${attempt}/${MAX_RETRIES}). Retrying in ${backoff}ms...`,
+        { error: (error as Error).message }
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoff));
     }
   }
 }

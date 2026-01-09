@@ -30,20 +30,6 @@ import type { SalesData, OrderItem, RefundRequest } from "@/lib/types";
 import { addSaleData } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 
-type KitchenOrderLike = {
-  id: string;
-  orderNumber: string;
-  updatedAt?: string;
-  createdAt?: string;
-  items: OrderItem[];
-  total: number;
-  orderType: string;
-  tableNumber?: string;
-  customerName?: string;
-  paymentMethod: string;
-  status: string;
-};
-
 const SalesCharts = dynamic(() => import("@/components/reports/sales-charts"), {
   loading: () => (
     <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-xl mb-6" />

@@ -16,6 +16,7 @@ import {
   afterEach,
 } from "vitest";
 import { UnitSelect } from "@/components/ui/unit-select";
+import { Mock } from "vitest";
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -27,7 +28,7 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
-  // @ts-ignore
+  // @ts-expect-error Testing invalid input
   global.PointerEvent = class PointerEvent extends Event {};
   window.HTMLElement.prototype.scrollIntoView = function () {};
   window.HTMLElement.prototype.releasePointerCapture = function () {};
@@ -96,7 +97,7 @@ describe("UnitSelect", () => {
 
   it("calls onChange when a unit is selected", async () => {
     const handleChange = vi.fn();
-    (global.fetch as any).mockResolvedValue({
+    (global.fetch as Mock).mockResolvedValue({
       ok: true,
       json: async () => mockCategories,
     });
@@ -123,7 +124,7 @@ describe("UnitSelect", () => {
 
   it("displays loading state", async () => {
     // Mock a pending promise
-    (global.fetch as any).mockReturnValue(new Promise(() => {}));
+    (global.fetch as Mock).mockReturnValue(new Promise(() => {}));
 
     render(<UnitSelect onChange={() => {}} />);
 
@@ -131,7 +132,7 @@ describe("UnitSelect", () => {
   });
 
   it("displays error state and retry button", async () => {
-    (global.fetch as any).mockRejectedValueOnce(new Error("Failed"));
+    (global.fetch as Mock).mockRejectedValueOnce(new Error("Failed"));
 
     render(<UnitSelect onChange={() => {}} />);
 

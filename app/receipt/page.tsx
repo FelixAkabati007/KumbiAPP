@@ -54,38 +54,13 @@ function ReceiptContent() {
     orderNumber: "",
     date: new Date().toLocaleDateString(),
     time: new Date().toLocaleTimeString(),
-    items: [
-      {
-        id: "gh-001",
-        name: "Jollof Rice with Chicken",
-        description:
-          "Traditional Ghanaian jollof rice served with grilled chicken",
-        price: 25.0,
-        category: "ghanaian",
-        barcode: "",
-        inStock: true,
-        quantity: 2,
-      },
-      {
-        id: "bev-001",
-        name: "Coca Cola",
-        description: "Classic Coca Cola soft drink",
-        price: 5.0,
-        category: "beverages",
-        barcode: "049000028911",
-        inStock: true,
-        quantity: 2,
-      },
-    ],
-    subtotal: 60.0,
-    tax: 7.5,
-    total: 67.5,
+    items: [],
+    subtotal: 0,
+    tax: 0,
+    total: 0,
     paymentMethod: "cash",
-    customerName: "John Doe",
     orderType: "dine-in",
-    tableNumber: "5",
   });
-
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);

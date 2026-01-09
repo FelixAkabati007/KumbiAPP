@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 export async function getSystemEvents(since?: string) {
   try {
     let text = "SELECT * FROM audit_logs";
-    const params: any[] = [];
+    const params: (string | number)[] = [];
 
     if (since) {
       text += " WHERE created_at > $1";

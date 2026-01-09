@@ -1,5 +1,3 @@
-import { env } from "./env";
-
 type SendEmailParams = {
   to: string;
   subject: string;
@@ -50,7 +48,6 @@ export async function sendEmail({ to, subject, text, html }: SendEmailParams) {
   if (SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS) {
     // Minimal SMTP over fetch is non-trivial; require nodemailer if SMTP is needed.
     // For now, warn and fallback to preview.
-    // eslint-disable-next-line no-console
     console.warn(
       "SMTP configuration provided but SMTP client not implemented; falling back to preview."
     );
@@ -61,7 +58,6 @@ export async function sendEmail({ to, subject, text, html }: SendEmailParams) {
 
   // Fallback
   const preview = { to, subject, text, html };
-  // eslint-disable-next-line no-console
   console.info("[Email Fallback Preview]", preview);
   return { success: true, preview };
 }

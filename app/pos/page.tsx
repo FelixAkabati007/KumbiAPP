@@ -54,7 +54,6 @@ import {
 import type { MenuItem, OrderItem, ReceiptData } from "@/lib/types";
 import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
-import { getSettings } from "@/lib/settings";
 import { useAuth } from "@/components/auth-provider";
 import { useSettings } from "@/components/settings-provider";
 import { OrderProvider, useOrders } from "@/lib/order-context";
@@ -493,7 +492,8 @@ function POSContent() {
   };
 
   // Generate receipt content
-  const generateReceiptContent = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _generateReceiptContent = () => {
     const date = new Date();
     const subtotal = calculateTotal();
     const tax = subtotal * 0.125;

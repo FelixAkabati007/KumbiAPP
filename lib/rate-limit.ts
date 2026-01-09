@@ -70,7 +70,7 @@ export async function isRateLimited(
  * Internal function to clean up old rate limit records.
  * Deletes records older than 24 hours.
  */
-async function cleanupOldRecords() {
+export async function cleanupOldRecords() {
   await query(
     "DELETE FROM signup_attempts WHERE created_at < NOW() - INTERVAL '24 hours'"
   );

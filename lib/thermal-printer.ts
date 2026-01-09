@@ -1,4 +1,4 @@
-import { getSettings, type PrinterConfig } from "./settings";
+import { type PrinterConfig } from "./settings";
 import { type ReceiptData } from "./types";
 export type { ReceiptData } from "./types";
 

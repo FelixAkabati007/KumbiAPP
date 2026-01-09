@@ -236,7 +236,8 @@ export async function getMenuItemsFromDatabase(): Promise<MenuItem[]> {
 }
 
 export async function saveMenuItemsToDatabase(
-  items: MenuItem[]
+  _items: MenuItem[]
 ): Promise<void> {
+  void _items;
   // Deprecated
 }

@@ -4,13 +4,24 @@ import { getSession } from "@/lib/auth";
 import { updateSystemState } from "@/lib/system-sync";
 import { logAudit } from "@/lib/audit";
 
+interface MenuRow {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  barcode: string | null;
+  is_available: boolean;
+  image_url: string | null;
+  category_slug: string | null;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const res = await query<any>(
+    const res = await query<MenuRow>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available,
              mi.image_url, c.slug AS category_slug
@@ -76,7 +87,7 @@ export async function PUT(
 
     // Build dynamic update query
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | boolean | null | undefined)[] = [];
     let idx = 1;
 
     if (name) {

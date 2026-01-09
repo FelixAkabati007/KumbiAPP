@@ -78,7 +78,6 @@ export async function routerBackSteps(
   const count = Math.max(1, Math.floor(steps));
   for (let i = 0; i < count; i++) {
     router.back();
-    // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 }

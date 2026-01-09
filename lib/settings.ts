@@ -257,7 +257,8 @@ export async function fetchSettings(): Promise<AppSettings> {
 }
 
 // Kept for synchronous compatibility during migration, but prefers API if possible
-export function getSettings(useDefaults = false): AppSettings {
+export function getSettings(_useDefaults = false): AppSettings {
+  void _useDefaults;
   // Synchronous access is deprecated in Neon-only mode.
   // Returns defaults to avoid blocking render. Components must use fetchSettings().
   return defaultSettings;

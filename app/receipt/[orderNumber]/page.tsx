@@ -15,14 +15,13 @@ export default function ReceiptRedirectPage() {
       // Redirect to the canonical receipt page which renders the preview
       if (orderNumber) {
         router.replace(
-          `/receipt?orderNumber=${encodeURIComponent(orderNumber)}`,
+          `/receipt?orderNumber=${encodeURIComponent(orderNumber)}`
         );
       } else {
         router.replace("/receipt");
       }
     } catch (e) {
       // Avoid console errors during generation; swallow and continue
-      // eslint-disable-next-line no-console
       console.warn("Receipt redirect warning:", e);
     }
   }, [orderNumber, router]);

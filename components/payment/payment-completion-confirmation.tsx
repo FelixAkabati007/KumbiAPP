@@ -20,11 +20,11 @@ export function usePaymentCompletionConfirmation(options?: {
   }>({});
 
   useEffect(() => {
+    const timeouts = timeoutsRef.current;
     return () => {
-      if (timeoutsRef.current.show) clearTimeout(timeoutsRef.current.show);
-      if (timeoutsRef.current.hide) clearTimeout(timeoutsRef.current.hide);
-      if (timeoutsRef.current.unmount)
-        clearTimeout(timeoutsRef.current.unmount);
+      if (timeouts.show) clearTimeout(timeouts.show);
+      if (timeouts.hide) clearTimeout(timeouts.hide);
+      if (timeouts.unmount) clearTimeout(timeouts.unmount);
     };
   }, []);
 

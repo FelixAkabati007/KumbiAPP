@@ -32,7 +32,7 @@ export async function GET() {
       id: r.id,
       name: r.menu_item_name ?? r.name ?? "",
       sku: r.menu_item_barcode ?? r.sku ?? "",
-      category: (r.category as any) ?? "ingredient",
+      category: (r.category as string) ?? "ingredient",
       quantity: String(r.quantity),
       unit: r.unit ?? "units",
       reorderLevel: String(r.reorder_level ?? 0),
@@ -55,7 +55,17 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     const body = await req.json();
-    const { menuItemId, quantity, unit, reorderLevel, cost, supplier, name, sku, category } = body;
+    const {
+      menuItemId,
+      quantity,
+      unit,
+      reorderLevel,
+      cost,
+      supplier,
+      name,
+      sku,
+      category,
+    } = body;
 
     let res;
     if (menuItemId) {

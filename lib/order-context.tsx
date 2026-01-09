@@ -91,7 +91,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auto-update order status based on item statuses
-  const updateOrderStatusFromItems = useCallback(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _updateOrderStatusFromItems = useCallback(
     (order: KitchenOrder): KitchenOrder["status"] => {
       const itemStatuses = order.items.map((item) => item.status || "pending");
 

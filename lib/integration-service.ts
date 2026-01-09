@@ -305,8 +305,6 @@ class IntegrationService {
     orderType?: string;
     tableNumber?: string;
   }): Promise<boolean> {
-    let transactionReference = "";
-
     try {
       // Log transaction attempt for all payment methods
       // Open cash drawer if cash payment and enabled

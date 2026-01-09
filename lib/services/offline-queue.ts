@@ -7,7 +7,6 @@ export interface QueuedRequest {
   retryCount: number;
 }
 
-const QUEUE_KEY = "offline_request_queue";
 const MAX_RETRIES = 5;
 
 export class OfflineQueueService {
@@ -18,7 +17,7 @@ export class OfflineQueueService {
   private constructor() {
     // In-memory queue only for Neon-only mode.
     // No localStorage loading.
-    
+
     // Try to process queue on startup and when online status changes
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => this.processQueue());

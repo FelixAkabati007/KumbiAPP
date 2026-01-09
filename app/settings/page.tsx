@@ -26,7 +26,6 @@ import {
   Database,
   Shield,
   Sparkles,
-  DollarSign,
   QrCode,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";

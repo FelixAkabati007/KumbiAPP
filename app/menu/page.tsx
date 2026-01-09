@@ -94,7 +94,6 @@ const createEmptyMenuItem = (): MenuItem => {
 };
 
 function MenuContent() {
-  // eslint-disable-next-line no-console
   console.debug("🚀 [MenuPage] Component initializing");
 
   const { user, isLoading: authLoading } = useAuth();
@@ -121,7 +120,6 @@ function MenuContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // eslint-disable-next-line no-console
   console.debug("👤 [MenuPage] Current user:", {
     id: user?.id ?? null,
     role: user?.role ?? null,
@@ -131,7 +129,6 @@ function MenuContent() {
   // Load menu items from storage on mount
   useEffect(() => {
     const loadItems = async () => {
-      // eslint-disable-next-line no-console
       console.debug("📥 [MenuPage] Loading menu items from storage");
       setIsLoading(true);
       setError(null);
@@ -200,7 +197,6 @@ function MenuContent() {
       );
     }
 
-    // eslint-disable-next-line no-console
     console.debug("✅ [MenuPage] Filtered items:", {
       filteredCount: filtered.length,
       originalCount: items.length,
@@ -517,18 +513,6 @@ function MenuContent() {
       </div>
     );
   }
-
-  // eslint-disable-next-line no-console
-  console.debug("🎨 [MenuPage] Rendering component", {
-    totalItems: items.length,
-    filteredItems: filteredItems.length,
-    searchTerm: searchTerm || null,
-    selectedCategory: selectedCategory || null,
-    isDialogOpen: Boolean(isDialogOpen),
-    isLoading: Boolean(isLoading),
-    isSaving: Boolean(isSaving),
-    error: error ?? null,
-  });
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">

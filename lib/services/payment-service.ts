@@ -15,7 +15,6 @@ import { getSettings, type AppSettings } from "../settings";
 import {
   addSaleData,
   getInventoryItems,
-  saveInventoryItems,
   updateInventoryItem,
   getOrderNumber,
 } from "../data";
