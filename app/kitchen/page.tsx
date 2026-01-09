@@ -109,7 +109,7 @@ function KitchenContent() {
     }
     setPreviousOrderCount(orders.length);
   }, [orders.length, previousOrderCount, toast]);
-    let filtered = [...orders];
+  let filtered = [...orders];
   // Filter and sort orders
   const filteredAndSortedOrders = useMemo(() => {
     let filtered = orders;
@@ -215,19 +215,28 @@ function KitchenContent() {
     itemId: string,
     status: OrderItem["status"]
   ) => {
-    // Optimistic update
-    updateOrderItemStatus(orderId, itemId, status);
-
-    // Play sound for specific statuses without blocking
+    // Play sound for specific statuses immediately (optimistic)
     if (status === "ready" || status === "served") {
       playNotificationSound();
     }
 
-    // Toast notification
-    toast({
-      title: "Item Status Updated",
-      description: `Item status changed to ${status}`,
-    });
+    // Call update (optimistic UI update happens inside)
+    const success = await updateOrderItemStatus(orderId, itemId, status);
+
+    if (success) {
+      // Toast notification on success
+      toast({
+        title: "Item Status Updated",
+        description: `Item status changed to ${status}`,
+      });
+    } else {
+      // Error notification on failure
+      toast({
+        title: "Update Failed",
+        description: "Failed to sync status with database. Changes reverted.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOrderPriorityChange = (

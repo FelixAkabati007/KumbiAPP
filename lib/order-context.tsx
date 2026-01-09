@@ -38,7 +38,7 @@ interface OrderContextType {
     orderId: string,
     itemId: string,
     status: OrderItem["status"]
-  ) => void;
+  ) => Promise<boolean>;
   updateOrderNotes: (orderId: string, notes: string) => void;
   updateOrderPriority: (
     orderId: string,
@@ -183,6 +183,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderItemStatus = useCallback(
     async (orderId: string, itemId: string, status: OrderItem["status"]) => {
+      // Validation
+      const validStatuses: OrderItem["status"][] = [
+        "pending",
+        "preparing",
+        "ready",
+        "served",
+      ];
+      if (!validStatuses.includes(status)) {
+        console.error(`Invalid status: ${status}`);
+        return false;
+      }
+
       // Optimistic update
       setOrders((prev) => {
         const updated = prev.map((order) => {
@@ -221,18 +233,25 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
 
-      // Non-blocking API update
+      // API Update with Error Handling
       try {
-        fetch(`/api/orders/${orderId}/items/${itemId}`, {
+        const res = await fetch(`/api/orders/items/${itemId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status }),
-        }).catch((err) => console.error("Background sync failed:", err));
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to update item status: ${res.statusText}`);
+        }
+        return true;
       } catch (error) {
-        console.error("Failed to update item status:", error);
+        console.error("Failed to update item status, reverting:", error);
+        loadOrders(); // Revert to server state on error
+        return false;
       }
     },
-    [saveOrders]
+    [saveOrders, loadOrders]
   );
 
   const updateOrderNotes = useCallback(
