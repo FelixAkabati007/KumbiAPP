@@ -25,7 +25,7 @@ import { useAuth } from "@/components/auth-provider";
 import { RefundRequestDialog } from "@/components/refund-request-dialog";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
-import { ArrowLeft, DollarSign, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, DollarSign, Plus, RefreshCw, Loader2 } from "lucide-react";
 
 const RefundStats = dynamic(
   () =>
@@ -112,6 +112,7 @@ function RefundsPageContent() {
       // We'll keep it as is.
       const newStats = await getRefundStats();
       setStats(newStats);
+      return true;
     } catch (error) {
       console.error("Failed to load refunds:", error);
       toast({
@@ -119,10 +120,22 @@ function RefundsPageContent() {
         description: "Failed to load refunds data",
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, [toast, searchTerm, statusFilter, dateFilter]);
+
+  const handleRefresh = async () => {
+    if (isLoading) return;
+    const success = await loadRefunds();
+    if (success) {
+      toast({
+        title: "Refreshed",
+        description: "Refund list updated successfully",
+      });
+    }
+  };
 
   useEffect(() => {
     // Debounce search
@@ -257,10 +270,17 @@ function RefundsPageContent() {
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <Button
             variant="outline"
-            onClick={loadRefunds}
-            className="hidden sm:flex bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            aria-label="Refresh refund list"
+            aria-busy={isLoading}
+            className="hidden sm:flex bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 transition-all duration-200"
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
             Refresh
           </Button>
           <Button

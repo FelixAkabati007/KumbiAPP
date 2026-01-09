@@ -52,7 +52,7 @@ interface OrderContextType {
   ) => void;
   getOrderById: (orderId: string) => KitchenOrder | undefined;
   getOrdersByClient: () => Record<string, KitchenOrder[]>;
-  refreshOrders: () => void;
+  refreshOrders: () => Promise<boolean>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -63,15 +63,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   // Load orders from API
   const loadOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch("/api/orders", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
+        return true;
       } else {
         console.error("Failed to load orders");
+        return false;
       }
     } catch (error) {
       console.error("Error loading orders:", error);
+      return false;
     }
   }, []);
 
@@ -428,8 +431,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     return clientGroups;
   }, [orders]);
 
-  const refreshOrders = useCallback(() => {
-    loadOrders();
+  const refreshOrders = useCallback(async () => {
+    return await loadOrders();
   }, [loadOrders]);
 
   // Auto-archive completed orders after 24 hours

@@ -36,6 +36,7 @@ import {
   CheckCircle,
   Circle,
   Play,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
@@ -48,6 +49,40 @@ import type { OrderItem } from "@/lib/types";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 
+function WaitTimer({ createdAt }: { createdAt: string }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const start = new Date(createdAt).getTime();
+      const now = new Date().getTime();
+      setElapsed(Math.floor((now - start) / 60000));
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  let colorClass =
+    "text-green-600 bg-green-100 border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400";
+  if (elapsed > 20)
+    colorClass =
+      "text-red-600 bg-red-100 border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400";
+  else if (elapsed > 10)
+    colorClass =
+      "text-yellow-600 bg-yellow-100 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400";
+
+  return (
+    <Badge
+      variant="outline"
+      className={`${colorClass} ml-auto flex items-center gap-1`}
+    >
+      <Clock className="h-3 w-3" />
+      {elapsed}m
+    </Badge>
+  );
+}
+
 function KitchenContent() {
   const { toast } = useToast();
   const { orders, updateOrderItemStatus, getOrdersByClient, refreshOrders } =
@@ -57,10 +92,11 @@ function KitchenContent() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const [previousOrderCount, setPreviousOrderCount] = useState(0);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Real-time updates
   useEffect(() => {
@@ -72,6 +108,34 @@ function KitchenContent() {
     return () =>
       window.removeEventListener("ordersUpdated", handleOrdersUpdate);
   }, [refreshOrders]);
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      const success = await refreshOrders();
+      if (success) {
+        toast({
+          title: "Kitchen Updated",
+          description: "Order display synchronized successfully",
+          duration: 2000,
+        });
+      } else {
+        throw new Error("Failed to fetch orders");
+      }
+    } catch (error) {
+      console.error("Refresh failed:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Could not synchronize orders. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -196,6 +260,17 @@ function KitchenContent() {
 
     return stats.sort((a, b) => b.totalOrders - a.totalOrders);
   }, [getOrdersByClient]);
+
+  const statusCounts = useMemo(
+    () => ({
+      pending: orders.filter((o) => o.status === "pending").length,
+      "in-progress": orders.filter((o) => o.status === "in-progress").length,
+      ready: orders.filter((o) => o.status === "ready").length,
+      completed: orders.filter((o) => o.status === "completed").length,
+      all: orders.length,
+    }),
+    [orders]
+  );
 
   const handleItemStatusChange = async (
     orderId: string,
@@ -325,10 +400,14 @@ function KitchenContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={refreshOrders}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
             className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            <span className="sr-only">Refresh Orders</span>
           </Button>
           <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
             <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
@@ -452,15 +531,69 @@ function KitchenContent() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
+                  <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2 w-full">
+                        <span>All Status</span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs h-5 px-1.5 min-w-[1.5rem] justify-center"
+                        >
+                          {statusCounts.all}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="pending">
+                      <div className="flex items-center gap-2 w-full">
+                        <Circle className="h-2 w-2 text-orange-500 fill-orange-500" />
+                        <span>Pending</span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs h-5 px-1.5 min-w-[1.5rem] justify-center bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                        >
+                          {statusCounts.pending}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="in-progress">
+                      <div className="flex items-center gap-2 w-full">
+                        <Play className="h-2 w-2 text-blue-500 fill-blue-500" />
+                        <span>In Progress</span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs h-5 px-1.5 min-w-[1.5rem] justify-center bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        >
+                          {statusCounts["in-progress"]}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ready">
+                      <div className="flex items-center gap-2 w-full">
+                        <CheckCircle className="h-2 w-2 text-green-500 fill-green-500" />
+                        <span>Ready</span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs h-5 px-1.5 min-w-[1.5rem] justify-center bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        >
+                          {statusCounts.ready}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      <div className="flex items-center gap-2 w-full">
+                        <CheckCircle className="h-2 w-2 text-gray-500" />
+                        <span>Completed</span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs h-5 px-1.5 min-w-[1.5rem] justify-center bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+                        >
+                          {statusCounts.completed}
+                        </Badge>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -519,7 +652,45 @@ function KitchenContent() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10"></div>
 
-                  <CardContent className="p-4 pt-0 relative z-10">
+                  <CardContent className="p-4 relative z-10">
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-orange-100 dark:border-orange-800">
+                      <div>
+                        <h3 className="font-bold text-lg text-orange-900 dark:text-orange-100">
+                          Order #{order.orderNumber}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          {order.tableNumber && (
+                            <span className="font-medium text-orange-700 dark:text-orange-300">
+                              Table {order.tableNumber}
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>
+                            {new Date(order.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {order.priority === "urgent" && (
+                          <Badge
+                            variant="destructive"
+                            className="animate-pulse"
+                          >
+                            Urgent
+                          </Badge>
+                        )}
+                        {order.priority === "high" && (
+                          <Badge className="bg-orange-500 hover:bg-orange-600">
+                            High
+                          </Badge>
+                        )}
+                        <WaitTimer createdAt={order.createdAt} />
+                      </div>
+                    </div>
+
                     <div className="space-y-3">
                       {order.items.map((item) => (
                         <div
