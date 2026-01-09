@@ -21,6 +21,8 @@ import {
 
 import { offlineQueue } from "./offline-queue";
 
+import { inventoryManager } from "./inventory-manager";
+
 export class PaymentService {
   private printer: ThermalPrinterService;
 
@@ -131,9 +133,9 @@ export class PaymentService {
       }
 
       // 4. Update inventory
-      // 4. Update inventory using simple local decrement logic
       const inventoryUpdateResult = await this.updateInventoryFromOrder(
-        order.items
+        order.items,
+        orderData.id
       );
       if (!inventoryUpdateResult.success) {
         throw new Error(
@@ -336,9 +338,27 @@ export class PaymentService {
 
   // Simple inventory decrementer: find inventory items by name and reduce quantity
   private async updateInventoryFromOrder(
-    items: OrderItem[]
+    items: OrderItem[],
+    orderId?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      const ENABLE_RECIPE_DEDUCTION = true; // Feature flag
+
+      if (ENABLE_RECIPE_DEDUCTION && orderId) {
+        // Map OrderItem to InventoryDeductionItem
+        const deductionItems = items.map((i) => ({
+          menu_item_id: i.id,
+          item_name: i.name,
+          quantity: i.quantity,
+        }));
+
+        await inventoryManager.deductIngredientsForOrder(
+          orderId,
+          deductionItems
+        );
+        return { success: true };
+      }
+
       const inventory: InventoryItem[] = await getInventoryItems();
 
       for (const ordered of items) {

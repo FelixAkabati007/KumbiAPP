@@ -34,6 +34,8 @@ import {
   AlertCircle,
   ArrowLeft,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RecipeManager } from "@/components/menu/recipe-manager";
 import { useAuth } from "@/components/auth-provider";
 import {
   getMenuItems,
@@ -702,7 +704,7 @@ function MenuContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>
                 {isNewItem ? "Add New Menu Item" : "Edit Menu Item"}
@@ -713,129 +715,145 @@ function MenuContent() {
                   : "Update the menu item details below."}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={editingItem.name}
-                  onChange={handleNameChange}
-                  placeholder="Enter item name"
-                  className={formErrors.name ? "border-red-500" : ""}
-                />
-                {formErrors.name && (
-                  <p className="text-sm text-red-500">{formErrors.name}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  value={editingItem.description}
-                  onChange={handleDescriptionChange}
-                  placeholder="Enter item description"
-                  className={formErrors.description ? "border-red-500" : ""}
-                />
-                {formErrors.description && (
-                  <p className="text-sm text-red-500">
-                    {formErrors.description}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="price">Price (₵)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editingItem.price}
-                  onChange={handlePriceChange}
-                  placeholder="0.00"
-                  className={formErrors.price ? "border-red-500" : ""}
-                />
-                {formErrors.price && (
-                  <p className="text-sm text-red-500">{formErrors.price}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={editingItem.category}
-                  onValueChange={handleCategorySelectChange}
-                >
-                  <SelectTrigger
-                    className={formErrors.category ? "border-red-500" : ""}
+            <Tabs defaultValue="details">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="recipe" disabled={isNewItem}>
+                  Recipe
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details">
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={editingItem.name}
+                      onChange={handleNameChange}
+                      placeholder="Enter item name"
+                      className={formErrors.name ? "border-red-500" : ""}
+                    />
+                    {formErrors.name && (
+                      <p className="text-sm text-red-500">{formErrors.name}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Input
+                      id="description"
+                      value={editingItem.description}
+                      onChange={handleDescriptionChange}
+                      placeholder="Enter item description"
+                      className={formErrors.description ? "border-red-500" : ""}
+                    />
+                    {formErrors.description && (
+                      <p className="text-sm text-red-500">
+                        {formErrors.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="price">Price (₵)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editingItem.price}
+                      onChange={handlePriceChange}
+                      placeholder="0.00"
+                      className={formErrors.price ? "border-red-500" : ""}
+                    />
+                    {formErrors.price && (
+                      <p className="text-sm text-red-500">{formErrors.price}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Select
+                      value={editingItem.category}
+                      onValueChange={handleCategorySelectChange}
+                    >
+                      <SelectTrigger
+                        className={formErrors.category ? "border-red-500" : ""}
+                      >
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ghanaian">Ghanaian</SelectItem>
+                        <SelectItem value="continental">Continental</SelectItem>
+                        <SelectItem value="beverages">Beverages</SelectItem>
+                        <SelectItem value="desserts">Desserts</SelectItem>
+                        <SelectItem value="sides">Sides</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formErrors.category && (
+                      <p className="text-sm text-red-500">
+                        {formErrors.category}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="barcode">Barcode (Optional)</Label>
+                    <Input
+                      id="barcode"
+                      value={editingItem.barcode || ""}
+                      onChange={handleBarcodeChange}
+                      placeholder="Enter barcode"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="inStock">Stock Status</Label>
+                    <Select
+                      value={editingItem.inStock.toString()}
+                      onValueChange={handleStockChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">In Stock</SelectItem>
+                        <SelectItem value="false">Out of Stock</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="image">Image URL (Optional)</Label>
+                    <Input
+                      id="image"
+                      value={editingItem.image || ""}
+                      onChange={handleImageChange}
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={handleDialogClose}
+                    disabled={isSaving}
                   >
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ghanaian">Ghanaian</SelectItem>
-                    <SelectItem value="continental">Continental</SelectItem>
-                    <SelectItem value="beverages">Beverages</SelectItem>
-                    <SelectItem value="desserts">Desserts</SelectItem>
-                    <SelectItem value="sides">Sides</SelectItem>
-                  </SelectContent>
-                </Select>
-                {formErrors.category && (
-                  <p className="text-sm text-red-500">{formErrors.category}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="barcode">Barcode (Optional)</Label>
-                <Input
-                  id="barcode"
-                  value={editingItem.barcode || ""}
-                  onChange={handleBarcodeChange}
-                  placeholder="Enter barcode"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="inStock">Stock Status</Label>
-                <Select
-                  value={editingItem.inStock.toString()}
-                  onValueChange={handleStockChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">In Stock</SelectItem>
-                    <SelectItem value="false">Out of Stock</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="image">Image URL (Optional)</Label>
-                <Input
-                  id="image"
-                  value={editingItem.image || ""}
-                  onChange={handleImageChange}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={handleDialogClose}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveItem}
-                disabled={isSaving}
-                className="flex items-center gap-2"
-              >
-                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isSaving
-                  ? "Saving..."
-                  : isNewItem
-                    ? "Add Item"
-                    : "Save Changes"}
-              </Button>
-            </DialogFooter>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveItem}
+                    disabled={isSaving}
+                    className="flex items-center gap-2"
+                  >
+                    {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isSaving
+                      ? "Saving..."
+                      : isNewItem
+                        ? "Add Item"
+                        : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+              <TabsContent value="recipe">
+                <RecipeManager menuItemId={editingItem.id} />
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </main>
