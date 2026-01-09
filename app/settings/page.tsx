@@ -81,7 +81,7 @@ function SettingsPageContent() {
       ownerName: "",
       email: "",
       phone: "",
-      address: "123 Main Street, Accra, Ghana",
+      address: "Offinso - Abofour, Ashanti, Ghana.",
       logo: "",
     },
     system: {

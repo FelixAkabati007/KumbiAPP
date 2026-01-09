@@ -26,7 +26,7 @@ async function main() {
         owner_name TEXT DEFAULT '',
         email TEXT DEFAULT '',
         phone TEXT DEFAULT '',
-        address TEXT DEFAULT '123 Main Street, Accra, Ghana',
+        address TEXT DEFAULT 'Offinso - Abofour, Ashanti, Ghana.',
         logo TEXT DEFAULT '', -- Store Base64 or URL
         updated_at TIMESTAMPTZ DEFAULT timezone('utc', now()),
         CONSTRAINT single_profile CHECK (id = 1)
@@ -38,7 +38,7 @@ async function main() {
     console.log("Initializing default restaurant profile...");
     await sql`
       INSERT INTO restaurant_profile (id, restaurant_name, owner_name, email, phone, address, logo)
-      VALUES (1, 'Kumbisaly Heritage Restaurant', '', '', '', '123 Main Street, Accra, Ghana', '')
+      VALUES (1, 'Kumbisaly Heritage Restaurant', '', '', '', 'Offinso - Abofour, Ashanti, Ghana.', '')
       ON CONFLICT (id) DO NOTHING;
     `;
     console.log("Initialized default restaurant profile.");

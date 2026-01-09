@@ -548,15 +548,13 @@ function POSContent() {
     const businessName =
       appSettings.account.restaurantName ||
       appSettings.businessName ||
-      "KHH RESTAURANT";
+      "Kumbisaly Heritage Restaurant";
     const businessAddress =
       appSettings.account.address ||
       appSettings.businessAddress ||
-      "123 Main Street, Accra, Ghana";
+      "Offinso - Abofour, Ashanti, Ghana.";
     const businessPhone =
-      appSettings.account.phone ||
-      appSettings.businessPhone ||
-      "+233 20 123 4567";
+      appSettings.account.phone || appSettings.businessPhone || "0535975442";
 
     return `
       <div class="receipt">
