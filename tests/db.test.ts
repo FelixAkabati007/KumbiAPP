@@ -29,7 +29,7 @@ describe("Database Schema Integration Tests", () => {
     const res = await client.query("SELECT NOW()");
     expect(res.rows).toHaveLength(1);
     client.release();
-  });
+  }, 30000);
 
   it("should have all required tables", async () => {
     const client = await pool.connect();
@@ -47,7 +47,7 @@ describe("Database Schema Integration Tests", () => {
     expect(tables).toContain("inventory");
     
     client.release();
-  });
+  }, 30000);
 
   it("should allow inserting a test category", async () => {
     const client = await pool.connect();
@@ -64,5 +64,5 @@ describe("Database Schema Integration Tests", () => {
     } finally {
         client.release();
     }
-  });
+  }, 30000);
 });

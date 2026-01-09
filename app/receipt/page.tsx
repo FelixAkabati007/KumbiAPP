@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Receipt, Printer, Download } from "lucide-react";
+import { ArrowLeft, Receipt, Printer } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
@@ -265,24 +265,6 @@ function ReceiptContent() {
     }
   };
 
-  const handleDownload = () => {
-    if (printRef.current) {
-      const receiptContent = printRef.current.innerText;
-      const blob = new Blob([receiptContent], { type: "text/plain" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `receipt-${receiptData.orderNumber}.txt`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
-
-    toast({
-      title: "Receipt Downloaded",
-      description: "Receipt has been downloaded as text file",
-    });
-  };
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
       <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
@@ -298,14 +280,6 @@ function ReceiptContent() {
           </h1>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            onClick={handleDownload}
-            variant="outline"
-            className="rounded-2xl border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 bg-transparent"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download
-          </Button>
           <Button
             onClick={handlePrint}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"

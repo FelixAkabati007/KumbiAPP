@@ -1,11 +1,19 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 import { POST as signupPost } from "../../app/api/auth/signup/route";
 
-vi.mock("../../lib/db", () => ({
+vi.mock("@/lib/db", () => ({
   query: vi.fn(async () => ({ rows: [] })),
 }));
 
-vi.mock("../../lib/email", () => ({
+vi.mock("@/lib/email", () => ({
   sendEmail: vi.fn(async () => ({ success: true })),
   buildVerificationEmail: vi.fn((link: string) => ({
     subject: "Verify",
@@ -14,15 +22,26 @@ vi.mock("../../lib/email", () => ({
   })),
 }));
 
-vi.mock("../../lib/rate-limit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   recordSignupAttempt: vi.fn(async () => {}),
   isRateLimited: vi.fn(async () => false),
 }));
 
 describe("Signup API validation", () => {
+  const originalNeonAuthApiUrl = process.env.NEON_AUTH_API_URL;
+
   beforeEach(() => {
     // reset mocks
     vi.clearAllMocks();
+    process.env.NEON_AUTH_API_URL = "";
+  });
+
+  afterEach(() => {
+    if (originalNeonAuthApiUrl === undefined) {
+      delete process.env.NEON_AUTH_API_URL;
+    } else {
+      process.env.NEON_AUTH_API_URL = originalNeonAuthApiUrl;
+    }
   });
 
   it("rejects missing fields", async () => {
@@ -43,6 +62,7 @@ describe("Signup API validation", () => {
       body: JSON.stringify({
         email: "bad@",
         password: "Aa123456",
+        confirmPassword: "Aa123456",
         name: "Foo",
         role: "staff",
       }),
@@ -60,6 +80,7 @@ describe("Signup API validation", () => {
       body: JSON.stringify({
         email: "a@b.com",
         password: "weak",
+        confirmPassword: "weak",
         name: "Foo",
         role: "staff",
       }),
@@ -73,7 +94,7 @@ describe("Signup API validation", () => {
 
   it("rejects duplicate email", async () => {
     // Mock existing user
-    const { query } = await import("../../lib/db");
+    const { query } = await import("@/lib/db");
     // @ts-expect-error: mocking
     query.mockResolvedValueOnce({ rows: [{ id: "existing" }] });
 
@@ -82,7 +103,9 @@ describe("Signup API validation", () => {
       body: JSON.stringify({
         email: "exists@test.com",
         password: "Password123",
+        confirmPassword: "Password123",
         name: "Existing User",
+        role: "staff",
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -94,7 +117,7 @@ describe("Signup API validation", () => {
 
   it("registers valid user successfully", async () => {
     // Mock no existing user, then insert success
-    const { query } = await import("../../lib/db");
+    const { query } = await import("@/lib/db");
     (query as unknown as Mock)
       .mockResolvedValueOnce({ rows: [] }) // check existence
       .mockResolvedValueOnce({
@@ -114,7 +137,9 @@ describe("Signup API validation", () => {
       body: JSON.stringify({
         email: "new@test.com",
         password: "Password123",
+        confirmPassword: "Password123",
         name: "New User",
+        role: "staff",
       }),
       headers: { "Content-Type": "application/json" },
     });

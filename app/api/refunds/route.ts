@@ -1,46 +1,81 @@
 import { NextResponse } from "next/server";
-import { query, checkConnection } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
-export const runtime = "nodejs";
+const VALID_STATUSES = ["pending", "approved", "rejected", "completed"] as const;
+
+function isValidStatus(value: unknown): value is (typeof VALID_STATUSES)[number] {
+  return typeof value === "string" && (VALID_STATUSES as readonly string[]).includes(value);
+}
 
 export async function GET(request: Request) {
   try {
-    const ok = await checkConnection();
-    if (!ok) {
-      return NextResponse.json([]);
-    }
     const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get("orderId");
-    const status = searchParams.get("status");
+    const orderId = searchParams.get("orderId")?.trim() || undefined;
+    const statusParam = searchParams.get("status")?.trim() || undefined;
+    const limitParam = searchParams.get("limit")?.trim() || undefined;
+    const offsetParam = searchParams.get("offset")?.trim() || undefined;
 
-    let queryText = "SELECT * FROM refundrequests";
-    const params: (string | number | boolean | null)[] = [];
-    const conditions: string[] = [];
+    const limit = Math.min(Math.max(Number(limitParam || "200"), 1), 500);
+    const offset = Math.max(Number(offsetParam || "0"), 0);
+
+    if (statusParam && !isValidStatus(statusParam)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    const whereParts: string[] = [];
+    const params: (string | number)[] = [];
 
     if (orderId) {
-      conditions.push(`orderid = $${params.length + 1}`);
       params.push(orderId);
+      whereParts.push(`orderid = $${params.length}`);
     }
 
-    if (status) {
-      conditions.push(`status = $${params.length + 1}`);
-      params.push(status);
+    if (statusParam) {
+      params.push(statusParam);
+      whereParts.push(`status = $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      queryText += " WHERE " + conditions.join(" AND ");
-    }
+    params.push(limit);
+    const limitIndex = params.length;
+    params.push(offset);
+    const offsetIndex = params.length;
 
-    queryText += " ORDER BY requestedat DESC";
+    const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
-    const result = await query(queryText, params);
+    const result = await query(
+      `
+        SELECT
+          id,
+          orderid,
+          ordernumber,
+          customername,
+          originalamount,
+          refundamount,
+          paymentmethod,
+          reason,
+          authorizedby,
+          additionalnotes,
+          status,
+          requestedby,
+          requestedat,
+          approvedby,
+          approvedat,
+          completedat,
+          refundmethod,
+          transactionid
+        FROM refundrequests
+        ${whereSql}
+        ORDER BY requestedat DESC
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
+      `,
+      params
+    );
 
-    // Map DB fields to camelCase for frontend compatibility if needed,
-    // but better to align frontend to use the API response directly or map it there.
-    // Let's return as is and handle mapping in the frontend service or component.
     return NextResponse.json(result.rows);
-  } catch {
-    return NextResponse.json([]);
+  } catch (error) {
+    console.error("Failed to fetch refunds:", error);
+    return NextResponse.json({ error: "Failed to fetch refunds" }, { status: 500 });
   }
 }
 
@@ -58,43 +93,116 @@ export async function POST(request: Request) {
       authorizedBy,
       additionalNotes,
       requestedBy,
-    } = body;
+      transactionId,
+    } = body as Record<string, unknown>;
 
-    // Validation
-    if (!orderId || !refundAmount || !reason || !authorizedBy) {
+    const settings = getSettings().system.refunds;
+
+    if (!settings.enabled) {
+      return NextResponse.json({ error: "Refunds are not enabled" }, { status: 400 });
+    }
+
+    if (
+      typeof orderId !== "string" ||
+      typeof orderNumber !== "string" ||
+      typeof customerName !== "string" ||
+      typeof paymentMethod !== "string" ||
+      typeof reason !== "string" ||
+      typeof authorizedBy !== "string" ||
+      typeof requestedBy !== "string"
+    ) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const original = Number(originalAmount);
+    const refund = Number(refundAmount);
+
+    if (!Number.isFinite(original) || original <= 0) {
+      return NextResponse.json({ error: "Invalid originalAmount" }, { status: 400 });
+    }
+    if (!Number.isFinite(refund) || refund <= 0) {
+      return NextResponse.json({ error: "Invalid refundAmount" }, { status: 400 });
+    }
+    if (refund > original) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Refund amount cannot exceed original amount" },
         { status: 400 }
       );
     }
+    if (!settings.allowedPaymentMethods.includes(paymentMethod)) {
+      return NextResponse.json({ error: "Payment method not allowed for refunds" }, { status: 400 });
+    }
 
-    const result = await query(
-      `INSERT INTO refundrequests (
-        orderid, ordernumber, customername, originalamount, refundamount,
-        paymentmethod, reason, authorizedby, additionalnotes, requestedby,
-        status, requestedat
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', NOW())
-      RETURNING *`,
-      [
-        orderId,
-        orderNumber,
-        customerName,
-        originalAmount,
-        refundAmount,
-        paymentMethod,
-        reason,
-        authorizedBy,
-        additionalNotes || null,
-        requestedBy,
-      ]
-    );
+    const nowIso = new Date().toISOString();
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const created = await transaction(async (client) => {
+      const insertRes = await client.query(
+        `
+          INSERT INTO refundrequests (
+            orderid,
+            ordernumber,
+            customername,
+            originalamount,
+            refundamount,
+            paymentmethod,
+            reason,
+            authorizedby,
+            additionalnotes,
+            status,
+            requestedby,
+            requestedat,
+            transactionid
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8,
+            $9, 'pending', $10, NOW(), $11
+          )
+          RETURNING *
+        `,
+        [
+          orderId,
+          orderNumber,
+          customerName,
+          original.toFixed(2),
+          refund.toFixed(2),
+          paymentMethod,
+          reason,
+          authorizedBy,
+          typeof additionalNotes === "string" ? additionalNotes : null,
+          requestedBy,
+          typeof transactionId === "string" ? transactionId : null,
+        ]
+      );
+
+      const refundRow = insertRes.rows[0];
+
+      await client.query(
+        `
+          INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          refundRow.id,
+          "requested",
+          requestedBy,
+          "Refund requested",
+          JSON.stringify({
+            orderId,
+            orderNumber,
+            paymentMethod,
+            originalAmount: original,
+            refundAmount: refund,
+          }),
+          nowIso,
+        ]
+      );
+
+      return refundRow;
+    });
+
+    return NextResponse.json(created);
   } catch (error) {
-    console.error("Failed to create refund request:", error);
-    return NextResponse.json(
-      { error: "Failed to create refund request" },
-      { status: 500 }
-    );
+    console.error("Failed to create refund:", error);
+    return NextResponse.json({ error: "Failed to create refund" }, { status: 500 });
   }
 }
+

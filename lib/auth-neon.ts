@@ -40,7 +40,8 @@ export async function getNeonSession() {
   }
 }
 
-export async function signInWithEmail(email: string) {
+export async function signInWithEmail(_email: string) {
+  void _email;
   // This triggers the magic link or OTP flow
   // return await neonClient.auth.signIn.email({
   //   email,
@@ -57,7 +58,7 @@ export async function signUpWithEmail(
   name: string,
   password: string
 ) {
-  // @ts-ignore - Allowing password if supported by the adapter
+  // @ts-expect-error - Allowing password if supported by the adapter
   return await neonClient.auth.signUp.email({
     email,
     password,

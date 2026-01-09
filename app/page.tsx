@@ -148,29 +148,6 @@ function DashboardContent() {
     };
   }, [exitFullscreen]);
 
-  // Reset dashboard handler (admin only)
-  const handleResetDashboard = async () => {
-    if (!user || user.role !== "admin") return;
-    if (
-      window.confirm(
-        "Are you sure you want to reset all dashboard data (Sales/Transactions)? This cannot be undone."
-      )
-    ) {
-      try {
-        // In Neon-only mode, we do not support client-side reset.
-        // Database truncation should be handled via a dedicated admin API or database console.
-        toast({
-          title: "Not Supported",
-          description:
-            "Dashboard reset via this button is disabled in Database mode for safety. Please contact admin to truncate tables if strictly necessary.",
-          variant: "destructive",
-        });
-      } catch (error) {
-        console.error("Reset failed", error);
-      }
-    }
-  };
-
   if (!user) {
     return <SignInForm />;
   }
@@ -250,7 +227,6 @@ function DashboardContent() {
               )}
             </Button>
             {/* User avatar menu */}
-            {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
             <UserNav />
             {/* Reset Dashboard button REMOVED per user request */}
           </div>

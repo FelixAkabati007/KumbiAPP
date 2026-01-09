@@ -18,13 +18,17 @@ import { SystemSyncListener } from "@/components/system-sync-listener";
 // Defensive check for broken localStorage in SSR environment
 if (
   typeof global !== "undefined" &&
-  typeof (global as any).localStorage !== "undefined" &&
-  typeof (global as any).localStorage.getItem !== "function"
+  typeof (globalThis as unknown as { localStorage?: unknown }).localStorage !==
+    "undefined" &&
+  typeof (
+    (globalThis as unknown as { localStorage?: { getItem?: unknown } })
+      .localStorage?.getItem
+  ) !== "function"
 ) {
   try {
     // If localStorage is defined but broken (no getItem), remove it so libraries
     // like next-themes fall back to safe behavior instead of crashing.
-    delete (global as any).localStorage;
+    delete (globalThis as unknown as { localStorage?: unknown }).localStorage;
   } catch (e) {
     console.warn("Failed to patch broken localStorage:", e);
   }

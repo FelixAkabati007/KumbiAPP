@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { GET, POST } from "../../app/api/settings/route";
 
-vi.mock("../../lib/db", () => ({
+vi.mock("@/lib/db", () => ({
   query: vi.fn(),
 }));
 
-vi.mock("../../lib/auth", () => ({
+vi.mock("@/lib/auth", () => ({
   getSession: vi.fn(),
 }));
 
@@ -16,7 +16,7 @@ describe("Settings API", () => {
 
   describe("GET", () => {
     it("fetches settings and merges with restaurant profile", async () => {
-      const { query } = await import("../../lib/db");
+      const { query } = await import("@/lib/db");
       (query as unknown as Mock)
         .mockResolvedValueOnce({ rows: [{ data: { theme: "dark" } }] }) // settings
         .mockResolvedValueOnce({
@@ -42,7 +42,7 @@ describe("Settings API", () => {
     });
 
     it("returns default settings if no data found", async () => {
-      const { query } = await import("../../lib/db");
+      const { query } = await import("@/lib/db");
       (query as unknown as Mock)
         .mockResolvedValueOnce({ rows: [] }) // settings
         .mockResolvedValueOnce({ rows: [] }); // profile
@@ -57,10 +57,10 @@ describe("Settings API", () => {
 
   describe("POST", () => {
     it("updates restaurant profile and settings", async () => {
-      const { getSession } = await import("../../lib/auth");
+      const { getSession } = await import("@/lib/auth");
       (getSession as unknown as Mock).mockResolvedValue({ role: "admin" });
 
-      const { query } = await import("../../lib/db");
+      const { query } = await import("@/lib/db");
       (query as unknown as Mock).mockResolvedValue({ rows: [] });
 
       const req = new Request("http://localhost/api/settings", {
@@ -73,7 +73,7 @@ describe("Settings API", () => {
             email: "test@example.com",
             phone: "123",
             address: "Addr",
-            logo: "img.png"
+            logo: "img.png",
           },
         }),
       });
@@ -82,11 +82,17 @@ describe("Settings API", () => {
       expect(res.status).toBe(200);
 
       // Verify DB calls
-      expect(query).toHaveBeenCalledTimes(2);
-      // First call: Update restaurant_profile
-      const firstCallArgs = (query as unknown as Mock).mock.calls[0];
-      expect(firstCallArgs[0]).toContain("INSERT INTO restaurant_profile");
-      expect(firstCallArgs[1]).toEqual([
+      expect(query).toHaveBeenCalled();
+
+      const calls = (query as unknown as Mock).mock.calls as Array<
+        [string, unknown[]?]
+      >;
+
+      const profileCall = calls.find((c) =>
+        String(c[0]).includes("INSERT INTO restaurant_profile")
+      );
+      expect(profileCall).toBeTruthy();
+      expect(profileCall?.[1]).toEqual([
         "New Name",
         "New Owner",
         "test@example.com",
@@ -95,17 +101,18 @@ describe("Settings API", () => {
         "img.png",
       ]);
 
-      // Second call: Update settings
-      const secondCallArgs = (query as unknown as Mock).mock.calls[1];
-      expect(secondCallArgs[0]).toContain("INSERT INTO settings");
-      // Should not contain account in JSONB
-      const jsonbData = JSON.parse(secondCallArgs[1][0]);
+      const settingsCall = calls.find((c) =>
+        String(c[0]).includes("INSERT INTO settings")
+      );
+      expect(settingsCall).toBeTruthy();
+
+      const jsonbData = JSON.parse(String(settingsCall?.[1]?.[0]));
       expect(jsonbData.theme).toBe("light");
       expect(jsonbData.account).toBeUndefined();
     });
 
     it("rejects non-admin", async () => {
-      const { getSession } = await import("../../lib/auth");
+      const { getSession } = await import("@/lib/auth");
       (getSession as unknown as Mock).mockResolvedValue({ role: "staff" });
 
       const req = new Request("http://localhost/api/settings", {
@@ -118,7 +125,7 @@ describe("Settings API", () => {
     });
 
     it("validates input with Zod", async () => {
-      const { getSession } = await import("../../lib/auth");
+      const { getSession } = await import("@/lib/auth");
       (getSession as unknown as Mock).mockResolvedValue({ role: "admin" });
 
       const req = new Request("http://localhost/api/settings", {

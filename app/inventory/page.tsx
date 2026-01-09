@@ -75,19 +75,19 @@ function InventoryContent() {
         lowStockItems: loadedItems.filter(
           (item: InventoryItem) =>
             Number.parseFloat(item.quantity) <=
-            Number.parseFloat(item.reorderLevel)
+            Number.parseFloat(item.reorderLevel),
         ).length,
         totalValue: loadedItems.reduce(
           (total: number, item: InventoryItem) =>
             total + Number.parseFloat(item.cost),
-          0
+          0,
         ),
         categories: loadedItems.reduce(
           (categories: { [key: string]: number }, item: InventoryItem) => {
             categories[item.category] = (categories[item.category] || 0) + 1;
             return categories;
           },
-          {} as { [key: string]: number }
+          {} as { [key: string]: number },
         ),
       });
     }
@@ -103,7 +103,7 @@ function InventoryContent() {
         (item) =>
           item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.category.toLowerCase().includes(searchQuery.toLowerCase())
+          item.category.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
@@ -225,8 +225,8 @@ function InventoryContent() {
         if (success) {
           setItems(
             items.map((item) =>
-              item.id === editingItem.id ? updatedItem : item
-            )
+              item.id === editingItem.id ? updatedItem : item,
+            ),
           );
           toast({
             title: "Item Updated",
@@ -478,7 +478,7 @@ function InventoryContent() {
                       <div className="flex items-center gap-4">
                         <div
                           className={`p-3 rounded-xl ${getCategoryColor(
-                            item.category
+                            item.category,
                           )}`}
                         >
                           <Package className="h-5 w-5" />
@@ -660,7 +660,7 @@ function InventoryContent() {
                     <UnitSelect
                       value={editingItem.unit}
                       onChange={(value) =>
-                        setEditingItem({ ...editingItem, unit: value })
+                        setEditingItem({ ...editingItem, unit: String(value) })
                       }
                     />
                   </div>

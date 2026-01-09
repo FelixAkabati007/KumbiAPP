@@ -98,7 +98,7 @@ export async function POST(req: Request) {
           success: true,
           message: "Account created successfully.",
         });
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Neon Auth Signup Error:", e);
         return NextResponse.json(
           {

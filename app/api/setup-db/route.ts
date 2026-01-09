@@ -48,6 +48,18 @@ export async function GET() {
       );
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS refund_audit_logs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        refund_id UUID NOT NULL REFERENCES refundrequests(id) ON DELETE CASCADE,
+        action VARCHAR(50) NOT NULL,
+        actor VARCHAR(255),
+        message TEXT,
+        metadata JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // 3. Kitchen Orders Table
     await query(`
       CREATE TABLE IF NOT EXISTS kitchenorders (
@@ -108,6 +120,12 @@ export async function GET() {
     );
     await query(
       `CREATE INDEX IF NOT EXISTS idx_refundrequests_orderid ON refundrequests(orderid);`
+    );
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_refund_audit_logs_refund_id ON refund_audit_logs(refund_id);`
+    );
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_refund_audit_logs_created_at ON refund_audit_logs(created_at);`
     );
 
     // 6. Favicons Table

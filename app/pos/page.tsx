@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,6 @@ import {
   Banknote,
   CreditCard,
   Delete,
-  Download,
   ImageIcon,
   LogOut,
   Minus,
@@ -66,6 +65,10 @@ import {
 } from "@/lib/integration-service";
 import { hasPermission, UserRole } from "@/lib/roles";
 import { RoleGuard } from "@/components/role-guard";
+import {
+  PaymentCompletionConfirmation,
+  usePaymentCompletionConfirmation,
+} from "@/components/payment/payment-completion-confirmation";
 
 function POSContent() {
   const { settings: appSettings } = useSettings();
@@ -96,6 +99,7 @@ function POSContent() {
   const [orderId, setOrderId] = useState("");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const paymentConfirmation = usePaymentCompletionConfirmation();
 
   useEffect(() => {
     setCurrentDate(new Date());
@@ -318,10 +322,6 @@ function POSContent() {
       const success = await processPaymentWithIntegration(paymentData);
 
       if (success) {
-        toast({
-          title: "Payment Successful",
-          description: `Order #${orderNumber} has been processed`,
-        });
         // Remove or comment out playNotificationSound if it causes media errors
         // playNotificationSound();
 
@@ -342,55 +342,6 @@ function POSContent() {
           paymentMethod,
           estimatedTime: calculateEstimatedTime(currentOrder),
         });
-
-        // Automatically download and print receipt after successful payment
-        try {
-          // Auto-download receipt
-          const receiptContent = generateReceiptContent();
-          const blob = new Blob([receiptContent], { type: "text/plain" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `receipt_${orderNumber}.txt`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-
-          // Validate preview images before printing to ensure pixel-perfect match
-          const node = receiptRef.current;
-          if (!node) {
-            toast({
-              title: "Validation Failed",
-              description: "Receipt preview not found",
-              variant: "destructive",
-            });
-          } else {
-            const imgs = Array.from(node.querySelectorAll("img"));
-            const invalidImgs = imgs.filter(
-              (img) => !img.complete || img.naturalWidth === 0
-            );
-            invalidImgs.forEach((img) => {
-              img.style.display = "none";
-            });
-
-            // Auto-printing via window.print() is removed to support silent printing
-            // and prevent double receipts. Printing is handled by integration service.
-
-            toast({
-              title: "Transaction Completed",
-              description: "Receipt sent to printer",
-            });
-          }
-        } catch (error) {
-          console.warn("Auto receipt generation warning:", error);
-          toast({
-            title: "Receipt Generation Warning",
-            description:
-              "Payment successful but receipt auto-generation failed",
-            variant: "destructive",
-          });
-        }
 
         // Redirect to receipt page with order data
         // router.push(
@@ -416,6 +367,8 @@ function POSContent() {
         setCustomerNameRefused(false);
         setTableNumber("");
         setPaymentMethod("cash");
+
+        paymentConfirmation.trigger();
 
         // Fetch next order number asynchronously
         getOrderNumber().then((num) => setOrderNumber(num));
@@ -528,6 +481,7 @@ function POSContent() {
       });
     } catch (error) {
       console.error("Print error:", error);
+      paymentConfirmation.trigger(false, "Unsuccessful");
       toast({
         title: "Print Failed",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -619,25 +573,6 @@ function POSContent() {
         </div>
       </div>
     `;
-  };
-
-  // Download receipt
-  const downloadReceipt = () => {
-    const receiptContent = generateReceiptContent();
-    const blob = new Blob([receiptContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `receipt_${orderNumber}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Receipt Downloaded",
-      description: `Receipt saved as receipt_${orderNumber}.txt`,
-    });
   };
 
   const handleLogout = () => {
@@ -1236,8 +1171,7 @@ function POSContent() {
                         Auto-Generation Enabled
                       </p>
                       <p className="text-xs text-blue-600 dark:text-blue-400">
-                        Receipt will be automatically downloaded and printed
-                        when payment is completed
+                        Receipt will be printed when payment is completed
                       </p>
                     </div>
                   </div>
@@ -1388,21 +1322,17 @@ function POSContent() {
                     {isPrinting ? "Printing..." : "Print Receipt"}
                   </span>
                 </Button>
-
-                <Button
-                  onClick={downloadReceipt}
-                  disabled={currentOrder.length === 0}
-                  className="rounded-2xl bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-green-500/20 animate-pulse"></div>
-                  <Download className="mr-2 h-4 w-4 relative z-10" />
-                  <span className="relative z-10">Download Preview</span>
-                </Button>
               </div>
             </div>
           </div>
         </div>
       </main>
+      <PaymentCompletionConfirmation
+        mounted={paymentConfirmation.mounted}
+        visible={paymentConfirmation.visible}
+        success={paymentConfirmation.success}
+        message={paymentConfirmation.message}
+      />
     </div>
   );
 }

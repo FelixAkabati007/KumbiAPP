@@ -1,5 +1,4 @@
 import { MenuItem, InventoryItem, SalesData } from "./types";
-import { env } from "./env";
 
 // --- Menu Items ---
 
@@ -116,7 +115,8 @@ export async function deleteInventoryItem(id: string): Promise<boolean> {
 }
 
 // Deprecated - do not use
-export function saveInventoryItems(items: InventoryItem[]) {
+export function saveInventoryItems(_items: InventoryItem[]) {
+  void _items;
   // Deprecated
 }
 
@@ -156,7 +156,8 @@ export function generateProductOrderNumber(): string {
   return `P-${dateStr}-${random.toString().padStart(4, "0")}`;
 }
 
-export function resetOrderCounters(preserveData: boolean = true): void {
+export function resetOrderCounters(_preserveData: boolean = true): void {
+  void _preserveData;
   console.warn("resetOrderCounters is deprecated in Neon mode");
 }
 

@@ -15,8 +15,10 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const { role, name, email } = body;
+    const body = (await request.json()) as Record<string, unknown>;
+    const role = typeof body.role === "string" ? body.role : undefined;
+    const name = typeof body.name === "string" ? body.name : undefined;
+    const email = typeof body.email === "string" ? body.email : undefined;
 
     // Validate input (basic)
     if (!role && !name && !email) {
@@ -28,7 +30,7 @@ export async function PATCH(
 
     // Build query dynamically
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let queryIndex = 1;
 
     if (role) {

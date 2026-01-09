@@ -212,6 +212,39 @@
   border-radius: 0.75rem;
 }
 
+.khh-payment-confirmation {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%) translateY(8px);
+  opacity: 0;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  background: #00ff00;
+  color: #0b0b0b;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  max-width: calc(100vw - 32px);
+  width: max-content;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.khh-payment-confirmation[data-state="visible"] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.khh-payment-confirmation:focus-visible {
+  outline: 2px solid #0b0b0b;
+  outline-offset: 2px;
+}
+
 /* Mobile touch interaction improvements */
 button,
 a,

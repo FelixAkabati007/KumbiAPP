@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { transaction } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
+
+const VALID_STATUSES = ["pending", "approved", "rejected", "completed"] as const;
+
+function isValidStatus(value: unknown): value is (typeof VALID_STATUSES)[number] {
+  return typeof value === "string" && (VALID_STATUSES as readonly string[]).includes(value);
+}
 
 export async function PUT(
   request: Request,
@@ -17,54 +24,186 @@ export async function PUT(
       );
     }
 
-    let queryText = "";
-    let queryParams: (string | number | boolean | null)[] = [];
-
-    if (status === "approved") {
-      queryText = `
-        UPDATE refundrequests 
-        SET status = $1, approvedby = $2, approvedat = NOW(), additionalnotes = COALESCE(additionalnotes, '') || $3 
-        WHERE id = $4 
-        RETURNING *`;
-      queryParams = [
-        "approved",
-        approvedBy,
-        notes ? `\nNote: ${notes}` : "",
-        id,
-      ];
-    } else if (status === "rejected") {
-      queryText = `
-        UPDATE refundrequests 
-        SET status = $1, approvedby = $2, approvedat = NOW(), additionalnotes = COALESCE(additionalnotes, '') || $3 
-        WHERE id = $4 
-        RETURNING *`;
-      queryParams = [
-        "rejected",
-        approvedBy,
-        notes ? `\nRejected: ${notes}` : "",
-        id,
-      ];
-    } else if (status === "completed") {
-      queryText = `
-        UPDATE refundrequests 
-        SET status = $1, completedat = NOW(), refundmethod = $2, transactionid = $3 
-        WHERE id = $4 
-        RETURNING *`;
-      queryParams = ["completed", refundMethod, transactionId, id];
-    } else {
+    if (!isValidStatus(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const result = await query(queryText, queryParams);
+    const nowIso = new Date().toISOString();
+    const settings = getSettings().system.refunds;
 
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: "Refund request not found" },
-        { status: 404 },
+    const updated = await transaction(async (client) => {
+      const currentRes = await client.query(
+        `SELECT * FROM refundrequests WHERE id = $1 FOR UPDATE`,
+        [id],
       );
+      const current = currentRes.rows[0];
+
+      if (!current) {
+        return { notFound: true as const };
+      }
+
+      const currentStatus = String(current.status);
+
+      if (status === "approved") {
+        if (typeof approvedBy !== "string" || approvedBy.trim().length === 0) {
+          return { error: "approvedBy is required" as const };
+        }
+        if (currentStatus === "approved") {
+          return { row: current };
+        }
+        if (currentStatus !== "pending") {
+          return { error: "Invalid status transition" as const };
+        }
+
+        const res = await client.query(
+          `
+            UPDATE refundrequests
+            SET status = 'approved',
+                approvedby = $1,
+                approvedat = NOW(),
+                additionalnotes = COALESCE(additionalnotes, '') || $2
+            WHERE id = $3
+            RETURNING *
+          `,
+          [approvedBy, typeof notes === "string" && notes ? `\nNote: ${notes}` : "", id],
+        );
+
+        const row = res.rows[0];
+        await client.query(
+          `
+            INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            row.id,
+            "approved",
+            approvedBy,
+            "Refund approved",
+            JSON.stringify({ from: currentStatus, to: "approved" }),
+            nowIso,
+          ],
+        );
+        return { row };
+      }
+
+      if (status === "rejected") {
+        if (typeof approvedBy !== "string" || approvedBy.trim().length === 0) {
+          return { error: "approvedBy is required" as const };
+        }
+        if (currentStatus === "rejected") {
+          return { row: current };
+        }
+        if (currentStatus !== "pending" && currentStatus !== "approved") {
+          return { error: "Invalid status transition" as const };
+        }
+
+        const res = await client.query(
+          `
+            UPDATE refundrequests
+            SET status = 'rejected',
+                approvedby = $1,
+                approvedat = NOW(),
+                additionalnotes = COALESCE(additionalnotes, '') || $2
+            WHERE id = $3
+            RETURNING *
+          `,
+          [
+            approvedBy,
+            typeof notes === "string" && notes ? `\nRejected: ${notes}` : "",
+            id,
+          ],
+        );
+
+        const row = res.rows[0];
+        await client.query(
+          `
+            INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            row.id,
+            "rejected",
+            approvedBy,
+            "Refund rejected",
+            JSON.stringify({ from: currentStatus, to: "rejected", reason: notes }),
+            nowIso,
+          ],
+        );
+        return { row };
+      }
+
+      if (status === "completed") {
+        if (currentStatus === "completed") {
+          return { row: current };
+        }
+        if (currentStatus !== "approved") {
+          return { error: "Refund must be approved first" as const };
+        }
+        if (typeof refundMethod !== "string" || refundMethod.trim().length === 0) {
+          return { error: "refundMethod is required" as const };
+        }
+        if (!settings.allowedPaymentMethods.includes(refundMethod)) {
+          return { error: "Payment method not allowed for refunds" as const };
+        }
+
+        const targetTransactionId =
+          (typeof transactionId === "string" && transactionId.trim().length > 0
+            ? transactionId
+            : typeof current.transactionid === "string"
+              ? current.transactionid
+              : null) || null;
+
+        if (refundMethod !== "cash" && !targetTransactionId) {
+          return { error: "transactionId is required for non-cash refunds" as const };
+        }
+
+        const res = await client.query(
+          `
+            UPDATE refundrequests
+            SET status = 'completed',
+                completedat = NOW(),
+                refundmethod = $1,
+                transactionid = COALESCE($2, transactionid)
+            WHERE id = $3
+            RETURNING *
+          `,
+          [refundMethod, targetTransactionId, id],
+        );
+
+        const row = res.rows[0];
+        await client.query(
+          `
+            INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            row.id,
+            "completed",
+            typeof approvedBy === "string" ? approvedBy : null,
+            "Refund completed",
+            JSON.stringify({
+              from: currentStatus,
+              to: "completed",
+              refundMethod,
+              transactionId: targetTransactionId,
+            }),
+            nowIso,
+          ],
+        );
+        return { row };
+      }
+
+      return { error: "Invalid status" as const };
+    });
+
+    if ("notFound" in updated) {
+      return NextResponse.json({ error: "Refund request not found" }, { status: 404 });
+    }
+    if ("error" in updated) {
+      return NextResponse.json({ error: updated.error }, { status: 400 });
     }
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(updated.row);
   } catch (error) {
     console.error("Failed to update refund request:", error);
     return NextResponse.json(
