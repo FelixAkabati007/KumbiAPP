@@ -245,6 +245,48 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) {
           throw new Error(`Failed to update item status: ${res.statusText}`);
         }
+
+        // Sync parent order status with DB if needed
+        const currentOrder = orders.find((o) => o.id === orderId);
+        if (currentOrder) {
+          const updatedItems = currentOrder.items.map((item) =>
+            item.id === itemId ? { ...item, status } : item
+          );
+
+          let newOrderStatus = currentOrder.status;
+          const allReady = updatedItems.every(
+            (item) => item.status === "ready" || item.status === "served"
+          );
+          const anyPreparing = updatedItems.some(
+            (item) => item.status === "preparing"
+          );
+          const anyReady = updatedItems.some(
+            (item) => item.status === "ready" || item.status === "served"
+          );
+          const allServed = updatedItems.every(
+            (item) => item.status === "served"
+          );
+
+          if (allServed) {
+            newOrderStatus = "completed";
+          } else if (allReady && currentOrder.status !== "completed") {
+            newOrderStatus = "ready";
+          } else if (
+            (anyPreparing || anyReady) &&
+            currentOrder.status === "pending"
+          ) {
+            newOrderStatus = "in-progress";
+          }
+
+          if (newOrderStatus !== currentOrder.status) {
+            await fetch(`/api/orders/${orderId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: newOrderStatus }),
+            });
+          }
+        }
+
         return true;
       } catch (error) {
         console.error("Failed to update item status, reverting:", error);
@@ -252,7 +294,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [saveOrders, loadOrders]
+    [orders, saveOrders, loadOrders]
   );
 
   const updateOrderNotes = useCallback(

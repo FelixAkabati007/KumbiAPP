@@ -21,10 +21,14 @@ function isValidStatus(
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id")?.trim() || undefined;
     const orderId = searchParams.get("orderId")?.trim() || undefined;
     const statusParam = searchParams.get("status")?.trim() || undefined;
     const limitParam = searchParams.get("limit")?.trim() || undefined;
     const offsetParam = searchParams.get("offset")?.trim() || undefined;
+    const search = searchParams.get("search")?.trim() || undefined;
+    const startDate = searchParams.get("startDate")?.trim() || undefined;
+    const endDate = searchParams.get("endDate")?.trim() || undefined;
 
     const limit = Math.min(Math.max(Number(limitParam || "200"), 1), 500);
     const offset = Math.max(Number(offsetParam || "0"), 0);
@@ -36,6 +40,11 @@ export async function GET(request: Request) {
     const whereParts: string[] = [];
     const params: (string | number)[] = [];
 
+    if (id) {
+      params.push(id);
+      whereParts.push(`id = $${params.length}`);
+    }
+
     if (orderId) {
       params.push(orderId);
       whereParts.push(`orderid = $${params.length}`);
@@ -44,6 +53,23 @@ export async function GET(request: Request) {
     if (statusParam) {
       params.push(statusParam);
       whereParts.push(`status = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      whereParts.push(
+        `(ordernumber ILIKE $${params.length} OR customername ILIKE $${params.length})`
+      );
+    }
+
+    if (startDate) {
+      params.push(startDate);
+      whereParts.push(`requestedat >= $${params.length}`);
+    }
+
+    if (endDate) {
+      params.push(endDate);
+      whereParts.push(`requestedat <= $${params.length}`);
     }
 
     params.push(limit);

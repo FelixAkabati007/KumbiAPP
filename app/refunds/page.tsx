@@ -25,15 +25,11 @@ import { useAuth } from "@/components/auth-provider";
 import { RefundRequestDialog } from "@/components/refund-request-dialog";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
-import {
-  ArrowLeft,
-  DollarSign,
-  Plus,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowLeft, DollarSign, Plus, RefreshCw } from "lucide-react";
 
 const RefundStats = dynamic(
-  () => import("@/components/refunds/RefundStats").then((mod) => mod.RefundStats),
+  () =>
+    import("@/components/refunds/RefundStats").then((mod) => mod.RefundStats),
   {
     loading: () => (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -71,6 +67,11 @@ function RefundsPageContent() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+
   // Dialog states
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(
@@ -85,8 +86,30 @@ function RefundsPageContent() {
   const loadRefunds = useCallback(async () => {
     setIsLoading(true);
     try {
-      const allRefunds = await getRefunds();
+      const filters: Parameters<typeof getRefunds>[0] = {};
+
+      if (searchTerm) filters.search = searchTerm;
+      if (statusFilter !== "all") filters.status = statusFilter;
+
+      if (dateFilter !== "all") {
+        const now = new Date();
+        const start = new Date();
+        if (dateFilter === "today") {
+          start.setHours(0, 0, 0, 0);
+        } else if (dateFilter === "week") {
+          start.setDate(now.getDate() - 7);
+        } else if (dateFilter === "month") {
+          start.setMonth(now.getMonth() - 1);
+        }
+        filters.startDate = start.toISOString();
+      }
+
+      const allRefunds = await getRefunds(filters);
       setRefunds(allRefunds);
+
+      // Stats should arguably reflect global state, not filtered state
+      // But currently getRefundStats doesn't take filters.
+      // We'll keep it as is.
       const newStats = await getRefundStats();
       setStats(newStats);
     } catch (error) {
@@ -99,10 +122,14 @@ function RefundsPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, searchTerm, statusFilter, dateFilter]);
 
   useEffect(() => {
-    loadRefunds();
+    // Debounce search
+    const timer = setTimeout(() => {
+      loadRefunds();
+    }, 500);
+    return () => clearTimeout(timer);
   }, [loadRefunds]);
 
   // Notify manager/admin if new pending refund appears
@@ -261,6 +288,12 @@ function RefundsPageContent() {
             setRejectionDialogOpen(true);
           }}
           onProcess={handleProcessRefund}
+          searchTerm={searchTerm}
+          statusFilter={statusFilter}
+          dateFilter={dateFilter}
+          onSearchChange={setSearchTerm}
+          onStatusChange={setStatusFilter}
+          onDateChange={setDateFilter}
         />
       </main>
 

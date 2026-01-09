@@ -13,6 +13,9 @@ export class RefundService {
   }
 
   private getRefundSettings(): RefundSettings {
+    // Return cached settings if available and not stale (simple memoization for now)
+    if (this.settings) return this.settings;
+
     const appSettings = getSettings();
     return {
       enabled: appSettings.system.refunds.enabled,
@@ -26,6 +29,11 @@ export class RefundService {
       smallAmountThreshold: appSettings.system.refunds.smallAmountThreshold,
       timeLimit: appSettings.system.refunds.timeLimit,
     };
+  }
+
+  // Force refresh settings (useful if settings change at runtime)
+  refreshSettings() {
+    this.settings = this.getRefundSettings();
   }
 
   async createRefundRequest(
@@ -67,6 +75,25 @@ export class RefundService {
       }
 
       const refundRequest = await response.json();
+
+      // Check for auto-approval
+      if (
+        this.settings.autoApproveSmallAmounts &&
+        data.refundAmount <= this.settings.smallAmountThreshold &&
+        refundRequest.status === "pending"
+      ) {
+        try {
+          return await this.approveRefund(
+            refundRequest.id,
+            "System (Auto-Approve)",
+            "Auto-approved based on small amount threshold"
+          );
+        } catch (error) {
+          console.error("Auto-approval failed:", error);
+          // Return the pending request if auto-approval fails
+          return refundRequest;
+        }
+      }
 
       return refundRequest;
     } catch (error) {
@@ -253,8 +280,14 @@ export class RefundService {
   }
 
   async getRefunds(filters?: {
+    id?: string;
     orderId?: string;
     status?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
   }): Promise<RefundRequest[]> {
     // Check for online status to avoid console errors
     if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -262,8 +295,15 @@ export class RefundService {
     }
 
     const queryParams = new URLSearchParams();
+    if (filters?.id) queryParams.append("id", filters.id);
     if (filters?.orderId) queryParams.append("orderId", filters.orderId);
     if (filters?.status) queryParams.append("status", filters.status);
+    if (filters?.search) queryParams.append("search", filters.search);
+    if (filters?.startDate) queryParams.append("startDate", filters.startDate);
+    if (filters?.endDate) queryParams.append("endDate", filters.endDate);
+    if (filters?.limit) queryParams.append("limit", filters.limit.toString());
+    if (filters?.offset)
+      queryParams.append("offset", filters.offset.toString());
 
     const queryString = queryParams.toString();
     const url = queryString ? `/api/refunds?${queryString}` : "/api/refunds";
@@ -303,8 +343,8 @@ export class RefundService {
   }
 
   async getRefundById(refundId: string): Promise<RefundRequest | undefined> {
-    const refunds = await this.getRefunds();
-    return refunds.find((r) => r.id === refundId);
+    const refunds = await this.getRefunds({ id: refundId });
+    return refunds[0];
   }
 
   async getRefundsByStatus(

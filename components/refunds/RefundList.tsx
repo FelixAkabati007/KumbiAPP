@@ -30,6 +30,13 @@ interface RefundListProps {
   onApprove: (refund: RefundRequest) => void;
   onReject: (refund: RefundRequest) => void;
   onView: (refund: RefundRequest) => void;
+  // Optional controlled props for server-side filtering
+  searchTerm?: string;
+  statusFilter?: string;
+  dateFilter?: string;
+  onSearchChange?: (term: string) => void;
+  onStatusChange?: (status: string) => void;
+  onDateChange?: (date: string) => void;
 }
 
 export function RefundList({
@@ -38,42 +45,83 @@ export function RefundList({
   onApprove,
   onReject,
   onView,
+  searchTerm: controlledSearchTerm,
+  statusFilter: controlledStatusFilter,
+  dateFilter: controlledDateFilter,
+  onSearchChange,
+  onStatusChange,
+  onDateChange,
 }: RefundListProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [internalSearchTerm, setInternalSearchTerm] = useState("");
+  const [internalStatusFilter, setInternalStatusFilter] =
+    useState<string>("all");
+  const [internalDateFilter, setInternalDateFilter] = useState<string>("all");
 
-  const filteredRefunds = refunds.filter((refund) => {
-    const matchesSearch =
-      refund.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      refund.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      refund.id.toLowerCase().includes(searchTerm.toLowerCase());
+  const isControlled =
+    onSearchChange !== undefined ||
+    onStatusChange !== undefined ||
+    onDateChange !== undefined;
 
-    const matchesStatus =
-      statusFilter === "all" || refund.status === statusFilter;
+  const searchTerm = isControlled
+    ? (controlledSearchTerm ?? "")
+    : internalSearchTerm;
+  const statusFilter = isControlled
+    ? (controlledStatusFilter ?? "all")
+    : internalStatusFilter;
+  const dateFilter = isControlled
+    ? (controlledDateFilter ?? "all")
+    : internalDateFilter;
 
-    const matchesDate =
-      dateFilter === "all" ||
-      (() => {
-        const refundDate = new Date(refund.requestedAt);
-        const now = new Date();
-        const diffHours =
-          (now.getTime() - refundDate.getTime()) / (1000 * 60 * 60);
+  const handleSearchChange = (value: string) => {
+    if (onSearchChange) onSearchChange(value);
+    else setInternalSearchTerm(value);
+  };
 
-        switch (dateFilter) {
-          case "today":
-            return refundDate.toDateString() === now.toDateString();
-          case "week":
-            return diffHours <= 168; // 7 days
-          case "month":
-            return diffHours <= 720; // 30 days
-          default:
-            return true;
-        }
-      })();
+  const handleStatusChange = (value: string) => {
+    if (onStatusChange) onStatusChange(value);
+    else setInternalStatusFilter(value);
+  };
 
-    return matchesSearch && matchesStatus && matchesDate;
-  });
+  const handleDateChange = (value: string) => {
+    if (onDateChange) onDateChange(value);
+    else setInternalDateFilter(value);
+  };
+
+  const filteredRefunds = isControlled
+    ? refunds
+    : refunds.filter((refund) => {
+        const matchesSearch =
+          refund.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          refund.customerName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          refund.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus =
+          statusFilter === "all" || refund.status === statusFilter;
+
+        const matchesDate =
+          dateFilter === "all" ||
+          (() => {
+            const refundDate = new Date(refund.requestedAt);
+            const now = new Date();
+            const diffHours =
+              (now.getTime() - refundDate.getTime()) / (1000 * 60 * 60);
+
+            switch (dateFilter) {
+              case "today":
+                return refundDate.toDateString() === now.toDateString();
+              case "week":
+                return diffHours <= 168; // 7 days
+              case "month":
+                return diffHours <= 720; // 30 days
+              default:
+                return true;
+            }
+          })();
+
+        return matchesSearch && matchesStatus && matchesDate;
+      });
 
   const getStatusBadge = (status: RefundRequest["status"]) => {
     switch (status) {
@@ -134,12 +182,12 @@ export function RefundList({
               <Input
                 placeholder="Search refunds..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
               <SelectTrigger className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -152,7 +200,7 @@ export function RefundList({
               </SelectContent>
             </Select>
 
-            <Select value={dateFilter} onValueChange={setDateFilter}>
+            <Select value={dateFilter} onValueChange={handleDateChange}>
               <SelectTrigger className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
                 <SelectValue placeholder="Filter by date" />
               </SelectTrigger>
@@ -167,9 +215,9 @@ export function RefundList({
             <Button
               variant="outline"
               onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-                setDateFilter("all");
+                handleSearchChange("");
+                handleStatusChange("all");
+                handleDateChange("all");
               }}
               className="rounded-2xl border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
             >

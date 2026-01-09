@@ -5,8 +5,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -16,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SyncSelect } from "@/components/ui/sync-select";
 import {
   Dialog,
   DialogContent,
@@ -27,16 +26,13 @@ import {
 import {
   ArrowLeft,
   ChefHat,
-  Clock,
   Filter,
-  MessageSquare,
   RefreshCw,
   Search,
   SortAsc,
   SortDesc,
   Users,
   Utensils,
-  AlertTriangle,
   CheckCircle,
   Circle,
   Play,
@@ -54,24 +50,15 @@ import { RoleGuard } from "@/components/role-guard";
 
 function KitchenContent() {
   const { toast } = useToast();
-  const {
-    orders,
-    updateOrderStatus,
-    updateOrderItemStatus,
-    updateOrderNotes,
-    updateOrderPriority,
-    getOrdersByClient,
-    refreshOrders,
-  } = useOrders();
+  const { orders, updateOrderItemStatus, getOrdersByClient, refreshOrders } =
+    useOrders();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
-  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
-  const [notes, setNotes] = useState("");
+
   const [previousOrderCount, setPreviousOrderCount] = useState(0);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
@@ -237,59 +224,8 @@ function KitchenContent() {
         variant: "destructive",
       });
     }
-  };
 
-  const handleOrderPriorityChange = (
-    orderId: string,
-    priority: KitchenOrder["priority"]
-  ) => {
-    updateOrderPriority(orderId, priority);
-    toast({
-      title: "Priority Updated",
-      description: `Order priority changed to ${priority}`,
-    });
-  };
-
-  const handleOrderComplete = (orderId: string) => {
-    updateOrderStatus(orderId, "completed");
-    toast({
-      title: "Order Completed",
-      description: "Order has been marked as completed",
-    });
-    playNotificationSound();
-  };
-
-  const handleNotesSubmit = () => {
-    if (selectedOrder) {
-      updateOrderNotes(selectedOrder.id, notes);
-      toast({
-        title: "Notes Updated",
-        description: "Chef notes have been saved",
-      });
-      setNotesDialogOpen(false);
-      setSelectedOrder(null);
-      setNotes("");
-    }
-  };
-
-  const openNotesDialog = (order: KitchenOrder) => {
-    setSelectedOrder(order);
-    setNotes(order.chefNotes || "");
-    setNotesDialogOpen(true);
-  };
-
-  const getOrderWaitTime = (order: KitchenOrder): string => {
-    const createdAt = new Date(order.createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - createdAt.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    return `${hours}h ${mins}m ago`;
+    return success;
   };
 
   const getStatusIcon = (status: OrderItem["status"]) => {
@@ -316,21 +252,6 @@ function KitchenContent() {
       case "ready":
         return "bg-green-100 text-green-800 border-green-200";
       case "served":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getPriorityColor = (priority: KitchenOrder["priority"]) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "normal":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "low":
         return "bg-gray-100 text-gray-800 border-gray-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
@@ -598,96 +519,6 @@ function KitchenContent() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10"></div>
 
-                  <CardHeader className="p-4 relative z-10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <CardTitle className="text-lg font-bold">
-                            {order.orderNumber}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            {order.orderType === "dine-in"
-                              ? `Table ${order.tableNumber}`
-                              : order.customerName}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={`rounded-full text-xs ${getPriorityColor(
-                              order.priority
-                            )}`}
-                          >
-                            {order.priority}
-                          </Badge>
-                          {order.priority === "urgent" && (
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <p className="text-sm font-medium">
-                            {order.estimatedTime
-                              ? `${order.estimatedTime} min`
-                              : "Ready"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(order.createdAt).toLocaleTimeString()}
-                          </p>
-                          <p className="text-xs text-orange-600 dark:text-orange-400">
-                            {getOrderWaitTime(order)}
-                          </p>
-                        </div>
-                        <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-2">
-                      <Select
-                        value={order.priority}
-                        onValueChange={(value) =>
-                          handleOrderPriorityChange(
-                            order.id,
-                            value as KitchenOrder["priority"]
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-32 h-8 rounded-full border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openNotesDialog(order)}
-                        className="h-8 rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 bg-transparent"
-                      >
-                        <MessageSquare className="h-3 w-3 mr-1" />
-                        Notes
-                      </Button>
-
-                      {order.status === "ready" && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleOrderComplete(order.id)}
-                          className="h-8 rounded-full bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Complete
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-
                   <CardContent className="p-4 pt-0 relative z-10">
                     <div className="space-y-3">
                       {order.items.map((item) => (
@@ -722,7 +553,7 @@ function KitchenContent() {
                             >
                               {item.status || "pending"}
                             </Badge>
-                            <Select
+                            <SyncSelect
                               value={item.status || "pending"}
                               onValueChange={(value) =>
                                 handleItemStatusChange(
@@ -731,19 +562,14 @@ function KitchenContent() {
                                   value as OrderItem["status"]
                                 )
                               }
-                            >
-                              <SelectTrigger className="w-32 h-8 rounded-full border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="preparing">
-                                  Preparing
-                                </SelectItem>
-                                <SelectItem value="ready">Ready</SelectItem>
-                                <SelectItem value="served">Served</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              options={[
+                                { value: "pending", label: "Pending" },
+                                { value: "preparing", label: "Preparing" },
+                                { value: "ready", label: "Ready" },
+                                { value: "served", label: "Served" },
+                              ]}
+                              className="w-32 h-8 rounded-full border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"
+                            />
                           </div>
                         </div>
                       ))}
@@ -777,55 +603,6 @@ function KitchenContent() {
           </ScrollArea>
         </div>
       </div>
-
-      {/* Notes Dialog */}
-      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-orange-800 dark:text-orange-200">
-              Chef Notes
-            </DialogTitle>
-            <DialogDescription className="text-orange-600 dark:text-orange-400">
-              {selectedOrder && `Order: ${selectedOrder.orderNumber}`}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label
-                htmlFor="notes"
-                className="text-orange-700 dark:text-orange-300"
-              >
-                Notes
-              </Label>
-              <Textarea
-                id="notes"
-                placeholder="Add chef notes for this order..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                rows={4}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setNotesDialogOpen(false)}
-              className="rounded-2xl border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 bg-transparent"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleNotesSubmit}
-              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
-            >
-              Save Notes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
