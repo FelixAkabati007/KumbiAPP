@@ -104,13 +104,15 @@ function RefundsPageContent() {
         filters.startDate = start.toISOString();
       }
 
-      const allRefunds = await getRefunds(filters);
-      setRefunds(allRefunds);
-
       // Stats should arguably reflect global state, not filtered state
       // But currently getRefundStats doesn't take filters.
       // We'll keep it as is.
-      const newStats = await getRefundStats();
+      const [allRefunds, newStats] = await Promise.all([
+        getRefunds(filters),
+        getRefundStats(),
+      ]);
+
+      setRefunds(allRefunds);
       setStats(newStats);
       return true;
     } catch (error) {

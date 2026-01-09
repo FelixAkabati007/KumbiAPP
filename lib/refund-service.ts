@@ -316,7 +316,7 @@ export class RefundService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        return [];
+        throw new Error(`Failed to fetch refunds: ${response.statusText}`);
       }
       const data = await response.json();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -337,8 +337,9 @@ export class RefundService {
         refundMethod: r.refundmethod,
         transactionId: r.transactionid,
       }));
-    } catch {
-      return [];
+    } catch (error) {
+      console.error("Error fetching refunds:", error);
+      throw error;
     }
   }
 
@@ -399,7 +400,9 @@ export class RefundService {
 export const refundService = new RefundService();
 
 // Helper functions for backward compatibility (but async now)
-export const getRefunds = async () => refundService.getRefunds();
+export const getRefunds = async (
+  filters?: Parameters<RefundService["getRefunds"]>[0]
+) => refundService.getRefunds(filters);
 export const getRefundStats = async () => refundService.getRefundStats();
 export const getRefundService = () => refundService;
 export const createRefundRequest = async (
