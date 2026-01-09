@@ -58,7 +58,7 @@ export async function signUpWithEmail(
   name: string,
   password: string
 ) {
-  // @ts-expect-error - Allowing password if supported by the adapter
+  // Return the promise directly
   return await neonClient.auth.signUp.email({
     email,
     password,

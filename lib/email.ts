@@ -18,7 +18,6 @@ const EMAIL_ENABLED =
 export async function sendEmail({ to, subject, text, html }: SendEmailParams) {
   if (!EMAIL_ENABLED) {
     const preview = { to, subject, text, html };
-    // eslint-disable-next-line no-console
     console.info("[Email Disabled] Preview:", preview);
     return { success: true, preview };
   }

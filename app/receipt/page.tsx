@@ -50,6 +50,9 @@ function ReceiptContent() {
   const printRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
+  // receiptData is used to store data from URL params, but the UI currently relies on foundSale.
+  // Kept for potential future use or fixing the redirect logic.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [receiptData, setReceiptData] = useState<ReceiptData>({
     orderNumber: "",
     date: new Date().toLocaleDateString(),

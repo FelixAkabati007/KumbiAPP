@@ -79,7 +79,6 @@ const isValidCategory = (
 // Helper function to create empty menu item
 const createEmptyMenuItem = (): MenuItem => {
   // low-priority diagnostic
-  // eslint-disable-next-line no-console
   console.debug("🆕 [MenuPage] Creating empty menu item");
   return {
     id: "",
@@ -148,7 +147,6 @@ function MenuContent() {
           return isValid;
         });
 
-        // eslint-disable-next-line no-console
         console.debug("✅ [MenuPage] Loaded items:", {
           total: loadedItems.length,
           valid: validItems.length,
@@ -172,7 +170,6 @@ function MenuContent() {
 
   // Memoize filtered items computation
   const memoizedFilteredItems = useMemo(() => {
-    // eslint-disable-next-line no-console
     console.debug("🔍 [MenuPage] Filtering items", {
       searchTerm: searchTerm || null,
       selectedCategory: selectedCategory || null,
