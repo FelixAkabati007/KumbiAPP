@@ -69,7 +69,25 @@ function OrderDisplayContent() {
       low: 1,
     };
     return orders
-      .filter((order) => order.status !== "completed")
+      .filter((order) => {
+        // Filter out completed orders
+        if (order.status === "completed") return false;
+
+        // Order Visibility Rules:
+        // 1. Single-item orders disappear when marked "served"
+        // 2. Multi-item orders remain visible until all items are "served"
+        // 3. Entire order disappears when all items are "served"
+
+        // Check if all items are served
+        const allItemsServed = order.items.every(
+          (item) => item.status === "served"
+        );
+
+        // If all items are served, hide the order immediately
+        if (allItemsServed && order.items.length > 0) return false;
+
+        return true;
+      })
       .sort((a, b) => {
         const aPriority = priorityOrder[a.priority] || 0;
         const bPriority = priorityOrder[b.priority] || 0;
@@ -241,73 +259,73 @@ function OrderDisplayContent() {
           </p>
         </div>
 
-        <ScrollArea className="h-[calc(100vh-200px)]">
+        <ScrollArea className="h-[calc(100vh-180px)]">
           {activeOrders.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {activeOrders.map((order) => (
                 <Card
                   key={order.id}
-                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-orange-200 dark:border-orange-700 rounded-3xl shadow-2xl relative overflow-hidden hover:scale-105 transition-all duration-500 hover:shadow-3xl"
+                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl shadow-xl relative overflow-hidden hover:scale-[1.02] transition-all duration-500 hover:shadow-2xl"
                 >
                   {/* Animated background gradient */}
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/30 via-amber-100/30 to-yellow-100/30 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 animate-pulse"></div>
 
                   {/* Priority indicator stripe */}
                   <div
-                    className={`absolute top-0 left-0 right-0 h-2 ${getPriorityColor(
+                    className={`absolute top-0 left-0 right-0 h-1.5 ${getPriorityColor(
                       order.priority
                     )}`}
                   ></div>
 
-                  <CardHeader className="pb-3 relative z-10">
+                  <CardHeader className="pb-2 p-4 relative z-10">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
-                        <Utensils className="h-5 w-5" />
+                      <CardTitle className="text-lg font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
+                        <Utensils className="h-4 w-4" />
                         {order.orderNumber}
                       </CardTitle>
                       <div className="flex items-center gap-2">
                         <Badge
-                          className={`rounded-full text-xs font-bold ${getPriorityColor(
+                          className={`rounded-full text-[10px] font-bold px-2 py-0.5 ${getPriorityColor(
                             order.priority
                           )}`}
                         >
                           {order.priority.toUpperCase()}
                         </Badge>
                         {order.priority === "urgent" && (
-                          <AlertTriangle className="h-5 w-5 text-red-500 animate-bounce" />
+                          <AlertTriangle className="h-4 w-4 text-red-500 animate-bounce" />
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm mt-2">
-                      <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
-                        <Users className="h-4 w-4" />
+                    <div className="flex items-center justify-between text-xs mt-1.5">
+                      <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 font-medium">
+                        <Users className="h-3.5 w-3.5" />
                         {order.orderType === "dine-in"
                           ? `Table ${order.tableNumber}`
                           : order.customerName}
                       </div>
                       <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-medium">
-                        <Timer className="h-4 w-4" />
+                        <Timer className="h-3.5 w-3.5" />
                         {getElapsedTime(order.createdAt)}min ago
                       </div>
                     </div>
 
                     {/* Order Progress Bar */}
-                    <div className="mt-3">
+                    <div className="mt-2">
                       {(() => {
                         const percent = getOrderProgress(order);
                         return (
                           <>
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            <div className="flex justify-between items-center mb-0.5">
+                              <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">
                                 Progress
                               </span>
-                              <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
+                              <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
                                 {percent}%
                               </span>
                             </div>
                             <div
-                              className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2"
+                              className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5"
                               role="progressbar"
                               aria-valuenow={isNaN(percent) ? 0 : percent}
                               aria-valuemin={0}
@@ -315,7 +333,7 @@ function OrderDisplayContent() {
                               aria-label="Order progress"
                             >
                               <div
-                                className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 h-2 rounded-full transition-all duration-500"
+                                className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 h-1.5 rounded-full transition-all duration-500"
                                 style={{ width: `${percent}%` }}
                               />
                             </div>
@@ -325,13 +343,13 @@ function OrderDisplayContent() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4 relative z-10">
+                  <CardContent className="space-y-3 p-4 pt-0 relative z-10">
                     {/* Order Status Badge */}
                     <div className="flex justify-center">
                       <Badge
-                        className={`rounded-full px-4 py-2 text-sm font-bold ${getStatusColor(
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusColor(
                           order.status
-                        )} flex items-center gap-2 shadow-lg`}
+                        )} flex items-center gap-1.5 shadow-md`}
                       >
                         {getStatusIcon(order.status)}
                         {order.status
@@ -341,36 +359,36 @@ function OrderDisplayContent() {
                     </div>
 
                     {/* Order Items Grid */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-orange-700 dark:text-orange-300 flex items-center gap-2 border-b border-orange-200 dark:border-orange-700 pb-1">
-                        <Package className="h-4 w-4" />
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-orange-700 dark:text-orange-300 flex items-center gap-1.5 border-b border-orange-200 dark:border-orange-700 pb-0.5">
+                        <Package className="h-3.5 w-3.5" />
                         Items ({order.items.length})
                       </h4>
-                      <div className="grid gap-2">
+                      <div className="grid gap-1.5">
                         {order.items.map((item) => (
                           <div
                             key={item.id}
-                            className="p-3 bg-gradient-to-r from-white/60 via-orange-50/60 to-amber-50/60 dark:from-gray-800/60 dark:via-orange-900/20 dark:to-amber-900/20 rounded-2xl border border-orange-200 dark:border-orange-700 backdrop-blur-sm"
+                            className="p-2 bg-gradient-to-r from-white/60 via-orange-50/60 to-amber-50/60 dark:from-gray-800/60 dark:via-orange-900/20 dark:to-amber-900/20 rounded-xl border border-orange-200 dark:border-orange-700 backdrop-blur-sm"
                           >
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex justify-between items-start mb-1.5">
                               <div className="flex-1">
-                                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                                <p className="font-semibold text-xs text-gray-800 dark:text-gray-200">
                                   {item.name}
                                 </p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
                                     Qty: {item.quantity}
                                   </span>
                                   {item.prepTime !== undefined &&
                                     item.prepTime > 0 && (
-                                      <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                                      <div className="flex items-center gap-0.5 text-[10px] text-orange-600 dark:text-orange-400">
                                         <Timer className="h-3 w-3" />
-                                        {item.prepTime}min
+                                        {item.prepTime}m
                                       </div>
                                     )}
                                 </div>
                                 {item.notes && (
-                                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 mt-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+                                  <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-full">
                                     <StickyNote className="h-3 w-3" />
                                     {item.notes}
                                   </div>
@@ -380,9 +398,9 @@ function OrderDisplayContent() {
 
                             <div className="flex justify-center">
                               <Badge
-                                className={`rounded-full text-xs font-bold ${getStatusColor(
+                                className={`rounded-full text-[10px] font-bold ${getStatusColor(
                                   item.status
-                                )} flex items-center gap-1 px-3 py-1`}
+                                )} flex items-center gap-1 px-2 py-0.5`}
                               >
                                 {getStatusIcon(item.status)}
                                 {(item.status || "pending").toUpperCase()}
@@ -395,12 +413,12 @@ function OrderDisplayContent() {
 
                     {/* Chef Notes */}
                     {order.chefNotes && (
-                      <div className="p-3 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 rounded-2xl border border-blue-200 dark:border-blue-700">
-                        <p className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-1 flex items-center gap-1">
+                      <div className="p-2 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 rounded-xl border border-blue-200 dark:border-blue-700">
+                        <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 mb-0.5 flex items-center gap-1">
                           <StickyNote className="h-3 w-3" />
                           Chef Notes:
                         </p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                           {order.chefNotes}
                         </p>
                       </div>
@@ -409,9 +427,9 @@ function OrderDisplayContent() {
                     {/* Estimated Time */}
                     {order.estimatedTime && order.estimatedTime > 0 && (
                       <div className="flex justify-center">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/30 rounded-full border border-orange-200 dark:border-orange-700">
-                          <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                          <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/30 rounded-full border border-orange-200 dark:border-orange-700">
+                          <Clock className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                          <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
                             Est. {order.estimatedTime} min remaining
                           </span>
                         </div>
