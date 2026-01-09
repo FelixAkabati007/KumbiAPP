@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS menu_items (
 CREATE TABLE IF NOT EXISTS inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     menu_item_id UUID REFERENCES menu_items(id) ON DELETE CASCADE,
+    name VARCHAR(255),
+    sku VARCHAR(100),
+    category VARCHAR(100),
     quantity DECIMAL(10, 2) NOT NULL DEFAULT 0,
     unit VARCHAR(20) DEFAULT 'units',
     reorder_level DECIMAL(10, 2) DEFAULT 10,
@@ -85,6 +88,17 @@ CREATE TABLE IF NOT EXISTS inventory (
     supplier VARCHAR(255),
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    menu_item_id UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    inventory_item_id UUID NOT NULL REFERENCES inventory(id) ON DELETE RESTRICT,
+    quantity DECIMAL(10, 4) NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(menu_item_id, inventory_item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_menu_item ON recipe_ingredients(menu_item_id);
 -- 3. Order Management
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
