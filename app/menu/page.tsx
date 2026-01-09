@@ -147,12 +147,6 @@ function MenuContent() {
           return isValid;
         });
 
-        console.debug("✅ [MenuPage] Loaded items:", {
-          total: loadedItems.length,
-          valid: validItems.length,
-          categoryCount: new Set(validItems.map((item) => item.category)).size,
-        });
-
         setItems(validItems);
       } catch (error) {
         console.error("❌ [MenuPage] Error loading menu items:", error);

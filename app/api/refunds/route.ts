@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
-import { getSettings } from "@/lib/settings";
+import { getServerSettings } from "@/lib/server-settings";
 
-const VALID_STATUSES = ["pending", "approved", "rejected", "completed"] as const;
+const VALID_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "completed",
+] as const;
 
-function isValidStatus(value: unknown): value is (typeof VALID_STATUSES)[number] {
-  return typeof value === "string" && (VALID_STATUSES as readonly string[]).includes(value);
+function isValidStatus(
+  value: unknown
+): value is (typeof VALID_STATUSES)[number] {
+  return (
+    typeof value === "string" &&
+    (VALID_STATUSES as readonly string[]).includes(value)
+  );
 }
 
 export async function GET(request: Request) {
@@ -41,7 +51,8 @@ export async function GET(request: Request) {
     params.push(offset);
     const offsetIndex = params.length;
 
-    const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+    const whereSql =
+      whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
     const result = await query(
       `
@@ -75,7 +86,10 @@ export async function GET(request: Request) {
     return NextResponse.json(result.rows);
   } catch (error) {
     console.error("Failed to fetch refunds:", error);
-    return NextResponse.json({ error: "Failed to fetch refunds" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch refunds" },
+      { status: 500 }
+    );
   }
 }
 
@@ -96,10 +110,14 @@ export async function POST(request: Request) {
       transactionId,
     } = body as Record<string, unknown>;
 
-    const settings = getSettings().system.refunds;
+    const fullSettings = await getServerSettings();
+    const settings = fullSettings.system.refunds;
 
     if (!settings.enabled) {
-      return NextResponse.json({ error: "Refunds are not enabled" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Refunds are not enabled" },
+        { status: 400 }
+      );
     }
 
     if (
@@ -118,10 +136,16 @@ export async function POST(request: Request) {
     const refund = Number(refundAmount);
 
     if (!Number.isFinite(original) || original <= 0) {
-      return NextResponse.json({ error: "Invalid originalAmount" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid originalAmount" },
+        { status: 400 }
+      );
     }
     if (!Number.isFinite(refund) || refund <= 0) {
-      return NextResponse.json({ error: "Invalid refundAmount" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid refundAmount" },
+        { status: 400 }
+      );
     }
     if (refund > original) {
       return NextResponse.json(
@@ -130,10 +154,49 @@ export async function POST(request: Request) {
       );
     }
     if (!settings.allowedPaymentMethods.includes(paymentMethod)) {
-      return NextResponse.json({ error: "Payment method not allowed for refunds" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Payment method not allowed for refunds" },
+        { status: 400 }
+      );
+    }
+
+    // Determine initial status based on settings
+    let status = "pending";
+    let approvedBy: string | null = null;
+    let approvedAt: string | null = null;
+    let autoApprovalNote = "";
+
+    if (
+      settings.autoApproveSmallAmounts &&
+      refund <= settings.smallAmountThreshold
+    ) {
+      status = "approved";
+      autoApprovalNote = "Auto-approved (Small Amount)";
+      approvedBy = authorizedBy;
+      approvedAt = new Date().toISOString();
+    } else if (
+      authorizedBy === "Restaurant Manager" &&
+      refund > settings.maxManagerRefund
+    ) {
+      status = "pending";
+    } else if (
+      !settings.requireApproval ||
+      refund <= settings.approvalThreshold
+    ) {
+      status = "approved";
+      autoApprovalNote = "Auto-approved (Below Threshold)";
+      approvedBy = authorizedBy;
+      approvedAt = new Date().toISOString();
     }
 
     const nowIso = new Date().toISOString();
+    const finalNotes =
+      typeof additionalNotes === "string"
+        ? additionalNotes +
+          (autoApprovalNote ? `\n[System]: ${autoApprovalNote}` : "")
+        : autoApprovalNote
+          ? `[System]: ${autoApprovalNote}`
+          : null;
 
     const created = await transaction(async (client) => {
       const insertRes = await client.query(
@@ -151,10 +214,12 @@ export async function POST(request: Request) {
             status,
             requestedby,
             requestedat,
-            transactionid
+            transactionid,
+            approvedby,
+            approvedat
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
-            $9, 'pending', $10, NOW(), $11
+            $9, $10, $11, NOW(), $12, $13, $14
           )
           RETURNING *
         `,
@@ -167,9 +232,12 @@ export async function POST(request: Request) {
           paymentMethod,
           reason,
           authorizedBy,
-          typeof additionalNotes === "string" ? additionalNotes : null,
+          finalNotes,
+          status,
           requestedBy,
           typeof transactionId === "string" ? transactionId : null,
+          approvedBy,
+          approvedAt,
         ]
       );
 
@@ -191,10 +259,31 @@ export async function POST(request: Request) {
             paymentMethod,
             originalAmount: original,
             refundAmount: refund,
+            status,
           }),
           nowIso,
         ]
       );
+
+      if (status === "approved") {
+        await client.query(
+          `
+            INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            refundRow.id,
+            "approved",
+            "System",
+            autoApprovalNote,
+            JSON.stringify({
+              autoApproved: true,
+              reason: autoApprovalNote,
+            }),
+            nowIso,
+          ]
+        );
+      }
 
       return refundRow;
     });
@@ -202,7 +291,9 @@ export async function POST(request: Request) {
     return NextResponse.json(created);
   } catch (error) {
     console.error("Failed to create refund:", error);
-    return NextResponse.json({ error: "Failed to create refund" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create refund" },
+      { status: 500 }
+    );
   }
 }
-

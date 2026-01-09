@@ -66,32 +66,7 @@ export class RefundService {
         throw new Error(err.error || "Failed to create refund request");
       }
 
-      let refundRequest = await response.json();
-
-      // Check for auto-approval
-      if (this.shouldAutoApprove(refundRequest)) {
-        // Update server to approve
-        refundRequest = await this.approveRefund(
-          refundRequest.id,
-          refundRequest.authorizedBy,
-          "Auto-approved (Small Amount)"
-        );
-      } else if (
-        data.authorizedBy === "Restaurant Manager" &&
-        data.refundAmount > this.settings.maxManagerRefund
-      ) {
-        // Leave as pending
-      } else if (
-        !this.settings.requireApproval ||
-        data.refundAmount <= this.settings.approvalThreshold
-      ) {
-        // If no approval needed, approve immediately
-        refundRequest = await this.approveRefund(
-          refundRequest.id,
-          refundRequest.authorizedBy,
-          "Auto-approved (Below Threshold)"
-        );
-      }
+      const refundRequest = await response.json();
 
       return refundRequest;
     } catch (error) {
@@ -133,13 +108,6 @@ export class RefundService {
       };
     }
     return { isValid: true };
-  }
-
-  shouldAutoApprove(refund: RefundRequest): boolean {
-    return (
-      this.settings.autoApproveSmallAmounts &&
-      refund.refundAmount <= this.settings.smallAmountThreshold
-    );
   }
 
   async approveRefund(
