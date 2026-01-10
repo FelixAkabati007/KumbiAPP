@@ -316,6 +316,9 @@ export class RefundService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          return [];
+        }
         throw new Error(`Failed to fetch refunds: ${response.statusText}`);
       }
       const data = await response.json();
@@ -337,7 +340,16 @@ export class RefundService {
         refundMethod: r.refundmethod,
         transactionId: r.transactionid,
       }));
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        if (error.name === "AbortError") return [];
+        if (
+          error.message?.includes("Unauthorized") ||
+          error.message?.includes("Forbidden")
+        ) {
+          return [];
+        }
+      }
       console.error("Error fetching refunds:", error);
       throw error;
     }

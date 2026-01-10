@@ -39,12 +39,30 @@ export function useReceiptStats() {
       // setLoading(true);
 
       const res = await fetch("/api/receipts/stats");
-      if (!res.ok) throw new Error("Failed to fetch stats");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setStats({ today: 0, week: 0, month: 0, total: 0 });
+          return;
+        }
+        throw new Error("Failed to fetch stats");
+      }
       const data = await res.json();
       setStats(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        if (err.name === "AbortError") return;
+        if (
+          err.message?.includes("Unauthorized") ||
+          err.message?.includes("Forbidden")
+        ) {
+          setStats({ today: 0, week: 0, month: 0, total: 0 });
+          return;
+        }
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
       console.error("Error fetching receipt stats:", err);
     } finally {
       setLoading(false);

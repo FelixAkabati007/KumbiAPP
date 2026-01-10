@@ -218,7 +218,9 @@ export async function fetchSettings(): Promise<AppSettings> {
   try {
     const res = await fetch("/api/settings");
     if (!res.ok) {
-      if (res.status === 404) return defaultSettings;
+      if (res.status === 404 || res.status === 401 || res.status === 403) {
+        return defaultSettings;
+      }
       throw new Error(`Failed to fetch settings: ${res.statusText}`);
     }
     const data = await res.json();
@@ -250,8 +252,18 @@ export async function fetchSettings(): Promise<AppSettings> {
         },
       },
     };
-  } catch (error) {
-    console.error("Failed to fetch settings:", error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (
+        error.name !== "AbortError" &&
+        !error.message?.includes("Unauthorized") &&
+        !error.message?.includes("Forbidden")
+      ) {
+        console.error("Failed to fetch settings:", error);
+      }
+    } else {
+      console.error("Failed to fetch settings:", error);
+    }
     return defaultSettings;
   }
 }
