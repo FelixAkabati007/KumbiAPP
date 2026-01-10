@@ -8,14 +8,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-me";
 const routePermissions: Record<string, string[]> = {
   "/admin": ["admin"],
   "/settings": ["admin", "manager"],
-  "/pos": ["admin", "manager", "staff"],
+  "/pos": ["admin", "manager", "staff", "kitchen"],
   "/kitchen": ["admin", "manager", "kitchen"],
   "/inventory": ["admin", "manager", "kitchen"],
   "/reports": ["admin", "manager"],
   "/menu": ["admin", "manager"],
   "/refunds": ["admin", "manager", "staff"],
   "/order-display": ["admin", "manager", "staff", "kitchen"],
-  "/receipt": ["admin", "manager", "staff"],
+  "/receipt": ["admin", "manager", "staff", "kitchen"],
   "/system": ["admin", "manager"],
 };
 
@@ -24,10 +24,10 @@ const apiPermissions: Record<string, string[]> = {
   "/api/admin": ["admin"],
   "/api/settings": ["admin", "manager", "staff", "kitchen"],
   "/api/inventory": ["admin", "manager", "kitchen"],
-  "/api/menu": ["admin", "manager", "staff"],
-  "/api/refunds": ["admin", "manager", "staff"],
+  "/api/menu": ["admin", "manager", "staff", "kitchen"],
+  "/api/refunds": ["admin", "manager", "staff", "kitchen"],
   "/api/orders": ["admin", "manager", "staff", "kitchen"],
-  "/api/receipts": ["admin", "manager", "staff"],
+  "/api/receipts": ["admin", "manager", "staff", "kitchen"],
   "/api/reports": ["admin", "manager"],
   "/api/system": ["admin", "manager", "staff", "kitchen"],
 };
