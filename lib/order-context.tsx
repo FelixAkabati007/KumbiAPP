@@ -282,11 +282,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (newOrderStatus !== currentOrder.status) {
-            await fetch(`/api/orders/${orderId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: newOrderStatus }),
-            });
+            try {
+              await fetch(`/api/orders/${orderId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newOrderStatus }),
+              });
+            } catch (err) {
+              console.warn(
+                "Failed to sync parent order status (non-critical):",
+                err
+              );
+            }
           }
         }
 

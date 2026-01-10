@@ -34,7 +34,7 @@ if (connectionString) {
   if (process.env.NODE_ENV === "production") {
     pool = new Pool({
       connectionString,
-      max: 20, // Maximum number of clients in the pool
+      max: 2, // Maximum number of clients in the pool (lowered for serverless)
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
       connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
     });
