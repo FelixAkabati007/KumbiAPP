@@ -68,6 +68,7 @@ export default function PaymentsPage() {
               metadata.customer_name || metadata.customerName || "Guest",
             paymentMethod: txn.payment_method || "cash",
             customerRefused: metadata.customerRefused,
+            type: metadata.type || "sale",
           };
         });
         setData(salesData);
@@ -96,12 +97,12 @@ export default function PaymentsPage() {
     const startOfToday = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate(),
+      today.getDate()
     );
     const startOfWeek = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate() - today.getDay(),
+      today.getDate() - today.getDay()
     );
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
@@ -122,7 +123,7 @@ export default function PaymentsPage() {
     // Apply payment method filter
     if (paymentFilter !== "all") {
       filtered = filtered.filter(
-        (item) => item.paymentMethod === paymentFilter,
+        (item) => item.paymentMethod === paymentFilter
       );
     }
 
@@ -133,7 +134,7 @@ export default function PaymentsPage() {
         (item) =>
           item.orderNumber.toLowerCase().includes(query) ||
           item.customerName?.toLowerCase().includes(query) ||
-          item.paymentMethod.toLowerCase().includes(query),
+          item.paymentMethod.toLowerCase().includes(query)
       );
     }
 
@@ -142,8 +143,8 @@ export default function PaymentsPage() {
 
   const paymentAnalytics = useMemo(() => {
     const totalRevenue = filteredData.reduce(
-      (sum, item) => sum + item.total,
-      0,
+      (sum, item) => sum + (item.type === "refund" ? -item.total : item.total),
+      0
     );
     const totalTransactions = filteredData.length;
 
@@ -161,7 +162,8 @@ export default function PaymentsPage() {
         };
       }
       paymentBreakdown[order.paymentMethod].count += 1;
-      paymentBreakdown[order.paymentMethod].revenue += order.total;
+      const amount = order.type === "refund" ? -order.total : order.total;
+      paymentBreakdown[order.paymentMethod].revenue += amount;
     });
 
     // Calculate percentages
@@ -187,7 +189,8 @@ export default function PaymentsPage() {
     filteredData.forEach((order) => {
       const orderDate = new Date(order.date).toISOString().split("T")[0];
       if (dailyRevenue.hasOwnProperty(orderDate)) {
-        dailyRevenue[orderDate] += order.total;
+        const amount = order.type === "refund" ? -order.total : order.total;
+        dailyRevenue[orderDate] += amount;
       }
     });
 
@@ -378,7 +381,7 @@ export default function PaymentsPage() {
                         <div className="flex items-center gap-3">
                           <Badge
                             className={`rounded-full text-xs flex items-center gap-1 ${getPaymentMethodColor(
-                              method,
+                              method
                             )}`}
                           >
                             {getPaymentMethodIcon(method)}
@@ -408,7 +411,7 @@ export default function PaymentsPage() {
                         })()}
                       </div>
                     </div>
-                  ),
+                  )
                 )}
               </CardContent>
             </Card>
@@ -440,7 +443,7 @@ export default function PaymentsPage() {
                         ₵{revenue.toFixed(2)}
                       </div>
                     </div>
-                  ),
+                  )
                 )}
               </CardContent>
             </Card>
@@ -458,41 +461,60 @@ export default function PaymentsPage() {
             <CardContent className="relative z-10">
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3">
-                  {filteredData.slice(0, 20).map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="p-4 bg-gradient-to-r from-white/60 to-orange-50/60 dark:from-gray-800/60 dark:to-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-700"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-orange-700 dark:text-orange-300">
-                            {transaction.orderNumber}
-                          </span>
-                          <Badge
-                            className={`rounded-full text-xs flex items-center gap-1 ${getPaymentMethodColor(
-                              transaction.paymentMethod,
-                            )}`}
-                          >
-                            {getPaymentMethodIcon(transaction.paymentMethod)}
-                            {transaction.paymentMethod}
-                          </Badge>
+                  {filteredData.slice(0, 20).map((transaction) => {
+                    const isRefund = transaction.type === "refund";
+                    return (
+                      <div
+                        key={transaction.id}
+                        className={`p-4 bg-gradient-to-r ${
+                          isRefund
+                            ? "from-red-50/60 to-red-100/60 dark:from-red-900/20 dark:to-red-800/20 border-red-200 dark:border-red-700"
+                            : "from-white/60 to-orange-50/60 dark:from-gray-800/60 dark:to-orange-900/20 border-orange-200 dark:border-orange-700"
+                        } rounded-2xl border`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-orange-700 dark:text-orange-300">
+                              {transaction.orderNumber}
+                            </span>
+                            {isRefund && (
+                              <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700">
+                                Refund
+                              </Badge>
+                            )}
+                            <Badge
+                              className={`rounded-full text-xs flex items-center gap-1 ${getPaymentMethodColor(
+                                transaction.paymentMethod
+                              )}`}
+                            >
+                              {getPaymentMethodIcon(transaction.paymentMethod)}
+                              {transaction.paymentMethod}
+                            </Badge>
+                          </div>
+                          <div className="text-right">
+                            <div
+                              className={`font-bold ${
+                                isRefund
+                                  ? "text-red-700 dark:text-red-300"
+                                  : "text-green-700 dark:text-green-300"
+                              }`}
+                            >
+                              {isRefund ? "-" : ""}₵
+                              {transaction.total.toFixed(2)}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(transaction.date).toLocaleString()}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold text-green-700 dark:text-green-300">
-                            ₵{transaction.total.toFixed(2)}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(transaction.date).toLocaleString()}
-                          </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {transaction.customerName ||
+                            `Table ${transaction.tableNumber}`}{" "}
+                          • {transaction.orderType}
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {transaction.customerName ||
-                          `Table ${transaction.tableNumber}`}{" "}
-                        • {transaction.orderType}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </CardContent>

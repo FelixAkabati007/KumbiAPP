@@ -11,9 +11,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Role check: Admin, Manager, Staff, Kitchen should be able to see receipt stats
+    // Role check: Admin, Manager, Staff should be able to see receipt stats
     // Middleware already allows staff, but let's be safe.
-    const allowedRoles = ["admin", "manager", "staff", "kitchen"];
+    const allowedRoles = ["admin", "manager", "staff"];
     if (!allowedRoles.includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

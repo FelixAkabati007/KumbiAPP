@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       id,
-      // type, // unused in DB schema directly, maybe put in metadata or map to status details
+      type,
       orderId,
       amount,
       status,
@@ -25,8 +25,8 @@ export async function POST(req: Request) {
       id || `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const currency = "GHS";
 
-    // Merge orderId into metadata if not present
-    const finalMetadata = { ...metadata, orderId };
+    // Merge orderId and type into metadata if not present
+    const finalMetadata = { ...metadata, orderId, type };
 
     await query(
       `INSERT INTO transaction_logs 

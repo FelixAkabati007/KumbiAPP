@@ -16,6 +16,7 @@ const routePermissions: Record<string, string[]> = {
   "/refunds": ["admin", "manager", "staff"],
   "/order-display": ["admin", "manager", "staff", "kitchen"],
   "/receipt": ["admin", "manager", "staff", "kitchen"],
+  "/payments": ["admin", "manager"],
   "/system": ["admin", "manager"],
 };
 
@@ -25,10 +26,11 @@ const apiPermissions: Record<string, string[]> = {
   "/api/settings": ["admin", "manager", "staff", "kitchen"],
   "/api/inventory": ["admin", "manager", "kitchen"],
   "/api/menu": ["admin", "manager", "staff", "kitchen"],
-  "/api/refunds": ["admin", "manager", "staff", "kitchen"],
+  "/api/refunds": ["admin", "manager", "staff"],
   "/api/orders": ["admin", "manager", "staff", "kitchen"],
-  "/api/receipts": ["admin", "manager", "staff", "kitchen"],
+  "/api/receipts": ["admin", "manager", "staff"],
   "/api/reports": ["admin", "manager"],
+  "/api/transactions": ["admin", "manager"],
   "/api/system": ["admin", "manager", "staff", "kitchen"],
 };
 

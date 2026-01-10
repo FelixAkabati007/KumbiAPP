@@ -43,6 +43,7 @@ export interface SalesData {
   customerName?: string;
   customerRefused?: boolean;
   paymentMethod: string;
+  type?: "sale" | "refund";
 }
 
 export interface RefundRequest {

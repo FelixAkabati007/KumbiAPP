@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSystemSync } from "./use-system-sync";
+import { useAuth } from "@/components/auth-provider";
 
 interface ReceiptStats {
   today: number;
@@ -9,6 +10,7 @@ interface ReceiptStats {
 }
 
 export function useReceiptStats() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<ReceiptStats>({
     today: 0,
     week: 0,
@@ -24,6 +26,12 @@ export function useReceiptStats() {
   const ordersVersion = versions["orders"];
 
   const fetchStats = useCallback(async () => {
+    // Skip fetch for kitchen role as they don't need financial stats
+    if (user?.role === "kitchen") {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Don't set loading to true on background updates to avoid flicker
       // only set if we don't have data yet?
@@ -41,19 +49,21 @@ export function useReceiptStats() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.role]);
 
   // Initial fetch
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (user) {
+      fetchStats();
+    }
+  }, [fetchStats, user]);
 
   // Refetch when version changes
   useEffect(() => {
-    if (ordersVersion) {
+    if (ordersVersion && user) {
       fetchStats();
     }
-  }, [ordersVersion, fetchStats]);
+  }, [ordersVersion, fetchStats, user]);
 
   return { stats, loading, error, refetch: fetchStats };
 }
