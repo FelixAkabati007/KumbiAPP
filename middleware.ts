@@ -70,7 +70,7 @@ export async function middleware(req: NextRequest) {
       if (!allowedRoles.includes(userRole)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-    } catch (_error) {
+    } catch {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
@@ -106,7 +106,7 @@ export async function middleware(req: NextRequest) {
         url.pathname = "/unauthorized";
         return NextResponse.redirect(url);
       }
-    } catch (_error) {
+    } catch {
       // Token invalid or expired
       const url = req.nextUrl.clone();
       url.pathname = "/login";
