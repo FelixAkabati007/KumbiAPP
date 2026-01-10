@@ -22,7 +22,7 @@ const routePermissions: Record<string, string[]> = {
 // Define RBAC for API routes
 const apiPermissions: Record<string, string[]> = {
   "/api/admin": ["admin"],
-  "/api/settings": ["admin", "manager"],
+  "/api/settings": ["admin", "manager", "staff", "kitchen"],
   "/api/inventory": ["admin", "manager", "kitchen"],
   "/api/menu": ["admin", "manager", "staff"],
   "/api/refunds": ["admin", "manager", "staff"],
