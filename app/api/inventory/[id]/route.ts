@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
     const { id } = await params;
     const body = await req.json();
     const { quantity, unit, reorderLevel, cost, supplier } = body;
@@ -39,11 +42,11 @@ export async function PUT(
       return NextResponse.json({ message: "No changes" });
     }
 
-    // Always update last_updated
     fields.push(`last_updated = NOW()`);
-
     values.push(id);
-    const q = `UPDATE inventory SET ${fields.join(", ")} WHERE id = $${idx} RETURNING id`;
+    const q = `UPDATE inventory SET ${fields.join(
+      ", "
+    )} WHERE id = $${idx} RETURNING *`;
 
     const res = await query(q, values);
 
@@ -51,7 +54,16 @@ export async function PUT(
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    await logAudit({
+      action: "UPDATE_INVENTORY",
+      entityType: "INVENTORY",
+      entityId: id,
+      details: { changes: body, current: res.rows[0] },
+      performedBy: session?.id,
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
+
+    return NextResponse.json({ success: true, item: res.rows[0] });
   } catch (error) {
     console.error("Inventory Item PUT failed:", error);
     return NextResponse.json(
@@ -66,12 +78,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
     const { id } = await params;
+
     const res = await query("DELETE FROM inventory WHERE id = $1", [id]);
 
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
+
+    await logAudit({
+      action: "DELETE_INVENTORY",
+      entityType: "INVENTORY",
+      entityId: id,
+      performedBy: session?.id,
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
