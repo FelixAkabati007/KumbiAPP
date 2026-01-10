@@ -7,6 +7,8 @@ export async function GET(request: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const status = searchParams.get("status");
+    const orderNumber = searchParams.get("orderNumber");
+    const orderId = searchParams.get("orderId");
     const limit = searchParams.get("limit")
       ? parseInt(searchParams.get("limit")!)
       : 1000;
@@ -28,6 +30,22 @@ export async function GET(request: Request) {
     if (status) {
       conditions.push(`status = $${params.length + 1}`);
       params.push(status);
+    }
+
+    if (orderNumber) {
+      conditions.push(
+        `LOWER(metadata->>'orderNumber') = LOWER($${params.length + 1})`
+      );
+      params.push(orderNumber);
+    }
+
+    if (orderId) {
+      conditions.push(
+        `(metadata->>'orderId' = $${params.length + 1} OR transaction_id = $${
+          params.length + 1
+        })`
+      );
+      params.push(orderId);
     }
 
     if (conditions.length > 0) {

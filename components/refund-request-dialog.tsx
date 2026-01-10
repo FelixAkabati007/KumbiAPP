@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getSettings } from "@/lib/settings";
 import { createRefundRequest } from "@/lib/refund-service";
 import { useAuth } from "@/components/auth-provider";
-import { CheckCircle, Clock, DollarSign } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -50,6 +50,8 @@ export function RefundRequestDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(!!orderData);
   const [settings] = useState(getSettings());
 
   // Form state
@@ -89,8 +91,84 @@ export function RefundRequestDialog({
               : "",
         additionalNotes: "",
       });
+      setIsVerified(true);
+    } else {
+      setIsVerified(false);
     }
   }, [orderData, user?.role]);
+
+  const handleVerifyOrder = async () => {
+    if (!formData.orderNumber && !formData.orderId) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter Order ID or Order Number to verify.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsVerifying(true);
+    setErrors({});
+
+    try {
+      const params = new URLSearchParams();
+      if (formData.orderNumber)
+        params.append("orderNumber", formData.orderNumber);
+      if (formData.orderId) params.append("orderId", formData.orderId);
+
+      const res = await fetch(`/api/transactions?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to verify order");
+
+      const transactions = await res.json();
+
+      if (!Array.isArray(transactions) || transactions.length === 0) {
+        throw new Error(
+          "Order not found. Please check the Order ID/Number and try again."
+        );
+      }
+
+      // Use the first match
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const txn: any = transactions[0];
+      const metadata = txn.metadata || {};
+
+      // Parse amount
+      const amount =
+        typeof txn.amount === "string" ? parseFloat(txn.amount) : txn.amount;
+
+      setFormData((prev) => ({
+        ...prev,
+        orderId: metadata.orderId || txn.transaction_id || prev.orderId,
+        orderNumber: metadata.orderNumber || prev.orderNumber,
+        customerName:
+          metadata.customerName || metadata.customer_name || "Guest",
+        customerRefused: !!metadata.customerRefused,
+        originalAmount: amount,
+        refundAmount: 0,
+        paymentMethod: txn.payment_method || prev.paymentMethod,
+      }));
+
+      setIsVerified(true);
+      toast({
+        title: "Order Verified",
+        description: `Order found with amount ₵${amount.toFixed(2)}`,
+      });
+    } catch (error) {
+      console.error(error);
+      setIsVerified(false);
+      toast({
+        title: "Verification Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not verify order details",
+        variant: "destructive",
+      });
+      setFormData((prev) => ({ ...prev, originalAmount: 0 }));
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // Validate form
   const validateForm = (): boolean => {
@@ -303,44 +381,71 @@ export function RefundRequestDialog({
           </Alert>
 
           {/* Order Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label
-                htmlFor="orderId"
-                className="text-sm text-gray-700 dark:text-gray-300"
-              >
-                Order ID
-              </Label>
-              <Input
-                id="orderId"
-                value={formData.orderId}
-                onChange={(e) =>
-                  setFormData({ ...formData, orderId: e.target.value })
-                }
-                className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-              />
-              {errors.orderId && (
-                <p className="text-xs text-red-600 dark:text-red-400">
-                  {errors.orderId}
-                </p>
-              )}
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label
+                  htmlFor="orderId"
+                  className="text-sm text-gray-700 dark:text-gray-300"
+                >
+                  Order ID
+                </Label>
+                <Input
+                  id="orderId"
+                  value={formData.orderId}
+                  onChange={(e) => {
+                    setFormData({ ...formData, orderId: e.target.value });
+                    if (!orderData) setIsVerified(false);
+                  }}
+                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                  disabled={isVerified && !!orderData}
+                />
+                {errors.orderId && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {errors.orderId}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label
+                  htmlFor="orderNumber"
+                  className="text-sm text-gray-700 dark:text-gray-300"
+                >
+                  Order Number
+                </Label>
+                <Input
+                  id="orderNumber"
+                  value={formData.orderNumber}
+                  onChange={(e) => {
+                    setFormData({ ...formData, orderNumber: e.target.value });
+                    if (!orderData) setIsVerified(false);
+                  }}
+                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                  disabled={isVerified && !!orderData}
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label
-                htmlFor="orderNumber"
-                className="text-sm text-gray-700 dark:text-gray-300"
-              >
-                Order Number
-              </Label>
-              <Input
-                id="orderNumber"
-                value={formData.orderNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, orderNumber: e.target.value })
+
+            {!isVerified && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleVerifyOrder}
+                disabled={
+                  isVerifying || (!formData.orderId && !formData.orderNumber)
                 }
-                className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-              />
-            </div>
+                className="w-full border-orange-200 hover:bg-orange-50 hover:text-orange-900 dark:border-orange-700 dark:hover:bg-orange-900/50 dark:hover:text-orange-100"
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying Order...
+                  </>
+                ) : (
+                  "Verify Order Details"
+                )}
+              </Button>
+            )}
           </div>
 
           {/* Customer Information */}
@@ -444,6 +549,7 @@ export function RefundRequestDialog({
                   })
                 }
                 className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                disabled={!isVerified}
               />
               {errors.refundAmount && (
                 <p className="text-xs text-red-600 dark:text-red-400">
