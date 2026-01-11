@@ -71,8 +71,6 @@ const ChartContainer = React.forwardRef<
   const uniqueId = React.useId();
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
 
-  console.log("[Chart] Rendering ChartContainer with config:", config);
-
   return (
     <ChartContext.Provider value={{ config }}>
       <div

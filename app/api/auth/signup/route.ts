@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       );
 
       // Send email
-      const appUrl = env.APP_URL || "http://localhost:5173";
+      const appUrl = env.APP_URL || "http://localhost:3000";
       const link = `${appUrl}/auth/verify?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(
         user.email
       )}`;

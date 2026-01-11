@@ -54,9 +54,14 @@ function WaitTimer({ createdAt }: { createdAt: string }) {
 
   useEffect(() => {
     const update = () => {
+      if (!createdAt) {
+        setElapsed(0);
+        return;
+      }
       const start = new Date(createdAt).getTime();
       const now = new Date().getTime();
-      setElapsed(Math.floor((now - start) / 60000));
+      const diff = Math.floor((now - start) / 60000);
+      setElapsed(isNaN(diff) ? 0 : diff);
     };
     update();
     const interval = setInterval(update, 60000);
@@ -137,11 +142,11 @@ function KitchenContent() {
     }
   };
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 5 seconds for near real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
       refreshOrders();
-    }, 30000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [refreshOrders]);
