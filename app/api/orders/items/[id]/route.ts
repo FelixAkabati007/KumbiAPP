@@ -38,7 +38,7 @@ export async function PATCH(
        RETURNING *`,
       [status, id]
     );
-    const duration = Date.now() - startTime;
+    // const duration = Date.now() - startTime;
     // console.log(`[API] Database update took ${duration}ms`);
 
     if (result.rowCount === 0) {

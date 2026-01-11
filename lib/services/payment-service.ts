@@ -38,7 +38,7 @@ export class PaymentService {
     customer: Customer,
     settings?: AppSettings
   ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
-    const transaction = { id: `txn-${Date.now()}` } as { id: string };
+    // const transaction = { id: `txn-${Date.now()}` } as { id: string };
 
     // Update printer service if settings are provided
     if (settings?.system?.thermalPrinter) {

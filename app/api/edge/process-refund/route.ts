@@ -7,12 +7,12 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { payment_intent_id, amount, reason } = body;
+    const { payment_intent_id } = body;
 
     if (!payment_intent_id) {
       return NextResponse.json(
         { error: "Missing payment_intent_id" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     console.error("process-refund error", err);
     return NextResponse.json(
       { error: "Failed to process refund" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // Migrated from Supabase Edge Function to Next.js API Route
 // Handles Stripe Payment Intent creation
 
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   try {
     // const body = await req.json();
     // const { amount, currency = "usd" } = body;

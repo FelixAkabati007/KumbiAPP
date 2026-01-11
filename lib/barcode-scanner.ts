@@ -212,8 +212,8 @@ export class BarcodeScannerService {
       console.log("Configuring barcode scanner...");
 
       // Simulate configuration commands
-      const commands = [
-        `SET_BAUD_RATE ${this.config.baudRate}`,
+      // const commands = [
+      //   `SET_BAUD_RATE ${this.config.baudRate}`,
         `SET_DATA_BITS ${this.config.dataBits}`,
         `SET_STOP_BITS ${this.config.stopBits}`,
         `SET_PARITY ${this.config.parity}`,

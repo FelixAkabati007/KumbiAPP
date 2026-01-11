@@ -98,7 +98,7 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await pool.query<R>(text, params as any[]);
-      const duration = Date.now() - start;
+      // const duration = Date.now() - start;
       // Log slow queries for performance optimization
       // if (duration > 100) {
       //   console.log("Executed query", { text, duration, rows: res.rowCount });

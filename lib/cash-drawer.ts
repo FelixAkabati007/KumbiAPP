@@ -71,7 +71,7 @@ export class CashDrawerService {
     try {
       // Send open command to cash drawer
       // Common commands: ESC p (0) (0) (0) or ESC p (0) (0) (0) (0)
-      const openCommand = Buffer.from([0x1b, 0x70, 0x00, 0x00, 0x00]);
+      // const openCommand = Buffer.from([0x1b, 0x70, 0x00, 0x00, 0x00]);
 
       // In a real implementation, this would send the command via serial port
       // console.log("Sending cash drawer open command:", openCommand);

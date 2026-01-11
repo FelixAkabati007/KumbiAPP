@@ -9,24 +9,24 @@ type UploadOptions = {
 export async function storageUpload(
   bucket: string,
   path: string,
-  content: Blob | File | ArrayBuffer | Uint8Array,
-  options?: UploadOptions,
+  _content: Blob | File | ArrayBuffer | Uint8Array,
+  _options?: UploadOptions
 ) {
   // console.log(`[Mock Storage] Uploading to ${bucket}/${path}`, options);
   return { path, fullPath: `${bucket}/${path}` };
 }
 
-export async function storageDownload(bucket: string, path: string) {
+export async function storageDownload(_bucket: string, _path: string) {
   // console.log(`[Mock Storage] Downloading from ${bucket}/${path}`);
   return new Blob(["Mock content"]);
 }
 
-export async function storageRemove(bucket: string, paths: string[]) {
+export async function storageRemove(_bucket: string, paths: string[]) {
   // console.log(`[Mock Storage] Removing from ${bucket}`, paths);
   return paths.map((p) => ({ path: p }));
 }
 
-export async function storageList(bucket: string, prefix = "", _limit = 100) {
+export async function storageList(_bucket: string, _prefix = "", _limit = 100) {
   // console.log(
   //   `[Mock Storage] Listing ${bucket} prefix=${prefix} limit=${_limit}`,
   // );
@@ -36,7 +36,7 @@ export async function storageList(bucket: string, prefix = "", _limit = 100) {
 export async function storageSignedUrl(
   bucket: string,
   path: string,
-  _expiresIn = 60,
+  _expiresIn = 60
 ) {
   // console.log(
   //   `[Mock Storage] Signed URL for ${bucket}/${path} expiresIn=${_expiresIn}`,
@@ -48,7 +48,7 @@ export async function storageUpdate(
   bucket: string,
   path: string,
   content: Blob | File | ArrayBuffer | Uint8Array,
-  options?: UploadOptions,
+  options?: UploadOptions
 ) {
   return storageUpload(bucket, path, content, {
     ...(options ?? {}),
