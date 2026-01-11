@@ -522,7 +522,7 @@ function KitchenContent() {
           {/* Filters and Search */}
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
             <div className="flex flex-wrap items-center gap-4">
-              <div className="relative flex-1 min-w-64">
+              <div className="relative flex-1 w-full md:min-w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
@@ -533,10 +533,10 @@ function KitchenContent() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full md:w-auto">
                 <Filter className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
+                  <SelectTrigger className="w-full md:w-48 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
