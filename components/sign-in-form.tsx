@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
@@ -120,7 +121,10 @@ export function SignInForm() {
             )}
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="email"
@@ -187,6 +191,18 @@ export function SignInForm() {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex justify-end">
+                  <Link href="/forgot-password">
+                    <Button
+                      variant="link"
+                      className="px-0 h-auto font-normal text-xs text-orange-600 dark:text-orange-400 hover:no-underline"
+                      type="button"
+                    >
+                      Forgot password?
+                    </Button>
+                  </Link>
+                </div>
 
                 <Button
                   type="submit"

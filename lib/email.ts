@@ -80,3 +80,23 @@ export function buildVerificationEmail(link: string) {
   `;
   return { subject, text, html };
 }
+
+export function buildPasswordResetEmail(link: string) {
+  const subject = "Reset your password";
+  const text = `Reset your password for Kumbisaly Heritage Restaurant POS.\n\nPlease click the link below to reset your password:\n${link}\n\nThis link expires in 1 hour.\nIf you did not request a password reset, you can ignore this email.`;
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;padding:24px;background:#fff;color:#111">
+      <h2 style="margin:0 0 16px;">Reset your password</h2>
+      <p>You requested a password reset for Kumbisaly Heritage Restaurant POS.</p>
+      <p>Please click the button below to reset your password. This link expires in 1 hour.</p>
+      <p style="margin:24px 0;">
+        <a href="${link}" style="display:inline-block;padding:10px 16px;background:#EA580C;color:#fff;border-radius:6px;text-decoration:none">Reset Password</a>
+      </p>
+      <p>If the button above does not work, copy and paste this URL into your browser:</p>
+      <p><a href="${link}">${link}</a></p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+      <p style="font-size:12px;color:#666">If you did not request a password reset, you can safely ignore this email.</p>
+    </div>
+  `;
+  return { subject, text, html };
+}
