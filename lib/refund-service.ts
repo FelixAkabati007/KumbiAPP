@@ -350,6 +350,16 @@ export class RefundService {
           return [];
         }
       }
+      // Suppress logging for common network aborts/failures that are transient
+      if (
+        error instanceof Error &&
+        (error.message.includes("Failed to fetch") ||
+          error.message.includes("NetworkError") ||
+          error.message.includes("ERR_ABORTED"))
+      ) {
+        // console.warn("Suppressed network error fetching refunds:", error.message);
+        throw error;
+      }
       console.error("Error fetching refunds:", error);
       throw error;
     }
