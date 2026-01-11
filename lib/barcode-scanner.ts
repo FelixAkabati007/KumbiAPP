@@ -61,9 +61,9 @@ export class BarcodeScannerService {
     try {
       // In a real implementation, this would use a library like 'serialport'
       // For now, we'll simulate the connection
-      console.log(
-        `Connecting to barcode scanner on ${this.config.port} at ${this.config.baudRate} baud`,
-      );
+      // console.log(
+      //   `Connecting to barcode scanner on ${this.config.port} at ${this.config.baudRate} baud`,
+      // );
 
       // Simulate connection delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -89,7 +89,7 @@ export class BarcodeScannerService {
 
     // Simulate barcode scanner data reception
     // In a real implementation, this would listen to the serial port
-    console.log("Barcode scanner is ready to receive data");
+    // console.log("Barcode scanner is ready to receive data");
 
     // Simulate periodic data reception for testing
     setInterval(() => {
@@ -121,7 +121,7 @@ export class BarcodeScannerService {
       if (this.config.suffix && processedData.endsWith(this.config.suffix)) {
         processedData = processedData.substring(
           0,
-          processedData.length - this.config.suffix.length,
+          processedData.length - this.config.suffix.length
         );
       }
 
@@ -186,7 +186,7 @@ export class BarcodeScannerService {
 
   // Test the barcode scanner connection
   async test(): Promise<boolean> {
-    console.log("Testing barcode scanner connection...");
+    // console.log("Testing barcode scanner connection...");
 
     const connected = await this.connect();
     if (!connected) {
@@ -225,9 +225,9 @@ export class BarcodeScannerService {
         `SET_TIMEOUT ${this.config.timeout}`,
       ];
 
-      commands.forEach((command) => {
-        console.log(`Sending command: ${command}`);
-      });
+      // commands.forEach((command) => {
+      //   console.log(`Sending command: ${command}`);
+      // });
 
       return true;
     } catch (error) {
@@ -300,7 +300,7 @@ export class BarcodeScannerService {
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(
         0.01,
-        audioContext.currentTime + 0.2,
+        audioContext.currentTime + 0.2
       );
 
       oscillator.start(audioContext.currentTime);
@@ -342,12 +342,12 @@ let barcodeScannerInstance: BarcodeScannerService | null = null;
 
 // Get or create barcode scanner instance
 export function getBarcodeScannerService(
-  config?: BarcodeScannerConfig,
+  config?: BarcodeScannerConfig
 ): BarcodeScannerService {
   if (!barcodeScannerInstance) {
     if (!config) {
       throw new Error(
-        "Barcode scanner configuration required for first initialization",
+        "Barcode scanner configuration required for first initialization"
       );
     }
     barcodeScannerInstance = new BarcodeScannerService(config);
@@ -359,7 +359,7 @@ export function getBarcodeScannerService(
 
 // Utility functions for common operations
 export async function testBarcodeScanner(
-  config: BarcodeScannerConfig,
+  config: BarcodeScannerConfig
 ): Promise<boolean> {
   const service = getBarcodeScannerService(config);
 
@@ -372,7 +372,7 @@ export async function testBarcodeScanner(
 }
 
 export async function configureBarcodeScanner(
-  config: BarcodeScannerConfig,
+  config: BarcodeScannerConfig
 ): Promise<boolean> {
   const service = getBarcodeScannerService(config);
 

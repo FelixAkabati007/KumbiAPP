@@ -42,7 +42,7 @@ export class CashDrawerService {
       // In a real implementation, this would use a library like 'serialport'
       // For now, we'll simulate the connection
       console.log(
-        `Connecting to cash drawer on ${this.config.port} at ${this.config.baudRate} baud`,
+        `Connecting to cash drawer on ${this.config.port} at ${this.config.baudRate} baud`
       );
 
       // Simulate connection delay
@@ -74,7 +74,7 @@ export class CashDrawerService {
       const openCommand = Buffer.from([0x1b, 0x70, 0x00, 0x00, 0x00]);
 
       // In a real implementation, this would send the command via serial port
-      console.log("Sending cash drawer open command:", openCommand);
+      // console.log("Sending cash drawer open command:", openCommand);
 
       // Simulate opening delay
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -120,7 +120,7 @@ export class CashDrawerService {
 
   // Test the cash drawer connection
   async test(): Promise<boolean> {
-    console.log("Testing cash drawer connection...");
+    // console.log("Testing cash drawer connection...");
 
     const connected = await this.connect();
     if (!connected) {
@@ -188,7 +188,7 @@ export class CashDrawerService {
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(
         0.01,
-        audioContext.currentTime + 0.2,
+        audioContext.currentTime + 0.2
       );
 
       oscillator.start(audioContext.currentTime);
@@ -212,12 +212,12 @@ let cashDrawerInstance: CashDrawerService | null = null;
 
 // Get or create cash drawer instance
 export function getCashDrawerService(
-  config?: CashDrawerConfig,
+  config?: CashDrawerConfig
 ): CashDrawerService {
   if (!cashDrawerInstance) {
     if (!config) {
       throw new Error(
-        "Cash drawer configuration required for first initialization",
+        "Cash drawer configuration required for first initialization"
       );
     }
     cashDrawerInstance = new CashDrawerService(config);
@@ -229,7 +229,7 @@ export function getCashDrawerService(
 
 // Utility functions for common operations
 export async function openCashDrawer(
-  config: CashDrawerConfig,
+  config: CashDrawerConfig
 ): Promise<boolean> {
   const service = getCashDrawerService(config);
 
@@ -250,7 +250,7 @@ export async function openCashDrawer(
 }
 
 export async function testCashDrawer(
-  config: CashDrawerConfig,
+  config: CashDrawerConfig
 ): Promise<boolean> {
   const service = getCashDrawerService(config);
   return await service.test();

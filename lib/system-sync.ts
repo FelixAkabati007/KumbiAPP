@@ -40,7 +40,7 @@ export async function getSystemState(): Promise<Record<string, string>> {
     const result = await query<SystemState>(
       "SELECT key, version FROM system_state"
     );
-    console.log(`getSystemState: Found ${result.rowCount} rows.`, result.rows);
+    // console.log(`getSystemState: Found ${result.rowCount} rows.`, result.rows);
     const state: Record<string, string> = {};
     result.rows.forEach((row) => {
       state[row.key] = row.version;

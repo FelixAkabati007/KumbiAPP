@@ -81,7 +81,7 @@ export class OfflineQueueService {
         }
 
         // Success: do not add back to remainingQueue
-        console.log(`Processed queued request: ${req.id}`);
+        // console.log(`Processed queued request: ${req.id}`);
       } catch (error) {
         console.error(`Failed to process queued request ${req.id}`, error);
         req.retryCount++;

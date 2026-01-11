@@ -15,7 +15,7 @@ export class InventoryManager {
     orderId: string,
     items: InventoryDeductionItem[]
   ): Promise<void> {
-    console.log(`[InventoryManager] Starting deduction for order ${orderId}`);
+    // console.log(`[InventoryManager] Starting deduction for order ${orderId}`);
 
     if (items.length === 0) {
       console.warn(`[InventoryManager] No items provided for order ${orderId}`);
@@ -46,14 +46,14 @@ export class InventoryManager {
               await client.query(
                 `UPDATE inventory 
                  SET quantity = quantity - $1, 
-                     last_updated = NOW() 
+                 last_updated = NOW() 
                  WHERE id = $2`,
                 [totalDeduction, ingredient.inventory_item_id]
               );
 
-              console.log(
-                `[InventoryManager] Deducted ${totalDeduction} ${ingredient.unit} of inventory item ${ingredient.inventory_item_id} for menu item ${item.menu_item_id}`
-              );
+              // console.log(
+              //   `[InventoryManager] Deducted ${totalDeduction} ${ingredient.unit} of inventory item ${ingredient.inventory_item_id} for menu item ${item.menu_item_id}`
+              // );
             }
           }
         }
@@ -76,15 +76,15 @@ export class InventoryManager {
                      WHERE id = $2`,
               [item.quantity, invId]
             );
-            console.log(
-              `[InventoryManager] Direct deduction: ${item.quantity} for ${item.item_name}`
-            );
+            // console.log(
+            //   `[InventoryManager] Direct deduction: ${item.quantity} for ${item.item_name}`
+            // );
           }
         }
       }
     });
 
-    console.log(`[InventoryManager] Deduction completed for order ${orderId}`);
+    // console.log(`[InventoryManager] Deduction completed for order ${orderId}`);
   }
 }
 

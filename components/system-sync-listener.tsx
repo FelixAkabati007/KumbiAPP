@@ -28,7 +28,7 @@ export function SystemSyncListener() {
     });
 
     if (changes.length > 0) {
-      console.log("System sync detected changes:", changes);
+      // console.log("System sync detected changes:", changes);
       
       // Update ref
       prevVersions.current = versions;

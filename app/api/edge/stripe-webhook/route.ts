@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     // const event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
 
     // Mock event processing
-    console.log("Received Stripe webhook");
+    // console.log("Received Stripe webhook");
 
     // Example: Update order status on successful payment
     // if (event.type === 'payment_intent.succeeded') {

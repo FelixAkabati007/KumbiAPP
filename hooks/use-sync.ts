@@ -31,7 +31,7 @@ export function useSync(intervalMs = 5000) {
         const data = await res.json();
         
         if (data.events && data.events.length > 0) {
-          console.log("Sync events received:", data.events);
+          // console.log("Sync events received:", data.events);
           
           // Process events
           data.events.forEach((event: SyncEvent) => {

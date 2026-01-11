@@ -185,7 +185,7 @@ export class PaymentService {
       }
 
       // Mock commit
-      console.log(`[Mock] Committing transaction: ${transaction.id}`);
+      // console.log(`[Mock] Committing transaction: ${transaction.id}`);
 
       return {
         success: true,
@@ -193,7 +193,7 @@ export class PaymentService {
       };
     } catch (error) {
       // Mock rollback
-      console.log(`[Mock] Rolling back transaction: ${transaction.id}`);
+      // console.log(`[Mock] Rolling back transaction: ${transaction.id}`);
 
       console.error("Payment process failed:", error);
       return {

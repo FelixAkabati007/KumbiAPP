@@ -33,7 +33,7 @@ export function useSystemSync() {
           }
         }
       } catch (error) {
-        console.error("Failed to poll system state:", error);
+        // console.error("Failed to poll system state:", error);
       }
     };
 

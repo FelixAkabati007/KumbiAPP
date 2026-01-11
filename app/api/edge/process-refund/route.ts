@@ -19,11 +19,11 @@ export async function POST(req: Request) {
     // TODO: Initialize Stripe and process refund
     // const refund = await stripe.refunds.create({ payment_intent: payment_intent_id, amount });
 
-    console.log("Processing refund for:", {
-      payment_intent_id,
-      amount,
-      reason,
-    });
+    // console.log("Processing refund for:", {
+    //   payment_intent_id,
+    //   amount,
+    //   reason,
+    // });
 
     // Log to Neon DB
     // Assuming a 'refunds' table or similar exists, or logging to an audit table

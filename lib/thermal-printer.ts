@@ -138,13 +138,13 @@ export class ThermalPrinterService {
     // For now, we'll just log it as not fully supported via API yet,
     // or implement a basic text print via API if needed.
     // But given the requirements, Receipt is priority.
-    console.warn("printText is not fully implemented via API yet.", content);
+    // console.warn("printText is not fully implemented via API yet.", content);
     return true;
   }
 
   // Test the thermal printer connection
   async test(): Promise<boolean> {
-    console.log("Testing thermal printer connection...");
+    // console.log("Testing thermal printer connection...");
 
     const connected = await this.connect();
     if (!connected) {
@@ -192,7 +192,7 @@ export class ThermalPrinterService {
 
     try {
       // In a real implementation, this would send configuration commands
-      console.log("Configuring thermal printer...");
+      // console.log("Configuring thermal printer...");
 
       // Simulate configuration commands
       const commands = [

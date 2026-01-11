@@ -100,9 +100,9 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
       const res = await pool.query<R>(text, params as any[]);
       const duration = Date.now() - start;
       // Log slow queries for performance optimization
-      if (duration > 100) {
-        console.log("Executed query", { text, duration, rows: res.rowCount });
-      }
+      // if (duration > 100) {
+      //   console.log("Executed query", { text, duration, rows: res.rowCount });
+      // }
       return res;
     } catch (error) {
       const duration = Date.now() - start;

@@ -125,7 +125,6 @@ ${colorConfig
 
 const ResponsiveContainer = dynamic(
   async () => {
-    console.log("[Chart] Loading ResponsiveContainer dynamically");
     const mod = await import("recharts");
     return mod.ResponsiveContainer;
   },
@@ -139,7 +138,6 @@ type RechartsTooltipComponent = React.ComponentType<
 
 const ChartTooltip = dynamic(
   async (): Promise<RechartsTooltipComponent> => {
-    console.log("[Chart] Loading Tooltip dynamically");
     const mod = await import("recharts");
     return mod.Tooltip as RechartsTooltipComponent;
   },
@@ -176,29 +174,18 @@ const ChartTooltipContent = React.forwardRef<
   ) => {
     const { config } = useChart();
 
-    console.log("[Chart] ChartTooltipContent render:", {
-      active,
-      payloadLength: payload?.length,
-      label,
-      hideLabel,
-      hideIndicator,
-    });
-
     const tooltipLabel = React.useMemo(() => {
       if (hideLabel || !payload?.length) {
-        console.log("[Chart] No tooltip label - hideLabel or empty payload");
         return null;
       }
 
       const [item] = payload;
       if (!item || !isValidPayload(item)) {
-        console.warn("[Chart] Invalid payload item:", item);
         return null;
       }
 
       const key = labelKey || item.dataKey || item.name;
       if (!key || typeof key !== "string") {
-        console.warn("[Chart] Invalid key for tooltip label:", key);
         return null;
       }
 
@@ -211,18 +198,14 @@ const ChartTooltipContent = React.forwardRef<
             ? config[label as keyof typeof config]?.label || label
             : itemConfig?.label;
 
-      console.log("[Chart] Tooltip label computed:", labelValue);
       return labelValue;
     }, [hideLabel, payload, label, labelFormatter, labelKey, config]);
 
     if (!active || !payload?.length) {
-      console.log("[Chart] Tooltip not active or no payload");
       return null;
     }
 
     const nestLabel = payload.length === 1 && indicator !== "dot";
-
-    console.log("[Chart] Rendering tooltip content with nestLabel:", nestLabel);
 
     return (
       <div
@@ -236,7 +219,6 @@ const ChartTooltipContent = React.forwardRef<
         <div className="grid gap-1.5">
           {payload.map((item, index) => {
             if (!isValidPayload(item)) {
-              console.warn("[Chart] Skipping invalid payload item:", item);
               return null;
             }
 
@@ -253,13 +235,6 @@ const ChartTooltipContent = React.forwardRef<
               color ||
               payloadFill ||
               (typeof item.color === "string" ? item.color : undefined);
-
-            console.log("[Chart] Rendering payload item:", {
-              key,
-              value: item.value,
-              indicatorColor,
-              itemConfig: !!itemConfig,
-            });
 
             return (
               <div
@@ -353,7 +328,6 @@ type RechartsLegendComponent = React.ComponentType<LegendProps>;
 
 const ChartLegend = dynamic(
   async (): Promise<RechartsLegendComponent> => {
-    console.log("[Chart] Loading Legend dynamically");
     const mod = await import("recharts");
     return mod.Legend as RechartsLegendComponent;
   },
@@ -374,14 +348,7 @@ const ChartLegendContent = React.forwardRef<
   ) => {
     const { config } = useChart();
 
-    console.log("[Chart] ChartLegendContent render:", {
-      payloadLength: payload?.length,
-      hideIcon,
-      verticalAlign,
-    });
-
     if (!payload?.length) {
-      console.log("[Chart] No legend payload");
       return null;
     }
 
@@ -396,19 +363,11 @@ const ChartLegendContent = React.forwardRef<
       >
         {payload.map((item, index) => {
           if (!isValidPayload(item)) {
-            console.warn("[Chart] Skipping invalid legend item:", item);
             return null;
           }
 
           const key = `${nameKey || item.dataKey || "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
-
-          console.log("[Chart] Rendering legend item:", {
-            key,
-            dataKey: item.dataKey,
-            value: item.value,
-            itemConfig: !!itemConfig,
-          });
 
           return (
             <div
@@ -443,10 +402,7 @@ function getPayloadConfigFromPayload(
   payload: unknown,
   key: string,
 ) {
-  console.log("[Chart] Getting payload config:", { payload, key });
-
   if (!isValidPayload(payload)) {
-    console.warn("[Chart] Invalid payload for config extraction:", payload);
     return undefined;
   }
 
@@ -461,12 +417,10 @@ function getPayloadConfigFromPayload(
   const directValue = extractPayloadValue(payload, key);
   if (directValue) {
     configLabelKey = directValue;
-    console.log("[Chart] Using direct payload value:", configLabelKey);
   } else if (payloadPayload) {
     const nestedValue = extractPayloadValue(payloadPayload, key);
     if (nestedValue) {
       configLabelKey = nestedValue;
-      console.log("[Chart] Using nested payload value:", configLabelKey);
     }
   }
 
@@ -475,10 +429,6 @@ function getPayloadConfigFromPayload(
       ? config[configLabelKey]
       : config[key as keyof typeof config];
 
-  console.log("[Chart] Payload config result:", {
-    configLabelKey,
-    hasConfig: !!result,
-  });
   return result;
 }
 

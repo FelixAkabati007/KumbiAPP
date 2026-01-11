@@ -105,7 +105,7 @@ class IntegrationService {
     if (this.isInitialized) return true;
 
     try {
-      console.log("Initializing POS system integration...");
+      // console.log("Initializing POS system integration...");
 
       // Initialize cash drawer
       if (this.settings.system.cashDrawer.enabled) {
