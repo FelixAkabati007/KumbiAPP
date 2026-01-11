@@ -650,7 +650,7 @@ function POSContent() {
         {/* Menu Items Section */}
         <div className="flex flex-col w-full lg:w-2/3 border-r border-orange-200 dark:border-orange-700">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
