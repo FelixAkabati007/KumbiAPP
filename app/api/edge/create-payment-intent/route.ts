@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 // Handles Stripe Payment Intent creation
 
 export async function POST(_req: Request) {
+  void _req;
   try {
     // const body = await req.json();
     // const { amount, currency = "usd" } = body;

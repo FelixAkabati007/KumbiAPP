@@ -134,6 +134,7 @@ export class ThermalPrinterService {
 
   // Print text content (Legacy/Direct wrapper)
   async printText(_content: string): Promise<boolean> {
+    void _content;
     // Use the API with a dummy receipt structure or add a printText endpoint
     // For now, we'll just log it as not fully supported via API yet,
     // or implement a basic text print via API if needed.

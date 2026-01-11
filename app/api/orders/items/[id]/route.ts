@@ -30,7 +30,6 @@ export async function PATCH(
     // console.log(`[API] Updating order item ${id} to status: ${status}`);
 
     // Update the item status
-    const startTime = Date.now();
     const result = await query(
       `UPDATE kitchen_orderitems 
        SET status = $1 
