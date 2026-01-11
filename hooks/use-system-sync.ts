@@ -9,13 +9,13 @@ const POLL_INTERVAL = 10000; // 10 seconds
 export function useSystemSync() {
   const [versions, setVersions] = useState<SystemState>({});
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
-  
+
   // Use a ref to keep track of mounted state to avoid setting state on unmounted component
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
-    
+
     const fetchState = async () => {
       try {
         const res = await fetch("/api/system/sync");
@@ -33,6 +33,10 @@ export function useSystemSync() {
           }
         }
       } catch (error) {
+        // Suppress network errors during navigation/unmount
+        if (error instanceof Error && error.message.includes("ERR_ABORTED")) {
+          return;
+        }
         // console.error("Failed to poll system state:", error);
       }
     };

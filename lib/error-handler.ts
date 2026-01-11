@@ -49,10 +49,10 @@ export function setupGlobalErrorHandler() {
           event.reason.message?.includes("vite") ||
           event.reason.code === "MODULE_NOT_FOUND")
       ) {
-        console.warn(
-          "Vite-related promise rejection suppressed:",
-          event.reason
-        );
+        // console.warn(
+        //   "Vite-related promise rejection suppressed:",
+        //   event.reason
+        // );
         event.preventDefault();
         return;
       }
