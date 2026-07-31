@@ -9,7 +9,15 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Home, ArrowLeft, Edit2 } from "lucide-react";
+import { Plus, Home, ArrowLeft, Edit2, Image as ImageIcon, X, Upload } from "lucide-react";
+
+interface RoomImage {
+  id: string;
+  url: string;
+  type: "blob" | "url";
+  uploaded_at: string;
+  is_primary?: boolean;
+}
 
 interface Room {
   id: string;
@@ -19,6 +27,8 @@ interface Room {
   building: string;
   status: string;
   base_price: number;
+  price?: number;
+  images?: RoomImage[];
 }
 
 // Status color memoized to prevent recalculation
@@ -47,8 +57,102 @@ function RoomsPage() {
     floor: 1,
     building: "Main",
     notes: "",
+    price: "",
+    images: [] as RoomImage[],
   });
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [imageInput, setImageInput] = useState("");
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Handle file upload from computer
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files) return;
+    
+    setUploadingImages(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formDataForUpload = new FormData();
+        formDataForUpload.append("file", file);
+        
+        const response = await fetch("/api/hotels/rooms/upload", {
+          method: "POST",
+          body: formDataForUpload,
+        });
+        
+        if (!response.ok) throw new Error("Upload failed");
+        const { url } = await response.json();
+        
+        const newImage: RoomImage = {
+          id: Math.random().toString(36).substr(2, 9),
+          url,
+          type: "blob",
+          uploaded_at: new Date().toISOString(),
+          is_primary: formData.images.length === 0,
+        };
+        
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, newImage],
+        }));
+        
+        setPreviewImages(prev => [...prev, url]);
+      }
+      toast({
+        title: "Success",
+        description: "Images uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload images",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  // Handle image URL input
+  const handleAddImageUrl = () => {
+    if (!imageInput.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid image URL",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newImage: RoomImage = {
+      id: Math.random().toString(36).substr(2, 9),
+      url: imageInput,
+      type: "url",
+      uploaded_at: new Date().toISOString(),
+      is_primary: formData.images.length === 0,
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, newImage],
+    }));
+    
+    setPreviewImages(prev => [...prev, imageInput]);
+    setImageInput("");
+  };
+
+  // Remove image
+  const handleRemoveImage = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter(img => img.id !== id),
+    }));
+    setPreviewImages(prev => {
+      const index = formData.images.findIndex(img => img.id === id);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -97,7 +201,11 @@ function RoomsPage() {
               floor: 1,
               building: "Main",
               notes: "",
+              price: "",
+              images: [],
             });
+            setPreviewImages([]);
+            setImageInput("");
             setShowAddDialog(true);
           }}
           className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
@@ -147,6 +255,7 @@ function RoomsPage() {
                 <thead className="border-b">
                   <tr>
                     <th className="text-left py-2 px-4">Room #</th>
+                    <th className="text-left py-2 px-4">Image</th>
                     <th className="text-left py-2 px-4">Type</th>
                     <th className="text-left py-2 px-4">Building</th>
                     <th className="text-left py-2 px-4">Floor</th>
@@ -162,10 +271,23 @@ function RoomsPage() {
                         <Home className="h-4 w-4 text-orange-600" />
                         {room.room_number}
                       </td>
+                      <td className="py-2 px-4">
+                        {room.images && room.images.length > 0 ? (
+                          <img 
+                            src={room.images[0].url} 
+                            alt="Room"
+                            className="h-12 w-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+                            <ImageIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 px-4">{room.room_type_name}</td>
                       <td className="py-2 px-4">{room.building}</td>
                       <td className="py-2 px-4">{room.floor}</td>
-                      <td className="py-2 px-4 font-medium">GHS {parseFloat(String(room.base_price || 0)).toFixed(2)}</td>
+                      <td className="py-2 px-4 font-medium">GHS {parseFloat(String(room.price || room.base_price || 0)).toFixed(2)}</td>
                       <td className="py-2 px-4">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(room.status)}`}>
                           {room.status.replace("_", " ")}
@@ -184,7 +306,11 @@ function RoomsPage() {
                               floor: room.floor,
                               building: room.building,
                               notes: "",
+                              price: room.price?.toString() || "",
+                              images: room.images || [],
                             });
+                            setPreviewImages((room.images || []).map(img => img.url));
+                            setImageInput("");
                             setShowEditDialog(true);
                           }}
                         >
@@ -270,6 +396,98 @@ function RoomsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 min-h-20"
               />
             </div>
+
+            <div>
+              <Label htmlFor="price">Price (GHS) *</Label>
+              <Input
+                id="price"
+                type="number"
+                placeholder="e.g., 250, 450, 750"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                className="rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-1">Set the per-room price in Ghana Cedis</p>
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold mb-3 block">Room Images</Label>
+              
+              {/* Image Preview Gallery */}
+              {previewImages.length > 0 && (
+                <div className="mb-4 grid grid-cols-3 gap-2">
+                  {previewImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img 
+                        src={img} 
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        onClick={() => handleRemoveImage(formData.images[idx]?.id || "")}
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {/* File Upload */}
+                <div>
+                  <Label htmlFor="fileUpload" className="block text-sm font-medium mb-2">
+                    Upload from Computer
+                  </Label>
+                  <label htmlFor="fileUpload" className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-orange-300 rounded-lg cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20 transition">
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-5 w-5 text-orange-500" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Click or drag images here
+                      </span>
+                    </div>
+                    <input
+                      id="fileUpload"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      disabled={uploadingImages}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingImages && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <Label htmlFor="imageUrl" className="block text-sm font-medium mb-2">
+                    Or paste Image URL
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="imageUrl"
+                      placeholder="https://example.com/image.jpg"
+                      value={imageInput}
+                      onChange={(e) => setImageInput(e.target.value)}
+                      className="rounded-lg"
+                    />
+                    <Button
+                      onClick={handleAddImageUrl}
+                      variant="outline"
+                      className="px-4"
+                    >
+                      Add URL
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Add 1-10 images. Recommended size: 800x600px or larger
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3 justify-end pt-4">
@@ -282,10 +500,10 @@ function RoomsPage() {
             </Button>
             <Button
               onClick={() => {
-                if (!formData.roomNumber || !formData.roomTypeId) {
+                if (!formData.roomNumber || !formData.roomTypeId || !formData.price) {
                   toast({
                     title: "Error",
-                    description: "Please fill in all required fields",
+                    description: "Please fill in all required fields (Room Number, Type, and Price)",
                     variant: "destructive",
                   });
                   return;
@@ -295,6 +513,17 @@ function RoomsPage() {
                   description: `Room ${formData.roomNumber} added successfully`,
                 });
                 setShowAddDialog(false);
+                setFormData({
+                  roomNumber: "",
+                  roomTypeId: "standard",
+                  floor: 1,
+                  building: "Main",
+                  notes: "",
+                  price: "",
+                  images: [],
+                });
+                setPreviewImages([]);
+                setImageInput("");
               }}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
@@ -373,6 +602,98 @@ function RoomsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 min-h-20"
               />
             </div>
+
+            <div>
+              <Label htmlFor="editPrice">Price (GHS) *</Label>
+              <Input
+                id="editPrice"
+                type="number"
+                placeholder="e.g., 250, 450, 750"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                className="rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-1">Update the per-room price in Ghana Cedis</p>
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold mb-3 block">Room Images</Label>
+              
+              {/* Image Preview Gallery */}
+              {previewImages.length > 0 && (
+                <div className="mb-4 grid grid-cols-3 gap-2">
+                  {previewImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img 
+                        src={img} 
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        onClick={() => handleRemoveImage(formData.images[idx]?.id || "")}
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {/* File Upload */}
+                <div>
+                  <Label htmlFor="editFileUpload" className="block text-sm font-medium mb-2">
+                    Upload from Computer
+                  </Label>
+                  <label htmlFor="editFileUpload" className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-orange-300 rounded-lg cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20 transition">
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-5 w-5 text-orange-500" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Click or drag images here
+                      </span>
+                    </div>
+                    <input
+                      id="editFileUpload"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      disabled={uploadingImages}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingImages && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <Label htmlFor="editImageUrl" className="block text-sm font-medium mb-2">
+                    Or paste Image URL
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="editImageUrl"
+                      placeholder="https://example.com/image.jpg"
+                      value={imageInput}
+                      onChange={(e) => setImageInput(e.target.value)}
+                      className="rounded-lg"
+                    />
+                    <Button
+                      onClick={handleAddImageUrl}
+                      variant="outline"
+                      className="px-4"
+                    >
+                      Add URL
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Add 1-10 images. Recommended size: 800x600px or larger
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3 justify-end pt-4">
@@ -385,10 +706,10 @@ function RoomsPage() {
             </Button>
             <Button
               onClick={() => {
-                if (!formData.roomNumber || !formData.roomTypeId) {
+                if (!formData.roomNumber || !formData.roomTypeId || !formData.price) {
                   toast({
                     title: "Error",
-                    description: "Please fill in all required fields",
+                    description: "Please fill in all required fields (Room Number, Type, and Price)",
                     variant: "destructive",
                   });
                   return;

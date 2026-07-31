@@ -12,9 +12,7 @@ const nextConfig = {
   output: "standalone",
   // Performance optimizations
   experimental: {
-    isrMemoryCacheSize: 52 * 1024 * 1024,
     webpackMemoryOptimizations: true,
-    optimizePackageImports: ["@/components/ui", "@/lib"],
   },
   images: {
     domains: ["scontent.facc5-2.fna.fbcdn.net", "images.unsplash.com"],

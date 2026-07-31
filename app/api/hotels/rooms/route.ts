@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
 
     let sql = `
       SELECT r.id, r.room_number, r.floor, r.building, r.status, 
-             rt.name as room_type_name, rt.base_price
+             rt.name as room_type_name, rt.base_price,
+             COALESCE(r.price, rt.base_price) as price,
+             r.images
       FROM rooms r
       JOIN room_types rt ON r.room_type_id = rt.id
       WHERE r.is_active = true
@@ -55,22 +57,24 @@ export async function POST(request: NextRequest) {
       floor,
       building,
       notes,
+      price,
+      images,
     } = await request.json();
 
-    if (!roomNumber || !roomTypeId) {
+    if (!roomNumber || !roomTypeId || !price) {
       return NextResponse.json(
-        { error: "Room number and type are required" },
+        { error: "Room number, type, and price are required" },
         { status: 400 }
       );
     }
 
     const result = await query(
       `
-      INSERT INTO rooms (room_number, room_type_id, floor, building, status, notes)
-      VALUES ($1, $2, $3, $4, 'available', $5)
+      INSERT INTO rooms (room_number, room_type_id, floor, building, status, notes, price, images)
+      VALUES ($1, $2, $3, $4, 'available', $5, $6, $7)
       RETURNING *
       `,
-      [roomNumber, roomTypeId, floor || null, building || null, notes || null]
+      [roomNumber, roomTypeId, floor || null, building || null, notes || null, price, images || []]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
