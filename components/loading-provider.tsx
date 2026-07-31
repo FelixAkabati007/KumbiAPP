@@ -17,8 +17,14 @@ const LoadingContext = React.createContext<LoadingContextType | undefined>(
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | undefined>(undefined);
+  const [isMounted, setIsMounted] = React.useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Mark as mounted after hydration
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Reset loading state on route change
   React.useEffect(() => {
@@ -44,7 +50,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
   return (
     <LoadingContext.Provider value={value}>
       {children}
-      {isLoading && (
+      {isMounted && isLoading && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
           aria-busy="true"

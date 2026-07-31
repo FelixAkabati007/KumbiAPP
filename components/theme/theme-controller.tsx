@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   getThemePreference,
   applyTheme,
@@ -13,8 +13,15 @@ import { useToast } from "@/hooks/use-toast";
 export function ThemeController() {
   const { setTheme } = useTheme();
   const { toast } = useToast();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     try {
       const pref = getThemePreference();
       if (pref && pref.key) {
@@ -47,7 +54,7 @@ export function ThemeController() {
     window.addEventListener("themeChanged", handler as EventListener);
     return () =>
       window.removeEventListener("themeChanged", handler as EventListener);
-  }, [setTheme, toast]);
+  }, [isMounted, setTheme, toast]);
 
   return null;
 }
