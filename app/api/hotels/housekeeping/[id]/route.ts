@@ -4,10 +4,10 @@ import { query } from "@/lib/db";
 // Update housekeeping task status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const { status, assignedTo, notes, priority } = await request.json();
 
     let sql = `UPDATE housekeeping_tasks SET updated_at = NOW()`;

@@ -4,10 +4,10 @@ import { query } from "@/lib/db";
 // Get a specific reservation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const result = await query(
       `
@@ -40,10 +40,10 @@ export async function GET(
 // Update reservation
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const { status, roomId, totalPrice, paidAmount, specialRequests } =
       await request.json();
 
@@ -100,10 +100,10 @@ export async function PATCH(
 // Cancel reservation
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const result = await query(
       `

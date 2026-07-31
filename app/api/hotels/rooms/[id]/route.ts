@@ -4,10 +4,10 @@ import { query } from "@/lib/db";
 // Get a specific room
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const result = await query(
       `
@@ -36,10 +36,10 @@ export async function GET(
 // Update room status or details
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const { status, notes, currentGuestId } = await request.json();
 
     let sql = `UPDATE rooms SET updated_at = NOW()`;
@@ -82,10 +82,10 @@ export async function PATCH(
 // Delete room (soft delete by setting is_active to false)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const result = await query(
       `
