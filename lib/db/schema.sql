@@ -157,3 +157,121 @@ CREATE INDEX IF NOT EXISTS idx_housekeeping_status ON housekeeping_tasks(status)
 CREATE INDEX IF NOT EXISTS idx_maintenance_room_id ON maintenance_tickets(room_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_status ON maintenance_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_guest_folios_reservation_id ON guest_folios(reservation_id);
+
+-- Staff Management Tables
+
+-- Enhanced Staff Profiles Table
+CREATE TABLE IF NOT EXISTS staff_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    business_email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(20),
+    department VARCHAR(100),
+    position VARCHAR(100),
+    employment_status VARCHAR(50) DEFAULT 'active', -- active, on_leave, terminated
+    hire_date DATE,
+    password_hash VARCHAR(255) NOT NULL,
+    password_changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_password_1 VARCHAR(255),
+    last_password_2 VARCHAR(255),
+    last_password_3 VARCHAR(255),
+    last_password_4 VARCHAR(255),
+    last_password_5 VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Session Management for Shift-Based Access
+CREATE TABLE IF NOT EXISTS staff_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    device_fingerprint VARCHAR(255) NOT NULL,
+    session_token VARCHAR(500) NOT NULL UNIQUE,
+    ip_address INET,
+    user_agent TEXT,
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    inactivity_warned BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    logged_out_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Manager Approval Requests Table
+CREATE TABLE IF NOT EXISTS staff_approval_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_type VARCHAR(50) NOT NULL, -- create, update, delete
+    requested_by UUID NOT NULL REFERENCES staff_profiles(id),
+    staff_member_id UUID REFERENCES staff_profiles(id),
+    action_data JSONB NOT NULL, -- contains the proposed changes
+    status VARCHAR(50) DEFAULT 'pending', -- pending, approved, rejected
+    approved_by UUID REFERENCES staff_profiles(id),
+    approval_reason TEXT,
+    rejection_reason TEXT,
+    rejected_at TIMESTAMP WITH TIME ZONE,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Comprehensive Audit Logs Table
+CREATE TABLE IF NOT EXISTS staff_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action_id VARCHAR(50) NOT NULL UNIQUE,
+    action_type VARCHAR(100) NOT NULL, -- staff_created, staff_updated, staff_deleted, password_reset, approval_granted, approval_rejected, login, logout, inactivity_warning
+    actor_id UUID NOT NULL REFERENCES staff_profiles(id),
+    actor_name VARCHAR(255) NOT NULL,
+    actor_role VARCHAR(50) NOT NULL,
+    target_staff_id UUID REFERENCES staff_profiles(id),
+    target_staff_name VARCHAR(255),
+    change_details JSONB, -- specific changes made
+    ip_address INET,
+    device_fingerprint VARCHAR(255),
+    reason TEXT, -- for password resets, approvals, etc
+    status VARCHAR(50) DEFAULT 'completed', -- completed, failed
+    error_message TEXT,
+    timestamp_utc TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Password Reset Tokens Table
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    initiated_by UUID NOT NULL REFERENCES staff_profiles(id),
+    reset_reason TEXT,
+    is_used BOOLEAN DEFAULT false,
+    used_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Session Device Tracking
+CREATE TABLE IF NOT EXISTS device_registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_fingerprint VARCHAR(255) NOT NULL UNIQUE,
+    device_name VARCHAR(255),
+    device_type VARCHAR(50), -- pos_terminal, mobile, web, kiosk
+    last_used_by UUID REFERENCES staff_profiles(id),
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_staff_profiles_business_email ON staff_profiles(business_email);
+CREATE INDEX IF NOT EXISTS idx_staff_profiles_user_id ON staff_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_staff_sessions_staff_id ON staff_sessions(staff_id);
+CREATE INDEX IF NOT EXISTS idx_staff_sessions_device_fingerprint ON staff_sessions(device_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_staff_approval_requests_requested_by ON staff_approval_requests(requested_by);
+CREATE INDEX IF NOT EXISTS idx_staff_approval_requests_status ON staff_approval_requests(status);
+CREATE INDEX IF NOT EXISTS idx_staff_audit_logs_actor_id ON staff_audit_logs(actor_id);
+CREATE INDEX IF NOT EXISTS idx_staff_audit_logs_target_staff_id ON staff_audit_logs(target_staff_id);
+CREATE INDEX IF NOT EXISTS idx_staff_audit_logs_action_type ON staff_audit_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_staff_audit_logs_timestamp ON staff_audit_logs(timestamp_utc);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_staff_id ON password_reset_tokens(staff_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_device_registrations_fingerprint ON device_registrations(device_fingerprint);
