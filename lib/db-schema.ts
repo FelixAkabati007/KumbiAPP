@@ -80,5 +80,108 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
         { name: 'id', type: 'integer', nullable: false, isPrimary: true },
         { name: 'data', type: 'jsonb', nullable: false },
     ]
+  },
+  {
+    name: 'room_types',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'name', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: true },
+      { name: 'base_price', type: 'numeric', nullable: false },
+      { name: 'max_occupants', type: 'integer', nullable: false },
+      { name: 'amenities', type: 'jsonb', nullable: true },
+      { name: 'is_active', type: 'boolean', nullable: true },
+    ]
+  },
+  {
+    name: 'rooms',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'room_number', type: 'character varying', nullable: false },
+      { name: 'room_type_id', type: 'uuid', nullable: false },
+      { name: 'floor', type: 'integer', nullable: true },
+      { name: 'building', type: 'character varying', nullable: true },
+      { name: 'status', type: 'character varying', nullable: true },
+      { name: 'current_guest_id', type: 'uuid', nullable: true },
+      { name: 'notes', type: 'text', nullable: true },
+      { name: 'is_active', type: 'boolean', nullable: true },
+    ]
+  },
+  {
+    name: 'guests',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'first_name', type: 'character varying', nullable: false },
+      { name: 'last_name', type: 'character varying', nullable: false },
+      { name: 'email', type: 'character varying', nullable: true },
+      { name: 'phone', type: 'character varying', nullable: true },
+      { name: 'id_type', type: 'character varying', nullable: true },
+      { name: 'id_number', type: 'character varying', nullable: true },
+      { name: 'country', type: 'character varying', nullable: true },
+      { name: 'address', type: 'text', nullable: true },
+      { name: 'loyalty_points', type: 'integer', nullable: true },
+      { name: 'is_vip', type: 'boolean', nullable: true },
+    ]
+  },
+  {
+    name: 'reservations',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_number', type: 'character varying', nullable: false },
+      { name: 'guest_id', type: 'uuid', nullable: false },
+      { name: 'room_id', type: 'uuid', nullable: true },
+      { name: 'room_type_id', type: 'uuid', nullable: false },
+      { name: 'check_in_date', type: 'date', nullable: false },
+      { name: 'check_out_date', type: 'date', nullable: false },
+      { name: 'number_of_guests', type: 'integer', nullable: false },
+      { name: 'status', type: 'character varying', nullable: true },
+      { name: 'total_price', type: 'numeric', nullable: true },
+      { name: 'paid_amount', type: 'numeric', nullable: true },
+      { name: 'special_requests', type: 'text', nullable: true },
+      { name: 'source', type: 'character varying', nullable: true },
+      { name: 'promo_code', type: 'character varying', nullable: true },
+      { name: 'discount_percent', type: 'numeric', nullable: true },
+    ]
+  },
+  {
+    name: 'housekeeping_tasks',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'room_id', type: 'uuid', nullable: false },
+      { name: 'task_type', type: 'character varying', nullable: false },
+      { name: 'status', type: 'character varying', nullable: true },
+      { name: 'assigned_to', type: 'uuid', nullable: true },
+      { name: 'priority', type: 'character varying', nullable: true },
+      { name: 'notes', type: 'text', nullable: true },
+      { name: 'completed_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'maintenance_tickets',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'ticket_number', type: 'character varying', nullable: false },
+      { name: 'room_id', type: 'uuid', nullable: true },
+      { name: 'issue_description', type: 'text', nullable: false },
+      { name: 'severity', type: 'character varying', nullable: true },
+      { name: 'status', type: 'character varying', nullable: true },
+      { name: 'assigned_to', type: 'uuid', nullable: true },
+      { name: 'notes', type: 'text', nullable: true },
+      { name: 'completed_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'guest_folios',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_id', type: 'uuid', nullable: false },
+      { name: 'room_charge', type: 'numeric', nullable: false },
+      { name: 'service_charges', type: 'numeric', nullable: true },
+      { name: 'food_charges', type: 'numeric', nullable: true },
+      { name: 'other_charges', type: 'numeric', nullable: true },
+      { name: 'total_charges', type: 'numeric', nullable: false },
+      { name: 'paid_amount', type: 'numeric', nullable: true },
+      { name: 'balance', type: 'numeric', nullable: false },
+    ]
   }
 ];
