@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, ArrowLeft } from "lucide-react";
 
 interface Reservation {
@@ -27,6 +30,17 @@ export default function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    checkInDate: "",
+    checkOutDate: "",
+    numberOfGuests: 1,
+    roomTypeId: "",
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,7 +79,9 @@ export default function ReservationsPage() {
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Reservations</h2>
         </div>
-        <Button className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+        <Button 
+          onClick={() => setShowNewReservationDialog(true)}
+          className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
           <Plus className="h-4 w-4 mr-2" />
           New Reservation
         </Button>
@@ -125,6 +141,156 @@ export default function ReservationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Reservation Dialog */}
+      <Dialog open={showNewReservationDialog} onOpenChange={setShowNewReservationDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Reservation</DialogTitle>
+            <DialogDescription>Enter guest details to create a new reservation</DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  placeholder="+233501234567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="checkInDate">Check-in Date</Label>
+                <Input
+                  id="checkInDate"
+                  type="date"
+                  value={formData.checkInDate}
+                  onChange={(e) => setFormData({ ...formData, checkInDate: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+              <div>
+                <Label htmlFor="checkOutDate">Check-out Date</Label>
+                <Input
+                  id="checkOutDate"
+                  type="date"
+                  value={formData.checkOutDate}
+                  onChange={(e) => setFormData({ ...formData, checkOutDate: e.target.value })}
+                  className="rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="guests">Number of Guests</Label>
+                <Input
+                  id="guests"
+                  type="number"
+                  min="1"
+                  value={formData.numberOfGuests}
+                  onChange={(e) => setFormData({ ...formData, numberOfGuests: parseInt(e.target.value) })}
+                  className="rounded-lg"
+                />
+              </div>
+              <div>
+                <Label htmlFor="roomType">Room Type</Label>
+                <select
+                  id="roomType"
+                  value={formData.roomTypeId}
+                  onChange={(e) => setFormData({ ...formData, roomTypeId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <option value="">Select Room Type</option>
+                  <option value="standard">Standard Room - GHS 250</option>
+                  <option value="deluxe">Deluxe Room - GHS 450</option>
+                  <option value="suite">Suite - GHS 750</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowNewReservationDialog(false)}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!formData.firstName || !formData.lastName || !formData.email || !formData.checkInDate || !formData.checkOutDate || !formData.roomTypeId) {
+                  toast({
+                    title: "Error",
+                    description: "Please fill in all required fields",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                toast({
+                  title: "Success",
+                  description: `Reservation created for ${formData.firstName} ${formData.lastName}`,
+                });
+                setShowNewReservationDialog(false);
+                setFormData({
+                  firstName: "",
+                  lastName: "",
+                  email: "",
+                  phone: "",
+                  checkInDate: "",
+                  checkOutDate: "",
+                  numberOfGuests: 1,
+                  roomTypeId: "",
+                });
+              }}
+              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+            >
+              Create Reservation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

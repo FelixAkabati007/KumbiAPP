@@ -144,7 +144,7 @@ export default function RoomsPage() {
                       <td className="py-2 px-4">{room.room_type_name}</td>
                       <td className="py-2 px-4">{room.building}</td>
                       <td className="py-2 px-4">{room.floor}</td>
-                      <td className="py-2 px-4 font-medium">GHS {room.base_price?.toFixed(2) || "0.00"}</td>
+                      <td className="py-2 px-4 font-medium">GHS {parseFloat(String(room.base_price || 0)).toFixed(2)}</td>
                       <td className="py-2 px-4">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(room.status)}`}>
                           {room.status.replace("_", " ")}

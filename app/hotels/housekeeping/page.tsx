@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, CheckCircle2, ArrowLeft } from "lucide-react";
 
 interface HousekeepingTask {
@@ -23,6 +26,13 @@ export default function HousekeepingPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
+  const [formData, setFormData] = useState({
+    roomNumber: "",
+    taskType: "",
+    priority: "normal",
+    notes: "",
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,7 +107,9 @@ export default function HousekeepingPage() {
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Housekeeping</h2>
         </div>
-        <Button className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+        <Button 
+          onClick={() => setShowNewTaskDialog(true)}
+          className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
           <Plus className="h-4 w-4 mr-2" />
           New Task
         </Button>
@@ -190,6 +202,109 @@ export default function HousekeepingPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Task Dialog */}
+      <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Housekeeping Task</DialogTitle>
+            <DialogDescription>Assign a new cleaning or maintenance task</DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4">
+            <div>
+              <Label htmlFor="roomNumber">Room Number</Label>
+              <Input
+                id="roomNumber"
+                placeholder="e.g., 101, 205, 310"
+                value={formData.roomNumber}
+                onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
+                className="rounded-lg"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="taskType">Task Type</Label>
+              <select
+                id="taskType"
+                value={formData.taskType}
+                onChange={(e) => setFormData({ ...formData, taskType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="">Select Task Type</option>
+                <option value="room_cleaning">Room Cleaning</option>
+                <option value="linen_change">Linen Change</option>
+                <option value="bathroom_cleaning">Bathroom Cleaning</option>
+                <option value="carpet_vacuum">Carpet Vacuum</option>
+                <option value="maintenance_repair">Maintenance/Repair</option>
+                <option value="window_cleaning">Window Cleaning</option>
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="priority">Priority</Label>
+              <select
+                id="priority"
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <textarea
+                id="notes"
+                placeholder="Additional details..."
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 min-h-24"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowNewTaskDialog(false)}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!formData.roomNumber || !formData.taskType) {
+                  toast({
+                    title: "Error",
+                    description: "Please fill in room number and task type",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                toast({
+                  title: "Success",
+                  description: `Task created for Room ${formData.roomNumber}`,
+                });
+                setShowNewTaskDialog(false);
+                setFormData({
+                  roomNumber: "",
+                  taskType: "",
+                  priority: "normal",
+                  notes: "",
+                });
+              }}
+              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+            >
+              Create Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
