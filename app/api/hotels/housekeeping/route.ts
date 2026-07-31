@@ -31,10 +31,12 @@ export async function GET(request: NextRequest) {
       sql += ` WHERE ${conditions.join(" AND ")}`;
     }
 
-    sql += ` ORDER BY ht.priority DESC, ht.created_at ASC`;
+    sql += ` ORDER BY ht.priority DESC, ht.created_at ASC LIMIT 500`;
 
     const result = await query(sql, params);
-    return NextResponse.json(result.rows);
+    const response = NextResponse.json(result.rows);
+    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
+    return response;
   } catch (error) {
     console.error("Error fetching housekeeping tasks:", error);
     return NextResponse.json(

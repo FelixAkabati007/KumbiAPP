@@ -7,20 +7,22 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search");
 
-    let sql = `SELECT * FROM guests ORDER BY created_at DESC`;
+    let sql = `SELECT * FROM guests ORDER BY created_at DESC LIMIT 500`;
     const params: string[] = [];
 
     if (search) {
       sql = `
         SELECT * FROM guests 
         WHERE first_name ILIKE $1 OR last_name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC LIMIT 500
       `;
       params.push(`%${search}%`);
     }
 
     const result = await query(sql, params);
-    return NextResponse.json(result.rows);
+    const response = NextResponse.json(result.rows);
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
+    return response;
   } catch (error) {
     console.error("Error fetching guests:", error);
     return NextResponse.json(

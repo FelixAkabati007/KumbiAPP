@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     const roomTypeId = searchParams.get("roomTypeId");
 
     let sql = `
-      SELECT r.*, rt.name as room_type_name, rt.base_price
+      SELECT r.id, r.room_number, r.floor, r.building, r.status, 
+             rt.name as room_type_name, rt.base_price
       FROM rooms r
       JOIN room_types rt ON r.room_type_id = rt.id
       WHERE r.is_active = true
@@ -30,7 +31,12 @@ export async function GET(request: NextRequest) {
     sql += ` ORDER BY r.floor ASC, r.room_number ASC`;
 
     const result = await query(sql, params);
-    return NextResponse.json(result.rows);
+    
+    // Add caching headers
+    const response = NextResponse.json(result.rows);
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
+    response.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return response;
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(
