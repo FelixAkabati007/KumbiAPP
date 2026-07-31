@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Home } from "lucide-react";
+import { Plus, Home, ArrowLeft } from "lucide-react";
 
 interface Room {
   id: string;
@@ -18,6 +19,7 @@ interface Room {
 }
 
 export default function RoomsPage() {
+  const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -65,8 +67,18 @@ export default function RoomsPage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Rooms</h2>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => router.back()}
+            variant="outline"
+            size="icon"
+            className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+          >
+            <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          </Button>
+          <h2 className="text-3xl font-bold tracking-tight">Rooms</h2>
+        </div>
         <Button className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
           <Plus className="h-4 w-4 mr-2" />
           Add Room
