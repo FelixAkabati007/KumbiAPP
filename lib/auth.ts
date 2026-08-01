@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import { hash as bcryptHash, compare as bcryptCompare } from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
@@ -11,14 +11,14 @@ export type JwtPayloadData = {
 };
 
 export async function hashPassword(password: string): Promise<string> {
-  return await bcrypt.hash(password, 10);
+  return await bcryptHash(password, 10);
 }
 
 export async function comparePassword(
   password: string,
-  hash: string
+  hashValue: string
 ): Promise<boolean> {
-  return await bcrypt.compare(password, hash);
+  return await bcryptCompare(password, hashValue);
 }
 
 export function signToken(payload: JwtPayloadData): string {
