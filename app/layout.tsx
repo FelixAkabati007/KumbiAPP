@@ -62,7 +62,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
           <GlobalErrorHandler />
           <SystemSyncListener />
@@ -73,7 +73,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ThemeController />
-            <Suspense>
+            <Suspense fallback={null}>
               <LoadingProvider>
                 <SettingsProvider>
                   <IntegrationProvider>
