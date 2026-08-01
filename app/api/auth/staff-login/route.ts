@@ -169,9 +169,9 @@ export async function POST(request: NextRequest) {
       });
 
       return response;
-    } catch (sessionError: any) {
+    } catch (sessionError: unknown) {
       if (
-        sessionError.message &&
+        sessionError instanceof Error &&
         sessionError.message.includes("already logged in")
       ) {
         return NextResponse.json(
