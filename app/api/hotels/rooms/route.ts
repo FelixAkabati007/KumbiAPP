@@ -33,12 +33,7 @@ export async function GET(request: NextRequest) {
     sql += ` ORDER BY r.floor ASC, r.room_number ASC`;
 
     const result = await query(sql, params);
-    
-    // Add caching headers
-    const response = NextResponse.json(result.rows);
-    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-    response.headers.set('Content-Type', 'application/json; charset=utf-8');
-    return response;
+    return NextResponse.json(result.rows);
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(
@@ -69,12 +64,18 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `
-      INSERT INTO rooms (room_number, room_type_id, floor, building, status, notes, price, images)
-      VALUES ($1, $2, $3, $4, 'available', $5, $6, $7)
-      RETURNING *
-      `,
-      [roomNumber, roomTypeId, floor || null, building || null, notes || null, price, images || []]
+      `INSERT INTO rooms (room_number, room_type_id, floor, building, status, notes, price, images)
+       VALUES ($1, $2, $3, $4, 'available', $5, $6, $7::jsonb)
+       RETURNING *`,
+      [
+        roomNumber,
+        roomTypeId,
+        floor || null,
+        building || null,
+        notes || null,
+        price,
+        JSON.stringify(Array.isArray(images) ? images : []),
+      ]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

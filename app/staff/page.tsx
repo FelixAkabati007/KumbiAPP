@@ -235,7 +235,7 @@ export default function StaffPage() {
           { label: "Total Staff", value: staff.length, icon: Users, color: "text-orange-600 dark:text-orange-400" },
           { label: "Active", value: activeCount, icon: UserCheck, color: "text-green-600 dark:text-green-400" },
           { label: "Inactive", value: inactiveCount, icon: UserX, color: "text-red-600 dark:text-red-400" },
-          { label: "Roles", value: [...new Set(staff.map((s) => s.role))].length, icon: Shield, color: "text-amber-600 dark:text-amber-400" },
+          { label: "Roles", value: Array.from(new Set(staff.map((s) => s.role))).length, icon: Shield, color: "text-amber-600 dark:text-amber-400" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl">
             <CardContent className="flex items-center gap-3 pt-4 pb-4">
