@@ -90,7 +90,7 @@ export async function PATCH(
     }
 
     const currentStaff = currentResult.rows[0];
-    const changes: Record<string, any> = {};
+    const changes: Record<string, unknown> = {};
 
     if (firstName && firstName !== currentStaff.first_name) {
       changes.first_name = { from: currentStaff.first_name, to: firstName };
