@@ -12,7 +12,10 @@ import { createAuditLog } from "@/lib/audit-logger";
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
-    const { email, password, deviceFingerprint, userAgent } = body;
+    const email = body.email as string;
+    const password = body.password as string;
+    const deviceFingerprint = body.deviceFingerprint as string;
+    const userAgent = body.userAgent as string | undefined;
 
     if (!email || !password) {
       return NextResponse.json(

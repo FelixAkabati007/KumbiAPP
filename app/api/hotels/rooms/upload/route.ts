@@ -38,17 +38,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to buffer
-    const buffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(buffer);
-
     // Generate unique filename
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 9);
-    const filename = `room-image-${timestamp}-${random}.${file.type.split("/")[1]}`;
+    const ext = file.type.split("/")[1] ?? "jpg";
+    const filename = `room-image-${timestamp}-${random}.${ext}`;
 
-    // Upload to Vercel Blob
-    const blob = await put(filename, uint8Array, {
+    // Upload File (Blob) directly to Vercel Blob
+    const blob = await put(filename, file, {
       access: "public",
       addRandomSuffix: false,
     });

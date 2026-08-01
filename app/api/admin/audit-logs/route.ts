@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (format === "csv") {
       // Export as CSV
       const csvBuffer = await exportAuditLogs(filters);
-      return new NextResponse(csvBuffer, {
+      return new NextResponse(csvBuffer.toString("utf-8"), {
         status: 200,
         headers: {
           "Content-Type": "text/csv",
