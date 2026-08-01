@@ -18,9 +18,7 @@ export type AppSection =
   | "checkOut"
   | "housekeeping"
   | "maintenance"
-  | "guestFolio"
-  | "staffManagement"
-  | "payroll";
+  | "guestFolio";
 
 export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
   admin: {
@@ -41,8 +39,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: true,
     maintenance: true,
     guestFolio: true,
-    staffManagement: true,
-    payroll: true,
   },
   manager: {
     pos: true,
@@ -62,8 +58,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: true,
     maintenance: true,
     guestFolio: true,
-    staffManagement: true,
-    payroll: true,
   },
   kitchen: {
     pos: true,
@@ -83,8 +77,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: false,
     maintenance: false,
     guestFolio: false,
-    staffManagement: false,
-    payroll: false,
   },
   staff: {
     pos: true,
@@ -104,8 +96,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: false,
     maintenance: false,
     guestFolio: false,
-    staffManagement: false,
-    payroll: false,
   },
   frontDesk: {
     pos: false,
@@ -125,8 +115,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: true,
     maintenance: true,
     guestFolio: true,
-    staffManagement: false,
-    payroll: false,
   },
   housekeeping: {
     pos: false,
@@ -146,8 +134,6 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     housekeeping: true,
     maintenance: true,
     guestFolio: false,
-    staffManagement: false,
-    payroll: false,
   },
 };
 

@@ -543,7 +543,7 @@ function RoomsPage() {
                   setShowAddDialog(false);
                   setFormData({
                     roomNumber: "",
-                    roomTypeId: "a7de560e-42b0-4545-a96e-d4705f9ad902",
+                    roomTypeId: "standard",
                     floor: 1,
                     building: "Main",
                     notes: "",

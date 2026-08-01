@@ -29,8 +29,6 @@ import {
   Home,
   Briefcase,
   CheckSquare,
-  Users,
-  Banknote,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -648,58 +646,6 @@ function DashboardContent() {
                 <Link href="/hotels/check-in" className="w-full">
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     Process Check-In
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          )}
-          {access.staffManagement && (
-            <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  Staff Management
-                </CardTitle>
-                <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Team
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Add, edit and manage staff accounts
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-20 p-0">
-                <Link href="/staff" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    Manage Staff
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          )}
-          {access.payroll && (
-            <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  Staff Payroll
-                </CardTitle>
-                <Banknote className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Payroll
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Salaries, allowances and deductions
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-20 p-0">
-                <Link href="/staff/payroll" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    View Payroll
                   </Button>
                 </Link>
               </CardFooter>
