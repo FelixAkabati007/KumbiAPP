@@ -53,7 +53,7 @@ function RoomsPage() {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [formData, setFormData] = useState({
     roomNumber: "",
-    roomTypeId: "standard",
+    roomTypeId: "a7de560e-42b0-4545-a96e-d4705f9ad902",
     floor: 1,
     building: "Main",
     notes: "",
@@ -197,7 +197,7 @@ function RoomsPage() {
             setEditingRoom(null);
             setFormData({
               roomNumber: "",
-              roomTypeId: "standard",
+              roomTypeId: "a7de560e-42b0-4545-a96e-d4705f9ad902",
               floor: 1,
               building: "Main",
               notes: "",
@@ -380,9 +380,9 @@ function RoomsPage() {
                 className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
                 <option value="">Select Room Type</option>
-                <option value="standard">Standard Room</option>
-                <option value="deluxe">Deluxe Room</option>
-                <option value="suite">Suite</option>
+                <option value="a7de560e-42b0-4545-a96e-d4705f9ad902">Standard Room</option>
+                <option value="dc0bc513-eeb6-4b0d-904f-8457da7b8516">Deluxe Room</option>
+                <option value="1ba61a41-1a68-44e6-9914-d43fc465b2df">Suite</option>
               </select>
             </div>
 
@@ -393,7 +393,7 @@ function RoomsPage() {
                 placeholder="Additional notes about the room..."
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 min-h-20"
+                className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition min-h-20"
               />
             </div>
 
@@ -499,7 +499,7 @@ function RoomsPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!formData.roomNumber || !formData.roomTypeId || !formData.price) {
                   toast({
                     title: "Error",
@@ -508,22 +508,58 @@ function RoomsPage() {
                   });
                   return;
                 }
-                toast({
-                  title: "Success",
-                  description: `Room ${formData.roomNumber} added successfully`,
-                });
-                setShowAddDialog(false);
-                setFormData({
-                  roomNumber: "",
-                  roomTypeId: "standard",
-                  floor: 1,
-                  building: "Main",
-                  notes: "",
-                  price: "",
-                  images: [],
-                });
-                setPreviewImages([]);
-                setImageInput("");
+                try {
+                  const response = await fetch("/api/hotels/rooms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      roomNumber: formData.roomNumber,
+                      roomTypeId: formData.roomTypeId,
+                      floor: formData.floor,
+                      building: formData.building,
+                      notes: formData.notes,
+                      price: parseFloat(formData.price),
+                      images: formData.images,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || "Failed to add room");
+                  }
+
+                  toast({
+                    title: "Success",
+                    description: `Room ${formData.roomNumber} added successfully`,
+                  });
+
+                  // Fetch updated rooms list
+                  const roomsResponse = await fetch("/api/hotels/rooms");
+                  if (roomsResponse.ok) {
+                    const updatedRooms = await roomsResponse.json();
+                    setRooms(updatedRooms);
+                  }
+
+                  setShowAddDialog(false);
+                  setFormData({
+                    roomNumber: "",
+                    roomTypeId: "standard",
+                    floor: 1,
+                    building: "Main",
+                    notes: "",
+                    price: "",
+                    images: [],
+                  });
+                  setPreviewImages([]);
+                  setImageInput("");
+                } catch (error) {
+                  console.error("Error adding room:", error);
+                  toast({
+                    title: "Error",
+                    description: error instanceof Error ? error.message : "Failed to add room",
+                    variant: "destructive",
+                  });
+                }
               }}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
@@ -586,9 +622,9 @@ function RoomsPage() {
                 className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
                 <option value="">Select Room Type</option>
-                <option value="standard">Standard Room</option>
-                <option value="deluxe">Deluxe Room</option>
-                <option value="suite">Suite</option>
+                <option value="a7de560e-42b0-4545-a96e-d4705f9ad902">Standard Room</option>
+                <option value="dc0bc513-eeb6-4b0d-904f-8457da7b8516">Deluxe Room</option>
+                <option value="1ba61a41-1a68-44e6-9914-d43fc465b2df">Suite</option>
               </select>
             </div>
 
@@ -599,7 +635,7 @@ function RoomsPage() {
                 placeholder="Additional notes about the room..."
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 min-h-20"
+                className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition min-h-20"
               />
             </div>
 
@@ -705,7 +741,7 @@ function RoomsPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!formData.roomNumber || !formData.roomTypeId || !formData.price) {
                   toast({
                     title: "Error",
@@ -714,11 +750,52 @@ function RoomsPage() {
                   });
                   return;
                 }
-                toast({
-                  title: "Success",
-                  description: `Room ${formData.roomNumber} updated successfully`,
-                });
-                setShowEditDialog(false);
+                try {
+                  if (!editingRoom) {
+                    throw new Error("No room selected for editing");
+                  }
+
+                  const response = await fetch(`/api/hotels/rooms/${editingRoom.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      roomNumber: formData.roomNumber,
+                      roomTypeId: formData.roomTypeId,
+                      floor: formData.floor,
+                      building: formData.building,
+                      notes: formData.notes,
+                      price: parseFloat(formData.price),
+                      images: formData.images,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || "Failed to update room");
+                  }
+
+                  toast({
+                    title: "Success",
+                    description: `Room ${formData.roomNumber} updated successfully`,
+                  });
+
+                  // Fetch updated rooms list
+                  const roomsResponse = await fetch("/api/hotels/rooms");
+                  if (roomsResponse.ok) {
+                    const updatedRooms = await roomsResponse.json();
+                    setRooms(updatedRooms);
+                  }
+
+                  setShowEditDialog(false);
+                  setEditingRoom(null);
+                } catch (error) {
+                  console.error("Error updating room:", error);
+                  toast({
+                    title: "Error",
+                    description: error instanceof Error ? error.message : "Failed to update room",
+                    variant: "destructive",
+                  });
+                }
               }}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
