@@ -1,5 +1,5 @@
-// Role definitions and permissions for the POS system
-export type UserRole = "admin" | "manager" | "staff" | "kitchen";
+// Role definitions and permissions for the Hospitality Management System
+export type UserRole = "admin" | "manager" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
 
 export type AppSection =
   | "pos"
@@ -11,7 +11,14 @@ export type AppSection =
   | "payments"
   | "receipt"
   | "system"
-  | "refunds";
+  | "refunds"
+  | "rooms"
+  | "reservations"
+  | "checkIn"
+  | "checkOut"
+  | "housekeeping"
+  | "maintenance"
+  | "guestFolio";
 
 export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
   admin: {
@@ -25,6 +32,13 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     receipt: true,
     system: true,
     refunds: true,
+    rooms: true,
+    reservations: true,
+    checkIn: true,
+    checkOut: true,
+    housekeeping: true,
+    maintenance: true,
+    guestFolio: true,
   },
   manager: {
     pos: true,
@@ -37,6 +51,13 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     receipt: true,
     system: true,
     refunds: true,
+    rooms: true,
+    reservations: true,
+    checkIn: true,
+    checkOut: true,
+    housekeeping: true,
+    maintenance: true,
+    guestFolio: true,
   },
   kitchen: {
     pos: true,
@@ -49,6 +70,13 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     receipt: true,
     system: false,
     refunds: false,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: false,
+    guestFolio: false,
   },
   staff: {
     pos: true,
@@ -60,7 +88,52 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     payments: false,
     receipt: true,
     system: false,
-    refunds: true, // Allow staff to access refunds
+    refunds: true,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: false,
+    guestFolio: false,
+  },
+  frontDesk: {
+    pos: false,
+    kitchen: false,
+    orderBoard: false,
+    menu: false,
+    inventory: false,
+    reports: false,
+    payments: true,
+    receipt: true,
+    system: false,
+    refunds: true,
+    rooms: true,
+    reservations: true,
+    checkIn: true,
+    checkOut: true,
+    housekeeping: true,
+    maintenance: true,
+    guestFolio: true,
+  },
+  housekeeping: {
+    pos: false,
+    kitchen: false,
+    orderBoard: false,
+    menu: false,
+    inventory: false,
+    reports: false,
+    payments: false,
+    receipt: false,
+    system: false,
+    refunds: false,
+    rooms: true,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: true,
+    maintenance: true,
+    guestFolio: false,
   },
 };
 
