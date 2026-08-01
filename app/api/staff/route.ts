@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { hash } from "bcryptjs";
+import bcrypt from "bcryptjs";
 
 // GET all staff
 export async function GET() {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already in use" }, { status: 409 });
     }
 
-    const password_hash = await hash(password, 10);
+    const password_hash = await bcrypt.hash(password, 10);
 
     const result = await query(
       `INSERT INTO users (name, email, role, password_hash, username, is_active, email_verified)

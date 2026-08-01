@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { hash } from "bcryptjs";
+import bcrypt from "bcryptjs";
 
 // PUT update staff member
 export async function PUT(
@@ -31,7 +31,7 @@ export async function PUT(
     let params: (string | boolean | null)[];
 
     if (password) {
-      const password_hash = await hash(password, 10);
+      const password_hash = await bcrypt.hash(password, 10);
       updateQuery = `UPDATE users SET name=$1, email=$2, role=$3, username=$4, is_active=$5, password_hash=$6, updated_at=NOW()
                      WHERE id=$7 RETURNING id, name, email, role, username, is_active, created_at`;
       params = [name, email, role, username || null, is_active ?? true, password_hash, id];
