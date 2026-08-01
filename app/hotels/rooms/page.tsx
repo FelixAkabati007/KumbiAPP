@@ -377,12 +377,12 @@ function RoomsPage() {
                 id="roomType"
                 value={formData.roomTypeId}
                 onChange={(e) => setFormData({ ...formData, roomTypeId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
                 <option value="">Select Room Type</option>
-                <option value="standard">Standard Room - GHS 250</option>
-                <option value="deluxe">Deluxe Room - GHS 450</option>
-                <option value="suite">Suite - GHS 750</option>
+                <option value="standard">Standard Room</option>
+                <option value="deluxe">Deluxe Room</option>
+                <option value="suite">Suite</option>
               </select>
             </div>
 
@@ -583,12 +583,12 @@ function RoomsPage() {
                 id="editRoomType"
                 value={formData.roomTypeId}
                 onChange={(e) => setFormData({ ...formData, roomTypeId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
                 <option value="">Select Room Type</option>
-                <option value="standard">Standard Room - GHS 250</option>
-                <option value="deluxe">Deluxe Room - GHS 450</option>
-                <option value="suite">Suite - GHS 750</option>
+                <option value="standard">Standard Room</option>
+                <option value="deluxe">Deluxe Room</option>
+                <option value="suite">Suite</option>
               </select>
             </div>
 
