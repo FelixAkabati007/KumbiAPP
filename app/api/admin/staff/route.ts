@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
     const department = url.searchParams.get("department");
     const status = url.searchParams.get("status");
 
-    const whereConditions = ["is_active = true"];
-    const params: (string | number)[] = [];
+    let whereConditions = ["is_active = true"];
+    let params: any[] = [];
     let paramCount = 1;
 
     if (department) {

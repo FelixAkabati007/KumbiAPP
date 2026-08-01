@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const filters: Record<string, unknown> = { limit, offset };
+    const filters: any = { limit, offset };
 
     if (actionType) filters.actionType = actionType;
     if (actorId) filters.actorId = actorId;
