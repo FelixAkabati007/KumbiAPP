@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { hasPermission } from "@/lib/roles";
 
 // Get all rooms with optional filtering
 export async function GET(request: NextRequest) {
@@ -33,12 +32,11 @@ export async function GET(request: NextRequest) {
     sql += ` ORDER BY r.floor ASC, r.room_number ASC`;
 
     const result = await query(sql, params);
-    
-    // Add caching headers
-    const response = NextResponse.json(result.rows);
-    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-    response.headers.set('Content-Type', 'application/json; charset=utf-8');
-    return response;
+    return NextResponse.json(result.rows, {
+      headers: {
+        "Cache-Control": "public, max-age=60, s-maxage=120, stale-while-revalidate=300",
+      },
+    });
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { logoutSession, clearSessionData, validateSession } from "@/lib/session-manager";
+import { clearSessionData, validateSession } from "@/lib/session-manager";
 import { createAuditLog } from "@/lib/audit-logger";
 import { cookies } from "next/headers";
 
@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET - Validate current session
-export async function GET(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(_request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get("session_token")?.value;

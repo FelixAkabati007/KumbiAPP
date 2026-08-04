@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { Suspense } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Spinner } from "@/components/ui/spinner";
 
 interface LoadingContextType {
   isLoading: boolean;
@@ -11,17 +11,13 @@ interface LoadingContextType {
   hideLoading: () => void;
 }
 
-const LoadingContext = React.createContext<LoadingContextType | undefined>(
-  undefined,
-);
+const LoadingContext = React.createContext<LoadingContextType | undefined>(undefined);
 
-// Inner component that uses useSearchParams — wrapped in Suspense below
-// so it never causes the outer tree to suspend.
-function RouteChangeResetter({
-  onRouteChange,
-}: {
-  onRouteChange: () => void;
-}) {
+/**
+ * RouteChangeResetter — isolates useSearchParams() inside its own Suspense
+ * boundary so it never suspends the outer provider tree.
+ */
+function RouteChangeResetter({ onRouteChange }: { onRouteChange: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   React.useEffect(() => {
@@ -56,8 +52,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LoadingContext.Provider value={value}>
-      {/* RouteChangeResetter uses useSearchParams — isolated in its own Suspense
-          so it never blocks the outer tree from rendering */}
+      {/* Isolate useSearchParams so it never suspends the main tree */}
       <Suspense fallback={null}>
         <RouteChangeResetter onRouteChange={handleRouteChange} />
       </Suspense>

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, transaction } from "@/lib/db";
+import { transaction } from "@/lib/db";
 
 // Check-out guest from room
 export async function POST(request: NextRequest) {
   try {
-    const { reservationId, roomId, actualCheckOutTime, balancePaid } =
+    const { reservationId, roomId, balancePaid } =
       await request.json();
 
     if (!reservationId || !roomId) {
