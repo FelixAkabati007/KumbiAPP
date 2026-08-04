@@ -8,7 +8,7 @@ import {
 import ws from "ws";
 
 declare global {
-  // eslint-disable-next-line no-var
+  // var required here: TypeScript global augmentation only allows var declarations
   var dbPool: Pool | undefined;
 }
 

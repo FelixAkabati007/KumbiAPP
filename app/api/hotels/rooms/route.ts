@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
     const roomTypeId = searchParams.get("roomTypeId");
 
     let sql = `
-      SELECT r.id, r.room_number, r.floor, r.building, r.status, 
+      SELECT r.id, r.room_number, r.floor, r.building, r.status,
+             r.room_type_id, r.notes,
              rt.name as room_type_name, rt.base_price,
              COALESCE(r.price, rt.base_price) as price,
              r.images
