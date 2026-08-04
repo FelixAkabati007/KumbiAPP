@@ -17,10 +17,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => getSettings());
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
     async function loadSettings() {
       const savedSettings = await fetchSettings();
       setSettings(savedSettings);
@@ -63,7 +61,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     <SettingsContext.Provider
       value={{ settings, updateSettings, resetSettings }}
     >
-      {isMounted ? children : <div />}
+      {children}
     </SettingsContext.Provider>
   );
 }

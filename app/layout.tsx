@@ -73,7 +73,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ThemeController />
-            <Suspense fallback={null}>
+            <Suspense fallback={<></>}>
               <LoadingProvider>
                 <SettingsProvider>
                   <IntegrationProvider>

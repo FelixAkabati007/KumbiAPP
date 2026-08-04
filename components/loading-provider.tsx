@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { usePathname, useSearchParams } from "next/navigation";
 
@@ -14,23 +15,29 @@ const LoadingContext = React.createContext<LoadingContextType | undefined>(
   undefined,
 );
 
+// Inner component that uses useSearchParams — wrapped in Suspense below
+// so it never causes the outer tree to suspend.
+function RouteChangeResetter({
+  onRouteChange,
+}: {
+  onRouteChange: () => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  React.useEffect(() => {
+    onRouteChange();
+  }, [pathname, searchParams, onRouteChange]);
+  return null;
+}
+
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | undefined>(undefined);
-  const [isMounted, setIsMounted] = React.useState(false);
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  // Mark as mounted after hydration
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Reset loading state on route change
-  React.useEffect(() => {
+  const handleRouteChange = React.useCallback(() => {
     setIsLoading(false);
     setMessage(undefined);
-  }, [pathname, searchParams]);
+  }, []);
 
   const showLoading = React.useCallback((msg?: string) => {
     setMessage(msg);
@@ -49,8 +56,13 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LoadingContext.Provider value={value}>
+      {/* RouteChangeResetter uses useSearchParams — isolated in its own Suspense
+          so it never blocks the outer tree from rendering */}
+      <Suspense fallback={null}>
+        <RouteChangeResetter onRouteChange={handleRouteChange} />
+      </Suspense>
       {children}
-      {isMounted && isLoading && (
+      {isLoading && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
           aria-busy="true"
