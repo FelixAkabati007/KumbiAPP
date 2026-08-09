@@ -3,8 +3,36 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { z } from "zod";
 
+// Base64 data URLs inflate size by ~33%; cap the encoded string so the
+// decoded image stays within a reasonable ~6MB bound (client already
+// enforces 5MB on the original file before encoding).
+const MAX_AVATAR_DATA_URL_LENGTH = 8 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_PREFIXES = [
+  "data:image/png",
+  "data:image/jpeg",
+  "data:image/jpg",
+  "data:image/webp",
+  "data:image/gif",
+];
+
 const avatarSchema = z.object({
-  avatar: z.string().nullable().optional().or(z.literal("")),
+  avatar: z
+    .string()
+    .nullable()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (value) => {
+        if (!value) return true; // empty/null clears the avatar
+        if (value.length > MAX_AVATAR_DATA_URL_LENGTH) return false;
+        // Predefined avatar paths (e.g. "/placeholder-user.jpg") are also allowed
+        if (value.startsWith("/")) return true;
+        return ALLOWED_IMAGE_MIME_PREFIXES.some((prefix) =>
+          value.startsWith(prefix),
+        );
+      },
+      { message: "Avatar must be a valid image (png, jpeg, webp, gif) under the size limit" },
+    ),
 });
 
 export async function POST(req: Request) {
@@ -18,7 +46,10 @@ export async function POST(req: Request) {
     const result = avatarSchema.safeParse(json);
 
     if (!result.success) {
-      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+      return NextResponse.json(
+        { error: result.error.issues[0]?.message || "Invalid data" },
+        { status: 400 },
+      );
     }
 
     const { avatar } = result.data;

@@ -2,12 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, Search, ArrowLeft } from "lucide-react";
+import { DoorOpen, DoorClosed, Search, ArrowLeft } from "lucide-react";
 
 interface CheckInData {
   id: string;
@@ -16,42 +40,97 @@ interface CheckInData {
   last_name: string;
   check_in_date: string;
   check_out_date: string;
+  room_type_id: string;
   room_type_name: string;
   number_of_guests: number;
   special_requests?: string;
+}
+
+interface AvailableRoom {
+  id: string;
+  room_number: string;
+  floor?: number;
+  room_type_id: string;
+}
+
+interface CheckedInGuest {
+  id: string;
+  reservation_number: string;
+  room_id: string | null;
+  room_number: string | null;
+  room_type_name: string;
+  first_name: string;
+  last_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  total_charges: string | null;
+  paid_amount: string | null;
+  balance: string | null;
 }
 
 export default function CheckInPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<CheckInData[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<CheckInData[]>([]);
+  const [checkedInGuests, setCheckedInGuests] = useState<CheckedInGuest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingCheckedIn, setLoadingCheckedIn] = useState(true);
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchReservations = async () => {
-      try {
-        const response = await fetch("/api/hotels/reservations?status=confirmed");
-        if (!response.ok) throw new Error("Failed to fetch reservations");
-        const data = await response.json();
-        setReservations(data);
-        setFilteredReservations(data);
-      } catch (error) {
-        console.error("Error fetching reservations:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load reservations",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Room selection dialog state for check-in
+  const [selectedReservation, setSelectedReservation] = useState<CheckInData | null>(null);
+  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // Checkout dialog state
+  const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+
+  const fetchReservations = async () => {
+    try {
+      const response = await fetch("/api/hotels/reservations?status=confirmed");
+      if (!response.ok) throw new Error("Failed to fetch reservations");
+      const data = await response.json();
+      setReservations(data);
+      setFilteredReservations(data);
+    } catch (error) {
+      console.error("Error fetching reservations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load reservations",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCheckedInGuests = async () => {
+    try {
+      const response = await fetch("/api/hotels/checked-in");
+      if (!response.ok) throw new Error("Failed to fetch checked-in guests");
+      const data = await response.json();
+      setCheckedInGuests(data);
+    } catch (error) {
+      console.error("Error fetching checked-in guests:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load checked-in guests",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCheckedIn(false);
+    }
+  };
+
+  useEffect(() => {
     fetchReservations();
-  }, [toast]);
+    fetchCheckedInGuests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -64,16 +143,47 @@ export default function CheckInPage() {
     setFilteredReservations(filtered);
   };
 
-  const handleCheckIn = async (reservationId: string) => {
+  const openRoomSelection = async (reservation: CheckInData) => {
+    setSelectedReservation(reservation);
+    setSelectedRoomId("");
+    setLoadingRooms(true);
+    try {
+      const response = await fetch(
+        `/api/hotels/rooms?status=available&roomTypeId=${reservation.room_type_id}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch available rooms");
+      const data = await response.json();
+      setAvailableRooms(data);
+    } catch (error) {
+      console.error("Error fetching available rooms:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load available rooms",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!selectedReservation || !selectedRoomId) {
+      toast({
+        title: "Select a room",
+        description: "Please choose an available room before checking in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessing(true);
     try {
-      // Note: In a real implementation, you would need to select a room first
       const response = await fetch("/api/hotels/check-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reservationId,
-          roomId: "", // This should be selected from available rooms
+          reservationId: selectedReservation.id,
+          roomId: selectedRoomId,
         }),
       });
 
@@ -84,16 +194,63 @@ export default function CheckInPage() {
         description: "Guest checked in successfully",
       });
 
-      // Refresh reservations
-      const res = await fetch("/api/hotels/reservations?status=confirmed");
-      const data = await res.json();
-      setReservations(data);
-      setFilteredReservations(data);
+      setSelectedReservation(null);
+      setSelectedRoomId("");
+      await Promise.all([fetchReservations(), fetchCheckedInGuests()]);
     } catch (error) {
       console.error("Error checking in guest:", error);
       toast({
         title: "Error",
         description: "Failed to check in guest",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openCheckout = (guest: CheckedInGuest) => {
+    setCheckoutGuest(guest);
+    setPaymentAmount(guest.balance && Number(guest.balance) > 0 ? guest.balance : "");
+  };
+
+  const handleCheckOut = async () => {
+    if (!checkoutGuest || !checkoutGuest.room_id) {
+      toast({
+        title: "Error",
+        description: "This reservation has no assigned room to check out from.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const response = await fetch("/api/hotels/check-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservationId: checkoutGuest.id,
+          roomId: checkoutGuest.room_id,
+          balancePaid: paymentAmount ? Number(paymentAmount) : 0,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to check out guest");
+
+      toast({
+        title: "Success",
+        description: "Guest checked out successfully",
+      });
+
+      setCheckoutGuest(null);
+      setPaymentAmount("");
+      await fetchCheckedInGuests();
+    } catch (error) {
+      console.error("Error checking out guest:", error);
+      toast({
+        title: "Error",
+        description: "Failed to check out guest",
         variant: "destructive",
       });
     } finally {
@@ -112,82 +269,308 @@ export default function CheckInPage() {
         >
           <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
         </Button>
-        <h2 className="text-3xl font-bold tracking-tight">Guest Check-In</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Check-In / Check-Out</h2>
       </div>
 
-      <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
-        <CardHeader>
-          <CardTitle>Check-In Management</CardTitle>
-          <CardDescription>Process guest check-ins for reservations</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by reservation number, guest name..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700"
-              />
-            </div>
-          </div>
+      <Tabs defaultValue="check-in" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="check-in">
+            <DoorOpen className="h-4 w-4 mr-2" />
+            Check-In
+          </TabsTrigger>
+          <TabsTrigger value="check-out">
+            <DoorClosed className="h-4 w-4 mr-2" />
+            Check-Out
+          </TabsTrigger>
+        </TabsList>
 
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
-          ) : filteredReservations.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <DoorOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              {searchTerm ? "No reservations match your search" : "No pending reservations"}
-            </div>
+        <TabsContent value="check-in">
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
+            <CardHeader>
+              <CardTitle>Check-In Management</CardTitle>
+              <CardDescription>Process guest check-ins for reservations</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by reservation number, guest name..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700"
+                  />
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full" />
+                  ))}
+                </div>
+              ) : filteredReservations.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <DoorOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  {searchTerm ? "No reservations match your search" : "No pending reservations"}
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredReservations.map((res) => (
+                    <Card
+                      key={res.id}
+                      className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
+                    >
+                      <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Reservation</p>
+                            <p className="font-semibold">{res.reservation_number}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Guest</p>
+                            <p className="font-semibold">
+                              {res.first_name} {res.last_name}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Check-In</p>
+                            <p className="font-semibold">
+                              {new Date(res.check_in_date).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Room Type</p>
+                            <p className="font-semibold">{res.room_type_name}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Guests</p>
+                            <p className="font-semibold">{res.number_of_guests}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => openRoomSelection(res)}
+                              disabled={processing}
+                              className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+                            >
+                              <DoorOpen className="h-4 w-4 mr-2" />
+                              Check In
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="check-out">
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
+            <CardHeader>
+              <CardTitle>Check-Out Management</CardTitle>
+              <CardDescription>
+                Guests currently in-house, with outstanding folio balances
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingCheckedIn ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full" />
+                  ))}
+                </div>
+              ) : checkedInGuests.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <DoorClosed className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  No guests currently checked in
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {checkedInGuests.map((guest) => {
+                    const balance = Number(guest.balance || 0);
+                    return (
+                      <Card
+                        key={guest.id}
+                        className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
+                      >
+                        <CardContent className="pt-6">
+                          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Room</p>
+                              <p className="font-semibold">{guest.room_number || "Unassigned"}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Guest</p>
+                              <p className="font-semibold">
+                                {guest.first_name} {guest.last_name}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Check-Out Due</p>
+                              <p className="font-semibold">
+                                {new Date(guest.check_out_date).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Room Type</p>
+                              <p className="font-semibold">{guest.room_type_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Balance</p>
+                              <Badge
+                                className={
+                                  balance > 0
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                    : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                }
+                              >
+                                GHS {balance.toFixed(2)}
+                              </Badge>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => openCheckout(guest)}
+                                disabled={processing}
+                                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+                              >
+                                <DoorClosed className="h-4 w-4 mr-2" />
+                                Check Out
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Room selection dialog for check-in */}
+      <Dialog
+        open={!!selectedReservation}
+        onOpenChange={(open) => !open && setSelectedReservation(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select a Room</DialogTitle>
+            <DialogDescription>
+              {selectedReservation &&
+                `Assign an available ${selectedReservation.room_type_name} room to ${selectedReservation.first_name} ${selectedReservation.last_name}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingRooms ? (
+            <Skeleton className="h-10 w-full" />
+          ) : availableRooms.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              No available rooms of this type right now.
+            </p>
           ) : (
-            <div className="grid gap-4">
-              {filteredReservations.map((res) => (
-                <Card key={res.id} className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl">
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Reservation</p>
-                        <p className="font-semibold">{res.reservation_number}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Guest</p>
-                        <p className="font-semibold">{res.first_name} {res.last_name}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Check-In</p>
-                        <p className="font-semibold">{new Date(res.check_in_date).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Room Type</p>
-                        <p className="font-semibold">{res.room_type_name}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Guests</p>
-                        <p className="font-semibold">{res.number_of_guests}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => handleCheckIn(res.id)}
-                          disabled={processing}
-                          className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
-                        >
-                          <DoorOpen className="h-4 w-4 mr-2" />
-                          Check In
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="space-y-2">
+              <Label htmlFor="room-select">Available Rooms</Label>
+              <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                <SelectTrigger id="room-select" className="rounded-lg">
+                  <SelectValue placeholder="Choose a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      Room {room.room_number}
+                      {room.floor ? ` (Floor ${room.floor})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSelectedReservation(null)}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCheckIn}
+              disabled={processing || !selectedRoomId}
+              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+            >
+              Confirm Check-In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout payment dialog */}
+      <Dialog open={!!checkoutGuest} onOpenChange={(open) => !open && setCheckoutGuest(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Check-Out</DialogTitle>
+            <DialogDescription>
+              {checkoutGuest &&
+                `${checkoutGuest.first_name} ${checkoutGuest.last_name} — Room ${checkoutGuest.room_number || "N/A"}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {checkoutGuest && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Total Charges</p>
+                  <p className="font-semibold">
+                    GHS {Number(checkoutGuest.total_charges || 0).toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Outstanding Balance</p>
+                  <p className="font-semibold">
+                    GHS {Number(checkoutGuest.balance || 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-amount">Payment to Collect Now</Label>
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="rounded-lg"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCheckoutGuest(null)}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCheckOut}
+              disabled={processing}
+              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+            >
+              Confirm Check-Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

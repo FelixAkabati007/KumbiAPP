@@ -25,7 +25,7 @@ const PREDEFINED_AVATARS: string[] = [
 ];
 
 export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState<number>(1.2);
@@ -38,10 +38,11 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
     [user?.id]
   );
 
+  // Seed the current avatar preview from the authenticated user's
+  // persisted avatar_url so it reflects what is actually saved in the DB.
   useEffect(() => {
-    // In strict Neon-only mode, we no longer load from localStorage.
-    // If backend persistence is added later, fetch from API here.
-  }, [storageKey]);
+    setSrc(user?.avatar_url || "");
+  }, [user?.id, user?.avatar_url, storageKey]);
 
   // Revoke blob URLs on unmount to prevent memory leaks
   useEffect(() => {
@@ -138,6 +139,9 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
         window.dispatchEvent(
           new CustomEvent("avatarUpdated", { detail: { src: dataUrl } })
         );
+        // Re-sync the auth context so any component reading user.avatar_url
+        // (not just event listeners) reflects the new avatar immediately.
+        await refreshUser();
       } catch (err) {
         console.warn("Failed to dispatch avatar update or save to DB", err);
         throw err;
@@ -174,6 +178,7 @@ export function AvatarManager({ onAvatarChange }: AvatarManagerProps) {
       window.dispatchEvent(
         new CustomEvent("avatarUpdated", { detail: { src: "" } })
       );
+      await refreshUser();
       toast({ title: "Avatar reset" });
     } catch (err) {
       console.warn("Failed to reset avatar", err);

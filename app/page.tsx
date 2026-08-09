@@ -564,7 +564,7 @@ function DashboardContent() {
                   Manage guest reservations and bookings
                 </p>
               </CardContent>
-              <CardFooter className="relative z-20 p-0">
+              <CardFooter className="relative z-10">
                 <Link href="/hotels/reservations" className="w-full">
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     Manage Reservations
@@ -590,7 +590,7 @@ function DashboardContent() {
                   Track room status and availability
                 </p>
               </CardContent>
-              <CardFooter className="relative z-20 p-0">
+              <CardFooter className="relative z-10">
                 <Link href="/hotels/rooms" className="w-full">
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     View Rooms
@@ -616,7 +616,7 @@ function DashboardContent() {
                   Room cleaning and maintenance tasks
                 </p>
               </CardContent>
-              <CardFooter className="relative z-20 p-0">
+              <CardFooter className="relative z-10">
                 <Link href="/hotels/housekeeping" className="w-full">
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     View Tasks
@@ -642,7 +642,7 @@ function DashboardContent() {
                   Guest check-in and check-out management
                 </p>
               </CardContent>
-              <CardFooter className="relative z-20 p-0">
+              <CardFooter className="relative z-10">
                 <Link href="/hotels/check-in" className="w-full">
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     Process Check-In
