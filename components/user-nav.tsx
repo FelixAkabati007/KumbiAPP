@@ -32,13 +32,18 @@ export function UserNav() {
     [user?.id],
   );
 
+  // Seed avatar from the authenticated user's persisted avatar_url whenever
+  // the user changes (login, refresh, session restore).
+  useEffect(() => {
+    setAvatarSrc(user?.avatar_url || "");
+  }, [user?.id, user?.avatar_url]);
+
   useEffect(() => {
     function updateAvatar(e?: Event) {
       if (e instanceof CustomEvent && e.detail?.src !== undefined) {
-         setAvatarSrc(e.detail.src);
+        setAvatarSrc(e.detail.src);
       }
     }
-    // No initial load from localStorage
     window.addEventListener("avatarUpdated", updateAvatar as EventListener);
     return () => {
       window.removeEventListener(

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, transaction, getClient } from "@/lib/db";
+import { transaction } from "@/lib/db";
 
 // Check-in guest to room
 export async function POST(request: NextRequest) {
   try {
-    const { reservationId, roomId, actualCheckInTime } = await request.json();
+    const { reservationId, roomId } = await request.json();
 
     if (!reservationId || !roomId) {
       return NextResponse.json(

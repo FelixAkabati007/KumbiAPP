@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { ImageIcon } from "lucide-react";
-import { getCurrentLogo } from "@/lib/settings";
+import { fetchSettings } from "@/lib/settings";
 
 interface LogoDisplayProps {
   size?: "sm" | "md" | "lg";
@@ -14,26 +14,31 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
   const [logo, setLogo] = useState<string>("");
   const [isValidImage, setIsValidImage] = useState(true);
 
-  useEffect(() => {
-    const currentLogo = getCurrentLogo();
+  const loadLogo = useCallback(async () => {
+    const settings = await fetchSettings();
+    const currentLogo = settings.account?.logo || "";
     setLogo(currentLogo);
+    setIsValidImage(true);
+  }, []);
+
+  useEffect(() => {
+    loadLogo();
 
     // Listen for storage changes to update logo across tabs
-    const handleStorageChange = () => {
-      const updatedLogo = getCurrentLogo();
-      setLogo(updatedLogo);
+    const handleUpdate = () => {
+      loadLogo();
     };
 
-    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("storage", handleUpdate);
 
     // Also listen for custom events when settings are saved
-    window.addEventListener("settingsUpdated", handleStorageChange);
+    window.addEventListener("settingsUpdated", handleUpdate);
 
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("settingsUpdated", handleStorageChange);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("settingsUpdated", handleUpdate);
     };
-  }, []);
+  }, [loadLogo]);
 
   const sizeClasses = {
     sm: "h-6 w-6 sm:h-8 sm:w-8",

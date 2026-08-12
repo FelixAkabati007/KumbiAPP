@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import NextImage from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +23,12 @@ interface RoomImage {
 interface Room {
   id: string;
   room_number: string;
+  room_type_id: string;
   room_type_name: string;
   floor: number;
   building: string;
   status: string;
+  notes?: string;
   base_price: number;
   price?: number;
   images?: RoomImage[];
@@ -273,10 +276,13 @@ function RoomsPage() {
                       </td>
                       <td className="py-2 px-4">
                         {room.images && room.images.length > 0 ? (
-                          <img 
-                            src={room.images[0].url} 
-                            alt="Room"
+                          <NextImage
+                            src={room.images[0].url}
+                            alt={`Room ${room.room_number}`}
+                            width={48}
+                            height={48}
                             className="h-12 w-12 object-cover rounded"
+                            unoptimized
                           />
                         ) : (
                           <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
@@ -302,11 +308,11 @@ function RoomsPage() {
                             setEditingRoom(room);
                             setFormData({
                               roomNumber: room.room_number,
-                              roomTypeId: room.id,
+                              roomTypeId: room.room_type_id,
                               floor: room.floor,
                               building: room.building,
-                              notes: "",
-                              price: room.price?.toString() || "",
+                              notes: room.notes || "",
+                              price: room.price?.toString() || room.base_price?.toString() || "",
                               images: room.images || [],
                             });
                             setPreviewImages((room.images || []).map(img => img.url));
@@ -329,7 +335,7 @@ function RoomsPage() {
 
       {/* Add Room Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Room</DialogTitle>
             <DialogDescription>Create a new room in the hotel inventory</DialogDescription>
@@ -418,10 +424,13 @@ function RoomsPage() {
                 <div className="mb-4 grid grid-cols-3 gap-2">
                   {previewImages.map((img, idx) => (
                     <div key={idx} className="relative group">
-                      <img 
-                        src={img} 
+                      <NextImage
+                        src={img}
                         alt={`Preview ${idx + 1}`}
+                        width={200}
+                        height={96}
                         className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        unoptimized
                       />
                       <button
                         onClick={() => handleRemoveImage(formData.images[idx]?.id || "")}
@@ -571,7 +580,7 @@ function RoomsPage() {
 
       {/* Edit Room Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Room</DialogTitle>
             <DialogDescription>Update room details and settings</DialogDescription>
@@ -660,10 +669,13 @@ function RoomsPage() {
                 <div className="mb-4 grid grid-cols-3 gap-2">
                   {previewImages.map((img, idx) => (
                     <div key={idx} className="relative group">
-                      <img 
-                        src={img} 
+                      <NextImage
+                        src={img}
                         alt={`Preview ${idx + 1}`}
+                        width={200}
+                        height={96}
                         className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        unoptimized
                       />
                       <button
                         onClick={() => handleRemoveImage(formData.images[idx]?.id || "")}

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { comparePassword, signToken } from "@/lib/auth";
-import {
-  createSession,
-  generateDeviceFingerprint,
-  forceLogoutDevice,
-} from "@/lib/session-manager";
+import { createSession } from "@/lib/session-manager";
 import { createAuditLog } from "@/lib/audit-logger";
 
 // POST - Staff login with device fingerprint

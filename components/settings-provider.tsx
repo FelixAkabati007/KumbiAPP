@@ -1,8 +1,7 @@
 "use client";
 
 import type React from "react";
-
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { fetchSettings, getSettings, saveSettings, type AppSettings } from "@/lib/settings";
 
 interface SettingsContextType {
@@ -11,59 +10,44 @@ interface SettingsContextType {
   resetSettings: () => void;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(
-  undefined,
-);
+const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => getSettings());
-  const [isMounted, setIsMounted] = useState(false);
 
+  // Load settings from server on mount — children always render immediately
   useEffect(() => {
-    setIsMounted(true);
-    async function loadSettings() {
-      const savedSettings = await fetchSettings();
-      setSettings(savedSettings);
-    }
-    loadSettings();
+    let cancelled = false;
+    fetchSettings().then((saved) => {
+      if (!cancelled) setSettings(saved);
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
-    const updatedSettings = {
-      ...settings,
-      ...newSettings,
-      notifications: {
-        ...settings.notifications,
-        ...newSettings.notifications,
-      },
-      account: {
-        ...settings.account,
-        ...newSettings.account,
-      },
-      system: {
-        ...settings.system,
-        ...newSettings.system,
-      },
-      security: {
-        ...settings.security,
-        ...newSettings.security,
-      },
-    };
-    setSettings(updatedSettings);
-    saveSettings(updatedSettings);
-  };
+  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
+    setSettings((prev) => {
+      const updated: AppSettings = {
+        ...prev,
+        ...newSettings,
+        notifications: { ...prev.notifications, ...newSettings.notifications },
+        account: { ...prev.account, ...newSettings.account },
+        system: { ...prev.system, ...newSettings.system },
+        security: { ...prev.security, ...newSettings.security },
+      };
+      saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
-  const resetSettings = () => {
-    const defaultSettings = getSettings(true);
-    setSettings(defaultSettings);
-    saveSettings(defaultSettings);
-  };
+  const resetSettings = useCallback(() => {
+    const defaults = getSettings(true);
+    setSettings(defaults);
+    saveSettings(defaults);
+  }, []);
 
   return (
-    <SettingsContext.Provider
-      value={{ settings, updateSettings, resetSettings }}
-    >
-      {isMounted ? children : <div />}
+    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>
+      {children}
     </SettingsContext.Provider>
   );
 }

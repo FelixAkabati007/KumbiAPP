@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 // Get all room types
-export async function GET(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(_request: NextRequest) {
   try {
     const result = await query(
       `SELECT * FROM room_types WHERE is_active = true ORDER BY name ASC`

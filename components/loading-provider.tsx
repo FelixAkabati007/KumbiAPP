@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Spinner } from "@/components/ui/spinner";
+import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Spinner } from "@/components/ui/spinner";
 
 interface LoadingContextType {
   isLoading: boolean;
@@ -10,27 +11,29 @@ interface LoadingContextType {
   hideLoading: () => void;
 }
 
-const LoadingContext = React.createContext<LoadingContextType | undefined>(
-  undefined,
-);
+const LoadingContext = React.createContext<LoadingContextType | undefined>(undefined);
+
+/**
+ * RouteChangeResetter — isolates useSearchParams() inside its own Suspense
+ * boundary so it never suspends the outer provider tree.
+ */
+function RouteChangeResetter({ onRouteChange }: { onRouteChange: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  React.useEffect(() => {
+    onRouteChange();
+  }, [pathname, searchParams, onRouteChange]);
+  return null;
+}
 
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | undefined>(undefined);
-  const [isMounted, setIsMounted] = React.useState(false);
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  // Mark as mounted after hydration
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Reset loading state on route change
-  React.useEffect(() => {
+  const handleRouteChange = React.useCallback(() => {
     setIsLoading(false);
     setMessage(undefined);
-  }, [pathname, searchParams]);
+  }, []);
 
   const showLoading = React.useCallback((msg?: string) => {
     setMessage(msg);
@@ -49,8 +52,12 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LoadingContext.Provider value={value}>
+      {/* Isolate useSearchParams so it never suspends the main tree */}
+      <Suspense fallback={null}>
+        <RouteChangeResetter onRouteChange={handleRouteChange} />
+      </Suspense>
       {children}
-      {isMounted && isLoading && (
+      {isLoading && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
           aria-busy="true"

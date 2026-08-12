@@ -22,6 +22,7 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   switchRole: (role: string) => void;
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
   authLoading: boolean;
   isDatabaseReady: boolean;
@@ -34,25 +35,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDatabaseReady] = useState(true);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      } else {
         setUser(null);
-      } finally {
-        setIsLoading(false);
       }
-    };
-    checkAuth();
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      setUser(null);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth().finally(() => setIsLoading(false));
   }, []);
+
+  // Re-fetches the current user (e.g. after avatar/profile updates) so
+  // context consumers stay in sync without requiring a full page reload.
+  const refreshUser = async (): Promise<void> => {
+    await checkAuth();
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
@@ -141,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signup,
         logout,
         switchRole,
+        refreshUser,
         isLoading,
         authLoading: isLoading,
         isDatabaseReady,
