@@ -81,7 +81,7 @@ export default function HousekeepingPage() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch("/api/hotels/housekeeping");
+      const response = await fetch("/api/hotels/housekeeping", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch housekeeping tasks");
       const data = await response.json();
       setTasks(data);
@@ -99,7 +99,7 @@ export default function HousekeepingPage() {
 
   const fetchTickets = async () => {
     try {
-      const response = await fetch("/api/hotels/maintenance");
+      const response = await fetch("/api/hotels/maintenance", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch maintenance tickets");
       const data = await response.json();
       setTickets(data);

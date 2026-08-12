@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, DoorClosed, Search, ArrowLeft } from "lucide-react";
+import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt } from "lucide-react";
 
 interface CheckInData {
   id: string;
@@ -68,6 +68,22 @@ interface CheckedInGuest {
   balance: string | null;
 }
 
+interface GuestFolio {
+  id: string;
+  reservation_id: string;
+  room_charge: string;
+  service_charges: string;
+  food_charges: string;
+  other_charges: string;
+  total_charges: string;
+  paid_amount: string;
+  balance: string;
+  reservation_number: string;
+  first_name: string;
+  last_name: string;
+  room_number: string | null;
+}
+
 export default function CheckInPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<CheckInData[]>([]);
@@ -89,9 +105,18 @@ export default function CheckInPage() {
   const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
 
+  // Guest folio panel state
+  const [folioGuest, setFolioGuest] = useState<CheckedInGuest | null>(null);
+  const [folio, setFolio] = useState<GuestFolio | null>(null);
+  const [loadingFolio, setLoadingFolio] = useState(false);
+  const [chargeType, setChargeType] = useState<"service" | "food" | "other">("service");
+  const [chargeAmount, setChargeAmount] = useState("");
+  const [chargeDescription, setChargeDescription] = useState("");
+  const [addingCharge, setAddingCharge] = useState(false);
+
   const fetchReservations = async () => {
     try {
-      const response = await fetch("/api/hotels/reservations?status=confirmed");
+      const response = await fetch("/api/hotels/reservations?status=confirmed", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch reservations");
       const data = await response.json();
       setReservations(data);
@@ -110,7 +135,7 @@ export default function CheckInPage() {
 
   const fetchCheckedInGuests = async () => {
     try {
-      const response = await fetch("/api/hotels/checked-in");
+      const response = await fetch("/api/hotels/checked-in", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch checked-in guests");
       const data = await response.json();
       setCheckedInGuests(data);
@@ -149,7 +174,8 @@ export default function CheckInPage() {
     setLoadingRooms(true);
     try {
       const response = await fetch(
-        `/api/hotels/rooms?status=available&roomTypeId=${reservation.room_type_id}`
+        `/api/hotels/rooms?status=available&roomTypeId=${reservation.room_type_id}`,
+        { cache: "no-store" }
       );
       if (!response.ok) throw new Error("Failed to fetch available rooms");
       const data = await response.json();
@@ -255,6 +281,72 @@ export default function CheckInPage() {
       });
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const openFolio = async (guest: CheckedInGuest) => {
+    setFolioGuest(guest);
+    setFolio(null);
+    setChargeType("service");
+    setChargeAmount("");
+    setChargeDescription("");
+    setLoadingFolio(true);
+    try {
+      const response = await fetch(`/api/hotels/folios/${guest.id}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch folio");
+      const data = await response.json();
+      setFolio(data);
+    } catch (error) {
+      console.error("Error fetching folio:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load guest folio",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingFolio(false);
+    }
+  };
+
+  const handleAddCharge = async () => {
+    if (!folioGuest) return;
+    const amount = Number(chargeAmount);
+    if (!chargeAmount || isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Enter a charge amount greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAddingCharge(true);
+    try {
+      const response = await fetch(`/api/hotels/folios/${folioGuest.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chargeType,
+          amount,
+          description: chargeDescription || undefined,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to add charge");
+      const data = await response.json();
+      setFolio(data);
+      setChargeAmount("");
+      setChargeDescription("");
+      toast({ title: "Charge added", description: "Folio balance updated" });
+      await fetchCheckedInGuests();
+    } catch (error) {
+      console.error("Error adding charge:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add charge",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingCharge(false);
     }
   };
 
@@ -431,6 +523,15 @@ export default function CheckInPage() {
                               </Badge>
                             </div>
                             <div className="flex gap-2">
+                              <Button
+                                onClick={() => openFolio(guest)}
+                                disabled={processing}
+                                variant="outline"
+                                className="flex-1 rounded-lg border-orange-200 dark:border-orange-700"
+                              >
+                                <Receipt className="h-4 w-4 mr-2" />
+                                Folio
+                              </Button>
                               <Button
                                 onClick={() => openCheckout(guest)}
                                 disabled={processing}
