@@ -672,6 +672,108 @@ export default function CheckInPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Guest folio dialog */}
+      <Dialog open={!!folioGuest} onOpenChange={(open) => !open && setFolioGuest(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Guest Folio</DialogTitle>
+            <DialogDescription>
+              {folioGuest &&
+                `${folioGuest.first_name} ${folioGuest.last_name} — Room ${folioGuest.room_number || "N/A"} — ${folioGuest.reservation_number}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingFolio ? (
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+            </div>
+          ) : folio ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
+                <div>
+                  <p className="text-muted-foreground">Room Charges</p>
+                  <p className="font-semibold">GHS {Number(folio.room_charge).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Service Charges</p>
+                  <p className="font-semibold">GHS {Number(folio.service_charges).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Food & Beverage</p>
+                  <p className="font-semibold">GHS {Number(folio.food_charges).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Other Charges</p>
+                  <p className="font-semibold">GHS {Number(folio.other_charges).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total Charges</p>
+                  <p className="font-semibold">GHS {Number(folio.total_charges).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Paid</p>
+                  <p className="font-semibold">GHS {Number(folio.paid_amount).toFixed(2)}</p>
+                </div>
+                <div className="col-span-2 border-t border-orange-100 dark:border-orange-900/40 pt-2">
+                  <p className="text-muted-foreground">Outstanding Balance</p>
+                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                    GHS {Number(folio.balance).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Add a Charge</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select value={chargeType} onValueChange={(v) => setChargeType(v as typeof chargeType)}>
+                    <SelectTrigger className="rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="food">Food & Beverage</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Amount (GHS)"
+                    value={chargeAmount}
+                    onChange={(e) => setChargeAmount(e.target.value)}
+                    className="rounded-lg"
+                  />
+                </div>
+                <Input
+                  placeholder="Description (optional)"
+                  value={chargeDescription}
+                  onChange={(e) => setChargeDescription(e.target.value)}
+                  className="rounded-lg"
+                />
+                <Button
+                  onClick={handleAddCharge}
+                  disabled={addingCharge || !chargeAmount}
+                  className="w-full rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+                >
+                  Add Charge
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">No folio data available.</p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFolioGuest(null)} className="rounded-lg">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

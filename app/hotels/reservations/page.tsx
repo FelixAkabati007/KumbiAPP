@@ -26,10 +26,18 @@ interface Reservation {
   room_type_name: string;
 }
 
+interface RoomType {
+  id: string;
+  name: string;
+  base_price: number;
+}
+
 export default function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -43,27 +51,130 @@ export default function ReservationsPage() {
   });
   const { toast } = useToast();
 
+  const fetchReservations = async () => {
+    try {
+      const response = await fetch("/api/hotels/reservations", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch reservations");
+      const data = await response.json();
+      setReservations(data);
+    } catch (error) {
+      console.error("Error fetching reservations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load reservations",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchReservations = async () => {
+    fetchReservations();
+
+    const fetchRoomTypes = async () => {
       try {
-        const response = await fetch("/api/hotels/reservations");
-        if (!response.ok) throw new Error("Failed to fetch reservations");
+        const response = await fetch("/api/hotels/room-types", { cache: "no-store" });
+        if (!response.ok) throw new Error("Failed to fetch room types");
         const data = await response.json();
-        setReservations(data);
+        setRoomTypes(data);
       } catch (error) {
-        console.error("Error fetching reservations:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load reservations",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+        console.error("Error fetching room types:", error);
       }
     };
 
-    fetchReservations();
-  }, [toast]);
+    fetchRoomTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCreateReservation = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.checkInDate || !formData.checkOutDate || !formData.roomTypeId) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const checkIn = new Date(formData.checkInDate);
+    const checkOut = new Date(formData.checkOutDate);
+    if (checkOut <= checkIn) {
+      toast({
+        title: "Error",
+        description: "Check-out date must be after check-in date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const guestResponse = await fetch("/api/hotels/guests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+        }),
+      });
+
+      if (!guestResponse.ok) throw new Error("Failed to create guest");
+      const guest = await guestResponse.json();
+
+      const roomType = roomTypes.find((rt) => rt.id === formData.roomTypeId);
+      const nights = Math.max(
+        1,
+        Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+      );
+      const totalPrice = roomType ? Number(roomType.base_price) * nights : 0;
+
+      const reservationResponse = await fetch("/api/hotels/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guestId: guest.id,
+          roomTypeId: formData.roomTypeId,
+          checkInDate: formData.checkInDate,
+          checkOutDate: formData.checkOutDate,
+          numberOfGuests: formData.numberOfGuests,
+          totalPrice,
+          source: "walk_in",
+        }),
+      });
+
+      if (!reservationResponse.ok) throw new Error("Failed to create reservation");
+      const reservation = await reservationResponse.json();
+
+      toast({
+        title: "Success",
+        description: `Reservation ${reservation.reservation_number} created for ${formData.firstName} ${formData.lastName}`,
+      });
+      setShowNewReservationDialog(false);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        checkInDate: "",
+        checkOutDate: "",
+        numberOfGuests: 1,
+        roomTypeId: "",
+      });
+      await fetchReservations();
+    } catch (error) {
+      console.error("Error creating reservation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create reservation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -132,7 +243,7 @@ export default function ReservationsPage() {
                           {res.status}
                         </span>
                       </td>
-                      <td className="py-2 px-4 font-medium">GHS {res.total_price?.toFixed(2) || "0.00"}</td>
+                      <td className="py-2 px-4 font-medium">GHS {Number(res.total_price || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -242,9 +353,11 @@ export default function ReservationsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 >
                   <option value="">Select Room Type</option>
-                  <option value="standard">Standard Room - GHS 250</option>
-                  <option value="deluxe">Deluxe Room - GHS 450</option>
-                  <option value="suite">Suite - GHS 750</option>
+                  {roomTypes.map((rt) => (
+                    <option key={rt.id} value={rt.id}>
+                      {rt.name} - GHS {Number(rt.base_price).toFixed(0)}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -259,34 +372,11 @@ export default function ReservationsPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                if (!formData.firstName || !formData.lastName || !formData.email || !formData.checkInDate || !formData.checkOutDate || !formData.roomTypeId) {
-                  toast({
-                    title: "Error",
-                    description: "Please fill in all required fields",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                toast({
-                  title: "Success",
-                  description: `Reservation created for ${formData.firstName} ${formData.lastName}`,
-                });
-                setShowNewReservationDialog(false);
-                setFormData({
-                  firstName: "",
-                  lastName: "",
-                  email: "",
-                  phone: "",
-                  checkInDate: "",
-                  checkOutDate: "",
-                  numberOfGuests: 1,
-                  roomTypeId: "",
-                });
-              }}
+              onClick={handleCreateReservation}
+              disabled={submitting}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
-              Create Reservation
+              {submitting ? "Creating..." : "Create Reservation"}
             </Button>
           </div>
         </DialogContent>
