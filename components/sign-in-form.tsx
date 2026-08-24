@@ -225,14 +225,8 @@ export function SignInForm() {
 
         <div className="text-center text-sm text-gray-600 dark:text-gray-400">
           <p>
-            Don&apos;t have an account?{" "}
-            <Button
-              variant="link"
-              className="p-0 h-auto font-semibold text-orange-600 dark:text-orange-400 hover:underline"
-              onClick={() => (window.location.href = "/sign-up")}
-            >
-              Create Account
-            </Button>
+            Need an account? Contact your administrator to have one created
+            for you.
           </p>
         </div>
       </div>
