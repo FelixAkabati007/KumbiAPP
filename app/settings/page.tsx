@@ -58,6 +58,7 @@ import {
   configureBarcodeScanner,
 } from "@/lib/barcode-scanner";
 import { PrinterSettingsForm } from "@/components/settings/printer-settings-form";
+import { StaffManagementPanel } from "@/components/settings/staff-management-panel";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -352,7 +353,9 @@ function SettingsPageContent() {
           className="space-y-4"
         >
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-5 min-w-[500px] sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg">
+            <TabsList
+              className={`grid w-full ${isAdmin ? "grid-cols-6 min-w-[600px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
+            >
               <TabsTrigger
                 value="appearance"
                 className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
@@ -383,6 +386,14 @@ function SettingsPageContent() {
               >
                 Security
               </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="staff"
+                  className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                >
+                  Staff
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -1776,6 +1787,13 @@ function SettingsPageContent() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Staff Management (Admin Only) */}
+          {isAdmin && (
+            <TabsContent value="staff" className="space-y-4">
+              <StaffManagementPanel />
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Mobile Reset Button */}

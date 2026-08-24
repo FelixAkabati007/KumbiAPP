@@ -3,6 +3,15 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
 
+const VALID_ROLES = [
+  "admin",
+  "manager",
+  "staff",
+  "kitchen",
+  "frontDesk",
+  "housekeeping",
+];
+
 // GET - Get staff member details
 export async function GET(
   request: NextRequest,
@@ -75,13 +84,20 @@ export async function PATCH(
       department,
       position,
       employmentStatus,
+      role,
     } = body;
+
+    if (role && !VALID_ROLES.includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
 
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
     // Get current staff data for comparison
     const currentResult = await query(
-      `SELECT * FROM staff_profiles WHERE id = $1`,
+      `SELECT sp.*, u.role as current_role FROM staff_profiles sp
+       JOIN users u ON sp.user_id = u.id
+       WHERE sp.id = $1`,
       [id]
     );
 
@@ -91,6 +107,10 @@ export async function PATCH(
 
     const currentStaff = currentResult.rows[0];
     const changes: Record<string, unknown> = {};
+
+    if (role && role !== currentStaff.current_role) {
+      changes.role = { from: currentStaff.current_role, to: role };
+    }
 
     if (firstName && firstName !== currentStaff.first_name) {
       changes.first_name = { from: currentStaff.first_name, to: firstName };
@@ -135,6 +155,14 @@ export async function PATCH(
         id,
       ]
     );
+
+    // Update the linked user account's role (access level) if changed
+    if (role) {
+      await query(`UPDATE users SET role = $1 WHERE id = $2`, [
+        role,
+        currentStaff.user_id,
+      ]);
+    }
 
     // Log to audit trail
     await createAuditLog({

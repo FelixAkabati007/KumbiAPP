@@ -111,7 +111,7 @@ export function SignUpForm() {
               </h1>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Create New Account
+              Admin Only &middot; Create a New Staff Account
               {!isDatabaseReady && (
                 <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
                   Connecting to Neon database...
@@ -344,6 +344,10 @@ export function SignUpForm() {
                         <SelectContent>
                           <SelectItem value="staff">Staff</SelectItem>
                           <SelectItem value="kitchen">Kitchen Staff</SelectItem>
+                          <SelectItem value="frontDesk">Front Desk</SelectItem>
+                          <SelectItem value="housekeeping">
+                            Housekeeping
+                          </SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>

@@ -6,6 +6,15 @@ import { createAuditLog } from "@/lib/audit-logger";
 import { validatePasswordComplexity } from "@/lib/password-manager";
 import { v4 as uuidv4 } from "uuid";
 
+const VALID_ROLES = [
+  "admin",
+  "manager",
+  "staff",
+  "kitchen",
+  "frontDesk",
+  "housekeeping",
+];
+
 // GET - List all staff members
 export async function GET(request: NextRequest) {
   try {
@@ -101,6 +110,7 @@ export async function POST(request: NextRequest) {
       position,
       hireDate,
       password,
+      role,
     } = body;
 
     // Validate required fields
@@ -118,6 +128,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const staffRole = role && VALID_ROLES.includes(role) ? role : "staff";
+
     // Validate password complexity
     const passwordValidation = validatePasswordComplexity(password);
     if (!passwordValidation.isValid) {
@@ -127,13 +139,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email already exists
+    // Check if email already exists — enforced against both the staff
+    // profile table and the core users table so every account (staff or
+    // otherwise) is guaranteed a unique, isolated login.
     const emailCheck = await query(
       "SELECT id FROM staff_profiles WHERE business_email = $1",
       [businessEmail]
     );
+    const userEmailCheck = await query(
+      "SELECT id FROM users WHERE email = $1",
+      [businessEmail]
+    );
 
-    if (emailCheck.rows && emailCheck.rows.length > 0) {
+    if (
+      (emailCheck.rows && emailCheck.rows.length > 0) ||
+      (userEmailCheck.rows && userEmailCheck.rows.length > 0)
+    ) {
       return NextResponse.json(
         { error: "Email already in use" },
         { status: 400 }
@@ -149,7 +170,7 @@ export async function POST(request: NextRequest) {
       // Create user entry
       await query(
         "INSERT INTO users (id, email, name, role) VALUES ($1, $2, $3, $4)",
-        [userId, businessEmail, `${firstName} ${lastName}`, "staff"]
+        [userId, businessEmail, `${firstName} ${lastName}`, staffRole]
       );
 
       // Create staff profile
