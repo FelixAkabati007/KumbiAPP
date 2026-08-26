@@ -27,6 +27,12 @@ export function FeatureDisabledBanner({
         title: `${featureName} Enabled`,
         description: `${featureName} is now visible and usable across the app.`,
       });
+      // This banner and the page component above it each hold their own
+      // useFeatureToggles() instance, so a local state update here won't
+      // flip the page's gating check. Reload so the page re-evaluates the
+      // toggle against the freshly written database state immediately,
+      // rather than waiting on the ~10s background sync poll.
+      setTimeout(() => window.location.reload(), 600);
     } else {
       toast({
         title: "Error",

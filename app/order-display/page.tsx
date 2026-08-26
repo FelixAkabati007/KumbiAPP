@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/role-guard";
+import { useFeatureToggles } from "@/hooks/use-feature-toggles";
+import { FeatureDisabledBanner } from "@/components/feature-disabled-banner";
 
 type OrderStatus = KitchenOrder["status"] | OrderItem["status"];
 type Priority = KitchenOrder["priority"];
@@ -460,6 +462,16 @@ function OrderDisplayContent() {
 }
 
 export default function OrderDisplayPage() {
+  const { toggles, loading } = useFeatureToggles();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!toggles.order_board) {
+    return <FeatureDisabledBanner featureKey="order_board" featureName="Order Board" />;
+  }
+
   return (
     <OrderProvider>
       <RoleGuard section="orderBoard">

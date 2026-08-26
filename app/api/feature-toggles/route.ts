@@ -98,19 +98,27 @@ export async function PATCH(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
-    await createAuditLog({
-      actionType: "feature_toggle_changed",
-      actorId: session.id,
-      actorName,
-      actorRole: session.role,
-      changeDetails: {
-        toggleKey: key,
-        from: previousEnabled,
-        to: enabled,
-      },
-      ipAddress,
-      status: "completed",
-    });
+    // The toggle write above already succeeded, which is what matters for
+    // the feature itself. Audit logging is important but secondary — a
+    // logging failure should never roll back or block the actual toggle,
+    // so it's wrapped separately and only logged to the server console.
+    try {
+      await createAuditLog({
+        actionType: "feature_toggle_changed",
+        actorId: session.id,
+        actorName,
+        actorRole: session.role,
+        changeDetails: {
+          toggleKey: key,
+          from: previousEnabled,
+          to: enabled,
+        },
+        ipAddress,
+        status: "completed",
+      });
+    } catch (auditError) {
+      console.error("Feature toggle audit log failed (toggle still applied):", auditError);
+    }
 
     await updateSystemState("feature_toggles");
 
