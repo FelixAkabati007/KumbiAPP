@@ -48,6 +48,8 @@ import {
 import type { OrderItem } from "@/lib/types";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
+import { useFeatureToggles } from "@/hooks/use-feature-toggles";
+import { FeatureDisabledBanner } from "@/components/feature-disabled-banner";
 
 function WaitTimer({ createdAt }: { createdAt: string }) {
   const [elapsed, setElapsed] = useState(0);
@@ -784,6 +786,16 @@ function KitchenContent() {
 }
 
 export default function KitchenPage() {
+  const { toggles, loading } = useFeatureToggles();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!toggles.kitchen_display) {
+    return <FeatureDisabledBanner featureKey="kitchen_display" featureName="Kitchen Display" />;
+  }
+
   return (
     <OrderProvider>
       <RoleGuard section="kitchen">

@@ -50,3 +50,31 @@ The `users` table uses the `role` column with values: `admin`, `manager`, `staff
 
 ## 4. Verification
 Automated tests in `tests/auth/rbac.test.ts` verify the permission logic and route protection rules.
+
+## 5. Feature Toggles (Kitchen Display / Order Board)
+
+In addition to static per-role section access above, `admin` and `manager`
+users can dynamically enable or disable the **Kitchen Display** and **Order
+Board** features system-wide. This exists because some deployments are
+resource-constrained locations that only run POS + Payments, and don't want
+these sections cluttering the dashboard or consuming staff attention.
+
+*   **Storage:** `feature_toggles` table (`key`, `enabled`, `updated_by`,
+    `updated_by_name`, `updated_by_role`, `updated_at`). Seeded with both
+    `kitchen_display` and `order_board` set to `enabled = true`, so existing
+    behavior is unchanged until an admin/manager explicitly turns one off.
+*   **API:** `GET /api/feature-toggles` is readable by any authenticated
+    user (needed to render dashboard cards and gate the pages). `PATCH
+    /api/feature-toggles` is restricted to `admin` and `manager` — any other
+    role receives a `403`.
+*   **Enforcement:** The restriction is enforced at both ends — the
+    dashboard cards in `app/page.tsx` show a disabled `Switch` with a
+    tooltip for non-admin/manager roles, and the `/kitchen` and
+    `/order-display` pages themselves check the toggle on load and render a
+    "Disabled by administrator" banner (via `FeatureDisabledBanner`) for
+    *any* role, including admin/manager, when the feature is off. This means
+    disabling a feature actually takes it offline app-wide, not just hides
+    it from the dashboard.
+*   **Audit trail:** Every toggle change is recorded in `staff_audit_logs`
+    via `createAuditLog` with action type `feature_toggle_changed`,
+    capturing the actor's id/name/role and the before/after enabled state.

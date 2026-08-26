@@ -10,7 +10,8 @@ export type AuditActionType =
   | "approval_rejected"
   | "login"
   | "logout"
-  | "inactivity_warning";
+  | "inactivity_warning"
+  | "feature_toggle_changed";
 
 export interface AuditLogEntry {
   actionType: AuditActionType;

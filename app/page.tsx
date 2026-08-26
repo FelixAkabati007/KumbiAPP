@@ -45,6 +45,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, UserRole, AppSection } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
+import { Switch } from "@/components/ui/switch";
+import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
 function DashboardContent() {
   const { user, logout } = useAuth();
@@ -124,6 +126,31 @@ function DashboardContent() {
 
   // Load receipt stats from Neon
   const { stats: receiptStats } = useReceiptStats();
+
+  // Kitchen Display / Order Board admin enable-disable toggles
+  const { toggles, canManage, updating, setToggle } = useFeatureToggles();
+
+  const handleFeatureToggle = useCallback(
+    async (key: "kitchen_display" | "order_board", nextEnabled: boolean) => {
+      const label = key === "kitchen_display" ? "Kitchen Display" : "Order Board";
+      const ok = await setToggle(key, nextEnabled);
+      if (ok) {
+        toast({
+          title: nextEnabled ? `${label} Enabled` : `${label} Disabled`,
+          description: nextEnabled
+            ? `${label} is now visible and usable across the app.`
+            : `${label} has been disabled for all staff until re-enabled.`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to update ${label} status.`,
+          variant: "destructive",
+        });
+      }
+    },
+    [setToggle, toast]
+  );
 
   // Double-click/double-tap handler
   useEffect(() => {
@@ -290,14 +317,41 @@ function DashboardContent() {
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   Kitchen Display
                 </CardTitle>
-                <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Switch
+                            checked={toggles.kitchen_display}
+                            disabled={!canManage || updating === "kitchen_display"}
+                            onCheckedChange={(checked) =>
+                              handleFeatureToggle("kitchen_display", checked)
+                            }
+                            aria-label="Toggle Kitchen Display"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {canManage
+                          ? toggles.kitchen_display
+                            ? "Disable Kitchen Display for all staff"
+                            : "Enable Kitchen Display for all staff"
+                          : "Only admins or managers can change this"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Orders
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Manage kitchen operations
+                  {toggles.kitchen_display
+                    ? "Manage kitchen operations"
+                    : "Disabled by administrator"}
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
@@ -316,14 +370,41 @@ function DashboardContent() {
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   Order Board
                 </CardTitle>
-                <Grid3X3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Switch
+                            checked={toggles.order_board}
+                            disabled={!canManage || updating === "order_board"}
+                            onCheckedChange={(checked) =>
+                              handleFeatureToggle("order_board", checked)
+                            }
+                            aria-label="Toggle Order Board"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {canManage
+                          ? toggles.order_board
+                            ? "Disable Order Board for all staff"
+                            : "Enable Order Board for all staff"
+                          : "Only admins or managers can change this"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Grid3X3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Live Grid
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Real-time order tracking
+                  {toggles.order_board
+                    ? "Real-time order tracking"
+                    : "Disabled by administrator"}
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
