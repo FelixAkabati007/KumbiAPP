@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Home, ArrowLeft, Edit2, Image as ImageIcon, X, Upload } from "lucide-react";
+import { RoleGuard } from "@/components/role-guard";
 
 interface RoomImage {
   id: string;
@@ -820,4 +821,10 @@ function RoomsPage() {
   );
 }
 
-export default RoomsPage;
+export default function RoomsPageGuarded() {
+  return (
+    <RoleGuard section="rooms">
+      <RoomsPage />
+    </RoleGuard>
+  );
+}

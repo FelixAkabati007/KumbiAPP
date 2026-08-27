@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, ArrowLeft } from "lucide-react";
+import { RoleGuard } from "@/components/role-guard";
 
 interface Reservation {
   id: string;
@@ -32,7 +33,7 @@ interface RoomType {
   base_price: number;
 }
 
-export default function ReservationsPage() {
+function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
@@ -382,5 +383,13 @@ export default function ReservationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ReservationsPageGuarded() {
+  return (
+    <RoleGuard section="reservations">
+      <ReservationsPage />
+    </RoleGuard>
   );
 }

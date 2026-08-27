@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, CheckCircle2, ArrowLeft, Wrench, SprayCan } from "lucide-react";
+import { RoleGuard } from "@/components/role-guard";
 
 interface HousekeepingTask {
   id: string;
@@ -52,7 +53,7 @@ interface RoomOption {
   room_number: string;
 }
 
-export default function HousekeepingPage() {
+function HousekeepingPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -737,5 +738,13 @@ export default function HousekeepingPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function HousekeepingPageGuarded() {
+  return (
+    <RoleGuard section="housekeeping">
+      <HousekeepingPage />
+    </RoleGuard>
   );
 }
