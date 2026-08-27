@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt } from "lucide-react";
+import { RoleGuard } from "@/components/role-guard";
 
 interface CheckInData {
   id: string;
@@ -84,7 +85,7 @@ interface GuestFolio {
   room_number: string | null;
 }
 
-export default function CheckInPage() {
+function CheckInPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<CheckInData[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<CheckInData[]>([]);
