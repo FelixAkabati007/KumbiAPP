@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get all rooms with optional filtering
 export async function GET(request: NextRequest) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const roomTypeId = searchParams.get("roomTypeId");
@@ -50,6 +54,9 @@ export async function GET(request: NextRequest) {
 // Create a new room
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const {
       roomNumber,
       roomTypeId,

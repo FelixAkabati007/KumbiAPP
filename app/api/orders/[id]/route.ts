@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("orderBoard");
+    if (error) return error;
+
     const { id } = await params;
     const body = await req.json();
     const { status, priority, chefNotes } = body;

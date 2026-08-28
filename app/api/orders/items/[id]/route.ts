@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
+import { requirePermission } from "@/lib/api-auth";
 
 // Validation schema
 const updateItemSchema = z.object({
@@ -12,6 +13,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("orderBoard");
+    if (error) return error;
+
     const { id } = await params;
     const body = await req.json();
 

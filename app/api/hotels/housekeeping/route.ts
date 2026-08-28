@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get all housekeeping tasks
 export async function GET(request: NextRequest) {
   try {
+    const { error } = await requirePermission("housekeeping");
+    if (error) return error;
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const roomId = searchParams.get("roomId");
@@ -49,6 +53,9 @@ export async function GET(request: NextRequest) {
 // Create housekeeping task
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("housekeeping");
+    if (error) return error;
+
     const { roomId, taskType, priority, assignedTo, notes } =
       await request.json();
 

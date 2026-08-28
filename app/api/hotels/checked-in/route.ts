@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get all currently checked-in reservations joined with room and folio balance,
 // used to power the Check-Out list on the Check-In/Out page.
 export async function GET() {
   try {
+    const { error } = await requirePermission("checkIn");
+    if (error) return error;
+
     const sql = `
       SELECT
         r.id,

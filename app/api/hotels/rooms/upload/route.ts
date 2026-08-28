@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { requirePermission } from "@/lib/api-auth";
 
 export const config = {
   api: {
@@ -11,6 +12,9 @@ export const config = {
 
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 

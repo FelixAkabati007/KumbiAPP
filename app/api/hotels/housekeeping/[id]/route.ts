@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Update housekeeping task status
 export async function PATCH(
@@ -7,6 +8,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("housekeeping");
+    if (error) return error;
+
     const { id } = await context.params;
     const { status, assignedTo, notes, priority } = await request.json();
 

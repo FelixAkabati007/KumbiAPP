@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const { error } = await requirePermission("orderBoard");
+    if (error) return error;
+
     const ordersResult = await query(`
       SELECT
         k.*,
@@ -61,6 +65,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const { error } = await requirePermission("pos");
+    if (error) return error;
+
     const body = await req.json();
     // Simple implementation for creating an order
     const {

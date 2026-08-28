@@ -778,3 +778,11 @@ function CheckInPage() {
     </div>
   );
 }
+
+export default function CheckInPageGuarded() {
+  return (
+    <RoleGuard section="checkIn">
+      <CheckInPage />
+    </RoleGuard>
+  );
+}
