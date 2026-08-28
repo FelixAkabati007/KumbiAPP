@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Update a maintenance ticket
 export async function PATCH(
@@ -7,6 +8,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("maintenance");
+    if (error) return error;
+
     const { id } = await context.params;
     const { status, assignedTo, notes, severity } = await request.json();
 
@@ -65,6 +69,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("maintenance");
+    if (error) return error;
+
     const { id } = await context.params;
     const result = await query(
       `DELETE FROM maintenance_tickets WHERE id = $1 RETURNING id`,

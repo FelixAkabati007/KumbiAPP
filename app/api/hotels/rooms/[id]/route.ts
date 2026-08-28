@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get a specific room
 export async function GET(
@@ -7,6 +8,9 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const { id } = await context.params;
 
     const result = await query(
@@ -42,6 +46,9 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const { id } = await context.params;
     const {
       roomNumber,
@@ -100,6 +107,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const { id } = await context.params;
     const { status, notes, currentGuestId } = await request.json();
 
@@ -146,6 +156,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const { id } = await context.params;
 
     const result = await query(

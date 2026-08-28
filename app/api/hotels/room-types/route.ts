@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get all room types
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const result = await query(
       `SELECT * FROM room_types WHERE is_active = true ORDER BY name ASC`
     );
@@ -23,6 +27,9 @@ export async function GET(_request: NextRequest) {
 // Create a new room type
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("rooms");
+    if (error) return error;
+
     const {
       name,
       description,

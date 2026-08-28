@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Check-out guest from room
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("checkOut");
+    if (error) return error;
+
     const { reservationId, roomId, balancePaid } =
       await request.json();
 

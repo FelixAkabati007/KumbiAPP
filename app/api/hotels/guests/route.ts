@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Get all guests
 export async function GET(request: NextRequest) {
   try {
+    const { error } = await requirePermission("reservations");
+    if (error) return error;
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search");
 
@@ -35,6 +39,9 @@ export async function GET(request: NextRequest) {
 // Create a new guest
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("reservations");
+    if (error) return error;
+
     const {
       firstName,
       lastName,

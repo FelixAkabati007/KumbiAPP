@@ -1,9 +1,13 @@
 
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 export async function GET() {
   try {
+    const { error } = await requirePermission("pos");
+    if (error) return error;
+
     const today = new Date().toISOString().split('T')[0];
     
     // Count transactions for today to generate sequential number

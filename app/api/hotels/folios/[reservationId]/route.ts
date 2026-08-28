@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
+import { requirePermission } from "@/lib/api-auth";
 
 const paramsSchema = z.object({
   reservationId: z.string().uuid({ message: "Invalid reservation id" }),
@@ -27,6 +28,9 @@ export async function GET(
   context: { params: Promise<{ reservationId: string }> }
 ) {
   try {
+    const { error: authError } = await requirePermission("guestFolio");
+    if (authError) return authError;
+
     const paramsResult = paramsSchema.safeParse(await context.params);
     if (!paramsResult.success) {
       return NextResponse.json({ error: "Invalid reservation id" }, { status: 400 });
@@ -65,6 +69,9 @@ export async function PATCH(
   context: { params: Promise<{ reservationId: string }> }
 ) {
   try {
+    const { error: authError } = await requirePermission("guestFolio");
+    if (authError) return authError;
+
     const paramsResult = paramsSchema.safeParse(await context.params);
     if (!paramsResult.success) {
       return NextResponse.json({ error: "Invalid reservation id" }, { status: 400 });

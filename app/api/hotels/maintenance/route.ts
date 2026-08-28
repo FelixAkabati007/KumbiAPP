@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 async function generateTicketNumber(): Promise<string> {
   const result = await query(
@@ -13,6 +14,9 @@ async function generateTicketNumber(): Promise<string> {
 // Get all maintenance tickets with optional filtering
 export async function GET(request: NextRequest) {
   try {
+    const { error } = await requirePermission("maintenance");
+    if (error) return error;
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const roomId = searchParams.get("roomId");
@@ -63,6 +67,9 @@ export async function GET(request: NextRequest) {
 // Create a new maintenance ticket
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("maintenance");
+    if (error) return error;
+
     const { roomId, issueDescription, severity, assignedTo, notes, createdBy } =
       await request.json();
 

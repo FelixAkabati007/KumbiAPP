@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // Generate reservation number
 async function generateReservationNumber(): Promise<string> {
@@ -14,6 +15,9 @@ async function generateReservationNumber(): Promise<string> {
 // Get all reservations with optional filtering
 export async function GET(request: NextRequest) {
   try {
+    const { error } = await requirePermission("reservations");
+    if (error) return error;
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const guestId = searchParams.get("guestId");
@@ -71,6 +75,9 @@ export async function GET(request: NextRequest) {
 // Create a new reservation
 export async function POST(request: NextRequest) {
   try {
+    const { error } = await requirePermission("reservations");
+    if (error) return error;
+
     const {
       guestId,
       roomTypeId,
