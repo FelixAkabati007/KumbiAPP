@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireRole } from "@/lib/api-auth";
 
 export async function GET() {
   try {
+    const { error } = await requireRole("admin");
+    if (error) return error;
+
     // Enable UUID extension
     await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 

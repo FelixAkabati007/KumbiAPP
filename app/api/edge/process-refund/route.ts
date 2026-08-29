@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/api-auth";
 
 // POST /api/edge/process-refund
 // Migrated from Supabase Edge Function to Next.js API Route
@@ -6,6 +7,9 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const { error } = await requirePermission("refunds");
+    if (error) return error;
+
     const body = await req.json();
     const { payment_intent_id } = body;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 export async function GET(
   request: Request,
@@ -7,6 +8,9 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
+    const { error } = await requirePermission("menu");
+    if (error) return error;
+
     const result = await query(
       `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name 
        FROM recipe_ingredients r
@@ -26,10 +30,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await request.json();
-  const { inventory_item_id, quantity, unit } = body;
 
   try {
+    const { error } = await requirePermission("menu");
+    if (error) return error;
+
+    const body = await request.json();
+    const { inventory_item_id, quantity, unit } = body;
+
     await query(
       `INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit)
        VALUES ($1, $2, $3, $4)
@@ -57,6 +65,9 @@ export async function DELETE(
   }
 
   try {
+    const { error } = await requirePermission("menu");
+    if (error) return error;
+
     await query(
       `DELETE FROM recipe_ingredients WHERE menu_item_id = $1 AND inventory_item_id = $2`,
       [id, inventoryItemId]

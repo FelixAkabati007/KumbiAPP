@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 // POST /api/edge/create-order
 // Replaces Supabase Edge Function with direct Neon database insertion via Next.js API Route
 
 export async function POST(req: Request) {
   try {
+    const { error } = await requirePermission("pos");
+    if (error) return error;
+
     const body = await req.json();
     const {
       items,
