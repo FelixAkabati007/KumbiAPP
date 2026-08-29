@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/api-auth";
 
 // POST /api/edge/create-payment-intent
 // Migrated from Supabase Edge Function to Next.js API Route
@@ -7,6 +8,9 @@ import { NextResponse } from "next/server";
 export async function POST(_req: Request) {
   void _req;
   try {
+    const { error } = await requirePermission("payments");
+    if (error) return error;
+
     // const body = await req.json();
     // const { amount, currency = "usd" } = body;
 

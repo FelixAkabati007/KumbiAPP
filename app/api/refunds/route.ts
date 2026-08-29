@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { getServerSettings } from "@/lib/server-settings";
+import { requirePermission } from "@/lib/api-auth";
 
 const VALID_STATUSES = [
   "pending",
@@ -20,6 +21,9 @@ function isValidStatus(
 
 export async function GET(request: Request) {
   try {
+    const { error } = await requirePermission("refunds");
+    if (error) return error;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id")?.trim() || undefined;
     const orderId = searchParams.get("orderId")?.trim() || undefined;
@@ -121,6 +125,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const { error } = await requirePermission("refunds");
+    if (error) return error;
+
     const body = await request.json();
     const {
       orderId,

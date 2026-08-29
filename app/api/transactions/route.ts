@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requirePermission } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   try {
+    const { error } = await requirePermission("payments");
+    if (error) return error;
+
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");

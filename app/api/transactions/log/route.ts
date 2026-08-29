@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
+import { requirePermission } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
+    const { error } = await requirePermission("payments");
+    if (error) return error;
+
     const body = await req.json();
     const {
       id,

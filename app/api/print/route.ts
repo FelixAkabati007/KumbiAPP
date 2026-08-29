@@ -6,6 +6,7 @@ import {
 } from "node-thermal-printer";
 import { PrinterConfig } from "@/lib/settings";
 import { ReceiptData } from "@/lib/types";
+import { requireSession } from "@/lib/api-auth";
 
 // Helper to print receipt content
 async function generateReceipt(
@@ -100,6 +101,9 @@ async function generateReceipt(
 
 export async function POST(req: Request) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const body = await req.json();
     const { receipt, configs } = body as {
       receipt: ReceiptData;

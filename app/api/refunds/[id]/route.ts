@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { requirePermission } from "@/lib/api-auth";
 
 const VALID_STATUSES = ["pending", "approved", "rejected", "completed"] as const;
 
@@ -13,6 +14,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { error: authError } = await requirePermission("refunds");
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json();
     const { status, approvedBy, notes, refundMethod, transactionId } = body;
