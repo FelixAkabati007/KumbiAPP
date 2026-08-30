@@ -24,6 +24,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Re-fetch settings whenever they're saved elsewhere (e.g. the Settings page),
+  // so any already-mounted consumer (Receipt, Kitchen, header logo, etc.) picks up
+  // the change immediately without needing a full page reload or navigation.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      fetchSettings().then((saved) => {
+        if (!cancelled) setSettings(saved);
+      });
+    };
+    window.addEventListener("settingsUpdated", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("settingsUpdated", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
       const updated: AppSettings = {

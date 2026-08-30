@@ -256,7 +256,7 @@ export function SettingsPanels() {
             Access for your role: {user?.role ?? "guest"}
           </p>
           <div
-            className="grid grid-cols-2 gap-2"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-2"
             role="list"
             aria-label="Role section access"
           >
@@ -265,7 +265,7 @@ export function SettingsPanels() {
               return (
                 <div
                   key={section}
-                  className={`flex items-center justify-between rounded-md border p-2 ${
+                  className={`flex items-center justify-between gap-2 rounded-md border p-2 ${
                     allowed
                       ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20"
                       : "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20"
@@ -275,10 +275,12 @@ export function SettingsPanels() {
                     allowed ? "allowed" : "restricted"
                   }`}
                 >
-                  <span className="text-sm capitalize">{section}</span>
+                  <span className="text-sm capitalize truncate min-w-0">
+                    {section}
+                  </span>
                   <span
                     className={
-                      "rounded px-2 py-0.5 text-xs " +
+                      "shrink-0 rounded px-2 py-0.5 text-xs " +
                       (allowed
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                         : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300")
