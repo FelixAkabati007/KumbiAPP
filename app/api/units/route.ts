@@ -55,8 +55,5 @@ const UNIT_CATEGORIES = [
 ];
 
 export async function GET() {
-  // Simulate network delay for loading state demonstration
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
   return NextResponse.json(UNIT_CATEGORIES);
 }
