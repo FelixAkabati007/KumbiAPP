@@ -639,8 +639,9 @@ function MenuContent() {
                     <Button
                       variant="secondary"
                       size="icon"
-                      className="h-8 w-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-800"
+                      className="h-8 w-8 bg-white/80 text-gray-700 dark:bg-gray-800/80 dark:text-gray-200 backdrop-blur-sm rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-800"
                       onClick={() => handleEditItem(item)}
+                      aria-label={`Edit ${item.name}`}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>

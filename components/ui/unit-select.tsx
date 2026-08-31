@@ -39,6 +39,13 @@ interface UnitSelectProps {
   error?: string;
 }
 
+// The unit list is static reference data (rarely, if ever, changes), so cache
+// it at the module level once fetched. This avoids re-fetching (and briefly
+// showing a "Loading units..." state) every time the Add/Edit Item dialog is
+// reopened within the same session.
+let cachedCategories: UnitCategory[] | null = null;
+let inFlightFetch: Promise<UnitCategory[]> | null = null;
+
 const LOCALIZATION: Record<string, Record<string, string>> = {
   en: {
     selectUnit: "Select unit...",
@@ -75,22 +82,40 @@ export function UnitSelect({
   error: externalError,
 }: UnitSelectProps) {
   const [open, setOpen] = React.useState(false);
-  const [categories, setCategories] = React.useState<UnitCategory[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [categories, setCategories] = React.useState<UnitCategory[]>(
+    cachedCategories ?? []
+  );
+  const [loading, setLoading] = React.useState(!cachedCategories);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [locale] = React.useState("en"); // Default locale
 
   const t = LOCALIZATION[locale];
 
   const fetchUnits = React.useCallback(async () => {
+    if (cachedCategories) {
+      setCategories(cachedCategories);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setFetchError(null);
     try {
-      const response = await fetch("/api/units");
-      if (!response.ok) {
-        throw new Error("Failed to fetch units");
+      if (!inFlightFetch) {
+        inFlightFetch = fetch("/api/units")
+          .then((response) => {
+            if (!response.ok) throw new Error("Failed to fetch units");
+            return response.json();
+          })
+          .then((data: UnitCategory[]) => {
+            cachedCategories = data;
+            return data;
+          })
+          .finally(() => {
+            inFlightFetch = null;
+          });
       }
-      const data = await response.json();
+      const data = await inFlightFetch;
       setCategories(data);
     } catch (err) {
       setFetchError(t.error);
