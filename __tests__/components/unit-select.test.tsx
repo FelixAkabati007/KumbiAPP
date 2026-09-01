@@ -15,7 +15,10 @@ import {
   beforeAll,
   afterEach,
 } from "vitest";
-import { UnitSelect } from "@/components/ui/unit-select";
+import {
+  UnitSelect,
+  resetUnitSelectCache,
+} from "@/components/ui/unit-select";
 import { Mock } from "vitest";
 
 // Mock fetch
@@ -50,6 +53,7 @@ const mockCategories = [
 describe("UnitSelect", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resetUnitSelectCache();
   });
 
   afterEach(() => {
