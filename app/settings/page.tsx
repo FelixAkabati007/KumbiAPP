@@ -59,6 +59,7 @@ import {
 } from "@/lib/barcode-scanner";
 import { PrinterSettingsForm } from "@/components/settings/printer-settings-form";
 import { StaffManagementPanel } from "@/components/settings/staff-management-panel";
+import { HardwareDiagnostics } from "@/components/settings/hardware-diagnostics";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -909,8 +910,10 @@ function SettingsPageContent() {
           </TabsContent>
 
           {/* System Settings */}
-          <TabsContent value="system" className="space-y-4">
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+  <TabsContent value="system" className="space-y-4">
+  <HardwareDiagnostics />
+  <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-800 dark:text-gray-200">

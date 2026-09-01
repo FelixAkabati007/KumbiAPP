@@ -344,3 +344,38 @@ CREATE TABLE IF NOT EXISTS refund_audit_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_refund_audit_logs_refund_id ON refund_audit_logs(refund_id);
 CREATE INDEX IF NOT EXISTS idx_refund_audit_logs_created_at ON refund_audit_logs(created_at);
+
+-- 10. Recurring compensation and generated payroll records
+CREATE TABLE IF NOT EXISTS compensation_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    staff_profile_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    pay_frequency VARCHAR(20) NOT NULL DEFAULT 'monthly',
+    base_amount DECIMAL(12, 2) NOT NULL CHECK (base_amount >= 0),
+    allowances DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (allowances >= 0),
+    default_deductions DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (default_deductions >= 0),
+    currency VARCHAR(3) NOT NULL DEFAULT 'GHS',
+    effective_from DATE NOT NULL DEFAULT CURRENT_DATE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (staff_profile_id, is_active)
+);
+CREATE TABLE IF NOT EXISTS payroll_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    compensation_profile_id UUID REFERENCES compensation_profiles(id) ON DELETE SET NULL,
+    staff_profile_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    pay_period_start DATE NOT NULL,
+    pay_period_end DATE NOT NULL,
+    gross_amount DECIMAL(12, 2) NOT NULL CHECK (gross_amount >= 0),
+    deductions DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (deductions >= 0),
+    net_amount DECIMAL(12, 2) NOT NULL CHECK (net_amount >= 0),
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    idempotency_key VARCHAR(255) NOT NULL UNIQUE,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (pay_period_end >= pay_period_start)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_records_period ON payroll_records(pay_period_start, pay_period_end);
+CREATE INDEX IF NOT EXISTS idx_payroll_records_staff ON payroll_records(staff_profile_id);
