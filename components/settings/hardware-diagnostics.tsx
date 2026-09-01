@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { CheckCircle2, CircleAlert, HardDrive, Plug, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,9 +9,8 @@ import { getDeviceCapabilities, requestSerialDevice, requestUsbDevice, type Devi
 const devices = ["Thermal printer", "Cash drawer", "Barcode scanner", "Customer display", "Card terminal"] as const
 
 export function HardwareDiagnostics() {
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [capabilities, setCapabilities] = useState(() => getDeviceCapabilities())
   const [message, setMessage] = useState<string | null>(null)
-  const capabilities = useMemo(() => getDeviceCapabilities(), [refreshKey])
 
   async function connect(capability: DeviceCapability) {
     setMessage(null)
@@ -37,7 +36,7 @@ export function HardwareDiagnostics() {
         <div className="grid gap-3 sm:grid-cols-2">
           {capabilities.map((item) => <div key={item.capability} className="rounded-lg border bg-muted/20 p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.supported ? "Available in this browser" : "Not available in this browser"}</p></div>{item.supported ? <CheckCircle2 className="h-5 w-5 text-primary" aria-label="Supported" /> : <CircleAlert className="h-5 w-5 text-muted-foreground" aria-label="Unsupported" />}</div><p className="mt-2 text-xs leading-5 text-muted-foreground">{item.guidance}</p><Button className="mt-3 w-full" variant="outline" size="sm" onClick={() => void connect(item.capability)} disabled={!item.supported}><Plug className="mr-2 h-4 w-4" aria-hidden="true" />Connect {item.label}</Button></div>)}
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground" aria-live="polite">{message ?? "No connection attempt made."}</p><Button variant="ghost" size="sm" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />Refresh capabilities</Button></div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground" aria-live="polite">{message ?? "No connection attempt made."}</p><Button variant="ghost" size="sm" onClick={() => setCapabilities(getDeviceCapabilities())}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />Refresh capabilities</Button></div>
       </CardContent>
     </Card>
   )

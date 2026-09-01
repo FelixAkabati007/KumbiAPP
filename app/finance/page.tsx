@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/components/role-guard";
 import { CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
+import { PayrollDesk } from "@/components/finance/payroll-desk";
 
 type Transaction = {
   transaction_id?: string;
@@ -83,6 +84,7 @@ export default function FinancePage() {
               </Button>
             </div>
           </header>
+          <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
