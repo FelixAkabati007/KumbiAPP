@@ -282,15 +282,18 @@ function CheckInPage() {
         }),
       });
 
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || "Failed to check out guest");
       }
-
-      const refreshedGuests = await fetchCheckedInGuests();
-      if (refreshedGuests.some((guest) => String(guest.id) === String(checkoutGuest.id))) {
-        throw new Error("Checkout did not persist; the guest is still checked in.");
+      if (payload?.persisted !== true) {
+        throw new Error("Checkout was not confirmed by the server. Please try again.");
       }
+
+      // The checkout endpoint is transactional and is the source of truth.
+      // Refresh the list for the UI, but do not reject a successful mutation
+      // because a replica or browser cache still returns the old row briefly.
+      await fetchCheckedInGuests();
 
       window.dispatchEvent(new Event("roomStatusUpdated"));
       window.dispatchEvent(new Event("housekeepingUpdated"));
@@ -525,14 +528,14 @@ function CheckInPage() {
                         className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
                       >
                         <CardContent className="p-4 sm:pt-6">
-                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 lg:items-center">
+                          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(72px,0.7fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(190px,auto)] lg:items-center lg:gap-4">
                             <div>
                               <p className="text-xs text-muted-foreground">Room</p>
                               <p className="font-semibold">{guest.room_number || "Unassigned"}</p>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <p className="text-xs text-muted-foreground">Guest</p>
-                              <p className="font-semibold">
+                              <p className="truncate font-semibold" title={`${guest.first_name} ${guest.last_name}`}>
                                 {guest.first_name} {guest.last_name}
                               </p>
                             </div>
@@ -558,7 +561,7 @@ function CheckInPage() {
                                 GHS {balance.toFixed(2)}
                               </Badge>
                             </div>
-                            <div className="col-span-2 flex flex-col gap-2 sm:col-span-3 sm:flex-row lg:col-span-1">
+                            <div className="col-span-2 flex min-w-0 flex-col gap-2 sm:col-span-3 sm:flex-row lg:col-span-1">
                               <Button
                                 onClick={() => openFolio(guest)}
                                 disabled={processing}
