@@ -96,10 +96,14 @@ export async function POST(request: NextRequest) {
       return resResult.rows[0];
     });
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(
+      { ...result, persisted: true, status: "checked_out" },
+      { status: 200, headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Error checking out guest:", error);
     const message = error instanceof Error ? error.message : "Failed to check out guest";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("no longer checked in") || message.includes("cannot exceed") ? 409 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
