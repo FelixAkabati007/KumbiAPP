@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, CheckCircle2, ArrowLeft, Wrench, SprayCan } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface HousekeepingTask {
   id: string;
@@ -346,6 +347,10 @@ function HousekeepingPage() {
     }
   };
 
+  const liveSync = useHotelLiveSync(async () => {
+    await Promise.all([fetchTasks(), fetchTickets(), fetchRooms()]);
+  });
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between gap-4">
@@ -360,6 +365,7 @@ function HousekeepingPage() {
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Housekeeping</h2>
         </div>
+        <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
 
       <Tabs defaultValue="cleaning" className="space-y-4">

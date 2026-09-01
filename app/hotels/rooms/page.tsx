@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Home, ArrowLeft, Edit2, Image as ImageIcon, X, Upload } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface RoomImage {
   id: string;
@@ -163,27 +164,23 @@ function RoomsPage() {
     });
   };
 
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const response = await fetch("/api/hotels/rooms");
-        if (!response.ok) throw new Error("Failed to fetch rooms");
-        const data = await response.json();
-        setRooms(data);
-      } catch (error) {
-        console.error("Error fetching rooms:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load rooms",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchRooms = async () => {
+    try {
+      const response = await fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch rooms");
+      const data = await response.json();
+      setRooms(data);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      toast({ title: "Error", description: "Failed to load rooms", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchRooms();
-    const refreshRooms = () => fetchRooms();
+  useEffect(() => {
+    void fetchRooms();
+    const refreshRooms = () => void fetchRooms();
     window.addEventListener("reservationUpdated", refreshRooms);
     window.addEventListener("roomStatusUpdated", refreshRooms);
     window.addEventListener("housekeepingUpdated", refreshRooms);
@@ -194,14 +191,14 @@ function RoomsPage() {
     };
   }, [toast]);
 
-
+  const liveSync = useHotelLiveSync(fetchRooms);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button
-            onClick={() => router.back()}
+          onClick={() => router.back()}
             variant="outline"
             size="icon"
             className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
@@ -210,7 +207,9 @@ function RoomsPage() {
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Rooms</h2>
         </div>
-        <Button 
+        <div className="flex items-center gap-2">
+          <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
+          <Button
           onClick={() => {
             setEditingRoom(null);
             setFormData({
@@ -230,6 +229,7 @@ function RoomsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Add Room
         </Button>
+        </div>
       </div>
 
       {/* Room Status Summary */}
@@ -332,7 +332,7 @@ function RoomsPage() {
                         {room.assigned_housekeeper_name || "—"}
                       </td>
                       <td className="py-2 px-4">
-                        <Button 
+          <Button
                           variant="outline" 
                           size="sm" 
                           className="rounded-lg"

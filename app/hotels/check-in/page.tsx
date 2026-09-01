@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface CheckInData {
   id: string;
@@ -376,18 +377,25 @@ function CheckInPage() {
     }
   };
 
+  const liveSync = useHotelLiveSync(async () => {
+    await Promise.all([fetchReservations(), fetchCheckedInGuests()]);
+  });
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center gap-4">
-        <Button
-          onClick={() => router.back()}
-          variant="outline"
-          size="icon"
-          className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
-        >
-          <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-        </Button>
-        <h2 className="text-3xl font-bold tracking-tight">Check-In / Check-Out</h2>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => router.back()}
+            variant="outline"
+            size="icon"
+            className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+          >
+            <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          </Button>
+          <h2 className="text-3xl font-bold tracking-tight">Check-In / Check-Out</h2>
+        </div>
+        <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
 
       <Tabs defaultValue="check-in" className="space-y-4">
