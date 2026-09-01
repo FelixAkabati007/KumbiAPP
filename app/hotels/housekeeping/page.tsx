@@ -52,6 +52,24 @@ interface MaintenanceTicket {
 interface RoomOption {
   id: string;
   room_number: string;
+  status: string;
+}
+
+interface HousekeepingStaff {
+  id: string;
+  name: string;
+  email: string;
+}
+
+function readTaskNotes(notes?: string) {
+  if (!notes) return { details: "", shiftLabel: "", shiftStart: "", shiftEnd: "" };
+  try {
+    const parsed = JSON.parse(notes);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    // Preserve legacy plain-text notes.
+  }
+  return { details: notes, shiftLabel: "", shiftStart: "", shiftEnd: "" };
 }
 
 function HousekeepingPage() {
@@ -59,12 +77,17 @@ function HousekeepingPage() {
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [staff, setStaff] = useState<HousekeepingStaff[]>([]);
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
   const [formData, setFormData] = useState({
     roomNumber: "",
-    taskType: "",
+    taskType: "cleaning",
     priority: "normal",
+    assignedTo: "",
+    shiftStart: new Date().toISOString().slice(0, 10),
+    shiftEnd: new Date().toISOString().slice(0, 10),
+    shiftLabel: "Day shift",
     notes: "",
   });
 
@@ -119,12 +142,21 @@ function HousekeepingPage() {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch("/api/hotels/rooms");
+      const response = await fetch("/api/hotels/rooms", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch rooms");
-      const data = await response.json();
-      setRooms(data);
+      setRooms(await response.json());
     } catch (error) {
       console.error("Error fetching rooms:", error);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const response = await fetch("/api/hotels/housekeeping/staff", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch housekeeping staff");
+      setStaff(await response.json());
+    } catch (error) {
+      console.error("Error fetching housekeeping staff:", error);
     }
   };
 
@@ -132,10 +164,12 @@ function HousekeepingPage() {
     fetchTasks();
     fetchTickets();
     fetchRooms();
+    fetchStaff();
     const refreshHousekeeping = () => {
       fetchTasks();
       fetchTickets();
       fetchRooms();
+      fetchStaff();
     };
     window.addEventListener("housekeepingUpdated", refreshHousekeeping);
     window.addEventListener("roomStatusUpdated", refreshHousekeeping);
@@ -224,7 +258,13 @@ function HousekeepingPage() {
           roomId,
           taskType: formData.taskType,
           priority: formData.priority,
-          notes: formData.notes || null,
+          assignedTo: formData.assignedTo || null,
+          notes: JSON.stringify({
+            details: formData.notes || "",
+            shiftStart: formData.shiftStart,
+            shiftEnd: formData.shiftEnd,
+            shiftLabel: formData.shiftLabel,
+          }),
         }),
       });
 
@@ -237,7 +277,7 @@ function HousekeepingPage() {
       window.dispatchEvent(new Event("housekeepingUpdated"));
       window.dispatchEvent(new Event("roomStatusUpdated"));
       setShowNewTaskDialog(false);
-      setFormData({ roomNumber: "", taskType: "", priority: "normal", notes: "" });
+      setFormData({ roomNumber: "", taskType: "cleaning", priority: "normal", assignedTo: "", shiftStart: new Date().toISOString().slice(0, 10), shiftEnd: new Date().toISOString().slice(0, 10), shiftLabel: "Day shift", notes: "" });
       await fetchTasks();
     } catch (error) {
       console.error("Error creating housekeeping task:", error);
@@ -466,7 +506,10 @@ function HousekeepingPage() {
                               {task.status.replace("_", " ")}
                             </span>
                           </td>
-                          <td className="py-2 px-4">{task.assigned_to_name || "Unassigned"}</td>
+                          <td className="py-2 px-4">
+                            <div>{task.assigned_to_name || "Unassigned"}</div>
+                            {(() => { const shift = readTaskNotes(task.notes); return shift.shiftLabel || shift.shiftStart ? <div className="text-xs text-muted-foreground">{shift.shiftLabel || "Shift"}{shift.shiftStart ? ` · ${shift.shiftStart}–${shift.shiftEnd || shift.shiftStart}` : ""}</div> : null; })()}
+                          </td>
                           <td className="py-2 px-4">
                             <Button
                               variant="outline"
@@ -609,14 +652,19 @@ function HousekeepingPage() {
 
           <div className="grid gap-4">
             <div>
-              <Label htmlFor="roomNumber">Room Number</Label>
-              <Input
+              <Label htmlFor="roomNumber">Room needing cleaning</Label>
+              <select
                 id="roomNumber"
-                placeholder="e.g., 101, 205, 310"
                 value={formData.roomNumber}
                 onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
-                className="rounded-lg"
-              />
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+              >
+                <option value="">Select a dirty room</option>
+                {rooms.filter((room) => room.status === "dirty").map((room) => (
+                  <option key={room.id} value={room.room_number}>Room {room.room_number} · {room.status}</option>
+                ))}
+              </select>
+              {rooms.filter((room) => room.status === "dirty").length === 0 && <p className="mt-1 text-sm text-muted-foreground">No rooms currently need cleaning.</p>}
             </div>
 
             <div>
@@ -649,6 +697,20 @@ function HousekeepingPage() {
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
+            </div>
+
+            <div>
+              <Label htmlFor="assignedTo">Assign housekeeping staff</Label>
+              <select id="assignedTo" value={formData.assignedTo} onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700">
+                <option value="">Unassigned — any housekeeping staff</option>
+                {staff.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email})</option>)}
+              </select>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div><Label htmlFor="shiftStart">Shift starts</Label><Input id="shiftStart" type="date" value={formData.shiftStart} onChange={(e) => setFormData({ ...formData, shiftStart: e.target.value })} /></div>
+              <div><Label htmlFor="shiftEnd">Shift ends</Label><Input id="shiftEnd" type="date" value={formData.shiftEnd} onChange={(e) => setFormData({ ...formData, shiftEnd: e.target.value })} /></div>
+              <div><Label htmlFor="shiftLabel">Shift</Label><Input id="shiftLabel" value={formData.shiftLabel} onChange={(e) => setFormData({ ...formData, shiftLabel: e.target.value })} placeholder="Day shift" /></div>
             </div>
 
             <div>
