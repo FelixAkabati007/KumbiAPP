@@ -26,11 +26,12 @@ export async function GET() {
   const auth = await requireRole("admin", "manager", "finance")
   if (auth.error) return auth.error
   try {
-    const [profiles, records] = await Promise.all([
+    const [profiles, records, staff] = await Promise.all([
       query(`SELECT cp.*, sp.first_name, sp.last_name, sp.position FROM compensation_profiles cp JOIN staff_profiles sp ON sp.id = cp.staff_profile_id WHERE cp.is_active = true ORDER BY sp.last_name, sp.first_name`),
       query(`SELECT pr.*, sp.first_name, sp.last_name FROM payroll_records pr JOIN staff_profiles sp ON sp.id = pr.staff_profile_id ORDER BY pr.pay_period_end DESC, sp.last_name LIMIT 200`),
+      query(`SELECT id, first_name, last_name, position FROM staff_profiles WHERE is_active = true ORDER BY last_name, first_name`),
     ])
-    return NextResponse.json({ profiles: profiles.rows, records: records.rows })
+    return NextResponse.json({ profiles: profiles.rows, records: records.rows, staff: staff.rows })
   } catch (error) {
     console.error("[v0] Failed to read payroll:", error)
     return NextResponse.json({ error: "Failed to load payroll" }, { status: 500 })

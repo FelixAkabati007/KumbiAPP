@@ -68,9 +68,9 @@ export default function FinancePage() {
 
   return (
     <RoleGuard section="finance">
-      <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <main className="min-h-screen bg-muted/30 p-4 sm:p-6 lg:p-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-          <header className="flex flex-col gap-4 rounded-3xl border border-orange-200 bg-white/70 p-4 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div className="flex items-start gap-3">
               <Button asChild variant="outline" size="icon" className="shrink-0 rounded-2xl" aria-label="Back to dashboard">
                 <Link href="/"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Link>
