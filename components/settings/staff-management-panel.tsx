@@ -350,7 +350,7 @@ export function StaffManagementPanel() {
                 Add Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Staff Account</DialogTitle>
                 <DialogDescription>

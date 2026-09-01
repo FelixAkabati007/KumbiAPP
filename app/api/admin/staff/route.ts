@@ -102,17 +102,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      firstName,
-      lastName,
-      phone,
-      department,
-      position,
-      hireDate,
-      password,
-      role,
-    } = body;
+    const firstName = String(body.firstName ?? "").trim();
+    const lastName = String(body.lastName ?? "").trim();
+    const phone = String(body.phone ?? "").trim() || null;
+    const department = String(body.department ?? "").trim();
+    const position = String(body.position ?? "").trim();
+    const hireDate = String(body.hireDate ?? "").trim();
+    const password = String(body.password ?? "");
     const businessEmail = String(body.businessEmail ?? "").trim().toLowerCase();
+    const role = body.role === undefined ? "staff" : String(body.role);
 
     // Validate required fields
     if (
@@ -129,11 +127,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (role !== undefined && !VALID_ROLES.includes(String(role))) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(businessEmail)) {
+      return NextResponse.json({ error: "Enter a valid business email address" }, { status: 400 });
+    }
+
+    if (hireDate && !/^\d{4}-\d{2}-\d{2}$/.test(hireDate)) {
+      return NextResponse.json({ error: "Hire date must use YYYY-MM-DD format" }, { status: 400 });
+    }
+
+    if (!VALID_ROLES.includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    const staffRole = role ? String(role) : "staff";
+    const staffRole = role;
 
     // Validate password complexity
     const passwordValidation = validatePasswordComplexity(password);
@@ -211,16 +217,20 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    await createAuditLog({
-      actionType: "staff_created",
-      actorId: session.id,
-      actorName: session.email,
-      actorRole: session.role,
-      targetStaffId: staffId,
-      targetStaffName: `${firstName} ${lastName}`,
-      changeDetails: { email: businessEmail, department, position },
-      ipAddress,
-    });
+    try {
+      await createAuditLog({
+        actionType: "staff_created",
+        actorId: session.id,
+        actorName: session.email,
+        actorRole: session.role,
+        targetStaffId: staffId,
+        targetStaffName: `${firstName} ${lastName}`,
+        changeDetails: { email: businessEmail, department, position },
+        ipAddress,
+      });
+    } catch (auditError) {
+      console.error("[v0] Staff created but audit log failed:", auditError);
+    }
 
     return NextResponse.json(
       { message: "Staff member created successfully", staffId },
@@ -228,6 +238,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error creating staff:", error);
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+      return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+    }
     return NextResponse.json(
       { error: "Failed to create staff member" },
       { status: 500 }
