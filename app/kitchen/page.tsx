@@ -362,7 +362,7 @@ function KitchenContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-2 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -455,9 +455,9 @@ function KitchenContent() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
         {/* Client Statistics Sidebar */}
-        <div className="w-80 border-r border-orange-200 dark:border-orange-700 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10">
+        <div className="w-full shrink-0 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10 lg:w-80 lg:border-b-0 lg:border-r">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700">
             <h2 className="font-semibold text-lg mb-2 text-orange-800 dark:text-orange-200 flex items-center gap-2">
               <Users className="h-5 w-5" />
