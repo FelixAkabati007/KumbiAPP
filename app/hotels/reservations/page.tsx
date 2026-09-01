@@ -87,6 +87,14 @@ function ReservationsPage() {
     };
 
     fetchRoomTypes();
+
+    const handleReservationUpdate = () => { void fetchReservations(); };
+    window.addEventListener("reservationUpdated", handleReservationUpdate);
+    window.addEventListener("hotelDataUpdated", handleReservationUpdate);
+    return () => {
+      window.removeEventListener("reservationUpdated", handleReservationUpdate);
+      window.removeEventListener("hotelDataUpdated", handleReservationUpdate);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
