@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, ArrowLeft } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface Reservation {
   id: string;
@@ -191,6 +192,8 @@ function ReservationsPage() {
     }
   };
 
+  const liveSync = useHotelLiveSync(fetchReservations);
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between gap-4">
@@ -205,12 +208,15 @@ function ReservationsPage() {
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Reservations</h2>
         </div>
-        <Button 
+        <div className="flex items-center gap-2">
+          <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
+          <Button
           onClick={() => setShowNewReservationDialog(true)}
           className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
           <Plus className="h-4 w-4 mr-2" />
           New Reservation
         </Button>
+        </div>
       </div>
 
       <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
