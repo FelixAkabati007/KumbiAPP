@@ -85,6 +85,7 @@
     "utf-8-validate": "^6.0.6",
     "vaul": "^0.9.6",
     "ws": "^8.18.3",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {

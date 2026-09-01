@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSystemSync } from "./use-system-sync";
 import { useAuth } from "@/components/auth-provider";
+import { canManageFeatureToggles } from "@/lib/roles";
 
 export type FeatureToggleKey = "kitchen_display" | "order_board";
 
@@ -20,7 +21,7 @@ export function useFeatureToggles() {
   const { versions } = useSystemSync();
   const togglesVersion = versions["feature_toggles"];
 
-  const canManage = user?.role === "admin" || user?.role === "manager";
+  const canManage = canManageFeatureToggles(user?.role);
 
   const fetchToggles = useCallback(async () => {
     try {

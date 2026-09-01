@@ -107,7 +107,11 @@ function InventoryContent() {
       );
     }
 
-    if (activeTab !== "all") {
+    if (activeTab === "active") {
+      filtered = filtered.filter((item) => Number.parseFloat(item.quantity) > 0);
+    } else if (activeTab === "inactive") {
+      filtered = filtered.filter((item) => Number.parseFloat(item.quantity) <= 0);
+    } else if (activeTab !== "all") {
       filtered = filtered.filter((item) => item.category === activeTab);
     }
 
@@ -420,6 +424,8 @@ function InventoryContent() {
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
               <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="active">Active Stock</SelectItem>
+              <SelectItem value="inactive">Inactive (Out of Stock)</SelectItem>
               <SelectItem value="ingredient">Ingredients</SelectItem>
               <SelectItem value="beverage">Beverages</SelectItem>
               <SelectItem value="supply">Supplies</SelectItem>
@@ -500,7 +506,11 @@ function InventoryContent() {
                   {filteredItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-4 bg-white/50 dark:bg-gray-800/50 rounded-2xl border border-orange-100 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                      className={`flex items-center justify-between p-4 bg-white/50 dark:bg-gray-800/50 rounded-2xl border hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors ${
+                        isLowStock(item)
+                          ? "border-red-400 dark:border-red-600 animate-pulse"
+                          : "border-orange-100 dark:border-orange-800"
+                      }`}
                     >
                       <div className="flex items-center gap-4">
                         <div
@@ -531,13 +541,19 @@ function InventoryContent() {
                       <div className="flex items-center gap-6">
                         <div className="text-right">
                           <div
-                            className={`font-bold ${
+                            className={`font-bold flex items-center justify-end gap-1 ${
                               isLowStock(item)
                                 ? "text-red-600 dark:text-red-400"
                                 : "text-gray-800 dark:text-gray-200"
                             }`}
                           >
-                            {item.quantity} {item.unit}
+                            {isLowStock(item) && (
+                              <AlertTriangle
+                                className="h-4 w-4"
+                                aria-label="Low stock"
+                              />
+                            )}
+                            <span>{item.quantity} {item.unit}</span>
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             ₵{Number.parseFloat(item.cost).toFixed(2)}

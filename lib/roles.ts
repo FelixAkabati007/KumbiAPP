@@ -140,3 +140,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
 export function hasPermission(role: UserRole, section: AppSection): boolean {
   return rolePermissions[role]?.[section] ?? false;
 }
+
+export function canManageFeatureToggles(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager";
+}

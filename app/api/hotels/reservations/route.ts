@@ -99,6 +99,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    if (!Number.isFinite(checkIn.getTime()) || !Number.isFinite(checkOut.getTime()) || checkOut <= checkIn) {
+      return NextResponse.json(
+        { error: "Check-out must be after check-in" },
+        { status: 400 }
+      );
+    }
+
+    // Enforce capacity on the server so concurrent clients cannot book a
+    // fully occupied room type by bypassing the client dialog.
+    const availability = await query<{ available: string }>(
+      `SELECT (
+         SELECT COUNT(*) FROM rooms r
+         WHERE r.room_type_id = $3 AND r.is_active = true AND r.status = 'available'
+       ) - (
+         SELECT COUNT(*) FROM reservations existing
+         WHERE existing.room_type_id = $3
+           AND existing.status IN ('confirmed', 'checked_in')
+           AND existing.check_in_date < $2
+           AND existing.check_out_date > $1
+       ) AS available`,
+      [checkInDate, checkOutDate, roomTypeId]
+    );
+    if (Number(availability.rows[0]?.available ?? 0) <= 0) {
+      return NextResponse.json(
+        { error: "No rooms are available for the selected dates" },
+        { status: 409 }
+      );
+    }
+
     const reservationNumber = await generateReservationNumber();
 
     const result = await query(

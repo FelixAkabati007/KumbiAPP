@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
 import { updateSystemState } from "@/lib/system-sync";
+import { canManageFeatureToggles } from "@/lib/roles";
 
 const TOGGLE_KEYS = ["kitchen_display", "order_board"] as const;
 type ToggleKey = (typeof TOGGLE_KEYS)[number];
@@ -52,7 +53,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.role !== "admin" && session.role !== "manager") {
+    if (!canManageFeatureToggles(session.role)) {
       return NextResponse.json(
         { error: "Forbidden: only admins or managers can change feature toggles" },
         { status: 403 }
