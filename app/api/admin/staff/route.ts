@@ -173,15 +173,26 @@ export async function POST(request: NextRequest) {
 
     await transaction(async (client) => {
       await client.query(
-        "INSERT INTO users (id, email, name, role, password_hash) VALUES ($1, $2, $3, $4, $5)",
-        [userId, businessEmail, `${firstName} ${lastName}`, staffRole, passwordHash]
+        `INSERT INTO users (
+          id, email, name, role, password_hash, email_verified, is_active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          userId,
+          businessEmail,
+          `${firstName} ${lastName}`,
+          staffRole,
+          passwordHash,
+          true,
+          true,
+        ]
       );
 
       await client.query(
         `INSERT INTO staff_profiles (
           id, user_id, first_name, last_name, business_email, phone,
-          department, position, hire_date, password_hash, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          department, position, hire_date, password_hash, created_by,
+          employment_status, is_active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           staffId,
           userId,
@@ -194,6 +205,8 @@ export async function POST(request: NextRequest) {
           hireDate || null,
           passwordHash,
           session.id,
+          "active",
+          true,
         ]
       );
     });
