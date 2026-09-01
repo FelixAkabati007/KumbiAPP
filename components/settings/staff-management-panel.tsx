@@ -133,6 +133,9 @@ export function StaffManagementPanel() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [showPasswords, setShowPasswords] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
@@ -264,6 +267,24 @@ export function StaffManagementPanel() {
     } catch (error) {
       toast({ title: "Password update failed", description: error instanceof Error ? error.message : "Unable to update password", variant: "destructive" });
     } finally { setIsChangingPassword(false); }
+  };
+
+  const handleForcePasswordReset = async () => {
+    if (!resetTarget || resetReason.trim().length < 10) {
+      toast({ title: "Reason required", description: "Explain the breach response in at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      const response = await fetch(`/api/admin/staff/${resetTarget.id}/password-reset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: resetReason.trim() }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to initiate password reset");
+      toast({ title: "Password reset initiated", description: `A reset was initiated for ${resetTarget.business_email}.` });
+      setResetTarget(null);
+      setResetReason("");
+    } catch (error) {
+      toast({ title: "Reset failed", description: error instanceof Error ? error.message : "Unable to initiate password reset", variant: "destructive" });
+    } finally { setIsResettingPassword(false); }
   };
 
   const openEditDialog = (member: StaffMember) => {
@@ -807,6 +828,19 @@ export function StaffManagementPanel() {
                                 Save Changes
                               </Button>
                             </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        <Dialog open={resetTarget?.id === member.id} onOpenChange={(open) => { if (!open) { setResetTarget(null); setResetReason(""); } else setResetTarget(member); }}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-amber-700 hover:bg-amber-50" aria-label={`Reset password for ${member.first_name} ${member.last_name}`}>
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Reset staff password</DialogTitle><DialogDescription>Use this only when responding to a suspected breach. Admin or manager authorization is required.</DialogDescription></DialogHeader>
+                            <div className="space-y-2 py-2"><Label htmlFor={`reset-reason-${member.id}`}>Reason for reset</Label><textarea id={`reset-reason-${member.id}`} value={resetReason} onChange={(event) => setResetReason(event.target.value)} placeholder="Describe the suspected breach or security incident" className="min-h-24 w-full rounded-xl border border-orange-200 bg-background px-3 py-2 text-sm" /></div>
+                            <DialogFooter><Button variant="outline" onClick={() => setResetTarget(null)} disabled={isResettingPassword}>Cancel</Button><Button onClick={handleForcePasswordReset} disabled={isResettingPassword || resetReason.trim().length < 10} className="bg-amber-600 hover:bg-amber-700 text-white">{isResettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Initiate reset</Button></DialogFooter>
                           </DialogContent>
                         </Dialog>
 
