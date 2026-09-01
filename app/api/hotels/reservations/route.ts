@@ -158,6 +158,12 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    await query(
+      `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, amount, description, metadata)
+       VALUES ('booking_created', 'reservation', $1, $1, $2, $3, $4, $5)`,
+      [String(result.rows[0].id), result.rows[0].guest_id, Number(result.rows[0].total_price) || 0, `Booking ${reservationNumber} created`, JSON.stringify({ source: "hotel", reservationNumber, sourceChannel: source || "walk_in" })]
+    );
+
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
     console.error("Error creating reservation:", error);

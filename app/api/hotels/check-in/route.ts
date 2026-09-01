@@ -69,6 +69,12 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
 
+      await client.query(
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
+         VALUES ('checked_in', 'reservation', $1, $1, (SELECT guest_id FROM reservations WHERE id = $1), $2, 0, $3, $4)`,
+        [reservationId, roomId, `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
+      );
+
       return resResult.rows[0];
     });
 

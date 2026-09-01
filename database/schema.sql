@@ -266,6 +266,25 @@ CREATE TABLE IF NOT EXISTS transaction_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_transaction_logs_created_at ON transaction_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_transaction_logs_status ON transaction_logs(status);
+CREATE TABLE IF NOT EXISTS hotel_activity_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    source TEXT NOT NULL DEFAULT 'hotel',
+    event_type TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    reservation_id BIGINT,
+    guest_id BIGINT,
+    room_id BIGINT,
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'GHS',
+    description TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_hotel_activity_occurred_at ON hotel_activity_ledger(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_hotel_activity_event_type ON hotel_activity_ledger(event_type);
 CREATE TABLE IF NOT EXISTS favicons (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     original_name TEXT NOT NULL,

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/components/role-guard";
 import Link from "next/link";
@@ -18,12 +19,13 @@ type Transaction = {
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [source, setSource] = useState("all");
   const [loading, setLoading] = useState(true);
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/transactions?limit=1000", { cache: "no-store" });
+      const response = await fetch(`/api/transactions?limit=1000${source !== "all" ? `&source=${source}` : ""}`, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         setTransactions(Array.isArray(data) ? data : data.transactions ?? []);
@@ -35,7 +37,7 @@ export default function FinancePage() {
 
   useEffect(() => {
     void loadTransactions();
-  }, []);
+  }, [source]);
 
   const totals = useMemo(() => {
     const completed = transactions.filter((item) => item.status === "completed" || item.status === "succeeded");
@@ -81,7 +83,11 @@ export default function FinancePage() {
               <p className="mt-1 text-sm text-muted-foreground">Review completed transactions, refunds, and payment activity.</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={source} onValueChange={setSource}>
+                <SelectTrigger className="w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem></SelectContent>
+              </Select>
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Refresh
               </Button>

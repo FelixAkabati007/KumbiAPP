@@ -34,67 +34,6 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching room:", error);
     return NextResponse.json(
-      { error: "Failed to fetch room" },
-      { status: 500 }
-    );
-  }
-}
-
-// Update room (full update with price and images)
-export async function PUT(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { error } = await requirePermission("rooms");
-    if (error) return error;
-
-    const { id } = await context.params;
-    const {
-      roomNumber,
-      roomTypeId,
-      floor,
-      building,
-      notes,
-      price,
-      images,
-    } = await request.json();
-
-    if (!roomNumber || !roomTypeId || !price) {
-      return NextResponse.json(
-        { error: "Room number, type, and price are required" },
-        { status: 400 }
-      );
-    }
-
-    const result = await query(
-      `
-      UPDATE rooms 
-      SET room_number = $1, 
-          room_type_id = $2, 
-          floor = $3, 
-          building = $4, 
-          notes = $5,
-          price = $6,
-          images = $7,
-          updated_at = NOW()
-      WHERE id = $8 AND is_active = true
-      RETURNING *
-      `,
-      [roomNumber, roomTypeId, floor || null, building || null, notes || null, price, images || [], id]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: "Room not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error updating room:", error);
-    return NextResponse.json(
       { error: "Failed to update room" },
       { status: 500 }
     );
@@ -140,7 +79,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    return NextResponse.json(result.rows[0]);
+    const room = result.rows[0];
+    await query(
+      `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, room_id, amount, description, metadata)
+       VALUES ($1, 'room', $2, $2, 0, $3, $4)`,
+      [status ? `room_status_${status}` : "room_updated", String(room.id), `Room ${room.room_number} updated${status ? ` to ${status}` : ""}`, JSON.stringify({ source: "hotel", status, currentGuestId })]
+    );
+    return NextResponse.json(room);
   } catch (error) {
     console.error("Error updating room:", error);
     return NextResponse.json(
