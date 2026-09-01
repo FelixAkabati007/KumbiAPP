@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep the global stylesheet in the active app bundle. */
+
 @layer utilities {
   .text-balance {
     overflow-wrap: anywhere;
