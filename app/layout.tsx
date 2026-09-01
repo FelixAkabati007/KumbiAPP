@@ -14,6 +14,7 @@ import ErrorBoundary from "@/components/error-boundary";
 import { GlobalErrorHandler } from "@/components/global-error-handler";
 import { LoadingProvider } from "@/components/loading-provider";
 import { SystemSyncListener } from "@/components/system-sync-listener";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 
 // Defensive check for broken localStorage in SSR environment
 if (
@@ -67,6 +68,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
           <GlobalErrorHandler />
+          <ServiceWorkerRegister />
           <SystemSyncListener />
           <ThemeProvider
             attribute="class"
