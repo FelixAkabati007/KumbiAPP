@@ -265,7 +265,10 @@ function CheckInPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to check out guest");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Failed to check out guest");
+      }
 
       toast({
         title: "Success",
@@ -281,8 +284,8 @@ function CheckInPage() {
     } catch (error) {
       console.error("Error checking out guest:", error);
       toast({
-        title: "Error",
-        description: "Failed to check out guest",
+        title: "Check-out failed",
+        description: error instanceof Error ? error.message : "Failed to check out guest",
         variant: "destructive",
       });
     } finally {
@@ -655,7 +658,13 @@ function CheckInPage() {
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   className="rounded-lg"
                   placeholder="0.00"
+                  aria-describedby="payment-amount-help"
+                  inputMode="decimal"
+                  max={checkoutGuest?.balance ? Number(checkoutGuest.balance) : undefined}
                 />
+                <p id="payment-amount-help" className="text-xs text-muted-foreground">
+                  Enter 0 to check out without collecting payment.
+                </p>
               </div>
             </div>
           )}
