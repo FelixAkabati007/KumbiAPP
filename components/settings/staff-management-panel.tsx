@@ -359,8 +359,9 @@ export function StaffManagementPanel() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="grid gap-4 py-2">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="grid gap-4 py-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-first-name">First name</Label>
                     <Input
@@ -405,7 +406,7 @@ export function StaffManagementPanel() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-department">Department</Label>
                     <Input
@@ -434,7 +435,7 @@ export function StaffManagementPanel() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-phone">Phone</Label>
                     <Input
@@ -507,9 +508,10 @@ export function StaffManagementPanel() {
                     a number, and a special character.
                   </p>
                 </div>
+                </div>
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
                 <Button
                   variant="outline"
                   onClick={() => setIsCreateOpen(false)}
@@ -611,7 +613,7 @@ export function StaffManagementPanel() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-lg">
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
                             <DialogHeader>
                               <DialogTitle>
                                 Edit {member.first_name} {member.last_name}
@@ -623,7 +625,7 @@ export function StaffManagementPanel() {
                             </DialogHeader>
 
                             <div className="grid gap-4 py-2">
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div className="space-y-1.5">
                                   <Label>First name</Label>
                                   <Input
@@ -650,7 +652,7 @@ export function StaffManagementPanel() {
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div className="space-y-1.5">
                                   <Label>Department</Label>
                                   <Input
@@ -690,7 +692,7 @@ export function StaffManagementPanel() {
                                 />
                               </div>
 
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div className="space-y-1.5">
                                   <Label>Role &amp; access level</Label>
                                   <Select
