@@ -38,6 +38,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Kumbisaly Heritage Restaurant POS",
+  manifest: "/manifest.webmanifest",
   description: "Point of Sale system for Kumbisaly Heritage Restaurant",
   generator: "v0.dev",
   icons: {
@@ -50,6 +51,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#f97316",
 };
 
 export default function RootLayout({

@@ -13,11 +13,18 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
     const orderNumber = searchParams.get("orderNumber");
     const orderId = searchParams.get("orderId");
-    const limit = searchParams.get("limit")
-      ? parseInt(searchParams.get("limit")!)
+    const source = searchParams.get("source");
+    const requestedLimit = searchParams.get("limit")
+      ? Number.parseInt(searchParams.get("limit")!, 10)
+      : 1000;
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 1000)
       : 1000;
 
-    let queryText = "SELECT * FROM transaction_logs";
+    let queryText = `
+      SELECT id, transaction_id, amount, currency, status, payment_method,
+             customer_id, items, metadata, created_at, updated_at
+      FROM transaction_logs`;
     const params: (string | number | boolean | null)[] = [];
     const conditions: string[] = [];
 
@@ -27,7 +34,9 @@ export async function GET(request: Request) {
     }
 
     if (endDate) {
-      conditions.push(`created_at <= $${params.length + 1}`);
+      conditions.push(
+        `created_at < ($${params.length + 1}::date + INTERVAL '1 day')`
+      );
       params.push(endDate);
     }
 
@@ -41,6 +50,11 @@ export async function GET(request: Request) {
         `LOWER(metadata->>'orderNumber') = LOWER($${params.length + 1})`
       );
       params.push(orderNumber);
+    }
+
+    if (source === "hotel" || source === "restaurant") {
+      conditions.push(`metadata->>'source' = $${params.length + 1}`);
+      params.push(source);
     }
 
     if (orderId) {

@@ -71,6 +71,7 @@ function ReceiptContent() {
 
   useEffect(() => {
     const orderParam = searchParams.get("order");
+    const orderNumberParam = searchParams.get("orderNumber");
     if (orderParam) {
       try {
         const parsed = JSON.parse(orderParam);
@@ -97,6 +98,12 @@ function ReceiptContent() {
       } catch {
         // fallback to default
       }
+    } else if (orderNumberParam) {
+      setSearchOrderNumber(orderNumberParam);
+      setSearchTouched(true);
+      void findSaleByOrderNumber(orderNumberParam.trim()).then((sale) => {
+        setFoundSale(sale || null);
+      });
     } else {
       // Only generate order number on client after mount
       setReceiptData((prev) => ({
@@ -121,7 +128,9 @@ function ReceiptContent() {
   const handleSearchInputKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>
   ) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+      handleSearch();
+    }
   };
 
   const validateReceiptPreview = () => {
