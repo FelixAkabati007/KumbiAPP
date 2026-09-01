@@ -9,8 +9,11 @@ import { v4 as uuidv4 } from "uuid";
 const VALID_ROLES = [
   "admin",
   "manager",
+  "finance",
   "staff",
   "kitchen",
+  "frontDesk",
+  "housekeeping",
 ];
 
 // GET - List all staff members
@@ -21,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check admin role
+    // Only administrators can read the complete staff directory.
     if (session.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -126,7 +129,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const staffRole = role && VALID_ROLES.includes(role) ? role : "staff";
+    if (role !== undefined && !VALID_ROLES.includes(String(role))) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    const staffRole = role ? String(role) : "staff";
 
     // Validate password complexity
     const passwordValidation = validatePasswordComplexity(password);

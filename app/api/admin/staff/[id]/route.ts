@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/audit-logger";
 const VALID_ROLES = [
   "admin",
   "manager",
+  "finance",
   "staff",
   "kitchen",
   "frontDesk",
