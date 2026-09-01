@@ -67,6 +67,19 @@ export async function PATCH(
     }
 
     const task = result.rows[0];
+    if (status === "completed" && task.task_type === "cleaning" && task.room_id) {
+      await query(
+        `UPDATE rooms
+         SET status = 'available', current_guest_id = NULL, updated_at = NOW()
+         WHERE id = $1 AND is_active = true AND status IN ('dirty', 'cleaning')`,
+        [task.room_id]
+      );
+      await query(
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, room_id, amount, description, metadata)
+         VALUES ('room_status_available', 'room', $1, $1, 0, $2, $3)`,
+        [String(task.room_id), `Room released as available after cleaning task ${task.id} was completed`, JSON.stringify({ source: "housekeeping", taskId: task.id })]
+      );
+    }
     await query(
       `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, room_id, amount, description, metadata)
        VALUES ($1, 'housekeeping_task', $2, $3, 0, $4, $5)`,
