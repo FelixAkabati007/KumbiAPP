@@ -6,14 +6,15 @@ export const runtime = "nodejs";
 const encoder = new TextEncoder();
 
 async function getChangeToken() {
-  const result = await query(`
-    SELECT md5(COALESCE(string_agg(value, '|' ORDER BY value), '')) AS token
-    FROM (
-      SELECT 'r:' || id || ':' || status || ':' || COALESCE(updated_at::text, '') AS value FROM reservations
-      UNION ALL SELECT 'rm:' || id || ':' || status || ':' || COALESCE(updated_at::text, '') FROM rooms
-      UNION ALL SELECT 'hk:' || id || ':' || status || ':' || COALESCE(updated_at::text, '') FROM housekeeping_tasks
-      UNION ALL SELECT 'ht:' || id || ':' || status || ':' || COALESCE(updated_at::text, '') FROM housekeeping_tickets
-    ) changes
+  const result = await query<{ token: string }>(`
+    SELECT md5(concat_ws('|',
+      COALESCE((SELECT MAX(updated_at) FROM reservations), 'epoch'::timestamptz),
+      COALESCE((SELECT MAX(updated_at) FROM rooms), 'epoch'::timestamptz),
+      COALESCE((SELECT MAX(updated_at) FROM housekeeping_tasks), 'epoch'::timestamptz),
+      (SELECT COUNT(*) FROM reservations),
+      (SELECT COUNT(*) FROM rooms),
+      (SELECT COUNT(*) FROM housekeeping_tasks)
+    )) AS token
   `);
   return result.rows[0]?.token ?? "empty";
 }

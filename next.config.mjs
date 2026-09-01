@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  // The v0 preview embeds localhost while loading Next static assets cross-origin.
+  // Allow the preview hosts so CSS and client chunks are served instead of raw HTML.
+  allowedDevOrigins: ["*.vercel.run", "*.v0.build"],
   productionBrowserSourceMaps: false,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",

@@ -59,9 +59,7 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params);
     return NextResponse.json(result.rows, {
-      headers: {
-        "Cache-Control": "public, max-age=60, s-maxage=120, stale-while-revalidate=300",
-      },
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
     });
   } catch (error) {
     console.error("Error fetching rooms:", error);
