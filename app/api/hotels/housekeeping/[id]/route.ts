@@ -66,7 +66,13 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(result.rows[0]);
+    const task = result.rows[0];
+    await query(
+      `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, room_id, amount, description, metadata)
+       VALUES ($1, 'housekeeping_task', $2, $3, 0, $4, $5)`,
+      [status ? `housekeeping_${status}` : "housekeeping_updated", String(task.id), task.room_id ?? null, `Housekeeping task ${task.id} updated${status ? ` to ${status}` : ""}`, JSON.stringify({ source: "hotel", status, assignedTo, priority })]
+    );
+    return NextResponse.json(task);
   } catch (error) {
     console.error("Error updating housekeeping task:", error);
     return NextResponse.json(

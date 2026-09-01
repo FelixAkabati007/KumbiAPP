@@ -80,12 +80,13 @@ function ReportsPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("today");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = async () => {
     try {
       const [txRes, refRes] = await Promise.all([
-        fetch("/api/transactions?limit=2000"),
+        fetch(`/api/transactions?limit=2000${sourceFilter !== "all" ? `&source=${sourceFilter}` : ""}`),
         fetch("/api/refunds"),
       ]);
 
@@ -164,7 +165,7 @@ function ReportsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [sourceFilter]);
 
   // Demo sales generator
   async function generateDemoSales() {
@@ -469,7 +470,11 @@ function ReportsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Select value={dateFilter} onValueChange={setDateFilter}>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+  <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
+  <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem></SelectContent>
+  </Select>
+  <Select value={dateFilter} onValueChange={setDateFilter}>
               <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
                 <SelectValue placeholder="Date range" />
               </SelectTrigger>

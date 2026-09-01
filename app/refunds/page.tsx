@@ -71,6 +71,7 @@ function RefundsPageContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
 
   // Dialog states
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
@@ -297,6 +298,12 @@ function RefundsPageContent() {
       </header>
 
       <main className="flex flex-1 flex-col p-2 sm:p-4 md:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <label htmlFor="refund-source" className="text-sm font-medium text-orange-800 dark:text-orange-200">Activity source</label>
+          <select id="refund-source" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className="rounded-xl border border-orange-200 bg-white/70 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/70 dark:text-orange-100">
+            <option value="all">All activity</option><option value="hotel">Hotel activity</option><option value="restaurant">Restaurant refunds</option>
+          </select>
+        </div>
         <RefundStats stats={stats} />
         <RefundList
           refunds={refunds}

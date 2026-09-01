@@ -33,6 +33,7 @@ export default function PaymentsPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("today");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { showLoading, hideLoading } = useLoading();
 
@@ -40,7 +41,7 @@ export default function PaymentsPage() {
     async function load(silent = false) {
       if (!silent) showLoading("Loading transactions...");
       try {
-        const res = await fetch("/api/transactions");
+        const res = await fetch(`/api/transactions${sourceFilter !== "all" ? `?source=${sourceFilter}` : ""}`);
         if (!res.ok) throw new Error("Failed to fetch transactions");
         const transactions = await res.json();
 
@@ -87,7 +88,7 @@ export default function PaymentsPage() {
     // Poll for updates instead of storage event (since we are using DB now)
     const interval = setInterval(() => load(true), 30000); // Refresh every 30s
     return () => clearInterval(interval);
-  }, [showLoading, hideLoading]);
+  }, [showLoading, hideLoading, sourceFilter]);
 
   const filteredData = useMemo(() => {
     let filtered = [...data];
@@ -268,6 +269,10 @@ export default function PaymentsPage() {
                 <SelectItem value="month">This Month</SelectItem>
                 <SelectItem value="all">All Time</SelectItem>
               </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem></SelectContent>
             </Select>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
               <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
