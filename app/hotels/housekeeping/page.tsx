@@ -131,6 +131,19 @@ function HousekeepingPage() {
     fetchTasks();
     fetchTickets();
     fetchRooms();
+    const refreshHousekeeping = () => {
+      fetchTasks();
+      fetchTickets();
+      fetchRooms();
+    };
+    window.addEventListener("housekeepingUpdated", refreshHousekeeping);
+    window.addEventListener("roomStatusUpdated", refreshHousekeeping);
+    window.addEventListener("reservationUpdated", refreshHousekeeping);
+    return () => {
+      window.removeEventListener("housekeepingUpdated", refreshHousekeeping);
+      window.removeEventListener("roomStatusUpdated", refreshHousekeeping);
+      window.removeEventListener("reservationUpdated", refreshHousekeeping);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

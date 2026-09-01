@@ -152,17 +152,35 @@ export function StaffManagementPanel() {
   }, [loadStaff]);
 
   const handleCreateStaff = async () => {
-    if (
-      !createForm.firstName ||
-      !createForm.lastName ||
-      !createForm.businessEmail ||
-      !createForm.department ||
-      !createForm.position ||
-      !createForm.password
-    ) {
+    const email = createForm.businessEmail.trim().toLowerCase();
+    const requiredFields = [
+      createForm.firstName,
+      createForm.lastName,
+      email,
+      createForm.department,
+      createForm.position,
+      createForm.password,
+    ];
+    if (requiredFields.some((value) => !value.trim())) {
       toast({
         title: "Missing required fields",
         description: "Please fill in all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({
+        title: "Invalid email",
+        description: "Enter a valid business email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (createForm.password.length < 8) {
+      toast({
+        title: "Password is too short",
+        description: "Staff passwords must be at least 8 characters.",
         variant: "destructive",
       });
       return;
@@ -173,7 +191,15 @@ export function StaffManagementPanel() {
       const res = await fetch("/api/admin/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createForm),
+        body: JSON.stringify({
+          ...createForm,
+          firstName: createForm.firstName.trim(),
+          lastName: createForm.lastName.trim(),
+          businessEmail: email,
+          department: createForm.department.trim(),
+          position: createForm.position.trim(),
+          phone: createForm.phone.trim() || null,
+        }),
       });
       const data = await res.json();
 
