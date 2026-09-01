@@ -8,12 +8,18 @@ export async function POST(request: NextRequest) {
     const { error } = await requirePermission("checkOut");
     if (error) return error;
 
-    const { reservationId, roomId, balancePaid } =
-      await request.json();
+    const { reservationId, roomId, balancePaid } = await request.json();
+    const paid = balancePaid === undefined || balancePaid === null || balancePaid === "" ? 0 : Number(balancePaid);
 
     if (!reservationId || !roomId) {
       return NextResponse.json(
         { error: "Reservation ID and Room ID are required" },
+        { status: 400 }
+      );
+    }
+    if (!Number.isFinite(paid) || paid < 0) {
+      return NextResponse.json(
+        { error: "Payment amount must be a valid non-negative number" },
         { status: 400 }
       );
     }
@@ -46,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
 
       // Update guest folio balance if payment is made
-      if (balancePaid) {
+      if (paid > 0) {
         await client.query(
           `
           UPDATE guest_folios
@@ -55,7 +61,7 @@ export async function POST(request: NextRequest) {
               last_updated = NOW()
           WHERE reservation_id = $2
           `,
-          [balancePaid, reservationId]
+          [paid, reservationId]
         );
       }
 
@@ -78,7 +84,7 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
          VALUES ('checked_out', 'reservation', $1, $1, (SELECT guest_id FROM reservations WHERE id = $1), $2, $3, $4, $5)`,
-        [reservationId, roomId, Number(balancePaid) || 0, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: Number(balancePaid) || 0 })]
+        [reservationId, roomId, paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
       );
 
       return resResult.rows[0];

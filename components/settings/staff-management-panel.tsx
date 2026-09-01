@@ -56,6 +56,9 @@ import {
   Trash2,
   UserCog,
   Users,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from "lucide-react";
 
 type StaffRole = "admin" | "manager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
@@ -127,6 +130,9 @@ export function StaffManagementPanel() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
@@ -243,6 +249,23 @@ export function StaffManagementPanel() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast({ title: "Passwords do not match", description: "Enter the same new password twice.", variant: "destructive" });
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const response = await fetch("/api/auth/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to update password");
+      toast({ title: "Password updated", description: "Your staff login password has been changed." });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (error) {
+      toast({ title: "Password update failed", description: error instanceof Error ? error.message : "Unable to update password", variant: "destructive" });
+    } finally { setIsChangingPassword(false); }
+  };
+
   const openEditDialog = (member: StaffMember) => {
     setEditingStaff(member);
     setEditForm({
@@ -325,8 +348,21 @@ export function StaffManagementPanel() {
     }
   };
 
+  const passwordInputType = showPasswords ? "text" : "password";
   return (
-    <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+    <div className="space-y-6">
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex items-center gap-3"><KeyRound className="h-5 w-5 text-orange-600" /><div><CardTitle>My password</CardTitle><CardDescription>Change the password for your staff login.</CardDescription></div></div>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          {([["currentPassword", "Current password"], ["newPassword", "New password"], ["confirmPassword", "Confirm new password"]] as const).map(([key, label]) => (
+            <div className="space-y-2" key={key}><Label htmlFor={`staff-${key}`}>{label}</Label><div className="relative"><Input id={`staff-${key}`} type={passwordInputType} value={passwordForm[key]} onChange={(e) => setPasswordForm((form) => ({ ...form, [key]: e.target.value }))} autoComplete={key === "currentPassword" ? "current-password" : "new-password"} className="pr-10" />{key === "confirmPassword" && <button type="button" className="absolute right-2 top-2 text-muted-foreground" onClick={() => setShowPasswords((value) => !value)} aria-label={showPasswords ? "Hide passwords" : "Show passwords"}>{showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}</div></div>
+          ))}
+          <div className="sm:col-span-3 flex items-center justify-between gap-4"><p className="text-xs text-muted-foreground">At least 8 characters with uppercase, lowercase, and a number.</p><Button type="button" onClick={handleChangePassword} disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}>{isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Update password</Button></div>
+        </CardContent>
+      </Card>
+      <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
       <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -816,6 +852,7 @@ export function StaffManagementPanel() {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
