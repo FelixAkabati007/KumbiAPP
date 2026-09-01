@@ -134,12 +134,13 @@ function CheckInPage() {
     }
   };
 
-  const fetchCheckedInGuests = async () => {
+  const fetchCheckedInGuests = async (): Promise<CheckedInGuest[]> => {
     try {
-      const response = await fetch("/api/hotels/checked-in", { cache: "no-store" });
+      const response = await fetch(`/api/hotels/checked-in?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch checked-in guests");
       const data = await response.json();
       setCheckedInGuests(data);
+      return data;
     } catch (error) {
       console.error("Error fetching checked-in guests:", error);
       toast({
@@ -147,6 +148,7 @@ function CheckInPage() {
         description: "Failed to load checked-in guests",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoadingCheckedIn(false);
     }
@@ -282,18 +284,20 @@ function CheckInPage() {
         throw new Error(payload?.error || "Failed to check out guest");
       }
 
-      toast({
-        title: "Success",
-        description: "Guest checked out successfully",
-      });
+      const refreshedGuests = await fetchCheckedInGuests();
+      if (refreshedGuests.some((guest) => String(guest.id) === String(checkoutGuest.id))) {
+        throw new Error("Checkout did not persist; the guest is still checked in.");
+      }
 
       window.dispatchEvent(new Event("roomStatusUpdated"));
       window.dispatchEvent(new Event("housekeepingUpdated"));
       window.dispatchEvent(new Event("reservationUpdated"));
-      setCheckedInGuests((current) => current.filter((guest) => guest.id !== checkoutGuest.id));
       setCheckoutGuest(null);
       setPaymentAmount("");
-      await fetchCheckedInGuests();
+      toast({
+        title: "Success",
+        description: "Guest checked out successfully",
+      });
     } catch (error) {
       console.error("Error checking out guest:", error);
       toast({

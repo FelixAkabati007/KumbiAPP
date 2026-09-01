@@ -26,30 +26,31 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure all operations succeed
     const result = await transaction(async (client) => {
-      // Update reservation status to checked_out
+      // Lock and validate all related rows before changing any state. This
+      // prevents a late validation failure from rolling back the mutation
+      // while the client has already shown a success message.
+      const folioResult = await client.query(
+        `SELECT balance FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+        [reservationId]
+      );
+      const outstandingBalance = Number(folioResult.rows[0]?.balance ?? 0);
+      if (paid > outstandingBalance) {
+        throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
+      }
+
       const resResult = await client.query(
         `UPDATE reservations SET status = 'checked_out', updated_at = NOW()
          WHERE id = $1 AND room_id = $2 AND status = 'checked_in' RETURNING *`,
         [reservationId, roomId]
       );
+      if (resResult.rowCount !== 1) throw new Error("Reservation is no longer checked in");
 
-      if (resResult.rowCount === 0) {
-        throw new Error("Reservation not found");
-      }
-
-      // Update room status to dirty/cleaning
-      await client.query(
-        `
-        UPDATE rooms
-        SET status = 'dirty', current_guest_id = NULL, updated_at = NOW()
-        WHERE id = $1
-        `,
+      const roomResult = await client.query(
+        `UPDATE rooms SET status = 'dirty', current_guest_id = NULL, updated_at = NOW()
+         WHERE id = $1 RETURNING id`,
         [roomId]
       );
-
-      const folioResult = await client.query(`SELECT balance FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`, [reservationId]);
-      const outstandingBalance = Number(folioResult.rows[0]?.balance ?? 0);
-      if (paid > outstandingBalance) throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
+      if (roomResult.rowCount !== 1) throw new Error("Room was not found");
 
       // Update guest folio balance if payment is made
       if (paid > 0) {
