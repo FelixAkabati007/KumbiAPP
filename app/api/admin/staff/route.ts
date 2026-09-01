@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
@@ -11,8 +11,6 @@ const VALID_ROLES = [
   "manager",
   "staff",
   "kitchen",
-  "frontDesk",
-  "housekeeping",
 ];
 
 // GET - List all staff members
@@ -34,18 +32,18 @@ export async function GET(request: NextRequest) {
     const department = url.searchParams.get("department");
     const status = url.searchParams.get("status");
 
-    const whereConditions = ["is_active = true"];
+    const whereConditions = ["sp.is_active = true", "u.is_active = true"];
     const params: (string | number)[] = [];
     let paramCount = 1;
 
     if (department) {
-      whereConditions.push(`department = $${paramCount}`);
+      whereConditions.push(`sp.department = $${paramCount}`);
       params.push(department);
       paramCount++;
     }
 
     if (status) {
-      whereConditions.push(`employment_status = $${paramCount}`);
+      whereConditions.push(`sp.employment_status = $${paramCount}`);
       params.push(status);
       paramCount++;
     }
@@ -104,7 +102,6 @@ export async function POST(request: NextRequest) {
     const {
       firstName,
       lastName,
-      businessEmail,
       phone,
       department,
       position,
@@ -112,6 +109,7 @@ export async function POST(request: NextRequest) {
       password,
       role,
     } = body;
+    const businessEmail = String(body.businessEmail ?? "").trim().toLowerCase();
 
     // Validate required fields
     if (
@@ -166,15 +164,13 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(password);
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
-    try {
-      // Create user entry
-      await query(
-        "INSERT INTO users (id, email, name, role) VALUES ($1, $2, $3, $4)",
-        [userId, businessEmail, `${firstName} ${lastName}`, staffRole]
+    await transaction(async (client) => {
+      await client.query(
+        "INSERT INTO users (id, email, name, role, password_hash) VALUES ($1, $2, $3, $4, $5)",
+        [userId, businessEmail, `${firstName} ${lastName}`, staffRole, passwordHash]
       );
 
-      // Create staff profile
-      await query(
+      await client.query(
         `INSERT INTO staff_profiles (
           id, user_id, first_name, last_name, business_email, phone,
           department, position, hire_date, password_hash, created_by
@@ -193,35 +189,23 @@ export async function POST(request: NextRequest) {
           session.id,
         ]
       );
+    });
 
-      // Log to audit trail
-      await createAuditLog({
-        actionType: "staff_created",
-        actorId: session.id,
-        actorName: session.email,
-        actorRole: session.role,
-        targetStaffId: staffId,
-        targetStaffName: `${firstName} ${lastName}`,
-        changeDetails: {
-          email: businessEmail,
-          department,
-          position,
-        },
-        ipAddress,
-      });
+    await createAuditLog({
+      actionType: "staff_created",
+      actorId: session.id,
+      actorName: session.email,
+      actorRole: session.role,
+      targetStaffId: staffId,
+      targetStaffName: `${firstName} ${lastName}`,
+      changeDetails: { email: businessEmail, department, position },
+      ipAddress,
+    });
 
-      return NextResponse.json(
-        {
-          message: "Staff member created successfully",
-          staffId,
-        },
-        { status: 201 }
-      );
-    } catch (dbError) {
-      // Rollback user creation if staff profile fails
-      await query("DELETE FROM users WHERE id = $1", [userId]);
-      throw dbError;
-    }
+    return NextResponse.json(
+      { message: "Staff member created successfully", staffId },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating staff:", error);
     return NextResponse.json(

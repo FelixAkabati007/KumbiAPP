@@ -51,7 +51,14 @@ The `users` table uses the `role` column with values: `admin`, `manager`, `staff
 ## 4. Verification
 Automated tests in `tests/auth/rbac.test.ts` verify the permission logic and route protection rules.
 
-## 5. Feature Toggles (Kitchen Display / Order Board)
+## 5. Staff Accounts incident resolution
+
+- Root cause: the live Neon database was missing the `staff_profiles` table, so the Staff Accounts create/list workflow failed at runtime. The create route also exposed role values not present in the `user_role` enum (`frontDesk` and `housekeeping`).
+- Fix: created the missing `staff_profiles` table, restricted roles to the live enum (`admin`, `manager`, `staff`, `kitchen`), normalized login emails, stored the password hash on the linked user record, and made user/profile creation atomic in one transaction.
+- Access control: `/api/admin/staff` and `/api/admin/staff/[id]` require an authenticated admin for list, create, view, update, and deactivate operations. Each staff account has its own user UUID, profile UUID, unique email, role, and password hash.
+- Validation: unauthenticated access returns `401`, TypeScript validation passes, and transaction rollback prevents orphaned user records when profile creation fails.
+
+## 6. Feature Toggles (Kitchen Display / Order Board)
 
 In addition to static per-role section access above, `admin` and `manager`
 users can dynamically enable or disable the **Kitchen Display** and **Order

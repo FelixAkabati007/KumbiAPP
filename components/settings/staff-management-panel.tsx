@@ -58,13 +58,7 @@ import {
   Users,
 } from "lucide-react";
 
-type StaffRole =
-  | "admin"
-  | "manager"
-  | "staff"
-  | "kitchen"
-  | "frontDesk"
-  | "housekeeping";
+type StaffRole = "admin" | "manager" | "staff" | "kitchen";
 
 interface StaffMember {
   id: string;
@@ -85,8 +79,6 @@ interface StaffMember {
 const ROLE_OPTIONS: { value: StaffRole; label: string }[] = [
   { value: "staff", label: "Staff" },
   { value: "kitchen", label: "Kitchen Staff" },
-  { value: "frontDesk", label: "Front Desk" },
-  { value: "housekeeping", label: "Housekeeping" },
   { value: "manager", label: "Manager" },
   { value: "admin", label: "Admin" },
 ];
@@ -100,10 +92,6 @@ const ROLE_BADGE_CLASSES: Record<StaffRole, string> = {
     "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
   kitchen:
     "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700",
-  frontDesk:
-    "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700",
-  housekeeping:
-    "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700",
 };
 
 function roleLabel(role: string) {
