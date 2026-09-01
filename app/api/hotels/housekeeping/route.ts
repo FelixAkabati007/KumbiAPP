@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
     sql += ` ORDER BY ht.priority DESC, ht.created_at ASC LIMIT 500`;
 
     const result = await query(sql, params);
-    const response = NextResponse.json(result.rows);
-    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
-    return response;
+    return NextResponse.json(result.rows, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (error) {
     console.error("Error fetching housekeeping tasks:", error);
     return NextResponse.json(

@@ -14,6 +14,9 @@ declare global {
 
 // Configuration for the database connection
 const connectionString = process.env.DATABASE_URL || process.env.DB_URL;
+const poolMax = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 8 : 20));
+const idleTimeoutMillis = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000);
+const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000);
 
 if (!connectionString) {
   console.warn(
@@ -34,9 +37,9 @@ if (connectionString) {
   if (process.env.NODE_ENV === "production") {
     pool = new Pool({
       connectionString,
-      max: 2, // Maximum number of clients in the pool (lowered for serverless)
-      idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-      connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+      max: poolMax,
+      idleTimeoutMillis,
+      connectionTimeoutMillis,
     });
   } else {
     // In development mode, use a global variable so that the value
@@ -44,9 +47,9 @@ if (connectionString) {
     if (!global.dbPool) {
       global.dbPool = new Pool({
         connectionString,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
+        max: poolMax,
+        idleTimeoutMillis,
+        connectionTimeoutMillis,
       });
     }
     pool = global.dbPool;
@@ -98,11 +101,14 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await pool.query<R>(text, params as any[]);
-      // const duration = Date.now() - start;
-      // Log slow queries for performance optimization
-      // if (duration > 100) {
-      //   console.log("Executed query", { text, duration, rows: res.rowCount });
-      // }
+      const duration = Date.now() - start;
+      if (duration > 200) {
+        console.warn("[db] slow query", {
+          durationMs: duration,
+          rows: res.rowCount,
+          operation: text.trim().split(/\\s+/)[0]?.toUpperCase(),
+        });
+      }
       return res;
     } catch (error) {
       const duration = Date.now() - start;
