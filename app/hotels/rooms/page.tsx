@@ -33,6 +33,11 @@ interface Room {
   base_price: number;
   price?: number;
   images?: RoomImage[];
+  guest_first_name?: string;
+  guest_last_name?: string;
+  check_in_date?: string;
+  check_out_date?: string;
+  assigned_housekeeper_name?: string;
 }
 
 // Status color memoized to prevent recalculation
@@ -178,6 +183,15 @@ function RoomsPage() {
     };
 
     fetchRooms();
+    const refreshRooms = () => fetchRooms();
+    window.addEventListener("reservationUpdated", refreshRooms);
+    window.addEventListener("roomStatusUpdated", refreshRooms);
+    window.addEventListener("housekeepingUpdated", refreshRooms);
+    return () => {
+      window.removeEventListener("reservationUpdated", refreshRooms);
+      window.removeEventListener("roomStatusUpdated", refreshRooms);
+      window.removeEventListener("housekeepingUpdated", refreshRooms);
+    };
   }, [toast]);
 
 
@@ -265,6 +279,8 @@ function RoomsPage() {
                     <th className="text-left py-2 px-4">Floor</th>
                     <th className="text-left py-2 px-4">Price</th>
                     <th className="text-left py-2 px-4">Status</th>
+                    <th className="text-left py-2 px-4">Guest / Stay</th>
+                    <th className="text-left py-2 px-4">Housekeeper</th>
                     <th className="text-left py-2 px-4">Actions</th>
                   </tr>
                 </thead>
@@ -299,6 +315,21 @@ function RoomsPage() {
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(room.status)}`}>
                           {room.status.replace("_", " ")}
                         </span>
+                      </td>
+                      <td className="py-2 px-4 min-w-48">
+                        <div className="font-medium">
+                          {room.guest_first_name
+                            ? `${room.guest_first_name} ${room.guest_last_name ?? ""}`
+                            : "—"}
+                        </div>
+                        {room.check_in_date && room.check_out_date && (
+                          <div className="text-xs text-muted-foreground">
+                            {room.check_in_date} → {room.check_out_date}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 px-4">
+                        {room.assigned_housekeeper_name || "—"}
                       </td>
                       <td className="py-2 px-4">
                         <Button 

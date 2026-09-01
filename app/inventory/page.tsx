@@ -186,15 +186,22 @@ function InventoryContent() {
   const handleSaveItem = async () => {
     if (!editingItem) return;
 
+    const quantity = Number(editingItem.quantity);
+    const cost = Number(editingItem.cost);
+    const reorderLevel = Number(editingItem.reorderLevel);
     if (
-      !editingItem.name ||
-      !editingItem.sku ||
-      !editingItem.quantity ||
-      !editingItem.cost
+      !editingItem.name.trim() ||
+      !editingItem.sku.trim() ||
+      !Number.isFinite(quantity) ||
+      quantity < 0 ||
+      !Number.isFinite(cost) ||
+      cost < 0 ||
+      !Number.isFinite(reorderLevel) ||
+      reorderLevel < 0
     ) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Enter a name, SKU, and non-negative numeric stock values.",
         variant: "destructive",
       });
       return;
@@ -206,6 +213,11 @@ function InventoryContent() {
         const { id, ...newItemData } = editingItem;
         const itemToCreate = {
           ...newItemData,
+          name: editingItem.name.trim(),
+          sku: editingItem.sku.trim(),
+          quantity: quantity.toString(),
+          cost: cost.toString(),
+          reorderLevel: reorderLevel.toString(),
           lastUpdated: new Date().toISOString(),
         };
         const savedItem = await createInventoryItem(itemToCreate);

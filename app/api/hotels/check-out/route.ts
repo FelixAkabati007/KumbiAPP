@@ -59,11 +59,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create housekeeping task for room cleaning
+      // Create exactly one pending cleaning task for this checkout. The
+      // partial unique index below is not assumed, so the guarded insert is
+      // safe on existing databases as well as fresh installs.
       await client.query(
         `
         INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
-        VALUES ($1, 'cleaning', 'pending', 'normal')
+        SELECT $1, 'cleaning', 'pending', 'normal'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM housekeeping_tasks
+          WHERE room_id = $1 AND task_type = 'cleaning'
+            AND status IN ('pending', 'in_progress')
+        )
         `,
         [roomId]
       );

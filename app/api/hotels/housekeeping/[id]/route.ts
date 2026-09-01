@@ -8,11 +8,23 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requirePermission("housekeeping");
-    if (error) return error;
+    const auth = await requirePermission("housekeeping");
+    if (auth.error) return auth.error;
 
     const { id } = await context.params;
     const { status, assignedTo, notes, priority } = await request.json();
+    const isHousekeepingOnly = auth.session.role === "housekeeping";
+    const allowedStatuses = new Set(["pending", "in_progress", "completed", "on_hold"]);
+
+    if (status && !allowedStatuses.has(status)) {
+      return NextResponse.json({ error: "Invalid housekeeping status" }, { status: 400 });
+    }
+    if (isHousekeepingOnly && (assignedTo !== undefined || priority !== undefined)) {
+      return NextResponse.json(
+        { error: "Housekeeping staff may update status and notes only" },
+        { status: 403 }
+      );
+    }
 
     let sql = `UPDATE housekeeping_tasks SET updated_at = NOW()`;
     const values: (string | null)[] = [];
