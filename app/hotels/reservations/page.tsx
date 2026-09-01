@@ -128,7 +128,10 @@ function ReservationsPage() {
         }),
       });
 
-      if (!guestResponse.ok) throw new Error("Failed to create guest");
+      if (!guestResponse.ok) {
+        const payload = await guestResponse.json().catch(() => null);
+        throw new Error(payload?.error || "Failed to create guest");
+      }
       const guest = await guestResponse.json();
 
       const roomType = roomTypes.find((rt) => rt.id === formData.roomTypeId);
@@ -152,7 +155,10 @@ function ReservationsPage() {
         }),
       });
 
-      if (!reservationResponse.ok) throw new Error("Failed to create reservation");
+      if (!reservationResponse.ok) {
+        const payload = await reservationResponse.json().catch(() => null);
+        throw new Error(payload?.error || "Failed to create reservation");
+      }
       const reservation = await reservationResponse.json();
 
       toast({
