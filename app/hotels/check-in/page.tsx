@@ -384,8 +384,8 @@ function CheckInPage() {
   });
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="min-w-0 flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <Button
             onClick={() => router.back()}
@@ -395,7 +395,7 @@ function CheckInPage() {
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Check-In / Check-Out</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Check-In / Check-Out</h2>
         </div>
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
@@ -500,7 +500,7 @@ function CheckInPage() {
             <CardHeader>
               <CardTitle>Check-Out Management</CardTitle>
               <CardDescription>
-                Guests currently in-house, with outstanding folio balances
+                Accommodation is paid at check-in. Collect only services, damage, or other extras at check-out.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -524,8 +524,8 @@ function CheckInPage() {
                         key={guest.id}
                         className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
                       >
-                        <CardContent className="pt-6">
-                          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                        <CardContent className="p-4 sm:pt-6">
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 lg:items-center">
                             <div>
                               <p className="text-xs text-muted-foreground">Room</p>
                               <p className="font-semibold">{guest.room_number || "Unassigned"}</p>
@@ -558,7 +558,7 @@ function CheckInPage() {
                                 GHS {balance.toFixed(2)}
                               </Badge>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="col-span-2 flex flex-col gap-2 sm:col-span-3 sm:flex-row lg:col-span-1">
                               <Button
                                 onClick={() => openFolio(guest)}
                                 disabled={processing}
@@ -649,7 +649,7 @@ function CheckInPage() {
 
       {/* Checkout payment dialog */}
       <Dialog open={!!checkoutGuest} onOpenChange={(open) => { if (!open && !processing) { setCheckoutGuest(null); setPaymentAmount(""); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-2xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Confirm Check-Out</DialogTitle>
             <DialogDescription>
@@ -660,7 +660,7 @@ function CheckInPage() {
 
           {checkoutGuest && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
                 <p className="font-semibold">Accommodation is paid at check-in</p>
                 <p className="mt-1 text-blue-800">
                   At check-out, collect only outstanding extras such as services, damage, or replacement charges.
@@ -700,7 +700,7 @@ function CheckInPage() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => { setCheckoutGuest(null); setPaymentAmount(""); }}
