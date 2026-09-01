@@ -87,7 +87,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     finance: true,
     payments: true,
     receipt: true,
-    system: true,
+    system: false,
     refunds: true,
     rooms: true,
     reservations: true,
@@ -179,10 +179,29 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
   },
 };
 
-export function hasPermission(role: UserRole, section: AppSection): boolean {
-  return rolePermissions[role]?.[section] ?? false;
+export function isUserRole(role: string | null | undefined): role is UserRole {
+  return typeof role === "string" && role in rolePermissions;
+}
+
+export function isAdmin(role: string | null | undefined): boolean {
+  return role === "admin";
+}
+
+export function hasPermission(role: string | null | undefined, section: AppSection): boolean {
+  if (!isUserRole(role)) return false;
+  return rolePermissions[role][section] ?? false;
+}
+
+export function canPerformAction(
+  role: string | null | undefined,
+  section: AppSection,
+  action: CrudAction,
+): boolean {
+  if (isAdmin(role)) return true;
+  if (!isUserRole(role)) return false;
+  return roleCapabilities[role][section]?.[action] ?? false;
 }
 
 export function canManageFeatureToggles(role: string | null | undefined): boolean {
-  return role === "admin" || role === "manager";
+  return isAdmin(role);
 }

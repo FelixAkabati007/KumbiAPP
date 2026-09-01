@@ -12,7 +12,7 @@ const routePermissions: Record<string, string[]> = {
   // Sign-up is an account-creation surface and must be restricted to admins.
   "/sign-up": ["admin"],
   "/signup": ["admin"],
-  "/settings": ["admin", "manager"],
+  "/settings": ["admin"],
   "/pos": ["admin", "manager", "staff", "kitchen"],
   "/kitchen": ["admin", "manager", "kitchen"],
   "/inventory": ["admin", "manager", "kitchen"],

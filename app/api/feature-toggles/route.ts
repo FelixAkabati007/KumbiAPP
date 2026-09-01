@@ -44,8 +44,8 @@ export async function GET() {
   }
 }
 
-// PATCH - Only admin/manager may flip a toggle. Every change is audit
-// logged with the actor's identity and the before/after state.
+// PATCH - Only admins may flip a toggle. Every change is audit logged
+// with the actor's identity and the before/after state.
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession();
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!canManageFeatureToggles(session.role)) {
       return NextResponse.json(
-        { error: "Forbidden: only admins or managers can change feature toggles" },
+        { error: "Forbidden: only admins can change feature toggles" },
         { status: 403 }
       );
     }
