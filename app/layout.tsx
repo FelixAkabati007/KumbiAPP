@@ -38,9 +38,12 @@ if (
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Kumbisaly Heritage Restaurant POS",
+  title: {
+    default: "Kumbisaly Heritage Restaurant POS",
+    template: "%s | Kumbisaly Heritage Restaurant POS",
+  },
   manifest: "/manifest.webmanifest",
-  description: "Point of Sale system for Kumbisaly Heritage Restaurant",
+  description: "Point of Sale, inventory, finance, and operations management for Kumbisaly Heritage Restaurant.",
   generator: "v0.dev",
   icons: {
     icon: "/favicon.svg",

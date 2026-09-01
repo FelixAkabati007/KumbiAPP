@@ -26,7 +26,7 @@ describe("RBAC System", () => {
       });
     });
 
-    it("Manager should have access to all sections", () => {
+    it("Manager should not have administrative system access", () => {
       const sections: AppSection[] = [
         "pos",
         "kitchen",
@@ -40,7 +40,7 @@ describe("RBAC System", () => {
         "refunds",
       ];
       sections.forEach((section) => {
-        expect(hasPermission("manager", section)).toBe(true);
+        expect(hasPermission("manager", section)).toBe(section !== "system");
       });
     });
 
@@ -75,7 +75,7 @@ describe("RBAC System", () => {
     // Replicating middleware logic for verification
     const routePermissions: Record<string, string[]> = {
       "/admin": ["admin"],
-      "/settings": ["admin", "manager"],
+      "/settings": ["admin"],
       "/pos": ["admin", "manager", "staff"],
       "/kitchen": ["admin", "manager", "kitchen"],
       "/inventory": ["admin", "manager", "kitchen"],

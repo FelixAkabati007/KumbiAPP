@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchSettings } from "@/lib/settings";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,14 @@ export function SignInForm() {
   const { showLoading, hideLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [restaurantName, setRestaurantName] = useState("Kumbisaly Heritage Restaurant");
+
+  useEffect(() => {
+    void fetchSettings().then((settings) => {
+      const name = settings.account?.restaurantName?.trim();
+      if (name) setRestaurantName(name);
+    });
+  }, []);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -78,10 +87,7 @@ export function SignInForm() {
             <div className="flex items-center justify-center gap-2">
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                <span className="md:hidden">KHRMS</span>
-                <span className="hidden md:inline">
-                  Kumbisaly Heritage Restaurant
-                </span>
+                <span>{restaurantName}</span>
               </h1>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">

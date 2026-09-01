@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { hasPermission, type AppSection, type UserRole } from "@/lib/roles";
+import { hasPermission, isAdmin, type AppSection, type UserRole } from "@/lib/roles";
 
 export type ApiSession = {
   id: string;
@@ -62,6 +62,17 @@ export async function requirePermission(
  * one of the allowed roles. Use this for admin/manager-only operations
  * that aren't tied to a single AppSection (e.g. staff management).
  */
+export async function requireAdmin(): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) {
+    return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  if (!isAdmin(session.role)) {
+    return { session: null, error: NextResponse.json({ error: "Forbidden: administrators only" }, { status: 403 }) };
+  }
+  return { session: session as ApiSession, error: null };
+}
+
 export async function requireRole(
   ...roles: UserRole[]
 ): Promise<AuthResult> {

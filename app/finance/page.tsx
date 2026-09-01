@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/components/role-guard";
-import { CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
+import { PayrollDesk } from "@/components/finance/payroll-desk";
 
 type Transaction = {
   transaction_id?: string;
@@ -68,11 +70,16 @@ export default function FinancePage() {
     <RoleGuard section="finance">
       <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <header className="flex flex-col gap-4 rounded-3xl border border-orange-200 bg-white/70 p-4 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex items-start gap-3">
+              <Button asChild variant="outline" size="icon" className="shrink-0 rounded-2xl" aria-label="Back to dashboard">
+                <Link href="/"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Link>
+              </Button>
+              <div>
               <p className="text-sm font-medium text-primary">Finance workspace</p>
               <h1 className="text-3xl font-bold tracking-tight text-balance">Reconciliation and cash flow</h1>
               <p className="mt-1 text-sm text-muted-foreground">Review completed transactions, refunds, and payment activity.</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
@@ -83,6 +90,7 @@ export default function FinancePage() {
               </Button>
             </div>
           </header>
+          <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
