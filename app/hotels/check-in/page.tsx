@@ -302,7 +302,7 @@ function CheckInPage() {
       setPaymentAmount("");
       toast({
         title: "Success",
-        description: paid > 0 ? "Guest checked out and incidental payment recorded." : "Guest checked out. Accommodation was already settled at check-in.",
+        description: paid > 0 ? "Guest checked out early or on schedule and incidental payment was recorded. No accommodation refund applies." : "Guest checked out early or on schedule. Accommodation was already settled at check-in and is non-refundable.",
       });
     } catch (error) {
       console.error("Error checking out guest:", error);
@@ -503,7 +503,7 @@ function CheckInPage() {
             <CardHeader>
               <CardTitle>Check-Out Management</CardTitle>
               <CardDescription>
-                Accommodation is paid at check-in. Collect only services, damage, or other extras at check-out.
+                Guests may check out any time after check-in. Accommodation payments are non-refundable; collect only services, damage, or other extras at check-out.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -664,15 +664,15 @@ function CheckInPage() {
           {checkoutGuest && (
             <div className="space-y-4">
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-                <p className="font-semibold">Accommodation is paid at check-in</p>
+                <p className="font-semibold">Early checkout is allowed</p>
                 <p className="mt-1 text-blue-800">
-                  At check-out, collect only outstanding extras such as services, damage, or replacement charges.
+                  The guest may check out any time after check-in. Accommodation payment is non-refundable. Collect only outstanding extras such as services, damage, or replacement charges.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Accommodation</p>
-                  <p className="font-semibold">Paid at check-in</p>
+                  <p className="text-muted-foreground">Accommodation payment</p>
+                  <p className="font-semibold">Paid at check-in · No refund</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Extras Outstanding</p>
