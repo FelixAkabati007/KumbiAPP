@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 // Get all currently checked-in reservations joined with room and folio balance,
 // used to power the Check-Out list on the Check-In/Out page.
 export async function GET() {
