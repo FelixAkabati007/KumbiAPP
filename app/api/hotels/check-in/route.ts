@@ -19,21 +19,15 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
-      // Update reservation status to checked_in
+      const roomResult = await client.query(
+        `SELECT id FROM rooms WHERE id = $1 AND is_active = true AND status = 'available' FOR UPDATE`,
+        [roomId]
+      );
+      if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
+
       const resResult = await client.query(
-        `
-        UPDATE reservations 
-        SET status = 'checked_in', room_id = $1, updated_at = NOW()
-        WHERE id = $2
-          AND status IN ('confirmed', 'pending')
-          AND EXISTS (
-            SELECT 1 FROM rooms
-            WHERE rooms.id = $1
-              AND rooms.is_active = true
-              AND rooms.status IN ('available', 'dirty', 'cleaning')
-          )
-        RETURNING *
-        `,
+        `UPDATE reservations SET status = 'checked_in', room_id = $1, updated_at = NOW()
+         WHERE id = $2 AND status IN ('confirmed', 'pending') RETURNING *`,
         [roomId, reservationId]
       );
 
@@ -42,15 +36,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Update room status to occupied
-      const roomResult = await client.query(
-        `
-        UPDATE rooms
-        SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1), updated_at = NOW()
-        WHERE id = $2 AND status IN ('available', 'dirty', 'cleaning')
-        `,
+      const updatedRoomResult = await client.query(
+        `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1), updated_at = NOW()
+         WHERE id = $2 AND status = 'available'`,
         [reservationId, roomId]
       );
-      if (roomResult.rowCount === 0) {
+      if (updatedRoomResult.rowCount === 0) {
         throw new Error("Room is no longer available");
       }
 
@@ -71,8 +62,8 @@ export async function POST(request: NextRequest) {
 
       await client.query(
         `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-         VALUES ('checked_in', 'reservation', $1, $1, (SELECT guest_id FROM reservations WHERE id = $1), $2, 0, $3, $4)`,
-        [reservationId, roomId, `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
+         VALUES ('checked_in', 'reservation', $1, $1, $2, $3, 0, $4, $5)`,
+        [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
       );
 
       return resResult.rows[0];
@@ -82,7 +73,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error checking in guest:", error);
     return NextResponse.json(
-      { error: "Failed to check in guest" },
+      { error: error instanceof Error ? error.message : "Failed to check in guest" },
       { status: 500 }
     );
   }

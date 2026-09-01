@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-
-// Generate reservation number
-async function generateReservationNumber(): Promise<string> {
-  const result = await query(
-    `SELECT COUNT(*) as count FROM reservations WHERE created_at > NOW() - INTERVAL '1 day'`
-  );
-  const count = (result.rows[0]?.count || 0) + 1;
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  return `RES${date}${String(count).padStart(5, "0")}`;
-}
 
 // Get all reservations with optional filtering
 export async function GET(request: NextRequest) {
@@ -130,41 +120,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const reservationNumber = await generateReservationNumber();
+    const result = await transaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('kumbiapp-reservation-number'))`);
+      const reservationNumberResult = await client.query(`SELECT 'RES' || TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || LPAD((COUNT(*) + 1)::text, 5, '0') AS number FROM reservations WHERE created_at::date = CURRENT_DATE`);
+      const reservationNumber = reservationNumberResult.rows[0]?.number;
+      if (!reservationNumber) throw new Error("Unable to generate reservation number");
 
-    const result = await query(
-      `
-      INSERT INTO reservations (
-        reservation_number, guest_id, room_type_id, check_in_date, check_out_date,
-        number_of_guests, total_price, special_requests, source, promo_code,
-        discount_percent, created_by, status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'confirmed')
-      RETURNING *
-      `,
-      [
-        reservationNumber,
-        guestId,
-        roomTypeId,
-        checkInDate,
-        checkOutDate,
-        numberOfGuests || 1,
-        totalPrice || 0,
-        specialRequests || null,
-        source || "walk_in",
-        promoCode || null,
-        discountPercent || 0,
-        createdBy || null,
-      ]
-    );
+      const inserted = await client.query(
+        `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'confirmed') RETURNING *`,
+        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, createdBy || null]
+      );
 
-    await query(
-      `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, amount, description, metadata)
-       VALUES ('booking_created', 'reservation', $1, $1, $2, $3, $4, $5)`,
-      [String(result.rows[0].id), result.rows[0].guest_id, Number(result.rows[0].total_price) || 0, `Booking ${reservationNumber} created`, JSON.stringify({ source: "hotel", reservationNumber, sourceChannel: source || "walk_in" })]
-    );
+      await client.query(
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, amount, description, metadata)
+         VALUES ('booking_created', 'reservation', $1, $1, $2, $3, $4, $5)`,
+        [String(inserted.rows[0].id), inserted.rows[0].guest_id, Number(inserted.rows[0].total_price) || 0, `Booking ${reservationNumber} created`, JSON.stringify({ source: "hotel", reservationNumber, sourceChannel: source || "walk_in" })]
+      );
+      return inserted.rows[0];
+    });
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error("Error creating reservation:", error);
     return NextResponse.json(

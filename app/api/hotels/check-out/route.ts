@@ -28,13 +28,9 @@ export async function POST(request: NextRequest) {
     const result = await transaction(async (client) => {
       // Update reservation status to checked_out
       const resResult = await client.query(
-        `
-        UPDATE reservations 
-        SET status = 'checked_out', updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-        `,
-        [reservationId]
+        `UPDATE reservations SET status = 'checked_out', updated_at = NOW()
+         WHERE id = $1 AND room_id = $2 AND status = 'checked_in' RETURNING *`,
+        [reservationId, roomId]
       );
 
       if (resResult.rowCount === 0) {
@@ -50,6 +46,10 @@ export async function POST(request: NextRequest) {
         `,
         [roomId]
       );
+
+      const folioResult = await client.query(`SELECT balance FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`, [reservationId]);
+      const outstandingBalance = Number(folioResult.rows[0]?.balance ?? 0);
+      if (paid > outstandingBalance) throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
 
       // Update guest folio balance if payment is made
       if (paid > 0) {
@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
       try {
         await client.query(
           `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-           VALUES ('checked_out', 'reservation', $1, $1, (SELECT guest_id::text FROM reservations WHERE id = $1), $2, $3, $4, $5)`,
-          [reservationId, roomId, paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
+           VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6)`,
+          [String(reservationId), String(reservationId), String(resResult.rows[0].guest_id), String(roomId), paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
         );
       } catch (auxiliaryError) {
         console.error("Checkout activity ledger failed:", auxiliaryError);
