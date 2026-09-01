@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Home, ArrowLeft, Edit2, Image as ImageIcon, X, Upload } from "lucide-react";
+import { Plus, Home, ArrowLeft, Edit2, Trash2, Image as ImageIcon, X, Upload } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
@@ -58,6 +58,7 @@ function RoomsPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -190,6 +191,25 @@ function RoomsPage() {
       window.removeEventListener("housekeepingUpdated", refreshRooms);
     };
   }, [toast]);
+
+  const handleDeleteRoom = async (room: Room) => {
+    if (!window.confirm(`Delete room ${room.room_number}? This will remove it from the active room list.`)) return;
+    setDeletingRoomId(room.id);
+    try {
+      const response = await fetch(`/api/hotels/rooms/${room.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Failed to delete room");
+      }
+      toast({ title: "Room deleted", description: `Room ${room.room_number} was removed from the active inventory.` });
+      window.dispatchEvent(new Event("roomStatusUpdated"));
+      await fetchRooms();
+    } catch (error) {
+      toast({ title: "Unable to delete room", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setDeletingRoomId(null);
+    }
+  };
 
   const liveSync = useHotelLiveSync(fetchRooms);
 
@@ -352,8 +372,19 @@ function RoomsPage() {
                             setShowEditDialog(true);
                           }}
                         >
-                          <Edit2 className="h-4 w-4 mr-1" />
+                          <Edit2 className="mr-1 h-4 w-4" />
                           Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => void handleDeleteRoom(room)}
+                          disabled={deletingRoomId === room.id}
+                          aria-label={`Delete room ${room.room_number}`}
+                          title={`Delete room ${room.room_number}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
                     </tr>

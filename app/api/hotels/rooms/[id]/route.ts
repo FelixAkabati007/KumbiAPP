@@ -119,6 +119,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
+    const room = result.rows[0];
+    await query(
+      `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, room_id, amount, description, metadata)
+       VALUES ('room_deleted', 'room', $1, $1, 0, $2, $3)`,
+      [String(room.id), `Room ${room.room_number} deleted`, JSON.stringify({ source: "hotel" })]
+    );
     return NextResponse.json({ message: "Room deleted successfully" });
   } catch (error) {
     console.error("Error deleting room:", error);

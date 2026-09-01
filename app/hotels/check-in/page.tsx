@@ -247,7 +247,9 @@ function CheckInPage() {
 
   const openCheckout = (guest: CheckedInGuest) => {
     setCheckoutGuest(guest);
-    setPaymentAmount(guest.balance && Number(guest.balance) > 0 ? guest.balance : "");
+    // In Ghana, accommodation is settled at check-in. Check-out starts at GHS 0
+    // and only collects optional outstanding incidentals or damage charges.
+    setPaymentAmount("");
   };
 
   const handleCheckOut = async () => {
@@ -297,7 +299,7 @@ function CheckInPage() {
       setPaymentAmount("");
       toast({
         title: "Success",
-        description: "Guest checked out successfully",
+        description: paid > 0 ? "Guest checked out and incidental payment recorded." : "Guest checked out. Accommodation was already settled at check-in.",
       });
     } catch (error) {
       console.error("Error checking out guest:", error);
@@ -658,22 +660,26 @@ function CheckInPage() {
 
           {checkoutGuest && (
             <div className="space-y-4">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                <p className="font-semibold">Accommodation is paid at check-in</p>
+                <p className="mt-1 text-blue-800">
+                  At check-out, collect only outstanding extras such as services, damage, or replacement charges.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Total Charges</p>
-                  <p className="font-semibold">
-                    GHS {Number(checkoutGuest.total_charges || 0).toFixed(2)}
-                  </p>
+                  <p className="text-muted-foreground">Accommodation</p>
+                  <p className="font-semibold">Paid at check-in</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Outstanding Balance</p>
+                  <p className="text-muted-foreground">Extras Outstanding</p>
                   <p className="font-semibold">
                     GHS {Number(checkoutGuest.balance || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="payment-amount">Payment to Collect Now</Label>
+                <Label htmlFor="payment-amount">Incidentals Payment at Check-Out</Label>
                 <Input
                   id="payment-amount"
                   type="number"
@@ -688,7 +694,7 @@ function CheckInPage() {
                   max={checkoutGuest?.balance ? Number(checkoutGuest.balance) : undefined}
                 />
                 <p id="payment-amount-help" className="text-xs text-muted-foreground">
-                  Enter 0 to check out without collecting payment.
+                  Leave blank or enter 0 when no extra charges are due. Maximum: GHS {Number(checkoutGuest.balance || 0).toFixed(2)}.
                 </p>
               </div>
             </div>
