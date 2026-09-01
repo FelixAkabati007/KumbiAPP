@@ -65,27 +65,32 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create exactly one pending cleaning task for this checkout. The
-      // partial unique index below is not assumed, so the guarded insert is
-      // safe on existing databases as well as fresh installs.
-      await client.query(
-        `
-        INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
-        SELECT $1, 'cleaning', 'pending', 'normal'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM housekeeping_tasks
-          WHERE room_id = $1 AND task_type = 'cleaning'
-            AND status IN ('pending', 'in_progress')
-        )
-        `,
-        [roomId]
-      );
+      // Operational checkout is complete above. Auxiliary housekeeping and
+      // ledger writes must not make a valid checkout fail on older installs.
+      try {
+        await client.query(
+          `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
+           SELECT $1, 'cleaning', 'pending', 'normal'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM housekeeping_tasks
+             WHERE room_id = $1 AND task_type = 'cleaning'
+               AND status IN ('pending', 'in_progress')
+           )`,
+          [roomId]
+        );
+      } catch (auxiliaryError) {
+        console.error("Checkout housekeeping task failed:", auxiliaryError);
+      }
 
-      await client.query(
-        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-         VALUES ('checked_out', 'reservation', $1, $1, (SELECT guest_id FROM reservations WHERE id = $1), $2, $3, $4, $5)`,
-        [reservationId, roomId, paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
-      );
+      try {
+        await client.query(
+          `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
+           VALUES ('checked_out', 'reservation', $1, $1, (SELECT guest_id::text FROM reservations WHERE id = $1), $2, $3, $4, $5)`,
+          [reservationId, roomId, paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
+        );
+      } catch (auxiliaryError) {
+        console.error("Checkout activity ledger failed:", auxiliaryError);
+      }
 
       return resResult.rows[0];
     });
@@ -93,9 +98,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Error checking out guest:", error);
-    return NextResponse.json(
-      { error: "Failed to check out guest" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Failed to check out guest";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

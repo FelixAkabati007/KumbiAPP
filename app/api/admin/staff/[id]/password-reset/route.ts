@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins and managers can initiate resets
+    // Only admins and managers can initiate resets. The target can never be the actor.
     if (!["admin", "manager"].includes(session.role)) {
       return NextResponse.json(
         { error: "Only admins and managers can reset passwords" },
@@ -25,6 +25,9 @@ export async function POST(
     }
 
     const { id } = await context.params;
+    if (id === session.id) {
+      return NextResponse.json({ error: "Use your personal password settings to change your own password" }, { status: 400 });
+    }
     const body = await request.json();
     const { reason } = body;
 
@@ -69,6 +72,8 @@ export async function POST(
       changeDetails: {
         email: staff.business_email,
         expiresAt,
+        reason,
+        initiatedByRole: session.role,
       },
       ipAddress,
     });
