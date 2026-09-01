@@ -194,7 +194,7 @@ function DashboardContent() {
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="sticky top-0 z-40 w-full border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-orange-200 dark:border-orange-700">
-        <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0 px-4 md:px-6">
+        <div className="container flex min-h-16 flex-wrap items-center gap-2 py-2 sm:justify-between px-3 sm:px-4 md:px-6">
           <div className="flex gap-6 md:gap-10">
             <div className="flex items-center space-x-2">
               <LogoDisplay size="sm" />
@@ -266,8 +266,8 @@ function DashboardContent() {
         </div>
       </header>
 
-      <main className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
+      <main className="flex-1 space-y-4 p-3 sm:p-4 md:p-8 pt-5 md:pt-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">
             Dashboard
           </h2>
@@ -279,7 +279,9 @@ function DashboardContent() {
                   ? "Full Access"
                   : user && user.role === "manager"
                     ? "Manager Access"
-                    : "Cashier Access"}
+                    : user && user.role === "finance"
+                      ? "Finance Access"
+                      : "Cashier Access"}
               </span>
             </div>
           </div>
@@ -466,6 +468,22 @@ function DashboardContent() {
                   <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Inventory
                   </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          )}
+          {access.finance && (
+            <Card className="bg-card border border-orange-200 dark:border-orange-800 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm">Finance Desk</CardTitle>
+                <CreditCard className="h-4 w-4 text-orange-600" aria-hidden="true" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Reconcile payments and review transaction activity.</p>
+              </CardContent>
+              <CardFooter>
+                <Link href="/finance" className="w-full">
+                  <Button className="w-full">Open Finance</Button>
                 </Link>
               </CardFooter>
             </Card>
