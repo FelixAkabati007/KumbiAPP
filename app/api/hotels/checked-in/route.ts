@@ -35,10 +35,9 @@ export async function GET() {
 
     const result = await query(sql);
     const response = NextResponse.json(result.rows);
-    response.headers.set(
-      "Cache-Control",
-      "public, max-age=15, s-maxage=30, stale-while-revalidate=120"
-    );
+    // This list changes immediately after check-out; never serve a stale
+    // cached guest after the mutation succeeds.
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
     return response;
   } catch (error) {
     console.error("Error fetching checked-in guests:", error);
