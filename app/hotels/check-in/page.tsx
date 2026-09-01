@@ -194,6 +194,7 @@ function CheckInPage() {
   };
 
   const handleCheckIn = async () => {
+    if (processing) return;
     if (!selectedReservation || !selectedRoomId) {
       toast({
         title: "Select a room",
@@ -214,7 +215,10 @@ function CheckInPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to check in guest");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Failed to check in guest");
+      }
 
       toast({
         title: "Success",
@@ -269,7 +273,7 @@ function CheckInPage() {
         body: JSON.stringify({
           reservationId: checkoutGuest.id,
           roomId: checkoutGuest.room_id,
-          balancePaid: paymentAmount ? Number(paymentAmount) : 0,
+          balancePaid: paid,
         }),
       });
 
@@ -623,7 +627,7 @@ function CheckInPage() {
               disabled={processing || !selectedRoomId}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
-              Confirm Check-In
+              {processing ? "Processing…" : "Confirm Check-In"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -681,7 +685,8 @@ function CheckInPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCheckoutGuest(null)}
+              onClick={() => { setCheckoutGuest(null); setPaymentAmount(""); }}
+              disabled={processing}
               className="rounded-lg"
             >
               Cancel
@@ -691,7 +696,7 @@ function CheckInPage() {
               disabled={processing || !checkoutGuest || !Number.isFinite(Number(paymentAmount || 0)) || Number(paymentAmount || 0) < 0 || Number(paymentAmount || 0) > Number(checkoutGuest?.balance || 0)}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
-              Confirm Check-Out
+              {processing ? "Processing…" : "Confirm Check-Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
