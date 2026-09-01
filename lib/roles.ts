@@ -21,6 +21,21 @@ export type AppSection =
   | "maintenance"
   | "guestFolio";
 
+export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
+
+export type RoleCapability = Record<CrudAction, boolean>;
+
+/** Traceable least-privilege capability defaults. Section booleans remain the UI visibility contract. */
+export const roleCapabilities: Record<UserRole, Partial<Record<AppSection, RoleCapability>>> = {
+  admin: { system: { view: true, create: true, edit: true, delete: true, manage: true } },
+  manager: { reports: { view: true, create: true, edit: true, delete: false, manage: false }, finance: { view: true, create: true, edit: true, delete: false, manage: false } },
+  finance: { finance: { view: true, create: true, edit: true, delete: false, manage: false }, payments: { view: true, create: true, edit: true, delete: false, manage: false }, refunds: { view: true, create: true, edit: false, delete: false, manage: false } },
+  staff: { pos: { view: true, create: true, edit: true, delete: false, manage: false }, receipt: { view: true, create: true, edit: false, delete: false, manage: false } },
+  kitchen: { kitchen: { view: true, create: true, edit: true, delete: false, manage: false }, orderBoard: { view: true, create: false, edit: true, delete: false, manage: false } },
+  frontDesk: { reservations: { view: true, create: true, edit: true, delete: false, manage: false }, checkIn: { view: true, create: true, edit: true, delete: false, manage: false }, checkOut: { view: true, create: false, edit: true, delete: false, manage: false }, guestFolio: { view: true, create: true, edit: true, delete: false, manage: false } },
+  housekeeping: { housekeeping: { view: true, create: true, edit: true, delete: false, manage: false }, maintenance: { view: true, create: true, edit: true, delete: false, manage: false }, rooms: { view: true, create: false, edit: true, delete: false, manage: false } },
+};
+
 export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
   admin: {
     pos: true,

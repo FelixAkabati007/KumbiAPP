@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
+import type { UserRole } from "@/lib/roles";
 
 export async function PATCH(
   request: Request,
@@ -19,6 +20,11 @@ export async function PATCH(
     const role = typeof body.role === "string" ? body.role : undefined;
     const name = typeof body.name === "string" ? body.name : undefined;
     const email = typeof body.email === "string" ? body.email : undefined;
+
+    const validRoles: UserRole[] = ["admin", "manager", "finance", "staff", "kitchen", "frontDesk", "housekeeping"];
+    if (role && !validRoles.includes(role as UserRole)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
 
     // Validate input (basic)
     if (!role && !name && !email) {
