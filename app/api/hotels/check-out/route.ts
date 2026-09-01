@@ -40,15 +40,18 @@ export async function POST(request: NextRequest) {
 
       const resResult = await client.query(
         `UPDATE reservations SET status = 'checked_out', updated_at = NOW()
-         WHERE id = $1 AND room_id = $2 AND status = 'checked_in' RETURNING *`,
-        [reservationId, roomId]
+         WHERE id = $1 AND status = 'checked_in' RETURNING *`,
+        [reservationId]
       );
       if (resResult.rowCount !== 1) throw new Error("Reservation is no longer checked in");
 
+      // Use the reservation's persisted room assignment as the source of truth.
+      // The client may have rendered an older room_id during live refresh.
+      const checkedOutRoomId = resResult.rows[0].room_id || roomId;
       const roomResult = await client.query(
         `UPDATE rooms SET status = 'dirty', current_guest_id = NULL, updated_at = NOW()
          WHERE id = $1 RETURNING id`,
-        [roomId]
+        [checkedOutRoomId]
       );
       if (roomResult.rowCount !== 1) throw new Error("Room was not found");
 
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
              WHERE room_id = $1 AND task_type = 'cleaning'
                AND status IN ('pending', 'in_progress')
            )`,
-          [roomId]
+          [checkedOutRoomId]
         );
       } catch (auxiliaryError) {
         console.error("Checkout housekeeping task failed:", auxiliaryError);
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
         await client.query(
           `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
            VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6)`,
-          [String(reservationId), String(reservationId), String(resResult.rows[0].guest_id), String(roomId), paid, `Guest checked out of room ${roomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
+          [String(reservationId), String(reservationId), String(resResult.rows[0].guest_id), String(checkedOutRoomId), paid, `Guest checked out of room ${checkedOutRoomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
         );
       } catch (auxiliaryError) {
         console.error("Checkout activity ledger failed:", auxiliaryError);
