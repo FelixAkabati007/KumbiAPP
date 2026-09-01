@@ -473,17 +473,19 @@ function DashboardContent() {
             </Card>
           )}
           {access.finance && (
-            <Card className="bg-card border border-orange-200 dark:border-orange-800 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm">Finance Desk</CardTitle>
-                <CreditCard className="h-4 w-4 text-orange-600" aria-hidden="true" />
+            <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Finance Desk</CardTitle>
+                <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Reconcile payments and review transaction activity.</p>
+              <CardContent className="relative z-10">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Finance</div>
+                <p className="text-xs text-muted-foreground">Reconcile payments and review transaction activity.</p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="relative z-10">
                 <Link href="/finance" className="w-full">
-                  <Button className="w-full">Open Finance</Button>
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">Open Finance</Button>
                 </Link>
               </CardFooter>
             </Card>

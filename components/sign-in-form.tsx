@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Lock, Mail, Utensils } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { useLoading } from "@/components/loading-provider";
@@ -84,9 +84,8 @@ export function SignInForm() {
             <LogoDisplay size="lg" />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="flex items-center justify-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                 <span>{restaurantName}</span>
               </h1>
             </div>
