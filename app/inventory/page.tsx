@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   TrendingDown,
   Sparkles,
+  Building2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -64,6 +65,7 @@ function InventoryContent() {
     totalValue: 0,
     categories: {} as { [key: string]: number },
   });
+  const [hotelActivityCount, setHotelActivityCount] = useState(0);
 
   // Load inventory items on component mount
   useEffect(() => {
@@ -92,6 +94,10 @@ function InventoryContent() {
       });
     }
     load();
+    fetch("/api/hotel-activity?limit=100")
+      .then((response) => response.ok ? response.json() : [])
+      .then((events) => setHotelActivityCount(Array.isArray(events) ? events.length : 0))
+      .catch(() => setHotelActivityCount(0));
   }, []);
 
   // Filter items based on search query and active tab
@@ -433,7 +439,7 @@ function InventoryContent() {
           </Select>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 via-cyan-100/20 to-teal-100/20 dark:from-blue-900/20 dark:via-cyan-900/20 dark:to-teal-900/20"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
@@ -488,6 +494,16 @@ function InventoryContent() {
               <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                 {Object.keys(summary.categories).length}
               </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">Hotel Activity</CardTitle>
+              <Building2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">{hotelActivityCount}</div>
+              <p className="text-xs text-orange-600 dark:text-orange-400">Events tracked</p>
             </CardContent>
           </Card>
         </div>

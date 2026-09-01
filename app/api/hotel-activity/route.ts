@@ -27,10 +27,12 @@ export async function GET(request: Request) {
     if (error) return error;
     const { searchParams } = new URL(request.url);
     const eventType = searchParams.get("eventType");
+    const reservationId = searchParams.get("reservationId");
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 500), 1), 1000);
     const params: (string | number)[] = [];
     const conditions: string[] = [];
     if (eventType) { conditions.push(`event_type = $${params.length + 1}`); params.push(eventType); }
+    if (reservationId) { conditions.push(`reservation_id = $${params.length + 1}`); params.push(Number(reservationId)); }
     let sql = `SELECT id, event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, currency, description, metadata, occurred_at, created_by FROM hotel_activity_ledger`;
     if (conditions.length) sql += ` WHERE ${conditions.join(" AND ")}`;
     sql += ` ORDER BY occurred_at DESC LIMIT $${params.length + 1}`;

@@ -36,21 +36,13 @@ export async function GET(request: Request) {
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at
       FROM transaction_logs`;
-    const hotelParams: (string | number)[] = [];
-    const hotelConditions: string[] = [];
-    if (startDate) { hotelConditions.push(`occurred_at >= $${hotelParams.length + 1}`); hotelParams.push(startDate); }
-    if (endDate) { hotelConditions.push(`occurred_at < ($${hotelParams.length + 1}::date + INTERVAL '1 day')`); hotelParams.push(endDate); }
-    if (source === "restaurant") {
-      queryText = `${queryText}`;
-    } else {
-      const hotelWhere = hotelConditions.length ? ` WHERE ${hotelConditions.join(" AND ")}` : "";
+    if (source !== "restaurant") {
       queryText = `SELECT id::text, 'HOTEL-' || id::text AS transaction_id, amount, currency,
         CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status,
         'hotel' AS payment_method, guest_id::text AS customer_id, NULL::jsonb AS items,
         jsonb_build_object('source','hotel','eventType',event_type,'entityType',entity_type,'entityId',entity_id,'description',description,'reservationId',reservation_id,'roomId',room_id) AS metadata,
-        occurred_at AS created_at, created_at AS updated_at FROM hotel_activity_ledger${hotelWhere}
+        occurred_at AS created_at, created_at AS updated_at FROM hotel_activity_ledger
         UNION ALL ${queryText}`;
-      params.push(...hotelParams);
     }
     const conditions: string[] = [];
 

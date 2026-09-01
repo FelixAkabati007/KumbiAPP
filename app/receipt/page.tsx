@@ -65,6 +65,8 @@ function ReceiptContent() {
     orderType: "dine-in",
   });
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
+  const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel">("restaurant");
+  const [hotelActivity, setHotelActivity] = useState<{ transaction_id: string; amount: number; metadata?: { description?: string; eventType?: string; reservationId?: number; roomId?: number }; created_at: string } | null>(null);
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
@@ -116,6 +118,14 @@ function ReceiptContent() {
   // Search handler
   const handleSearch = async () => {
     setSearchTouched(true);
+    if (receiptSource === "hotel") {
+      const response = await fetch(`/api/hotel-activity?reservationId=${encodeURIComponent(searchOrderNumber.trim())}&limit=1`);
+      const events = response.ok ? await response.json() : [];
+      setHotelActivity(Array.isArray(events) ? events[0] ?? null : null);
+      setFoundSale(null);
+      return;
+    }
+    setHotelActivity(null);
     if (!searchOrderNumber) {
       setFoundSale(null);
       return;
@@ -290,9 +300,12 @@ function ReceiptContent() {
             </CardHeader>
             <CardContent className="relative z-10 space-y-4">
               {/* Search Field */}
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <select value={receiptSource} onChange={(event) => { setReceiptSource(event.target.value as "restaurant" | "hotel"); setFoundSale(null); setHotelActivity(null); }} className="rounded-2xl border border-orange-200 bg-white/50 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/50 dark:text-orange-100" aria-label="Receipt source">
+                  <option value="restaurant">Restaurant order</option><option value="hotel">Hotel reservation</option>
+                </select>
                 <Input
-                  placeholder="Enter Order Number (e.g. ORD-20240101-0001)"
+                  placeholder={receiptSource === "hotel" ? "Enter reservation ID" : "Enter Order Number (e.g. ORD-20240101-0001)"}
                   value={searchOrderNumber}
                   onChange={(e) => setSearchOrderNumber(e.target.value)}
                   onKeyDown={handleSearchInputKeyDown}
@@ -306,7 +319,13 @@ function ReceiptContent() {
                 </Button>
               </div>
               {/* Preview or Empty State */}
-              {foundSale ? (
+              {hotelActivity ? (
+                <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-orange-200 bg-white p-5 text-orange-900 shadow-sm dark:border-orange-700 dark:bg-gray-900 dark:text-orange-100">
+                  <h3 className="font-bold">Hotel Activity Receipt</h3>
+                  <p className="text-sm">{hotelActivity.metadata?.description ?? hotelActivity.metadata?.eventType ?? "Hotel activity"}</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm"><span>Reservation</span><strong>{hotelActivity.metadata?.reservationId ?? searchOrderNumber}</strong><span>Room</span><strong>{hotelActivity.metadata?.roomId ?? "—"}</strong><span>Amount</span><strong>₵{Number(hotelActivity.amount ?? 0).toFixed(2)}</strong><span>Date</span><strong>{new Date(hotelActivity.created_at).toLocaleString()}</strong></div>
+                </div>
+              ) : foundSale ? (
                 <ScrollArea className="h-[600px]">
                   <div
                     ref={printRef}
