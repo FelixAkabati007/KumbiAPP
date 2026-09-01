@@ -46,6 +46,11 @@ interface UnitSelectProps {
 let cachedCategories: UnitCategory[] | null = null;
 let inFlightFetch: Promise<UnitCategory[]> | null = null;
 
+export function resetUnitSelectCache() {
+  cachedCategories = null;
+  inFlightFetch = null;
+}
+
 const LOCALIZATION: Record<string, Record<string, string>> = {
   en: {
     selectUnit: "Select unit...",

@@ -344,7 +344,9 @@ export class PaymentService {
     try {
       const ENABLE_RECIPE_DEDUCTION = true; // Feature flag
 
-      if (ENABLE_RECIPE_DEDUCTION && orderId) {
+      const isUuid = (value?: string) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
+      if (ENABLE_RECIPE_DEDUCTION && isUuid(orderId)) {
         // Map OrderItem to InventoryDeductionItem
         const deductionItems = items.map((i) => ({
           menu_item_id: i.id,
