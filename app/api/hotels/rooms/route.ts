@@ -14,12 +14,33 @@ export async function GET(request: NextRequest) {
 
     let sql = `
       SELECT r.id, r.room_number, r.floor, r.building, r.status,
-             r.room_type_id, r.notes,
+             r.room_type_id, r.notes, r.current_guest_id,
              rt.name as room_type_name, rt.base_price,
              COALESCE(r.price, rt.base_price) as price,
-             r.images
+             r.images,
+             g.first_name AS guest_first_name,
+             g.last_name AS guest_last_name,
+             res.check_in_date, res.check_out_date,
+             hk.assigned_to AS assigned_housekeeper_id,
+             hu.name AS assigned_housekeeper_name
       FROM rooms r
       JOIN room_types rt ON r.room_type_id = rt.id
+      LEFT JOIN guests g ON g.id = r.current_guest_id
+      LEFT JOIN LATERAL (
+        SELECT check_in_date, check_out_date
+        FROM reservations
+        WHERE room_id = r.id AND status = 'checked_in'
+        ORDER BY updated_at DESC
+        LIMIT 1
+      ) res ON true
+      LEFT JOIN LATERAL (
+        SELECT assigned_to
+        FROM housekeeping_tasks
+        WHERE room_id = r.id AND status IN ('pending', 'in_progress')
+        ORDER BY priority DESC, created_at ASC
+        LIMIT 1
+      ) hk ON true
+      LEFT JOIN users hu ON hu.id = hk.assigned_to
       WHERE r.is_active = true
     `;
     const params: (string | undefined)[] = [];

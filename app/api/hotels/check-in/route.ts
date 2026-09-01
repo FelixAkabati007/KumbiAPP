@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
         UPDATE reservations 
         SET status = 'checked_in', room_id = $1, updated_at = NOW()
         WHERE id = $2
+          AND status IN ('confirmed', 'pending')
+          AND EXISTS (
+            SELECT 1 FROM rooms
+            WHERE rooms.id = $1
+              AND rooms.is_active = true
+              AND rooms.status IN ('available', 'dirty', 'cleaning')
+          )
         RETURNING *
         `,
         [roomId, reservationId]
@@ -35,22 +42,26 @@ export async function POST(request: NextRequest) {
       }
 
       // Update room status to occupied
-      await client.query(
+      const roomResult = await client.query(
         `
         UPDATE rooms
         SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1), updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND status IN ('available', 'dirty', 'cleaning')
         `,
         [reservationId, roomId]
       );
+      if (roomResult.rowCount === 0) {
+        throw new Error("Room is no longer available");
+      }
 
       // Create guest folio
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
-        SELECT $1, (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)), 
-               (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)), 
+        SELECT $1, (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)),
+               (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)),
                (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1))
+        ON CONFLICT (reservation_id) DO NOTHING
         `,
         [reservationId]
       );

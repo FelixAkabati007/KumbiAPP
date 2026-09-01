@@ -221,6 +221,8 @@ function CheckInPage() {
         description: "Guest checked in successfully",
       });
 
+      window.dispatchEvent(new Event("roomStatusUpdated"));
+      window.dispatchEvent(new Event("reservationUpdated"));
       setSelectedReservation(null);
       setSelectedRoomId("");
       await Promise.all([fetchReservations(), fetchCheckedInGuests()]);
@@ -270,6 +272,9 @@ function CheckInPage() {
         description: "Guest checked out successfully",
       });
 
+      window.dispatchEvent(new Event("roomStatusUpdated"));
+      window.dispatchEvent(new Event("housekeepingUpdated"));
+      window.dispatchEvent(new Event("reservationUpdated"));
       setCheckoutGuest(null);
       setPaymentAmount("");
       await fetchCheckedInGuests();

@@ -220,6 +220,8 @@ function HousekeepingPage() {
         title: "Success",
         description: `Task created for Room ${formData.roomNumber}`,
       });
+      window.dispatchEvent(new Event("housekeepingUpdated"));
+      window.dispatchEvent(new Event("roomStatusUpdated"));
       setShowNewTaskDialog(false);
       setFormData({ roomNumber: "", taskType: "", priority: "normal", notes: "" });
       await fetchTasks();
@@ -244,6 +246,8 @@ function HousekeepingPage() {
       });
       if (!response.ok) throw new Error("Failed to update task");
       toast({ title: "Task marked as completed" });
+      window.dispatchEvent(new Event("housekeepingUpdated"));
+      window.dispatchEvent(new Event("roomStatusUpdated"));
       await fetchTasks();
     } catch (error) {
       console.error("Error updating task:", error);

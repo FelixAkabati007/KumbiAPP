@@ -153,6 +153,7 @@ function ReservationsPage() {
         title: "Success",
         description: `Reservation ${reservation.reservation_number} created for ${formData.firstName} ${formData.lastName}`,
       });
+      window.dispatchEvent(new Event("reservationUpdated"));
       setShowNewReservationDialog(false);
       setFormData({
         firstName: "",
