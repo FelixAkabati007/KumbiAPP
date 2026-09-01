@@ -1,5 +1,5 @@
 // Role definitions and permissions for the Hospitality Management System
-export type UserRole = "admin" | "manager" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
+export type UserRole = "admin" | "manager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
 
 export type AppSection =
   | "pos"
@@ -8,6 +8,7 @@ export type AppSection =
   | "menu"
   | "inventory"
   | "reports"
+  | "finance"
   | "payments"
   | "receipt"
   | "system"
@@ -28,6 +29,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: true,
     inventory: true,
     reports: true,
+    finance: true,
     payments: true,
     receipt: true,
     system: true,
@@ -40,6 +42,26 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     guestFolio: true,
   },
+  finance: {
+    pos: false,
+    kitchen: false,
+    orderBoard: false,
+    menu: false,
+    inventory: false,
+    reports: true,
+    finance: true,
+    payments: true,
+    receipt: true,
+    system: false,
+    refunds: true,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: false,
+    guestFolio: true,
+  },
   manager: {
     pos: true,
     kitchen: true,
@@ -47,6 +69,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: true,
     inventory: true,
     reports: true,
+    finance: true,
     payments: true,
     receipt: true,
     system: true,
@@ -66,6 +89,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: false,
     inventory: true,
     reports: false,
+    finance: false,
     payments: false,
     receipt: true,
     system: false,
@@ -85,6 +109,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: false,
     inventory: false,
     reports: false,
+    finance: false,
     payments: false,
     receipt: true,
     system: false,
@@ -104,6 +129,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: false,
     inventory: false,
     reports: false,
+    finance: false,
     payments: true,
     receipt: true,
     system: false,
@@ -123,6 +149,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     menu: false,
     inventory: false,
     reports: false,
+    finance: false,
     payments: false,
     receipt: false,
     system: false,
@@ -139,4 +166,8 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
 
 export function hasPermission(role: UserRole, section: AppSection): boolean {
   return rolePermissions[role]?.[section] ?? false;
+}
+
+export function canManageFeatureToggles(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager";
 }

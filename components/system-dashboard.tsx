@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,17 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
     };
   }, [toast]);
 
+  const diagnosticSummary = useMemo(() => {
+    const hardware = [
+      systemStatus?.cashDrawer,
+      systemStatus?.barcodeScanner,
+      systemStatus?.thermalPrinter,
+    ].filter(Boolean);
+    const hardwareErrors = hardware.filter((item) => item?.error).length;
+    const eventErrors = events.filter((event) => event.type === "error").length;
+    return { hardwareErrors, eventErrors, totalEvents: events.length };
+  }, [events, systemStatus]);
+
   const getStatusIcon = (isConnected: boolean, error: string | null) => {
     if (error) return <XCircle className="h-4 w-4 text-red-500" />;
     if (isConnected) return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -221,6 +232,11 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          <section className="grid gap-3 sm:grid-cols-3" aria-label="Live diagnostics">
+            <div className="rounded-lg border bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Hardware errors</p><p className="text-xl font-semibold">{diagnosticSummary.hardwareErrors}</p></div>
+            <div className="rounded-lg border bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Logged errors</p><p className="text-xl font-semibold">{diagnosticSummary.eventErrors}</p></div>
+            <div className="rounded-lg border bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Events captured</p><p className="text-xl font-semibold">{diagnosticSummary.totalEvents}</p></div>
+          </section>
           {/* Hardware Status */}
           <div>
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">

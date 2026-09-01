@@ -29,6 +29,7 @@ import { LogoDisplay } from "@/components/logo-display";
 import type { SalesData, OrderItem, RefundRequest } from "@/lib/types";
 import { addSaleData } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
+import * as XLSX from "xlsx";
 
 const SalesCharts = dynamic(() => import("@/components/reports/sales-charts"), {
   loading: () => (
@@ -398,36 +399,20 @@ function ReportsPage() {
   };
 
   const exportData = () => {
-    const csvContent = [
-      [
-        "Order Number",
-        "Date",
-        "Customer",
-        "Items",
-        "Total (₵)",
-        "Payment Method",
-      ],
-      ...filteredData.map((order) => [
-        order.orderNumber,
-        order.date,
-        order.customerName || order.tableNumber || "N/A",
-        order.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
-        order.total.toFixed(2),
-        order.paymentMethod,
-      ]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sales-report-${dateFilter}-${
+    const rows = filteredData.map((order) => ({
+      "Order Number": order.orderNumber,
+      Date: order.date,
+      Customer: order.customerName || order.tableNumber || "N/A",
+      Items: order.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
+      "Total (₵)": order.total,
+      "Payment Method": order.paymentMethod,
+    }));
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Report");
+    XLSX.writeFile(workbook, `sales-report-${dateFilter}-${
       new Date().toISOString().split("T")[0]
-    }.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    }.xlsx`);
   };
 
   return (

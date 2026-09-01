@@ -40,6 +40,7 @@ function ReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
+  const [isReviewingReservation, setIsReviewingReservation] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -109,6 +110,11 @@ function ReservationsPage() {
       return;
     }
 
+    if (!isReviewingReservation) {
+      setIsReviewingReservation(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const guestResponse = await fetch("/api/hotels/guests", {
@@ -155,6 +161,7 @@ function ReservationsPage() {
       });
       window.dispatchEvent(new Event("reservationUpdated"));
       setShowNewReservationDialog(false);
+      setIsReviewingReservation(false);
       setFormData({
         firstName: "",
         lastName: "",
@@ -259,9 +266,20 @@ function ReservationsPage() {
       <Dialog open={showNewReservationDialog} onOpenChange={setShowNewReservationDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Reservation</DialogTitle>
-            <DialogDescription>Enter guest details to create a new reservation</DialogDescription>
+            <DialogTitle>{isReviewingReservation ? "Verify Reservation Details" : "Create New Reservation"}</DialogTitle>
+            <DialogDescription>
+              {isReviewingReservation
+                ? "Review the details below, then select Proceed to Book to finalize."
+                : "Enter guest details to create a new reservation"}
+            </DialogDescription>
           </DialogHeader>
+          {isReviewingReservation && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm dark:border-orange-700 dark:bg-orange-950/30">
+              <p className="font-medium">{formData.firstName} {formData.lastName}</p>
+              <p>{formData.checkInDate} to {formData.checkOutDate} · {formData.numberOfGuests} guest(s)</p>
+              <p>{roomTypes.find((rt) => rt.id === formData.roomTypeId)?.name ?? "Room type not selected"}</p>
+            </div>
+          )}
           
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
@@ -368,7 +386,10 @@ function ReservationsPage() {
           <div className="flex gap-3 justify-end pt-4">
             <Button
               variant="outline"
-              onClick={() => setShowNewReservationDialog(false)}
+              onClick={() => {
+                setIsReviewingReservation(false);
+                setShowNewReservationDialog(false);
+              }}
               className="rounded-lg"
             >
               Cancel
@@ -378,7 +399,11 @@ function ReservationsPage() {
               disabled={submitting}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
-              {submitting ? "Creating..." : "Create Reservation"}
+              {submitting
+                ? "Creating..."
+                : isReviewingReservation
+                  ? "Proceed to Book"
+                  : "Review Reservation"}
             </Button>
           </div>
         </DialogContent>
