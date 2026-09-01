@@ -58,10 +58,13 @@ export async function POST(request: NextRequest) {
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
-        SELECT $1, (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)),
-               (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1)),
-               (SELECT base_price FROM room_types WHERE id = (SELECT room_type_id FROM reservations WHERE id = $1))
-        ON CONFLICT (reservation_id) DO NOTHING
+        SELECT $1, rt.base_price, rt.base_price, rt.base_price
+        FROM reservations r
+        JOIN room_types rt ON rt.id = r.room_type_id
+        WHERE r.id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1
+          )
         `,
         [reservationId]
       );
