@@ -545,7 +545,9 @@ function ReceiptContent() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-300 dark:text-gray-600">
                   <span className="text-lg">
-                    Search for a hotel payment receipt by reservation ID or booking number.
+                    {receiptSource === "hotel"
+                      ? "Search for a hotel payment receipt by reservation ID or booking number."
+                      : "Search for a restaurant receipt by order number."}
                   </span>
                 </div>
               )}
