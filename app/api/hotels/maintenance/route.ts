@@ -75,12 +75,26 @@ export async function POST(request: NextRequest) {
   try {
     const { session, error } = await requirePermission("maintenance");
     if (error) return error;
-    if (session.role !== "admin" && session.role !== "manager") {
-      return NextResponse.json({ error: "Only Admins and Managers can issue maintenance tickets" }, { status: 403 });
+    const { roomId, issueDescription, severity, assignedTo, notes } =
+      await request.json();
+
+    let routedRecipient = assignedTo || null;
+    if (session.role === "housekeeping" && !routedRecipient) {
+      const recipientResult = await query(
+        `SELECT id FROM users
+         WHERE is_active = true AND role IN ('manager', 'admin')
+         ORDER BY CASE role WHEN 'manager' THEN 0 ELSE 1 END, last_login DESC NULLS LAST, created_at ASC
+         LIMIT 1`,
+      );
+      routedRecipient = recipientResult.rows[0]?.id || null;
+      if (!routedRecipient) {
+        return NextResponse.json({ error: "No active Manager or Admin is available to receive this ticket" }, { status: 503 });
+      }
     }
 
-    const { roomId, issueDescription, severity, assignedTo, notes, createdBy } =
-      await request.json();
+    if (session.role !== "admin" && session.role !== "manager" && session.role !== "housekeeping") {
+      return NextResponse.json({ error: "Only Admins, Managers, or Housekeeping can issue maintenance tickets" }, { status: 403 });
+    }
 
     if (!roomId || !issueDescription) {
       return NextResponse.json(
@@ -104,9 +118,9 @@ export async function POST(request: NextRequest) {
         roomId,
         issueDescription,
         severity || "normal",
-        assignedTo || null,
+        routedRecipient,
         notes || null,
-        createdBy || null,
+        session.id,
       ]
     );
 
@@ -120,8 +134,13 @@ export async function POST(request: NextRequest) {
         `${severity || "normal"} priority ticket created for room ${roomId}.`,
         "maintenance",
         session.id,
-        assignedTo || null,
+        routedRecipient,
       ],
+    );
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [session.id, "maintenance_ticket_routed", "maintenance_ticket", ticket.id, JSON.stringify({ recipientId: routedRecipient, routing: session.role === "housekeeping" ? "manager_first_admin_fallback" : "direct_assignment" })],
     );
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
