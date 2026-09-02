@@ -9,6 +9,21 @@ export type UserRole =
   | "frontDesk"
   | "housekeeping";
 
+export const roleDisplayNames: Record<UserRole, string> = {
+  admin: "Administrator",
+  manager: "General Manager",
+  operationsManager: "Operations Manager",
+  finance: "Finance Manager",
+  staff: "Staff",
+  kitchen: "Kitchen Staff",
+  frontDesk: "Front Desk",
+  housekeeping: "Housekeeping",
+};
+
+export function getRoleDisplayName(role: UserRole | string): string {
+  return roleDisplayNames[role as UserRole] || "Staff";
+}
+
 export type AppSection =
   | "pos"
   | "kitchen"

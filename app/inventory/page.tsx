@@ -698,42 +698,9 @@ function InventoryContent() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label
-                      htmlFor="quantity"
-                      className="text-orange-700 dark:text-orange-300"
-                    >
-                      Quantity
-                    </Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      value={editingItem.quantity}
-                      onChange={(e) =>
-                        setEditingItem({
-                          ...editingItem,
-                          quantity: e.target.value,
-                        })
-                      }
-                      className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
-                    />
+                  <div className="flex items-end text-sm text-muted-foreground">
+                    Packaging cost is calculated from Cost per container.
                   </div>
-                  <div className="grid gap-2">
-                    <Label
-                      htmlFor="unit"
-                      className="text-orange-700 dark:text-orange-300"
-                    >
-                      Unit
-                    </Label>
-                    <UnitSelect
-                      value={editingItem.unit}
-                      onChange={(value) =>
-                        setEditingItem({ ...editingItem, unit: String(value) })
-                      }
-                    />
-                  </div>
-                </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
                   <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Purchase packaging</p>
                   <div className="grid grid-cols-2 gap-3">

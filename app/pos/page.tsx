@@ -481,9 +481,12 @@ function POSContent() {
     } catch (error) {
       console.error("Print error:", error);
       paymentConfirmation.trigger(false, "Unsuccessful");
+      if (typeof window !== "undefined") {
+        window.print();
+      }
       toast({
-        title: "Print Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: "Printer unavailable",
+        description: "The receipt was opened with the browser print dialog instead.",
         variant: "destructive",
       });
     } finally {
