@@ -468,7 +468,23 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.finance && (
+          {access.operations && (
+    <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+      <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+        <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Technical Operations</CardTitle>
+        <Wrench className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+      </CardHeader>
+      <CardContent className="relative z-10">
+        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">Maintenance</p>
+        <p className="text-xs text-muted-foreground">Coordinate hotel and restaurant technical issues</p>
+      </CardContent>
+      <CardFooter className="relative z-10">
+        <Link href="/operations" className="w-full"><Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">Open Operations</Button></Link>
+      </CardFooter>
+    </Card>
+  )}
+  {access.finance && (
             <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -860,21 +876,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
           )}
-  {access.operations && (
-    <Card className="border border-slate-200 bg-card shadow-sm dark:border-slate-700">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-sm font-medium">Technical Operations</CardTitle>
-        <Wrench className="h-4 w-4 text-primary" aria-hidden="true" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">Maintenance</p>
-        <p className="text-xs text-muted-foreground">Coordinate hotel and restaurant technical issues</p>
-        <CardFooter className="mt-4 px-0 pb-0">
-          <Link href="/operations" className="w-full"><Button variant="outline" className="w-full">Open Operations</Button></Link>
-        </CardFooter>
-      </CardContent>
-    </Card>
-  )}
+
   </div>}
   </main>
     </div>
