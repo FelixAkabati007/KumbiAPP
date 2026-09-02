@@ -185,6 +185,24 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
     ]
   },
   {
+    name: 'hotel_receipts',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_id', type: 'uuid', nullable: false },
+      { name: 'folio_id', type: 'uuid', nullable: true },
+      { name: 'order_id', type: 'character varying', nullable: false },
+      { name: 'order_number', type: 'character varying', nullable: false },
+      { name: 'receipt_type', type: 'character varying', nullable: false },
+      { name: 'version', type: 'integer', nullable: false },
+      { name: 'snapshot', type: 'jsonb', nullable: false },
+      { name: 'download_pathname', type: 'text', nullable: true },
+      { name: 'print_status', type: 'character varying', nullable: false },
+      { name: 'print_error', type: 'text', nullable: true },
+      { name: 'created_by', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
+  },
+  {
     name: 'guest_folio_items',
     columns: [
       { name: 'id', type: 'uuid', nullable: false, isPrimary: true },

@@ -76,7 +76,25 @@ export async function POST(request: NextRequest) {
         [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
       );
 
-      return resResult.rows[0];
+      const receiptResult = await client.query(
+        `INSERT INTO hotel_receipts (reservation_id, folio_id, order_id, order_number, receipt_type, snapshot, created_by)
+         SELECT r.id, gf.id, r.id::text, r.reservation_number, 'check_in',
+           jsonb_build_object(
+             'guestName', concat_ws(' ', g.first_name, g.last_name),
+             'roomNumber', rm.room_number,
+             'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('description', i.description, 'quantity', i.quantity, 'total_amount', i.total_amount) ORDER BY i.created_at) FROM guest_folio_items i WHERE i.reservation_id = r.id), '[]'::jsonb),
+             'total', COALESCE(gf.total_charges, 0)
+           ), NULL
+         FROM reservations r
+         JOIN guests g ON g.id = r.guest_id
+         JOIN rooms rm ON rm.id = r.room_id
+         JOIN guest_folios gf ON gf.reservation_id = r.id
+         WHERE r.id = $1 RETURNING id`,
+        [reservationId]
+      );
+
+      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number };
+
     });
 
     return NextResponse.json(result, { status: 200 });
