@@ -426,10 +426,10 @@ function HousekeepingPage() {
             <SprayCan className="h-4 w-4 shrink-0 sm:mr-2" />
             <span className="sm:hidden">Cleaning</span><span className="hidden sm:inline">Cleaning Tasks</span>
           </TabsTrigger>
-          <TabsTrigger value="maintenance">
+          {false && <TabsTrigger value="maintenance">
             <Wrench className="h-4 w-4 shrink-0 sm:mr-2" />
             <span className="sm:hidden">Maintenance</span><span className="hidden sm:inline">Maintenance Tickets</span>
-          </TabsTrigger>
+          </TabsTrigger>}
         </TabsList>
 
         <TabsContent value="cleaning" className="space-y-4">
@@ -563,7 +563,7 @@ function HousekeepingPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="maintenance" className="space-y-4">
+        {false && <TabsContent value="maintenance" className="space-y-4">
           <div className="flex justify-stretch sm:justify-end">
             <Button
               onClick={() => setShowNewTicketDialog(true)}
@@ -693,7 +693,7 @@ function HousekeepingPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
 
       {/* New Housekeeping Task Dialog */}
