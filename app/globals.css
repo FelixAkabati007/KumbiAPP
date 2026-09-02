@@ -186,6 +186,15 @@
   textarea {
     max-width: 100%;
   }
+
+  .dashboard-category-grid[data-dashboard-category-filter="restaurant"] [data-dashboard-category="hotel"],
+  .dashboard-category-grid[data-dashboard-category-filter="technical"] [data-dashboard-category="hotel"],
+  .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category="restaurant"],
+  .dashboard-category-grid[data-dashboard-category-filter="technical"] [data-dashboard-category="restaurant"],
+  .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category="technical"],
+  .dashboard-category-grid[data-dashboard-category-filter="restaurant"] [data-dashboard-category="technical"] {
+    display: none;
+  }
 }
 
 /* App-level utility classes that map to the design tokens above */
