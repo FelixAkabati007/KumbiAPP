@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Building2, CheckCircle2, Clock3, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Building2, CheckCircle2, Clock3, Wrench } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,7 +38,7 @@ function OperationsWorkspace() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 border-b border-orange-200 pb-6 md:flex-row md:items-end md:justify-between dark:border-orange-700">
         <div><p className="text-sm font-medium text-orange-600 dark:text-orange-400">Operations control</p><h1 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">Technical Operations</h1><p className="mt-2 max-w-2xl text-muted-foreground">Coordinate maintenance issues across hotel and restaurant operations. Escalate business-impacting issues to the General Manager or Admin.</p></div>
-        <div className="flex items-center gap-3"><Badge variant="outline">Reports to General Manager</Badge><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-44"><SelectValue placeholder="Filter status" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="assigned">Assigned</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="resolved">Resolved</SelectItem></SelectContent></Select></div>
+        <div className="flex flex-wrap items-center gap-3"><Button asChild variant="outline" className="rounded-2xl border-orange-200 bg-white/70 dark:border-orange-700 dark:bg-gray-800/70"><Link href="/"><ArrowLeft data-icon="inline-start" />Back to Dashboard</Link></Button><Badge variant="outline">Reports to General Manager</Badge><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-44"><SelectValue placeholder="Filter status" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="assigned">Assigned</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="resolved">Resolved</SelectItem></SelectContent></Select></div>
       </header>
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Operations summary">
         {statCards.map(({ label, value, Icon }) => <Card key={label} className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70"><div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" /><CardContent className="relative z-10 flex items-center justify-between p-5"><div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-bold text-orange-700 dark:text-orange-300">{value}</p></div><Icon className="size-5 text-orange-600 dark:text-orange-400" aria-hidden="true" /></CardContent></Card>)}
