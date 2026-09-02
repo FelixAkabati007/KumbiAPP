@@ -154,8 +154,9 @@ function SettingsPageContent() {
   });
   const [mounted, setMounted] = useState(false);
   const isAdmin = user?.role === "admin";
+  const canManageStaff = isAdmin || user?.role === "manager";
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam === "account" ? "account" : "appearance"
+    tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : "appearance"
   );
 
   useEffect(() => {
@@ -355,7 +356,7 @@ function SettingsPageContent() {
         >
           <div className="overflow-x-auto">
             <TabsList
-              className={`grid w-full ${isAdmin ? "grid-cols-6 min-w-[600px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
+              className={`grid w-full ${canManageStaff ? "grid-cols-6 min-w-[600px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
             >
               <TabsTrigger
                 value="appearance"
@@ -1792,9 +1793,9 @@ function SettingsPageContent() {
           </TabsContent>
 
           {/* Staff Management (Admin Only) */}
-          {isAdmin && (
-            <TabsContent value="staff" className="space-y-4">
-              <StaffManagementPanel />
+{canManageStaff && (
+  <TabsContent value="staff" className="space-y-4">
+  <StaffManagementPanel currentRole={user?.role || "staff"} />
             </TabsContent>
           )}
         </Tabs>

@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only administrators can read the complete staff directory.
-    if (session.role !== "admin") {
+    // Managers need the directory to initiate permitted password resets.
+    if (!["admin", "manager"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
