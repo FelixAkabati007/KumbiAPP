@@ -404,9 +404,9 @@ function HousekeepingPage() {
   });
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="min-w-0 flex-1 space-y-4 overflow-x-hidden p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Button
             onClick={() => router.back()}
             variant="outline"
@@ -415,29 +415,29 @@ function HousekeepingPage() {
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Housekeeping</h2>
+          <h2 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">Housekeeping</h2>
         </div>
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
 
       <Tabs defaultValue="cleaning" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex w-full gap-1 overflow-x-auto sm:grid sm:grid-cols-2">
           <TabsTrigger value="cleaning">
-            <SprayCan className="h-4 w-4 mr-2" />
-            Cleaning Tasks
+            <SprayCan className="h-4 w-4 shrink-0 sm:mr-2" />
+            <span className="sm:hidden">Cleaning</span><span className="hidden sm:inline">Cleaning Tasks</span>
           </TabsTrigger>
           <TabsTrigger value="maintenance">
-            <Wrench className="h-4 w-4 mr-2" />
-            Maintenance Tickets
+            <Wrench className="h-4 w-4 shrink-0 sm:mr-2" />
+            <span className="sm:hidden">Maintenance</span><span className="hidden sm:inline">Maintenance Tickets</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="cleaning" className="space-y-4">
           {!isHousekeeping && (
-            <div className="flex justify-end">
+            <div className="flex justify-stretch sm:justify-end">
               <Button
                 onClick={() => setShowNewTaskDialog(true)}
-                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+                className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Task
@@ -445,9 +445,9 @@ function HousekeepingPage() {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   {taskStats.pending}
                 </div>
@@ -455,7 +455,7 @@ function HousekeepingPage() {
               </CardContent>
             </Card>
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {taskStats.inProgress}
                 </div>
@@ -463,7 +463,7 @@ function HousekeepingPage() {
               </CardContent>
             </Card>
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {taskStats.completed}
                 </div>
@@ -473,8 +473,8 @@ function HousekeepingPage() {
           </div>
 
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
-            <CardHeader>
-              <CardTitle>Housekeeping Tasks</CardTitle>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Housekeeping Tasks</CardTitle>
               <CardDescription>Room cleaning tasks</CardDescription>
             </CardHeader>
             <CardContent>
@@ -547,19 +547,19 @@ function HousekeepingPage() {
         </TabsContent>
 
         <TabsContent value="maintenance" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-stretch sm:justify-end">
             <Button
               onClick={() => setShowNewTicketDialog(true)}
-              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+              className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Ticket
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   {ticketStats.open}
                 </div>
@@ -567,7 +567,7 @@ function HousekeepingPage() {
               </CardContent>
             </Card>
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {ticketStats.inProgress}
                 </div>
@@ -575,7 +575,7 @@ function HousekeepingPage() {
               </CardContent>
             </Card>
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
-              <CardContent className="pt-6">
+              <CardContent className="p-4 sm:pt-6">
                 <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {ticketStats.resolved}
                 </div>
@@ -585,10 +585,10 @@ function HousekeepingPage() {
           </div>
 
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
-            <CardHeader>
-              <CardTitle>Maintenance Tickets</CardTitle>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl">Maintenance</CardTitle>
               <CardDescription>Manager and Admin ticket inbox with assignment, priority, status, and internal notes.</CardDescription>
-              <div className="grid gap-2 pt-3 sm:grid-cols-3">
+              <div className="grid min-w-0 gap-2 pt-3 sm:grid-cols-3">
                 <select aria-label="Ticket status" value={ticketFilters.status} onChange={(event) => setTicketFilters((current) => ({ ...current, status: event.target.value }))} className="h-9 rounded-md border bg-background px-2 text-sm">
                   <option value="">All statuses</option><option value="open">New</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option>
                 </select>
