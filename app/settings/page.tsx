@@ -166,7 +166,7 @@ function SettingsPageContent() {
     toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : "Order Board"} is now ${enabled ? "on" : "off"}.` });
   };
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : "appearance"
+    tabParam === "account" ? "account" : tabParam === "staff" && isAdmin ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance"
   );
 
   useEffect(() => {
@@ -367,7 +367,7 @@ function SettingsPageContent() {
         >
           <div className="overflow-x-auto">
             <TabsList
-              className={`grid w-full ${canManageOperationalSettings ? (isAdmin ? "grid-cols-7 min-w-[700px]" : "grid-cols-6 min-w-[600px]") : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
+              className={`grid w-full ${isAdmin ? "grid-cols-7 min-w-[700px]" : canManageOperationalSettings ? "grid-cols-4 min-w-[400px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
             >
               <TabsTrigger
                 value="appearance"
@@ -387,23 +387,27 @@ function SettingsPageContent() {
               >
                 Account
               </TabsTrigger>
-              <TabsTrigger
-                value="system"
-                className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
-              >
-                System
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="system"
+                  className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                >
+                  System
+                </TabsTrigger>
+              )}
               {canManageOperationalSettings && (
                 <TabsTrigger value="operations" className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white">
                   Operations
                 </TabsTrigger>
               )}
-              <TabsTrigger
-                value="security"
-                className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
-              >
-                Security
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="security"
+                  className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                >
+                  Security
+                </TabsTrigger>
+              )}
               {isAdmin && (
                 <TabsTrigger
                   value="staff"
