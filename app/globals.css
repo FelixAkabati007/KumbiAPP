@@ -197,6 +197,29 @@
   }
 }
 
+/* Responsive data-heavy layouts */
+.table-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+@media (max-width: 640px) {
+  .table-scroll-container {
+    border: 1px solid hsl(var(--border) / 0.7);
+  }
+  [role="tablist"] {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  [role="tablist"] > * {
+    flex: 0 0 auto;
+  }
+  dialog,
+  [role="dialog"] {
+    max-width: calc(100vw - 1rem);
+  }
+}
+
 /* App-level utility classes that map to the design tokens above */
 .khh-alert {
   position: fixed;

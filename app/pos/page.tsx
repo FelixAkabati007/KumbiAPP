@@ -649,7 +649,7 @@ function POSContent() {
         </div>
       </header>
 
-      <main className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+      <main className="flex min-w-0 flex-1 overflow-x-hidden overflow-y-auto flex-col lg:flex-row">
         {/* Menu Items Section */}
         <div className="flex flex-col w-full lg:w-2/3 border-r border-orange-200 dark:border-orange-700">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">

@@ -207,7 +207,7 @@ function ReservationsPage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button
             onClick={() => router.back()}
@@ -217,7 +217,7 @@ function ReservationsPage() {
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Reservations</h2>
+          <h2 className="min-w-0 truncate text-2xl sm:text-3xl font-bold tracking-tight">Reservations</h2>
         </div>
         <div className="flex items-center gap-2">
           <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
@@ -248,7 +248,7 @@ function ReservationsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead className="border-b">
                   <tr>
                     <th className="text-left py-2 px-4">Reservation #</th>
