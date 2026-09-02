@@ -47,6 +47,7 @@ function ReservationsPage() {
     lastName: "",
     email: "",
     phone: "",
+    emergencyContact: "",
     checkInDate: "",
     checkOutDate: "",
     numberOfGuests: 1,
@@ -99,7 +100,7 @@ function ReservationsPage() {
   }, []);
 
   const handleCreateReservation = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.checkInDate || !formData.checkOutDate || !formData.roomTypeId) {
+    if (!formData.firstName || !formData.phone || !formData.checkInDate || !formData.checkOutDate || !formData.roomTypeId || !formData.numberOfGuests || formData.numberOfGuests < 1) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -134,6 +135,7 @@ function ReservationsPage() {
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone,
+          emergencyContact: formData.emergencyContact,
         }),
       });
 
@@ -182,6 +184,7 @@ function ReservationsPage() {
         lastName: "",
         email: "",
         phone: "",
+        emergencyContact: "",
         checkInDate: "",
         checkOutDate: "",
         numberOfGuests: 1,
@@ -304,7 +307,7 @@ function ReservationsPage() {
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName">First Name <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
                   id="firstName"
                   placeholder="John"
@@ -314,7 +317,7 @@ function ReservationsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName">Surname <span className="text-muted-foreground">(optional)</span></Label>
                 <Input
                   id="lastName"
                   placeholder="Doe"
@@ -338,7 +341,7 @@ function ReservationsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Phone <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
                   id="phone"
                   placeholder="+233501234567"
@@ -349,9 +352,14 @@ function ReservationsPage() {
               </div>
             </div>
 
+            <div>
+              <Label htmlFor="emergencyContact">Emergency Contact <span className="text-muted-foreground">(optional)</span></Label>
+              <Input id="emergencyContact" placeholder="Name and phone number" value={formData.emergencyContact} onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })} className="rounded-lg" />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="checkInDate">Check-in Date</Label>
+                <Label htmlFor="checkInDate">Check-in Date <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
                   id="checkInDate"
                   type="date"
@@ -361,7 +369,7 @@ function ReservationsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="checkOutDate">Check-out Date</Label>
+                <Label htmlFor="checkOutDate">Check-out Date <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
                   id="checkOutDate"
                   type="date"
@@ -374,7 +382,7 @@ function ReservationsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="guests">Number of Guests</Label>
+                <Label htmlFor="guests">Number of Guests <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
                   id="guests"
                   type="number"
@@ -385,7 +393,7 @@ function ReservationsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="roomType">Room Type</Label>
+                <Label htmlFor="roomType">Room Type <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <select
                   id="roomType"
                   value={formData.roomTypeId}
