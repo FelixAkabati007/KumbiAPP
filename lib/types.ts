@@ -25,6 +25,11 @@ export interface InventoryItem {
   category: "ingredient" | "beverage" | "supply";
   quantity: string;
   unit: string;
+  containerUnit?: string;
+  quantityPerContainer?: string;
+  containerCount?: string;
+  costPerContainer?: string;
+  costPerItem?: string;
   reorderLevel: string;
   cost: string;
   supplier: string;
