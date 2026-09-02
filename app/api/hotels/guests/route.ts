@@ -51,22 +51,23 @@ export async function POST(request: NextRequest) {
       idNumber,
       country,
       address,
+      emergencyContact,
     } = await request.json();
 
-    if (!firstName || !lastName) {
+    if (!firstName) {
       return NextResponse.json(
-        { error: "First name and last name are required" },
+        { error: "First name is required" },
         { status: 400 }
       );
     }
 
     const result = await query(
       `
-      INSERT INTO guests (first_name, last_name, email, phone, id_type, id_number, country, address)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO guests (first_name, last_name, email, phone, id_type, id_number, country, address, emergency_contact)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
       `,
-      [firstName, lastName, email || null, phone || null, idType || null, idNumber || null, country || null, address || null]
+      [firstName, lastName || "", email || null, phone || null, idType || null, idNumber || null, country || null, address || null, emergencyContact || null]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
