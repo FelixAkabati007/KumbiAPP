@@ -49,7 +49,7 @@ export default function FinancePage() {
   }, [source]);
 
   const totals = useMemo(() => {
-    const completed = transactions.filter((item) => item.status === "completed" || item.status === "succeeded");
+    const completed = transactions.filter((item) => ["completed", "succeeded", "success"].includes(item.status.toLowerCase()));
     return {
       gross: completed.reduce((sum, item) => sum + Number(item.amount || 0), 0),
       count: completed.length,
