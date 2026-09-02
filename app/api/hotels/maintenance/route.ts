@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (session.role !== "admin" && session.role !== "manager" && session.role !== "housekeeping") {
+    if (!["admin", "manager", "operationsManager", "housekeeping"].includes(session.role)) {
       return NextResponse.json({ error: "Only Admins, Managers, or Housekeeping can issue maintenance tickets" }, { status: 403 });
     }
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     await query(
       `INSERT INTO notifications (recipient_user_id, title, message, type)
        SELECT id, $1, $2, $3 FROM users
-       WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
+       WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
       [
         `New maintenance ticket ${ticketNumber}`,
         `${severity || "normal"} priority ticket created for room ${roomId}.`,

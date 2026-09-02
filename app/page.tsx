@@ -29,6 +29,7 @@ import {
   Home,
   Briefcase,
   CheckSquare,
+  Wrench,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -867,8 +868,23 @@ function DashboardContent() {
               </CardContent>
             </Card>
           )}
-        </div>}
-      </main>
+  {access.operations && (
+    <Card className="border border-slate-200 bg-card shadow-sm dark:border-slate-700">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm font-medium">Technical Operations</CardTitle>
+        <Wrench className="h-4 w-4 text-primary" aria-hidden="true" />
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-bold">Maintenance</p>
+        <p className="text-xs text-muted-foreground">Coordinate hotel and restaurant technical issues</p>
+        <CardFooter className="mt-4 px-0 pb-0">
+          <Link href="/operations" className="w-full"><Button variant="outline" className="w-full">Open Operations</Button></Link>
+        </CardFooter>
+      </CardContent>
+    </Card>
+  )}
+  </div>}
+  </main>
     </div>
   );
 }

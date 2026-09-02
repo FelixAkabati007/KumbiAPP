@@ -24,13 +24,14 @@ const routePermissions: Record<string, string[]> = {
   "/receipt": ["admin", "manager", "staff", "kitchen", "finance", "frontDesk"],
   "/payments": ["admin", "manager", "finance"],
   "/system": ["admin", "manager"],
+  "/operations": ["admin", "manager", "operationsManager"],
   // Hospitality module routes
   "/hotels/rooms": ["admin", "manager", "frontDesk", "housekeeping"],
   "/hotels/reservations": ["admin", "manager", "frontDesk"],
   "/hotels/check-in": ["admin", "manager", "frontDesk"],
   "/hotels/check-out": ["admin", "manager", "frontDesk"],
   "/hotels/housekeeping": ["admin", "manager", "frontDesk", "housekeeping"],
-  "/hotels/maintenance": ["admin", "manager", "frontDesk", "housekeeping"],
+  "/hotels/maintenance": ["admin", "manager", "operationsManager", "frontDesk", "housekeeping"],
 };
 
 // Define RBAC for API routes.
@@ -61,7 +62,7 @@ const apiPermissions: Record<string, string[]> = {
   "/api/hotels/folios": ["admin", "manager", "frontDesk"],
   "/api/hotels/guests": ["admin", "manager", "frontDesk"],
   "/api/hotels/housekeeping": ["admin", "manager", "frontDesk", "housekeeping"],
-  "/api/hotels/maintenance": ["admin", "manager", "frontDesk", "housekeeping"],
+  "/api/hotels/maintenance": ["admin", "manager", "operationsManager", "frontDesk", "housekeeping"],
   // Note: "/api/settings" is intentionally NOT gated here. GET is public so
   // the logo/branding can render on unauthenticated screens (login, sign-up);
   // the route handler itself enforces admin-only writes (POST).
