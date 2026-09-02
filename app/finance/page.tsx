@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,14 @@ export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [source, setSource] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [authority, setAuthority] = useState<{ actingAuthority: boolean; authorityLabel: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/finance/access", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => data && setAuthority(data))
+      .catch(() => undefined);
+  }, []);
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -96,6 +105,12 @@ export default function FinancePage() {
               </Button>
             </div>
           </header>
+          {authority?.actingAuthority && (
+            <Alert className="border-amber-300 bg-amber-50 text-amber-950">
+              <AlertTitle>Acting Finance Authority</AlertTitle>
+              <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
+            </Alert>
+          )}
           <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
