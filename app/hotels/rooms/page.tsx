@@ -263,7 +263,7 @@ function RoomsPage() {
       </div>
 
       {/* Room Status Summary */}
-      <div className="grid gap-4 md:grid-cols-6">
+      <div className="grid min-w-0 gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         {["available", "occupied", "dirty", "cleaning", "maintenance"].map((status) => {
           const count = rooms.filter((r) => r.status === status).length;
           return (
@@ -298,8 +298,8 @@ function RoomsPage() {
               No rooms found
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="w-full min-w-0 overflow-x-auto">
+              <table className="w-full min-w-[1100px] text-sm">
                 <thead className="border-b">
                   <tr>
                     <th className="text-left py-2 px-4">Room #</th>
