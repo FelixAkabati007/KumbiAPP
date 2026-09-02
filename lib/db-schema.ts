@@ -185,6 +185,42 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
     ]
   },
   {
+    name: 'complaints',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'submitted_by', type: 'uuid', nullable: false },
+      { name: 'department', type: 'character varying', nullable: false },
+      { name: 'subject_type', type: 'character varying', nullable: false },
+      { name: 'subject_user_id', type: 'uuid', nullable: true },
+      { name: 'title', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: false },
+      { name: 'priority', type: 'character varying', nullable: false },
+      { name: 'status', type: 'character varying', nullable: false },
+      { name: 'assigned_to', type: 'uuid', nullable: true },
+      { name: 'parent_complaint_id', type: 'uuid', nullable: true },
+      { name: 'confidentiality', type: 'character varying', nullable: false },
+      { name: 'reservation_id', type: 'uuid', nullable: true },
+      { name: 'folio_id', type: 'uuid', nullable: true },
+      { name: 'order_id', type: 'character varying', nullable: true },
+      { name: 'receipt_id', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+      { name: 'acknowledged_at', type: 'timestamp with time zone', nullable: true },
+      { name: 'resolved_at', type: 'timestamp with time zone', nullable: true },
+      { name: 'closed_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'complaint_messages',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'complaint_id', type: 'uuid', nullable: false },
+      { name: 'author_id', type: 'uuid', nullable: false },
+      { name: 'message', type: 'text', nullable: false },
+      { name: 'is_internal', type: 'boolean', nullable: false },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
+  },
+  {
     name: 'hotel_receipts',
     columns: [
       { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
