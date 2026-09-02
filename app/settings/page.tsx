@@ -282,8 +282,8 @@ function SettingsPageContent() {
   const handleSaveSettings = async () => {
     await saveSettings(settings);
 
-    // Dispatch custom event to update logo across all components
-    window.dispatchEvent(new Event("settingsUpdated"));
+    // Notify mounted consumers, including the Navbar, of the saved business name.
+    window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: settings }));
 
     toast({
       title: "Settings Saved",
@@ -300,8 +300,8 @@ function SettingsPageContent() {
       setSettingsState(defaultSettings);
       saveSettings(defaultSettings);
 
-      // Dispatch custom event to update logo across all components
-      window.dispatchEvent(new Event("settingsUpdated"));
+      // Notify mounted consumers of the reset business name and settings.
+      window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: defaultSettings }));
 
       toast({
         title: "Settings Reset",

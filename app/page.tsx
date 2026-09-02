@@ -198,7 +198,18 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     rolePermissions[user.role as UserRole] ||
     ({} as Record<AppSection, boolean>);
   const isHousekeeping = user.role === "housekeeping";
-  const canSwitchDashboardCategories = ["admin", "manager", "finance"].includes(user.role);
+  const categorySectionMap: Record<(typeof dashboardCategories)[number][0], AppSection[]> = {
+    all: [],
+    hotel: ["rooms", "reservations", "checkIn", "checkOut", "housekeeping", "guestFolio"],
+    restaurant: ["pos", "kitchen", "orderBoard", "menu", "inventory"],
+    finance: ["finance", "payments", "refunds", "reports", "receipt"],
+    technical: ["operations", "maintenance"],
+    administration: ["system"],
+  };
+  const availableDashboardCategories = dashboardCategories.filter(([category]) =>
+    category === "all" || categorySectionMap[category].some((section) => access[section]),
+  );
+  const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
 
   return (
     <div
@@ -286,7 +297,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
           <div className="flex flex-col items-start gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
               <div className="flex w-full flex-wrap gap-2 sm:w-auto" role="group" aria-label="Dashboard container category">
-                {dashboardCategories.map(([category, label]) => (
+                {availableDashboardCategories.map(([category, label]) => (
                   <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
                   </Button>
@@ -383,7 +394,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.orderBoard && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -436,7 +447,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.menu && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -462,7 +473,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.inventory && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -548,7 +559,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.refunds && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -574,7 +585,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.payments && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -600,7 +611,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </Card>
           )}
           {access.receipt && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -792,7 +803,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
             <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
               <CardTitle className="text-gray-800 dark:text-gray-200">
-                Welcome to Kumbisaly Heritage Restaurant
+                Welcome to {settings.account.restaurantName || "your business"}
               </CardTitle>
               <CardDescription className="text-orange-600 dark:text-orange-400">
                 Your complete restaurant management solution
