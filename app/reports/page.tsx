@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ function ReportsPage() {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [txRes, refRes] = await Promise.all([
         fetch(`/api/transactions?limit=2000${sourceFilter !== "all" ? `&source=${sourceFilter}` : ""}`),
@@ -160,11 +160,11 @@ function ReportsPage() {
       console.error("Failed to load data:", error);
       setData([]);
     }
-  };
+  }, [sourceFilter]);
 
   useEffect(() => {
-    loadData();
-  }, [sourceFilter]);
+    void loadData();
+  }, [loadData]);
 
   /* Demo sales generation removed: reports must reflect Neon-backed transactions only. */
   /*
