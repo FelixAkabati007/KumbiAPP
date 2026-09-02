@@ -13,13 +13,15 @@ export async function GET(request: NextRequest) {
     const roomTypeId = searchParams.get("roomTypeId");
 
     let sql = `
-      SELECT r.id, r.room_number, r.floor, r.building, r.status,
-             r.room_type_id, r.notes, r.current_guest_id,
+      SELECT r.id, r.room_number, r.floor, r.building,
+             CASE WHEN r.status = 'occupied' AND res.check_in_date IS NULL THEN 'available' ELSE r.status END AS status,
+             r.room_type_id, r.notes,
+             CASE WHEN res.check_in_date IS NULL THEN NULL ELSE r.current_guest_id END AS current_guest_id,
              rt.name as room_type_name, rt.base_price,
              COALESCE(r.price, rt.base_price) as price,
              r.images,
-             g.first_name AS guest_first_name,
-             g.last_name AS guest_last_name,
+             CASE WHEN res.check_in_date IS NULL THEN NULL ELSE g.first_name END AS guest_first_name,
+             CASE WHEN res.check_in_date IS NULL THEN NULL ELSE g.last_name END AS guest_last_name,
              res.check_in_date, res.check_out_date,
              hk.assigned_to AS assigned_housekeeper_id,
              hu.name AS assigned_housekeeper_name
