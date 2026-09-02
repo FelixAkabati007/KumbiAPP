@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 
 // Check-out guest from room
@@ -80,19 +80,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // A dirty room must always have an open cleaning task. Keep this in
-      // the same transaction as checkout so the app and database cannot drift.
-      await client.query(
-        `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
-         SELECT $1, 'cleaning', 'pending', 'normal'
-         WHERE NOT EXISTS (
-           SELECT 1 FROM housekeeping_tasks
-           WHERE room_id = $1 AND task_type = 'cleaning'
-             AND status IN ('pending', 'in_progress')
-         )`,
-        [checkedOutRoomId]
-      );
-
       try {
         await client.query(
           `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
@@ -110,6 +97,22 @@ export async function POST(request: NextRequest) {
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
       return verified.rows[0];
     });
+
+    // Housekeeping is follow-up work; it must never roll back a successful checkout.
+    try {
+      await query(
+        `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
+         SELECT $1, 'cleaning', 'pending', 'normal'
+         WHERE NOT EXISTS (
+           SELECT 1 FROM housekeeping_tasks
+           WHERE room_id = $1 AND task_type = 'cleaning'
+             AND status IN ('pending', 'in_progress')
+         )`,
+        [result.room_id]
+      );
+    } catch (housekeepingError) {
+      console.error("Checkout housekeeping follow-up failed:", housekeepingError);
+    }
 
     return NextResponse.json(
       { ...result, persisted: true, status: "checked_out" },
