@@ -831,18 +831,54 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                           </DialogContent>
                         </Dialog>
 
-                        {canResetTarget(member) && <Dialog open={resetTarget?.id === member.id} onOpenChange={(open) => { if (!open) { setResetTarget(null); setResetReason(""); } else setResetTarget(member); }}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-amber-700 hover:bg-amber-50" aria-label={`Reset password for ${member.first_name} ${member.last_name}`}>
-                              <KeyRound className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader><DialogTitle>Reset staff password</DialogTitle><DialogDescription>Use this only for a security incident. Admins can reset any role; managers can reset staff, finance, kitchen, front desk, and housekeeping accounts, but not admins or managers.</DialogDescription></DialogHeader>
-                            <div className="space-y-2 py-2"><Label htmlFor={`reset-reason-${member.id}`}>Reason for reset</Label><textarea id={`reset-reason-${member.id}`} value={resetReason} onChange={(event) => setResetReason(event.target.value)} placeholder="Describe the suspected breach or security incident" className="min-h-24 w-full rounded-xl border border-orange-200 bg-background px-3 py-2 text-sm" /></div>
-                            <DialogFooter><Button variant="outline" onClick={() => setResetTarget(null)} disabled={isResettingPassword}>Cancel</Button><Button onClick={handleForcePasswordReset} disabled={isResettingPassword || resetReason.trim().length < 10} className="bg-amber-600 hover:bg-amber-700 text-white">{isResettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Initiate reset</Button></DialogFooter>
-                          </DialogContent>
-                        </Dialog>}
+                        {canResetTarget(member) && (
+                          <Dialog
+                            open={resetTarget?.id === member.id}
+                            onOpenChange={(open) => {
+                              if (!open) {
+                                setResetTarget(null);
+                                setResetReason("");
+                              } else {
+                                setResetTarget(member);
+                              }
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-amber-700 hover:bg-amber-50"
+                                aria-label={`Reset password for ${member.first_name} ${member.last_name}`}
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Reset staff password</DialogTitle>
+                                <DialogDescription>
+                                  Use this only for a security incident. Admins can reset any role; managers can reset staff, finance, kitchen, front desk, and housekeeping accounts, but not admins or managers.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-2 py-2">
+                                <Label htmlFor={`reset-reason-${member.id}`}>Reason for reset</Label>
+                                <textarea
+                                  id={`reset-reason-${member.id}`}
+                                  value={resetReason}
+                                  onChange={(event) => setResetReason(event.target.value)}
+                                  placeholder="Describe the suspected breach or security incident"
+                                  className="min-h-24 w-full rounded-xl border border-orange-200 bg-background px-3 py-2 text-sm"
+                                />
+                              </div>
+                              <DialogFooter>
+                                <Button variant="outline" onClick={() => setResetTarget(null)} disabled={isResettingPassword}>Cancel</Button>
+                                <Button onClick={handleForcePasswordReset} disabled={isResettingPassword || resetReason.trim().length < 10} className="bg-amber-600 hover:bg-amber-700 text-white">
+                                  {isResettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Initiate reset
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        )}
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
