@@ -11,7 +11,13 @@ export type AuditActionType =
   | "login"
   | "logout"
   | "inactivity_warning"
-  | "feature_toggle_changed";
+  | "feature_toggle_changed"
+  | "termination_requested"
+  | "termination_investigate"
+  | "termination_approve"
+  | "termination_deny"
+  | "termination_archive"
+  | "termination_purge";
 
 export interface AuditLogEntry {
   actionType: AuditActionType;

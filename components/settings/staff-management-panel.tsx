@@ -121,6 +121,7 @@ const emptyCreateForm = {
   hireDate: "",
   password: "",
   role: "staff" as StaffRole,
+  managerScope: "general" as "hotel" | "restaurant" | "general",
 };
 
 export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
@@ -137,6 +138,10 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
   const [resetReason, setResetReason] = useState("");
+  const [terminationStaffIds, setTerminationStaffIds] = useState<string[]>([]);
+  const [terminationReason, setTerminationReason] = useState("");
+  const [terminationRequests, setTerminationRequests] = useState<Array<{ id: string; status: string; reason: string; target_staff_ids: string[]; created_at: string }>>([]);
+  const [deleteReason, setDeleteReason] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [editForm, setEditForm] = useState({
     firstName: "",
@@ -170,7 +175,31 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
 
   useEffect(() => {
     loadStaff();
-  }, [loadStaff]);
+    if (["admin", "manager"].includes(currentRole)) {
+      fetch("/api/admin/termination-requests").then((res) => res.ok ? res.json() : { requests: [] }).then((data) => setTerminationRequests(data.requests || [])).catch(() => undefined);
+    }
+  }, [loadStaff, currentRole]);
+
+  const submitTerminationRequest = async () => {
+    if (!terminationStaffIds.length || terminationReason.trim().length < 20) {
+      toast({ title: "Selection and reason required", description: "Select staff accounts and provide at least 20 characters.", variant: "destructive" });
+      return;
+    }
+    const response = await fetch("/api/admin/termination-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ staffIds: terminationStaffIds, reason: terminationReason.trim() }) });
+    const data = await response.json();
+    if (!response.ok) return toast({ title: "Request failed", description: data.error, variant: "destructive" });
+    toast({ title: "Confidential request submitted", description: "The General Manager and Admin have been notified." });
+    setTerminationStaffIds([]); setTerminationReason("");
+  };
+
+  const reviewTerminationRequest = async (id: string, action: "investigate" | "approve" | "deny" | "archive" | "purge") => {
+    const response = await fetch(`/api/admin/termination-requests/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    if (!response.ok) { const data = await response.json(); toast({ title: "Review failed", description: data.error, variant: "destructive" }); return; }
+    setTerminationRequests((items) => items.map((item) => item.id === id ? { ...item, status: action } : item));
+    toast({ title: `Request ${action}`, description: "The confidential case was updated." });
+    if (action === "purge" || action === "archive") setTerminationRequests((items) => items.filter((item) => item.id !== id));
+    if (action === "approve") loadStaff();
+  };
 
   const handleCreateStaff = async () => {
     const email = createForm.businessEmail.trim().toLowerCase();
@@ -343,9 +372,15 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
   };
 
   const handleDeleteStaff = async (member: StaffMember) => {
+    if (deleteReason.trim().length < 10) {
+      toast({ title: "Reason required", description: "Provide at least 10 characters explaining this deactivation.", variant: "destructive" });
+      return;
+    }
     try {
       const res = await fetch(`/api/admin/staff/${member.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
       });
       const data = await res.json();
 
@@ -376,6 +411,17 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
   const passwordInputType = showPasswords ? "text" : "password";
   return (
     <div className="space-y-6">
+      <Card className="w-full border-amber-200">
+        <CardHeader><CardTitle>Confidential staff termination</CardTitle><CardDescription>Managers submit requests for GM review. General Manager and Admin can review cases; Admin can archive or permanently purge the message.</CardDescription></CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {staff.map((member) => <label key={member.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm"><input type="checkbox" checked={terminationStaffIds.includes(member.id)} onChange={(event) => setTerminationStaffIds((ids) => event.target.checked ? [...ids, member.id] : ids.filter((id) => id !== member.id))} />{member.first_name} {member.last_name} <span className="text-muted-foreground">({roleLabel(member.role)})</span></label>)}
+          </div>
+          <textarea value={terminationReason} onChange={(event) => setTerminationReason(event.target.value)} placeholder="Write the confidential reason for this request (minimum 20 characters)" className="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" />
+          <div className="flex justify-end"><Button onClick={submitTerminationRequest}>Submit confidential request</Button></div>
+          {terminationRequests.length > 0 && <div className="grid gap-3 border-t pt-4"><h3 className="font-semibold">Review queue</h3>{terminationRequests.map((item) => <div key={item.id} className="rounded-xl border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">Case {item.id.slice(0, 8)} · {item.status}</span><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => reviewTerminationRequest(item.id, "investigate")}>Investigate</Button><Button size="sm" onClick={() => reviewTerminationRequest(item.id, "approve")}>Approve</Button><Button size="sm" variant="destructive" onClick={() => reviewTerminationRequest(item.id, "deny")}>Deny</Button>{currentRole === "admin" && <><Button size="sm" variant="outline" onClick={() => reviewTerminationRequest(item.id, "archive")}>Archive</Button><Button size="sm" variant="outline" onClick={() => reviewTerminationRequest(item.id, "purge")}>Purge</Button></>}</div></div><p className="mt-2 text-sm text-muted-foreground">{item.reason}</p></div>)}</div>}
+        </CardContent>
+      </Card>
       <Card className="w-full">
         <CardHeader>
           <div className="flex items-center gap-3"><KeyRound className="h-5 w-5 text-orange-600" /><div><CardTitle>My password</CardTitle><CardDescription>Change the password for your staff login.</CardDescription></div></div>
@@ -548,6 +594,20 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {createForm.role === "manager" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="staff-manager-scope">Manager scope</Label>
+                    <Select value={createForm.managerScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
+                      <SelectTrigger id="staff-manager-scope"><SelectValue placeholder="Select manager scope" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General Manager</SelectItem>
+                        <SelectItem value="hotel">Hotel Manager</SelectItem>
+                        <SelectItem value="restaurant">Restaurant Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="staff-password">Temporary password</Label>
@@ -914,10 +974,14 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                               </AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will deactivate their login and mark them
-                                as terminated. This action can be reviewed in
-                                the audit log.
+                                as terminated. A reason is required and will be
+                                retained in the confidential audit record.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
+                            <div className="space-y-2 py-2">
+                              <Label htmlFor={`delete-reason-${member.id}`}>Reason for deactivation</Label>
+                              <textarea id={`delete-reason-${member.id}`} value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Explain the judgement or decision" className="min-h-24 w-full rounded-xl border border-orange-200 bg-background px-3 py-2 text-sm" />
+                            </div>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
