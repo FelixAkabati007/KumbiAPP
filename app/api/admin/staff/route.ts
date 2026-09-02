@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         sp.position,
         sp.employment_status,
         sp.hire_date,
+        sp.manager_scope,
         u.role,
         sp.created_at,
         sp.updated_at
@@ -197,8 +198,8 @@ export async function POST(request: NextRequest) {
         `INSERT INTO staff_profiles (
           id, user_id, first_name, last_name, business_email, phone,
           department, position, hire_date, password_hash, created_by,
-          employment_status, is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          employment_status, is_active, manager_scope
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           staffId,
           userId,
@@ -213,6 +214,7 @@ export async function POST(request: NextRequest) {
           session.id,
           "active",
           true,
+          staffRole === "manager" ? "general" : "general",
         ]
       );
     });

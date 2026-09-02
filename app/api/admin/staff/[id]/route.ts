@@ -41,6 +41,7 @@ export async function GET(
         sp.position,
         sp.employment_status,
         sp.hire_date,
+        sp.manager_scope,
         u.role,
         sp.created_at,
         sp.updated_at
@@ -89,7 +90,12 @@ export async function PATCH(
       position,
       employmentStatus,
       role,
+      managerScope,
     } = body;
+
+    if (managerScope && !["hotel", "restaurant", "general"].includes(managerScope)) {
+      return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
+    }
 
     if (role && !VALID_ROLES.includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
@@ -147,6 +153,7 @@ export async function PATCH(
            department = COALESCE($4, department),
            position = COALESCE($5, position),
            employment_status = COALESCE($6, employment_status),
+           manager_scope = CASE WHEN $8 IS NULL THEN manager_scope ELSE $8 END,
            updated_at = NOW()
        WHERE id = $7`,
       [
@@ -157,6 +164,7 @@ export async function PATCH(
         position || null,
         employmentStatus || null,
         id,
+        managerScope || null,
       ]
     );
 

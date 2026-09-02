@@ -75,6 +75,7 @@ interface StaffMember {
   employment_status: string;
   hire_date: string | null;
   role: StaffRole;
+  manager_scope: "hotel" | "restaurant" | "general";
   created_at: string;
   updated_at: string;
 }
@@ -145,6 +146,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
     position: "",
     employmentStatus: "active",
     role: "staff" as StaffRole,
+    managerScope: "general" as "hotel" | "restaurant" | "general",
   });
 
   const loadStaff = useCallback(async () => {
@@ -298,6 +300,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       position: member.position || "",
       employmentStatus: member.employment_status || "active",
       role: member.role || "staff",
+      managerScope: member.manager_scope || "general",
     });
   };
 
@@ -308,7 +311,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       const res = await fetch(`/api/admin/staff/${editingStaff.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...editForm, managerScope: editForm.role === "manager" ? editForm.managerScope : "general" }),
       });
       const data = await res.json();
 
@@ -776,6 +779,19 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                                     </SelectContent>
                                   </Select>
                                 </div>
+                                {editForm.role === "manager" && (
+                                  <div className="space-y-1.5">
+                                    <Label>Manager scope</Label>
+                                    <Select value={editForm.managerScope} onValueChange={(value) => setEditForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="hotel">Hotel Manager</SelectItem>
+                                        <SelectItem value="restaurant">Restaurant Manager</SelectItem>
+                                        <SelectItem value="general">General Manager</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
                                 <div className="space-y-1.5">
                                   <Label>Employment status</Label>
                                   <Select
