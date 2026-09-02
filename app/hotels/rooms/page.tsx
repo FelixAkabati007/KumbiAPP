@@ -78,9 +78,19 @@ function RoomsPage() {
 
   // Handle file upload from computer
   const handleFileUpload = async (files: FileList | null) => {
-    if (!files) return;
-    
-    setUploadingImages(true);
+  if (!files || files.length === 0) return;
+  const selectedFiles = Array.from(files);
+  const invalidFile = selectedFiles.find((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024);
+  if (invalidFile) {
+    toast({ title: "Invalid image", description: `${invalidFile.name} must be an image smaller than 5MB.`, variant: "destructive" });
+    return;
+  }
+  if (formData.images.length + selectedFiles.length > 10) {
+    toast({ title: "Too many images", description: "A room can have up to 10 images.", variant: "destructive" });
+    return;
+  }
+
+  setUploadingImages(true);
     try {
       for (const file of Array.from(files)) {
         const formDataForUpload = new FormData();

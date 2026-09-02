@@ -50,7 +50,7 @@ export async function PATCH(
     if (error) return error;
 
     const { id } = await context.params;
-    const { status, notes, currentGuestId } = await request.json();
+    const { status, notes, currentGuestId, images, roomNumber, roomTypeId, floor, building, price } = await request.json();
 
     let sql = `UPDATE rooms SET updated_at = NOW()`;
     const values: (string | null)[] = [];
@@ -69,6 +69,15 @@ export async function PATCH(
       values.push(currentGuestId);
       sql += `, current_guest_id = $${values.length}`;
     }
+    if (images !== undefined) {
+      values.push(Array.isArray(images) ? JSON.stringify(images) : images);
+      sql += `, images = $${values.length}::jsonb`;
+    }
+    if (roomNumber !== undefined) { values.push(roomNumber); sql += `, room_number = $${values.length}`; }
+    if (roomTypeId !== undefined) { values.push(roomTypeId); sql += `, room_type_id = $${values.length}`; }
+    if (floor !== undefined) { values.push(floor); sql += `, floor = $${values.length}`; }
+    if (building !== undefined) { values.push(building); sql += `, building = $${values.length}`; }
+    if (price !== undefined) { values.push(price); sql += `, price = $${values.length}`; }
 
     values.push(id);
     sql += ` WHERE id = $${values.length} RETURNING *`;
@@ -93,6 +102,11 @@ export async function PATCH(
       { status: 500 }
     );
   }
+}
+
+// The Rooms UI uses PUT for full edits; share the validated PATCH implementation.
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return PATCH(request, context);
 }
 
 // Delete room (soft delete by setting is_active to false)
