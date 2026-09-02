@@ -112,9 +112,9 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   if (isLoading) return <Loader2 className="animate-spin" />;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 border p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-        <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+    <div className="min-w-0 space-y-3 sm:space-y-4">
+      <div className="grid min-w-0 gap-2 rounded-lg border p-3 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-3 lg:p-4">
+        <div className="min-w-0 md:col-span-2 lg:col-span-2">
           <Label>Ingredient</Label>
           <Select
             value={selectedInvId}
@@ -145,7 +145,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
             placeholder="0.00"
           />
         </div>
-        <Button onClick={handleAddIngredient} disabled={isAdding}>
+        <Button onClick={handleAddIngredient} disabled={isAdding} className="min-h-11 w-full md:w-auto">
           {isAdding ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : (
@@ -155,8 +155,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
         </Button>
       </div>
 
-      <div className="w-full overflow-x-auto">
-      <Table className="min-w-[520px]">
+      <div className="w-full min-w-0 overflow-x-auto rounded-lg">
+      <Table className="min-w-[460px] text-sm">
         <TableHeader>
           <TableRow>
             <TableHead>Ingredient</TableHead>
@@ -175,6 +175,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-11 min-w-11"
                   onClick={() => handleRemoveIngredient(ing.inventory_item_id)}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
