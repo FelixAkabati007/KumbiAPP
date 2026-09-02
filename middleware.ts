@@ -21,7 +21,7 @@ const routePermissions: Record<string, string[]> = {
   "/menu": ["admin", "manager"],
   "/refunds": ["admin", "manager", "staff", "finance"],
   "/order-display": ["admin", "manager", "staff", "kitchen"],
-  "/receipt": ["admin", "manager", "staff", "kitchen", "finance"],
+  "/receipt": ["admin", "manager", "staff", "kitchen", "finance", "frontDesk"],
   "/payments": ["admin", "manager", "finance"],
   "/system": ["admin", "manager"],
   // Hospitality module routes
@@ -45,7 +45,7 @@ const apiPermissions: Record<string, string[]> = {
   "/api/menu": ["admin", "manager", "staff", "kitchen"],
   "/api/refunds": ["admin", "manager", "staff", "finance"],
   "/api/orders": ["admin", "manager", "staff", "kitchen"],
-  "/api/receipts": ["admin", "manager", "staff", "finance"],
+  "/api/receipts": ["admin", "manager", "staff", "finance", "frontDesk"],
   "/api/reports": ["admin", "manager", "finance"],
   "/api/finance": ["admin", "manager", "finance"],
   "/api/payroll": ["admin", "manager", "finance"],
