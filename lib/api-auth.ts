@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { query } from "@/lib/db";
 import { hasPermission, isAdmin, type AppSection, type UserRole } from "@/lib/roles";
 
 export type ApiSession = {
@@ -71,6 +72,17 @@ export async function requireAdmin(): Promise<AuthResult> {
     return { session: null, error: NextResponse.json({ error: "Forbidden: administrators only" }, { status: 403 }) };
   }
   return { session: session as ApiSession, error: null };
+}
+
+export async function requireFinanceAccess(): Promise<AuthResult & { actingAuthority?: boolean }> {
+  const session = await getSession();
+  if (!session) return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (session.role === "admin" || session.role === "finance") return { session: session as ApiSession, error: null, actingAuthority: false };
+  if (session.role !== "manager") return { session: null, error: NextResponse.json({ error: "Forbidden: Finance access is restricted" }, { status: 403 }) };
+  const result = await query(`SELECT EXISTS (SELECT 1 FROM users WHERE role = 'finance' AND is_active = true) AS has_finance_manager`);
+  const hasFinanceManager = Boolean(result.rows[0]?.has_finance_manager);
+  if (hasFinanceManager) return { session: session as ApiSession, error: null, actingAuthority: false };
+  return { session: session as ApiSession, error: null, actingAuthority: true };
 }
 
 export async function requireRole(
