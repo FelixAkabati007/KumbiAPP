@@ -71,7 +71,9 @@ export async function GET(request: Request) {
     }
 
     if (source === "hotel" || source === "restaurant") {
-      conditions.push(`metadata->>'source' = $${params.length + 1}`);
+      conditions.push(
+        `(metadata->>'source' = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
+      );
       params.push(source);
     }
 

@@ -30,7 +30,12 @@ export async function POST(req: Request) {
     const currency = "GHS";
 
     // Merge orderId and type into metadata if not present
-    const finalMetadata = { ...metadata, orderId, type };
+    const finalMetadata = {
+      ...metadata,
+      source: metadata?.source || "restaurant",
+      orderId,
+      type,
+    };
 
     await query(
       `INSERT INTO transaction_logs 
