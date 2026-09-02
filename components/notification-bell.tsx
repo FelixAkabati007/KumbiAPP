@@ -18,6 +18,7 @@ interface NotificationItem {
   message: string;
   type: string;
   read_at: string | null;
+  opened_at: string | null;
   created_at: string;
 }
 
@@ -56,7 +57,8 @@ export function NotificationBell() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
+        <div className="flex max-h-[min(32rem,70vh)] flex-col overflow-hidden">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
           {unreadCount > 0 ? (
@@ -66,24 +68,37 @@ export function NotificationBell() {
           ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {notifications.length === 0 ? (
-          <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
-        ) : (
-          notifications.slice(0, 8).map((item) => (
-            <DropdownMenuItem key={item.id} className="items-start gap-3 py-3" onClick={() => !item.read_at && markRead(item.id)}>
-              <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.read_at ? "bg-muted" : "bg-primary"}`} aria-hidden="true" />
-              <span className="grid gap-1">
-                <span className="font-medium">{item.title}</span>
-                <span className="line-clamp-2 text-xs text-muted-foreground">{item.message}</span>
-              </span>
-            </DropdownMenuItem>
-          ))
-        )}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {notifications.length === 0 ? (
+            <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
+          ) : (
+            notifications.map((item, index) => {
+              const date = new Date(item.created_at);
+              const previous = index > 0 ? new Date(notifications[index - 1].created_at) : null;
+              const group = date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+              const previousGroup = previous?.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+              return (
+                <div key={item.id}>
+                  {group !== previousGroup && <div className="sticky top-0 z-10 border-b bg-muted/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">{group}</div>}
+                  <DropdownMenuItem className="items-start gap-3 py-3" onClick={() => markRead(item.id)}>
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.read_at ? "bg-muted" : "bg-primary"}`} aria-hidden="true" />
+                    <span className="grid gap-1">
+                      <span className="font-medium">{item.title}</span>
+                      <span className="line-clamp-2 text-xs text-muted-foreground">{item.message}</span>
+                      <time dateTime={item.created_at} className="text-[11px] text-muted-foreground">{date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</time>
+                    </span>
+                  </DropdownMenuItem>
+                </div>
+              );
+            })
+          )}
+        </div>
         {unreadCount === 0 && notifications.length > 0 ? (
           <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
             <CheckCheck className="h-4 w-4" aria-hidden="true" /> All caught up
           </div>
         ) : null}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
