@@ -351,7 +351,7 @@ function SettingsPageContent() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col p-2 sm:p-4 md:p-6">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-2 sm:p-4 md:p-6">
         <div className="mb-4 sm:mb-6">
           <h2 className="font-semibold text-xl sm:text-2xl mb-2 text-gray-800 dark:text-gray-200">
             Application Settings

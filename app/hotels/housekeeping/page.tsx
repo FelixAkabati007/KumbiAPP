@@ -780,13 +780,23 @@ function HousekeepingPage() {
           <div className="grid gap-4">
             <div>
               <Label htmlFor="ticketRoomNumber">Room Number</Label>
-              <Input
+              <select
                 id="ticketRoomNumber"
-                placeholder="e.g., 101, 205, 310"
                 value={ticketForm.roomNumber}
                 onChange={(e) => setTicketForm({ ...ticketForm, roomNumber: e.target.value })}
-                className="rounded-lg"
-              />
+                disabled={rooms.length === 0}
+                className="flex h-10 w-full rounded-lg border border-gray-300 bg-background px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+              >
+                <option value="">{rooms.length === 0 ? "No rooms available" : "Select a room"}</option>
+                {rooms
+                  .filter((room) => room.status !== "inactive")
+                  .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
+                  .map((room) => (
+                    <option key={room.id} value={room.room_number}>
+                      Room {room.room_number} ({room.status})
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div>

@@ -415,7 +415,7 @@ function ReportsPage() {
   return (
     <RoleGuard section="reports">
       <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+        <header className="sticky top-0 z-10 flex min-w-0 flex-wrap items-center gap-2 sm:gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
           <Link
             href="/"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -423,11 +423,11 @@ function ReportsPage() {
             <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             <LogoDisplay size="sm" />
             <BarChart3 className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-            <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+            <h1 className="min-w-0 truncate text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">
               Sales Reports
             </h1>
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <Button
               onClick={exportData}
               variant="outline"
@@ -439,7 +439,7 @@ function ReportsPage() {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col p-4 md:p-6">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-3 sm:p-4 md:p-6">
           {data.length === 0 && (
             <Card className="mb-6 rounded-2xl border-orange-200 bg-white/70 dark:border-orange-700 dark:bg-gray-800/70">
               <CardContent className="flex flex-col items-center gap-2 p-6 text-center">
@@ -460,11 +460,11 @@ function ReportsPage() {
               />
             </div>
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-  <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
+  <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
   <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem></SelectContent>
   </Select>
   <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
+              <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
                 <SelectValue placeholder="Date range" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">

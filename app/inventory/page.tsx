@@ -381,7 +381,7 @@ function InventoryContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 py-2 sm:gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -389,11 +389,11 @@ function InventoryContent() {
           <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
           <Package className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          <h1 className="min-w-0 truncate text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">
             Inventory Management
           </h1>
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {lowStockCount > 0 && (
             <Badge
               variant="destructive"
@@ -422,7 +422,7 @@ function InventoryContent() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col p-4 md:p-6">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-3 sm:p-4 md:p-6">
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -435,7 +435,7 @@ function InventoryContent() {
             />
           </div>
           <Select value={activeTab} onValueChange={setActiveTab}>
-            <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
+            <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
