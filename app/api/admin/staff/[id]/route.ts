@@ -153,7 +153,7 @@ export async function PATCH(
            department = COALESCE($4, department),
            position = COALESCE($5, position),
            employment_status = COALESCE($6, employment_status),
-           manager_scope = CASE WHEN $8 IS NULL THEN manager_scope ELSE $8 END,
+           manager_scope = CASE WHEN $8::text IS NULL THEN manager_scope ELSE $8::text END,
            updated_at = NOW()
        WHERE id = $7`,
       [
