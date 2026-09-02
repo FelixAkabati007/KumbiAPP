@@ -61,7 +61,7 @@ import {
   KeyRound,
 } from "lucide-react";
 
-type StaffRole = "admin" | "manager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
+type StaffRole = "admin" | "manager" | "operationsManager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
 
 interface StaffMember {
   id: string;
@@ -86,7 +86,8 @@ const ROLE_OPTIONS: { value: StaffRole; label: string }[] = [
   { value: "frontDesk", label: "Front Desk" },
   { value: "housekeeping", label: "Housekeeping" },
   { value: "finance", label: "Finance" },
-  { value: "manager", label: "Manager" },
+  { value: "operationsManager", label: "Operations Manager" },
+  { value: "manager", label: "General Manager" },
   { value: "admin", label: "Admin" },
 ];
 
@@ -105,6 +106,8 @@ const ROLE_BADGE_CLASSES: Record<StaffRole, string> = {
     "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700",
   housekeeping:
     "bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700",
+  operationsManager:
+    "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:text-slate-300 dark:border-slate-700",
 };
 
 function roleLabel(role: string) {

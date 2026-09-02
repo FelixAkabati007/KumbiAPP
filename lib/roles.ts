@@ -2,6 +2,7 @@
 export type UserRole =
   | "admin"
   | "manager"
+  | "operationsManager"
   | "finance"
   | "staff"
   | "kitchen"
@@ -26,6 +27,7 @@ export type AppSection =
   | "checkOut"
   | "housekeeping"
   | "maintenance"
+  | "operations"
   | "guestFolio";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
@@ -61,6 +63,10 @@ export const roleCapabilities: Record<
       delete: false,
       manage: false,
     },
+  },
+  operationsManager: {
+    operations: { view: true, create: false, edit: false, delete: false, manage: true },
+    maintenance: { view: true, create: true, edit: true, delete: false, manage: true },
   },
   finance: {
     finance: {
@@ -199,7 +205,29 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: true,
     housekeeping: true,
     maintenance: true,
+    operations: true,
     guestFolio: true,
+  },
+  operationsManager: {
+    pos: false,
+    kitchen: false,
+    orderBoard: false,
+    menu: false,
+    inventory: false,
+    reports: false,
+    finance: false,
+    payments: false,
+    receipt: false,
+    system: false,
+    refunds: false,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: true,
+    operations: true,
+    guestFolio: false,
   },
   finance: {
     pos: false,
@@ -219,6 +247,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: false,
     housekeeping: false,
     maintenance: false,
+    operations: false,
     guestFolio: true,
   },
   manager: {
@@ -239,6 +268,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: true,
     housekeeping: true,
     maintenance: true,
+    operations: true,
     guestFolio: true,
   },
   kitchen: {
@@ -259,6 +289,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: false,
     housekeeping: false,
     maintenance: false,
+    operations: false,
     guestFolio: false,
   },
   staff: {
@@ -279,6 +310,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: false,
     housekeeping: false,
     maintenance: false,
+    operations: false,
     guestFolio: false,
   },
   frontDesk: {
@@ -299,6 +331,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: true,
     housekeeping: true,
     maintenance: true,
+    operations: false,
     guestFolio: true,
   },
   housekeeping: {
@@ -319,6 +352,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     checkOut: false,
     housekeeping: true,
     maintenance: true,
+    operations: false,
     guestFolio: false,
   },
 };
