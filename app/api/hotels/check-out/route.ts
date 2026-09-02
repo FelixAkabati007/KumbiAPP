@@ -80,25 +80,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      try {
-        await client.query(
-          `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-           VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6)`,
-          [String(reservationId), String(reservationId), String(resResult.rows[0].guest_id), String(checkedOutRoomId), paid, `Guest checked out of room ${checkedOutRoomId}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
-        );
-      } catch (auxiliaryError) {
-        console.error("Checkout activity ledger failed:", auxiliaryError);
-      }
-
       const verified = await client.query(
-        `SELECT id, status, room_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
+        `SELECT id, status, room_id, guest_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
       return verified.rows[0];
     });
 
-    // Housekeeping is follow-up work; it must never roll back a successful checkout.
+    // Auxiliary records are follow-up work; neither can roll back a successful checkout.
+    try {
+      await query(
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
+         VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6)`,
+        [String(reservationId), String(reservationId), String(result.guest_id ?? ""), String(result.room_id), paid, `Guest checked out of room ${result.room_id}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
+      );
+    } catch (ledgerError) {
+      console.error("Checkout activity ledger follow-up failed:", ledgerError);
+    }
+
     try {
       await query(
         `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
