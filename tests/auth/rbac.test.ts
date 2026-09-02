@@ -40,7 +40,7 @@ describe("RBAC System", () => {
         "refunds",
       ];
       sections.forEach((section) => {
-        expect(hasPermission("manager", section)).toBe(section !== "system");
+        expect(hasPermission("manager", section)).toBe(true);
       });
     });
 
@@ -79,11 +79,13 @@ describe("RBAC System", () => {
       "/pos": ["admin", "manager", "staff"],
       "/kitchen": ["admin", "manager", "kitchen"],
       "/inventory": ["admin", "manager", "kitchen"],
-      "/reports": ["admin", "manager"],
+      "/reports": ["admin", "manager", "finance"],
+      "/finance": ["admin", "manager", "finance"],
+      "/payments": ["admin", "manager", "finance"],
       "/menu": ["admin", "manager"],
-      "/refunds": ["admin", "manager", "staff"],
+      "/refunds": ["admin", "manager", "staff", "finance"],
       "/order-display": ["admin", "manager", "staff", "kitchen"],
-      "/receipt": ["admin", "manager", "staff"],
+      "/receipt": ["admin", "manager", "staff", "finance"],
       "/system": ["admin", "manager"],
     };
 
@@ -91,9 +93,11 @@ describe("RBAC System", () => {
       "/api/settings": ["admin", "manager"],
       "/api/inventory": ["admin", "manager", "kitchen"],
       "/api/menu": ["admin", "manager"],
-      "/api/refunds": ["admin", "manager", "staff"],
+      "/api/refunds": ["admin", "manager", "staff", "finance"],
       "/api/orders": ["admin", "manager", "staff", "kitchen"],
-      "/api/reports": ["admin", "manager"],
+      "/api/reports": ["admin", "manager", "finance"],
+      "/api/receipts": ["admin", "manager", "staff", "finance"],
+      "/api/transactions": ["admin", "manager", "finance"],
     };
 
     function isRouteAllowed(role: string, path: string): boolean {
@@ -134,6 +138,19 @@ describe("RBAC System", () => {
     it("should allow staff to access Refunds but not Menu editing", () => {
       expect(isRouteAllowed("staff", "/refunds")).toBe(true);
       expect(isRouteAllowed("staff", "/menu")).toBe(false);
+    });
+
+    it("should allow finance to access finance destinations only", () => {
+      expect(isRouteAllowed("finance", "/finance")).toBe(true);
+      expect(isRouteAllowed("finance", "/reports")).toBe(true);
+      expect(isRouteAllowed("finance", "/refunds")).toBe(true);
+      expect(isRouteAllowed("finance", "/receipt")).toBe(true);
+      expect(isRouteAllowed("finance", "/payments")).toBe(true);
+      expect(isRouteAllowed("finance", "/settings")).toBe(false);
+      expect(isRouteAllowed("finance", "/api/reports")).toBe(true);
+      expect(isRouteAllowed("finance", "/api/refunds")).toBe(true);
+      expect(isRouteAllowed("finance", "/api/receipts")).toBe(true);
+      expect(isRouteAllowed("finance", "/api/transactions")).toBe(true);
     });
 
     it("should allow manager to access everything", () => {
