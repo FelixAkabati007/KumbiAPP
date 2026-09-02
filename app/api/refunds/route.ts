@@ -11,7 +11,7 @@ const VALID_STATUSES = [
 ] as const;
 
 function isValidStatus(
-  value: unknown
+  value: unknown,
 ): value is (typeof VALID_STATUSES)[number] {
   return (
     typeof value === "string" &&
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     if (search) {
       params.push(`%${search}%`);
       whereParts.push(
-        `(ordernumber ILIKE $${params.length} OR customername ILIKE $${params.length})`
+        `(ordernumber ILIKE $${params.length} OR customername ILIKE $${params.length})`,
       );
     }
 
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
         ORDER BY requestedat DESC
         LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
-      params
+      params,
     );
 
     return NextResponse.json(result.rows);
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
     console.error("Failed to fetch refunds:", error);
     return NextResponse.json(
       { error: "Failed to fetch refunds" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     if (!settings.enabled) {
       return NextResponse.json(
         { error: "Refunds are not enabled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -171,25 +171,25 @@ export async function POST(request: Request) {
     if (!Number.isFinite(original) || original <= 0) {
       return NextResponse.json(
         { error: "Invalid originalAmount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!Number.isFinite(refund) || refund <= 0) {
       return NextResponse.json(
         { error: "Invalid refundAmount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (refund > original) {
       return NextResponse.json(
         { error: "Refund amount cannot exceed original amount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!settings.allowedPaymentMethods.includes(paymentMethod)) {
       return NextResponse.json(
         { error: "Payment method not allowed for refunds" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -214,10 +214,11 @@ export async function POST(request: Request) {
       status = "pending";
     } else if (
       !settings.requireApproval ||
-      refund <= settings.approvalThreshold
+      (["Admin", "Restaurant Manager"].includes(authorizedBy) &&
+        refund <= settings.approvalThreshold)
     ) {
       status = "approved";
-      autoApprovalNote = "Auto-approved (Below Threshold)";
+      autoApprovalNote = "Auto-approved (Below Approval Threshold)";
       approvedBy = authorizedBy;
       approvedAt = new Date().toISOString();
     }
@@ -271,7 +272,7 @@ export async function POST(request: Request) {
           typeof transactionId === "string" ? transactionId : null,
           approvedBy,
           approvedAt,
-        ]
+        ],
       );
 
       const refundRow = insertRes.rows[0];
@@ -295,7 +296,7 @@ export async function POST(request: Request) {
             status,
           }),
           nowIso,
-        ]
+        ],
       );
 
       if (status === "approved") {
@@ -314,7 +315,7 @@ export async function POST(request: Request) {
               reason: autoApprovalNote,
             }),
             nowIso,
-          ]
+          ],
         );
       }
 
@@ -326,7 +327,7 @@ export async function POST(request: Request) {
     console.error("Failed to create refund:", error);
     return NextResponse.json(
       { error: "Failed to create refund" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

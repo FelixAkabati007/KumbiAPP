@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +42,7 @@ const RefundStats = dynamic(
         ))}
       </div>
     ),
-  }
+  },
 );
 
 const RefundList = dynamic(
@@ -50,12 +51,14 @@ const RefundList = dynamic(
     loading: () => (
       <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-3xl" />
     ),
-  }
+  },
 );
 
 function RefundsPageContent() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initialOrderNumber = searchParams.get("orderNumber") ?? undefined;
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -76,7 +79,7 @@ function RefundsPageContent() {
   // Dialog states
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(
-    null
+    null,
   );
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
@@ -173,7 +176,7 @@ function RefundsPageContent() {
       await service.approveRefund(
         selectedRefund.id,
         user?.name || "Unknown User",
-        approvalNotes
+        approvalNotes,
       );
 
       toast({
@@ -206,7 +209,7 @@ function RefundsPageContent() {
       await service.rejectRefund(
         selectedRefund.id,
         user?.name || "Unknown User",
-        rejectionReason
+        rejectionReason,
       );
 
       toast({
@@ -299,9 +302,21 @@ function RefundsPageContent() {
 
       <main className="flex flex-1 flex-col p-2 sm:p-4 md:p-6">
         <div className="mb-4 flex items-center gap-3">
-          <label htmlFor="refund-source" className="text-sm font-medium text-orange-800 dark:text-orange-200">Activity source</label>
-          <select id="refund-source" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className="rounded-xl border border-orange-200 bg-white/70 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/70 dark:text-orange-100">
-            <option value="all">All activity</option><option value="hotel">Hotel activity</option><option value="restaurant">Restaurant refunds</option>
+          <label
+            htmlFor="refund-source"
+            className="text-sm font-medium text-orange-800 dark:text-orange-200"
+          >
+            Activity source
+          </label>
+          <select
+            id="refund-source"
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value)}
+            className="rounded-xl border border-orange-200 bg-white/70 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/70 dark:text-orange-100"
+          >
+            <option value="all">All activity</option>
+            <option value="hotel">Hotel activity</option>
+            <option value="restaurant">Restaurant refunds</option>
           </select>
         </div>
         <RefundStats stats={stats} />
@@ -330,6 +345,7 @@ function RefundsPageContent() {
       <RefundRequestDialog
         open={refundDialogOpen}
         onOpenChange={setRefundDialogOpen}
+        initialOrderNumber={initialOrderNumber}
       />
 
       {/* Approval Dialog */}
