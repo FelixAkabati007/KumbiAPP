@@ -211,11 +211,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!["admin", "manager"].includes(session.role)) {
+      return NextResponse.json({ error: "Only Admin or General Manager can deactivate staff accounts directly" }, { status: 403 });
     }
 
     const { id } = await context.params;
+    const body = await request.json().catch(() => null) as { reason?: string } | null;
+    const reason = body?.reason?.trim() || "";
+    if (reason.length < 10 || reason.length > 10000) {
+      return NextResponse.json({ error: "A deactivation reason of at least 10 characters is required" }, { status: 400 });
+    }
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
     // Get staff data before deletion
@@ -253,7 +258,9 @@ export async function DELETE(
         email: staff.business_email,
         department: staff.department,
         position: staff.position,
+        directDeactivation: true,
       },
+      reason,
       ipAddress,
     });
 
