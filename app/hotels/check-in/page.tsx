@@ -436,13 +436,13 @@ function CheckInPage() {
 
         <TabsContent value="check-in">
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
-            <CardHeader>
-              <CardTitle>Check-In Management</CardTitle>
-              <CardDescription>Process guest check-ins for reservations</CardDescription>
+            <CardHeader className="space-y-1 px-4 py-5 sm:px-6 sm:py-6">
+              <CardTitle className="text-xl sm:text-2xl">Check-In Management</CardTitle>
+              <CardDescription className="text-sm sm:text-base">Process guest check-ins for reservations</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
+            <CardContent className="space-y-5 px-4 pb-5 sm:px-6 sm:pb-6">
+              <div className="flex w-full">
+                <div className="relative w-full">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by reservation number, guest name..."
@@ -471,15 +471,15 @@ function CheckInPage() {
                       key={res.id}
                       className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
                     >
-                      <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                          <div>
+                      <CardContent className="p-4 sm:p-5 lg:p-6">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1.25fr_1.25fr_1fr_1.25fr_0.55fr_auto] lg:items-center lg:gap-6">
+                          <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">Reservation</p>
                             <p className="font-semibold">{res.reservation_number}</p>
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">Guest</p>
-                            <p className="font-semibold">
+                            <p className="truncate font-semibold">
                               {res.first_name} {res.last_name}
                             </p>
                           </div>
@@ -497,7 +497,7 @@ function CheckInPage() {
                             <p className="text-xs text-muted-foreground">Guests</p>
                             <p className="font-semibold">{res.number_of_guests}</p>
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
+                          <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 sm:flex-row lg:col-span-1 lg:min-w-[220px]">
                             <Button
                               onClick={() => openRoomSelection(res)}
                               disabled={processing || !!cancellingReservationId}
