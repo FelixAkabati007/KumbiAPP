@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins and managers can initiate resets. The target can never be the actor.
+    // Admins may reset any other role. Managers may reset only non-admin/non-manager roles.
     if (!["admin", "manager"].includes(session.role)) {
       return NextResponse.json(
         { error: "Only admins and managers can reset passwords" },
@@ -40,7 +40,7 @@ export async function POST(
 
     // Verify staff member exists
     const staffResult = await query(
-      `SELECT sp.id, sp.first_name, sp.last_name, sp.business_email
+      `SELECT sp.id, sp.first_name, sp.last_name, sp.business_email, sp.role
        FROM staff_profiles sp
        WHERE sp.id = $1 AND sp.is_active = true`,
       [id]
@@ -51,6 +51,12 @@ export async function POST(
     }
 
     const staff = staffResult.rows[0];
+    if (session.role === "manager" && ["admin", "manager"].includes(staff.role)) {
+      return NextResponse.json(
+        { error: "Managers can reset passwords only for staff in non-admin roles" },
+        { status: 403 }
+      );
+    }
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
     // Create password reset token
