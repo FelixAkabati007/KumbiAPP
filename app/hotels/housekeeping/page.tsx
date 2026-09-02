@@ -489,8 +489,24 @@ function HousekeepingPage() {
                   No housekeeping tasks
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <>
+                <div className="space-y-3 md:hidden">
+                  {tasks.map((task) => (
+                    <article key={task.id} className="rounded-2xl border border-orange-200 bg-background/70 p-4 shadow-sm dark:border-orange-700">
+                      <div className="flex items-start justify-between gap-3">
+                        <div><p className="font-semibold">Room {task.room_number}</p><p className="mt-1 text-sm capitalize text-muted-foreground">{task.task_type.replace(/_/g, " ")}</p></div>
+                        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        <span className={`rounded-full px-3 py-1 font-medium ${getStatusColor(task.status)}`}>{task.status.replace("_", " ")}</span>
+                        <span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">{task.assigned_to_name || "Unassigned"}</span>
+                      </div>
+                      <Button variant="outline" className="mt-4 min-h-11 w-full rounded-xl" disabled={task.status === "completed"} onClick={() => handleMarkTaskDone(task.id)}><CheckCircle2 className="mr-2 h-4 w-4" />Mark Done</Button>
+                    </article>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[720px] text-sm">
                     <thead className="border-b">
                       <tr>
                         <th className="text-left py-2 px-4">Room</th>
@@ -541,6 +557,7 @@ function HousekeepingPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -612,8 +629,19 @@ function HousekeepingPage() {
                   No maintenance tickets
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <>
+                <div className="space-y-3 md:hidden">
+                  {tickets.map((ticket) => (
+                    <article key={ticket.id} className="rounded-2xl border border-orange-200 bg-background/70 p-4 shadow-sm dark:border-orange-700">
+                      <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{ticket.ticket_number}</p><p className="mt-1 text-sm text-muted-foreground">{ticket.room_number ? `Room ${ticket.room_number}` : "Shared area"}</p></div><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getPriorityColor(ticket.severity)}`}>{ticket.severity}</span></div>
+                      <p className="mt-3 text-sm leading-6">{ticket.issue_description}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className={`rounded-full px-3 py-1 font-medium ${getStatusColor(ticket.status)}`}>{ticket.status.replace("_", " ")}</span><span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">{ticket.assigned_to_name || "Unassigned"}</span></div>
+                      <Button variant="outline" className="mt-4 min-h-11 w-full rounded-xl" disabled={ticket.status === "resolved"} onClick={() => handleResolveTicket(ticket.id)}><CheckCircle2 className="mr-2 h-4 w-4" />Resolve</Button>
+                    </article>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[820px] text-sm">
                     <thead className="border-b">
                       <tr>
                         <th className="text-left py-2 px-4">Ticket</th>
@@ -661,6 +689,7 @@ function HousekeepingPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </CardContent>
           </Card>
