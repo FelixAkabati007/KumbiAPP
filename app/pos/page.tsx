@@ -599,20 +599,20 @@ function POSContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-white/90 px-3 py-2 backdrop-blur-md dark:bg-gray-900/90 sm:min-h-16 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          <ArrowLeft className="h-5 w-5 shrink-0 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
-          <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Sales Terminal
+          <Utensils className="hidden h-6 w-6 shrink-0 text-orange-600 dark:text-orange-400 sm:block" />
+          <h1 className="truncate text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">
+            <span className="sm:hidden">Sales</span><span className="hidden sm:inline">Sales Terminal</span>
           </h1>
         </Link>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          <div className="hidden items-center gap-2 px-3 py-1 bg-gradient-to-r sm:flex from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
             <User className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
               {user.name}
@@ -626,9 +626,9 @@ function POSContent() {
           </div>
           <Badge
             variant="outline"
-            className="text-sm border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300"
-          >
-            Order #{orderNumber}
+className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 sm:inline-flex sm:text-sm"
+            >
+              Order #{orderNumber}
           </Badge>
           {orderId && (
             <Badge
@@ -649,9 +649,9 @@ function POSContent() {
         </div>
       </header>
 
-      <main className="flex min-w-0 flex-1 overflow-x-hidden overflow-y-auto flex-col lg:flex-row">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:flex-row lg:overflow-hidden">
         {/* Menu Items Section */}
-        <div className="flex flex-col w-full lg:w-2/3 border-r border-orange-200 dark:border-orange-700">
+        <div className="flex min-w-0 w-full flex-col border-orange-200 dark:border-orange-700 lg:flex-1 lg:border-r xl:w-2/3">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 mb-4">
               <div className="relative flex-1">
@@ -692,7 +692,7 @@ function POSContent() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1">
+              <TabsList className="flex w-max min-w-full gap-1 overflow-x-auto bg-white/70 p-1 backdrop-blur-sm border border-orange-200 dark:bg-gray-800/70 dark:border-orange-700 rounded-full sm:grid sm:w-full sm:grid-cols-6">
                 <TabsTrigger
                   value="all"
                   className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
@@ -734,15 +734,15 @@ function POSContent() {
           </div>
 
           <ScrollArea className="flex-1 p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {filteredItems.map((item) => (
                 <Card
                   key={item.id}
-                  className="cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 transition-all duration-300 overflow-hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 hover:shadow-xl relative"
+                  className="cursor-pointer overflow-hidden bg-white/70 backdrop-blur-sm border border-orange-200 dark:bg-gray-800/70 dark:border-orange-700 rounded-2xl transition-shadow duration-200 hover:border-orange-400 hover:shadow-lg sm:rounded-3xl sm:hover:scale-[1.02] relative"
                   onClick={() => addItemToOrder(item)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-                  <div className="relative h-32 w-full bg-muted rounded-t-3xl overflow-hidden">
+                  <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden sm:aspect-[5/3] sm:rounded-t-3xl">
                     {(() => {
                       if (!item.image) {
                         return (
@@ -801,12 +801,12 @@ function POSContent() {
                       </div>
                     )}
                   </div>
-                  <CardHeader className="p-3 relative z-10">
+                  <CardHeader className="p-2 relative z-10 sm:p-3">
                     <CardTitle className="text-sm line-clamp-2">
                       {item.name}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0 relative z-10">
+                  <CardContent className="hidden p-3 pt-0 relative z-10 sm:block">
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {item.description}
                     </p>
@@ -835,7 +835,7 @@ function POSContent() {
         </div>
 
         {/* Order Section */}
-        <div className="flex flex-col w-full lg:w-1/3 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10">
+        <div className="flex w-full min-w-0 flex-col border-t border-orange-200 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:border-orange-700 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10 lg:w-[24rem] lg:shrink-0 lg:border-t-0 xl:w-1/3">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700">
             <h2 className="font-semibold text-lg mb-2 text-orange-800 dark:text-orange-200">
               Current Order
