@@ -792,7 +792,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
             <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
               <CardTitle className="text-gray-800 dark:text-gray-200">
-                Welcome to {settings.account?.restaurantName?.trim() || "Kumbisaly Heritage Restaurant"}
+                Welcome to Kumbisaly Heritage Restaurant
               </CardTitle>
               <CardDescription className="text-orange-600 dark:text-orange-400">
                 Your complete restaurant management solution

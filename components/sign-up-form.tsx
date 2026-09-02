@@ -25,7 +25,6 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { useSettings } from "@/components/settings-provider";
 import { LogoDisplay } from "@/components/logo-display";
 import {
   Select,
@@ -45,8 +44,6 @@ import {
 
 export function SignUpForm() {
   const { signup, isLoading, isDatabaseReady } = useAuth();
-  const { settings } = useSettings();
-  const restaurantName = settings.account?.restaurantName?.trim() || "Kumbisaly Heritage Restaurant";
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
@@ -109,9 +106,9 @@ export function SignUpForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-center gap-2">
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                  {restaurantName}
-                </h1>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                Kumbisaly Heritage Restaurant
+              </h1>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Admin Only &middot; Create a New Staff Account
