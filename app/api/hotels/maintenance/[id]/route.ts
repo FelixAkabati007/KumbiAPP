@@ -8,7 +8,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requirePermission("maintenance");
+    const { session, error } = await requirePermission("maintenance");
     if (error) return error;
 
     const { id } = await context.params;
@@ -53,7 +53,20 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(result.rows[0]);
+    const updatedTicket = result.rows[0];
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [session.id, "maintenance_ticket_updated", "maintenance_ticket", id, JSON.stringify({ status, assignedTo, notesChanged: notes !== undefined, severity })],
+    );
+    if (status || assignedTo !== undefined) {
+      await query(
+        `INSERT INTO notifications (recipient_user_id, title, message, type)
+         SELECT id, $1, $2, $3 FROM users WHERE role IN ('admin', 'manager') AND id <> $4`,
+        [`Maintenance ticket ${updatedTicket.ticket_number} updated`, `Status or assignment changed by ${session.email}.`, "maintenance", session.id],
+      );
+    }
+    return NextResponse.json(updatedTicket);
   } catch (error) {
     console.error("Error updating maintenance ticket:", error);
     return NextResponse.json(
