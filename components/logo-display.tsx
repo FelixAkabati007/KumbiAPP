@@ -59,16 +59,20 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
     lg: "h-6 w-6 sm:h-8 sm:w-8",
   };
 
+  const pixelSizes = { sm: 32, md: 40, lg: 64 };
+
   return (
     <div
       className={`relative isolate ${sizeClasses[size]} overflow-hidden bg-gradient-to-br from-orange-100 to-amber-200 dark:from-orange-800 dark:to-amber-900 rounded-full border-2 border-orange-300 dark:border-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg ${className}`}
+      style={{ width: pixelSizes[size], height: pixelSizes[size] }}
     >
       {isValidImage ? (
         <Image
           src={logo || "/logo.svg"}
           alt="Company Logo"
           fill
-          className="pointer-events-none absolute inset-0 h-full w-full object-contain rounded-full"
+          unoptimized
+          className="pointer-events-none !absolute !inset-0 !m-0 !block !h-full !w-full object-contain rounded-full"
           sizes={size === "sm" ? "32px" : size === "md" ? "40px" : "64px"}
           onError={() => setIsValidImage(false)}
           onLoad={(e) => {
