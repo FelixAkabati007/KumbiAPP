@@ -532,13 +532,13 @@ function InventoryContent() {
                   {filteredItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-between p-4 bg-white/50 dark:bg-gray-800/50 rounded-2xl border hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors ${
+                      className={`flex min-w-0 flex-col items-stretch gap-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-2xl border hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors ${
                         isLowStock(item)
                           ? "border-red-400 dark:border-red-600 animate-pulse"
                           : "border-orange-100 dark:border-orange-800"
                       }`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex min-w-0 items-center gap-4">
                         <div
                           className={`p-3 rounded-xl ${getCategoryColor(
                             item.category
@@ -550,7 +550,7 @@ function InventoryContent() {
                           <h3 className="font-semibold text-gray-800 dark:text-gray-200">
                             {item.name}
                           </h3>
-                          <div className="flex gap-2 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                             <span className="font-mono">{item.sku}</span>
                             <span>•</span>
                             <span className="capitalize">{item.category}</span>
@@ -564,8 +564,8 @@ function InventoryContent() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
+                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end sm:gap-6">
+                        <div className="text-left sm:text-right">
                           <div
                             className={`font-bold flex items-center justify-end gap-1 ${
                               isLowStock(item)

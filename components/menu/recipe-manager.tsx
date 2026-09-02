@@ -113,8 +113,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-2 items-end border p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-        <div className="col-span-2">
+      <div className="grid gap-3 border p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+        <div className="min-w-0 sm:col-span-2 lg:col-span-2">
           <Label>Ingredient</Label>
           <Select
             value={selectedInvId}
@@ -155,7 +155,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
         </Button>
       </div>
 
-      <Table>
+      <div className="w-full overflow-x-auto">
+      <Table className="min-w-[520px]">
         <TableHeader>
           <TableRow>
             <TableHead>Ingredient</TableHead>
@@ -193,6 +194,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }
