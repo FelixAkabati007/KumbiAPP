@@ -183,5 +183,76 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
       { name: 'paid_amount', type: 'numeric', nullable: true },
       { name: 'balance', type: 'numeric', nullable: false },
     ]
+  },
+  {
+    name: 'complaints',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'submitted_by', type: 'uuid', nullable: false },
+      { name: 'department', type: 'character varying', nullable: false },
+      { name: 'subject_type', type: 'character varying', nullable: false },
+      { name: 'subject_user_id', type: 'uuid', nullable: true },
+      { name: 'title', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: false },
+      { name: 'priority', type: 'character varying', nullable: false },
+      { name: 'status', type: 'character varying', nullable: false },
+      { name: 'assigned_to', type: 'uuid', nullable: true },
+      { name: 'parent_complaint_id', type: 'uuid', nullable: true },
+      { name: 'confidentiality', type: 'character varying', nullable: false },
+      { name: 'reservation_id', type: 'uuid', nullable: true },
+      { name: 'folio_id', type: 'uuid', nullable: true },
+      { name: 'order_id', type: 'character varying', nullable: true },
+      { name: 'receipt_id', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+      { name: 'acknowledged_at', type: 'timestamp with time zone', nullable: true },
+      { name: 'resolved_at', type: 'timestamp with time zone', nullable: true },
+      { name: 'closed_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'complaint_messages',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'complaint_id', type: 'uuid', nullable: false },
+      { name: 'author_id', type: 'uuid', nullable: false },
+      { name: 'message', type: 'text', nullable: false },
+      { name: 'is_internal', type: 'boolean', nullable: false },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
+  },
+  {
+    name: 'hotel_receipts',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_id', type: 'uuid', nullable: false },
+      { name: 'folio_id', type: 'uuid', nullable: true },
+      { name: 'order_id', type: 'character varying', nullable: false },
+      { name: 'order_number', type: 'character varying', nullable: false },
+      { name: 'receipt_type', type: 'character varying', nullable: false },
+      { name: 'version', type: 'integer', nullable: false },
+      { name: 'snapshot', type: 'jsonb', nullable: false },
+      { name: 'download_pathname', type: 'text', nullable: true },
+      { name: 'print_status', type: 'character varying', nullable: false },
+      { name: 'print_error', type: 'text', nullable: true },
+      { name: 'created_by', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
+  },
+  {
+    name: 'guest_folio_items',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_id', type: 'uuid', nullable: false },
+      { name: 'folio_id', type: 'uuid', nullable: false },
+      { name: 'category', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: false },
+      { name: 'quantity', type: 'numeric', nullable: false },
+      { name: 'unit_amount', type: 'numeric', nullable: false },
+      { name: 'total_amount', type: 'numeric', nullable: false },
+      { name: 'source_type', type: 'character varying', nullable: false },
+      { name: 'source_id', type: 'character varying', nullable: true },
+      { name: 'created_by', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
   }
 ];

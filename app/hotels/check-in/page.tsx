@@ -116,6 +116,7 @@ function CheckInPage() {
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeDescription, setChargeDescription] = useState("");
   const [addingCharge, setAddingCharge] = useState(false);
+  const [latestReceiptId, setLatestReceiptId] = useState<string | null>(null);
 
   const fetchReservations = async () => {
     try {
@@ -237,14 +238,15 @@ function CheckInPage() {
         }),
       });
 
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || "Failed to check in guest");
       }
 
+      setLatestReceiptId(payload?.receiptId || null);
       toast({
         title: "Success",
-        description: "Guest checked in successfully",
+        description: payload?.receiptId ? `Guest checked in. Order ${payload.orderNumber} is ready.` : "Guest checked in successfully",
       });
 
       window.dispatchEvent(new Event("roomStatusUpdated"));
@@ -421,6 +423,23 @@ function CheckInPage() {
         </div>
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
+
+      {latestReceiptId && (
+        <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-200">Check-in receipt created</p>
+              <p className="text-sm text-emerald-800 dark:text-emerald-300">The receipt is saved and can be downloaded if the printer is unavailable.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => window.open(`/api/hotels/receipts/${latestReceiptId}`, "_blank", "noopener,noreferrer")}>
+                <Receipt className="mr-2 h-4 w-4" /> Download receipt
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setLatestReceiptId(null)}>Dismiss</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="check-in" className="space-y-4">
         <TabsList>

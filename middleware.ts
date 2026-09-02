@@ -25,6 +25,7 @@ const routePermissions: Record<string, string[]> = {
   "/payments": ["admin", "manager", "finance"],
   "/system": ["admin", "manager"],
   "/operations": ["admin", "manager", "operationsManager"],
+  "/complaints": ["admin", "manager", "finance", "staff", "kitchen", "frontDesk", "housekeeping", "operationsManager"],
   // Hospitality module routes
   "/hotels/rooms": ["admin", "manager", "frontDesk", "housekeeping"],
   "/hotels/reservations": ["admin", "manager", "frontDesk"],
@@ -63,6 +64,7 @@ const apiPermissions: Record<string, string[]> = {
   "/api/hotels/guests": ["admin", "manager", "frontDesk"],
   "/api/hotels/housekeeping": ["admin", "manager", "frontDesk", "housekeeping"],
   "/api/hotels/maintenance": ["admin", "manager", "operationsManager", "frontDesk", "housekeeping"],
+  "/api/complaints": ["admin", "manager", "finance", "staff", "kitchen", "frontDesk", "housekeeping", "operationsManager"],
   // Note: "/api/settings" is intentionally NOT gated here. GET is public so
   // the logo/branding can render on unauthenticated screens (login, sign-up);
   // the route handler itself enforces admin-only writes (POST).
@@ -71,14 +73,7 @@ const apiPermissions: Record<string, string[]> = {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Handle Favicon
-  if (pathname === "/favicon.ico") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/favicon.svg";
-    return NextResponse.rewrite(url);
-  }
-
-  // 2. Exclude Public API Routes.
+  // 1. Exclude Public API Routes.
   // Signup is the exception: account creation must be admin-gated, so it
   // falls through to the protected API route check below instead of being
   // treated as a public auth endpoint like login/logout.

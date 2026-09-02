@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         throw new Error("Room is no longer available");
       }
 
-      // Create guest folio
+      // Create guest folio and preserve the room charge as a receipt-ready line item.
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
@@ -53,10 +53,20 @@ export async function POST(request: NextRequest) {
         FROM reservations r
         JOIN room_types rt ON rt.id = r.room_type_id
         WHERE r.id = $1
-          AND NOT EXISTS (
-            SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1
-          )
+          AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1)
         `,
+        [reservationId]
+      );
+      await client.query(
+        `INSERT INTO guest_folio_items
+          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
+         SELECT $1, gf.id, 'room', 'Room accommodation', 1, gf.room_charge, gf.room_charge, 'check_in', $1
+         FROM guest_folios gf
+         WHERE gf.reservation_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM guest_folio_items gfi
+             WHERE gfi.reservation_id = $1 AND gfi.source_type = 'check_in'
+           )`,
         [reservationId]
       );
 
@@ -66,7 +76,25 @@ export async function POST(request: NextRequest) {
         [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
       );
 
-      return resResult.rows[0];
+      const receiptResult = await client.query(
+        `INSERT INTO hotel_receipts (reservation_id, folio_id, order_id, order_number, receipt_type, snapshot, created_by)
+         SELECT r.id, gf.id, r.id::text, r.reservation_number, 'check_in',
+           jsonb_build_object(
+             'guestName', concat_ws(' ', g.first_name, g.last_name),
+             'roomNumber', rm.room_number,
+             'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('description', i.description, 'quantity', i.quantity, 'total_amount', i.total_amount) ORDER BY i.created_at) FROM guest_folio_items i WHERE i.reservation_id = r.id), '[]'::jsonb),
+             'total', COALESCE(gf.total_charges, 0)
+           ), NULL
+         FROM reservations r
+         JOIN guests g ON g.id = r.guest_id
+         JOIN rooms rm ON rm.id = r.room_id
+         JOIN guest_folios gf ON gf.reservation_id = r.id
+         WHERE r.id = $1 RETURNING id`,
+        [reservationId]
+      );
+
+      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number };
+
     });
 
     return NextResponse.json(result, { status: 200 });

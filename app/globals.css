@@ -187,12 +187,11 @@
     max-width: 100%;
   }
 
-  .dashboard-category-grid[data-dashboard-category-filter="restaurant"] [data-dashboard-category="hotel"],
-  .dashboard-category-grid[data-dashboard-category-filter="technical"] [data-dashboard-category="hotel"],
-  .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category="restaurant"],
-  .dashboard-category-grid[data-dashboard-category-filter="technical"] [data-dashboard-category="restaurant"],
-  .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category="technical"],
-  .dashboard-category-grid[data-dashboard-category-filter="restaurant"] [data-dashboard-category="technical"] {
+  .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category]:not([data-dashboard-category="hotel"]),
+  .dashboard-category-grid[data-dashboard-category-filter="restaurant"] [data-dashboard-category]:not([data-dashboard-category="restaurant"]),
+  .dashboard-category-grid[data-dashboard-category-filter="finance"] [data-dashboard-category]:not([data-dashboard-category="finance"]),
+  .dashboard-category-grid[data-dashboard-category-filter="technical"] [data-dashboard-category]:not([data-dashboard-category="technical"]),
+  .dashboard-category-grid[data-dashboard-category-filter="administration"] [data-dashboard-category]:not([data-dashboard-category="administration"]) {
     display: none;
   }
 }

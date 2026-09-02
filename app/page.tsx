@@ -82,7 +82,15 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeDashboardCategory, setActiveDashboardCategory] = useState<"hotel" | "restaurant" | "technical">("hotel");
+  const dashboardCategories = [
+  ["all", "All Categories"],
+  ["hotel", "Hotel"],
+  ["restaurant", "Restaurant"],
+  ["finance", "Finance"],
+  ["technical", "Technical Operations"],
+  ["administration", "Administration"],
+] as const;
+const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof dashboardCategories)[number][0]>("all");
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -190,7 +198,7 @@ function DashboardContent() {
     rolePermissions[user.role as UserRole] ||
     ({} as Record<AppSection, boolean>);
   const isHousekeeping = user.role === "housekeeping";
-  const canSwitchDashboardCategories = user.role === "admin" || user.role === "manager";
+  const canSwitchDashboardCategories = ["admin", "manager", "finance"].includes(user.role);
 
   return (
     <div
@@ -278,7 +286,7 @@ function DashboardContent() {
           <div className="flex flex-col items-start gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
               <div className="flex w-full flex-wrap gap-2 sm:w-auto" role="group" aria-label="Dashboard container category">
-                {([['hotel', 'Hotel Containers'], ['restaurant', 'Restaurant Containers'], ['technical', 'Technical Operations']] as const).map(([category, label]) => (
+                {dashboardCategories.map(([category, label]) => (
                   <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
                   </Button>
@@ -496,7 +504,7 @@ function DashboardContent() {
     </Card>
   )}
   {access.finance && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Finance Desk</CardTitle>
@@ -514,7 +522,7 @@ function DashboardContent() {
             </Card>
           )}
           {access.reports && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -648,7 +656,7 @@ function DashboardContent() {
             </Card>
           )}
           {access.system && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
+            <Card data-dashboard-category="administration" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
