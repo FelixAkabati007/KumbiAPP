@@ -73,14 +73,7 @@ const apiPermissions: Record<string, string[]> = {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Handle Favicon
-  if (pathname === "/favicon.ico") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/favicon.svg";
-    return NextResponse.rewrite(url);
-  }
-
-  // 2. Exclude Public API Routes.
+  // 1. Exclude Public API Routes.
   // Signup is the exception: account creation must be admin-gated, so it
   // falls through to the protected API route check below instead of being
   // treated as a public auth endpoint like login/logout.
