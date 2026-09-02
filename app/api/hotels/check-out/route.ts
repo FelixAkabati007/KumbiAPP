@@ -26,6 +26,17 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure all operations succeed
     const result = await transaction(async (client) => {
+      // Serialize this reservation transition and lock the exact row first.
+      const lockedReservation = await client.query(
+        `SELECT id, room_id, guest_id, status FROM reservations WHERE id = $1 FOR UPDATE`,
+        [reservationId]
+      );
+      const currentReservation = lockedReservation.rows[0];
+      if (!currentReservation) throw new Error("Reservation not found");
+      if (currentReservation.status !== "checked_in") {
+        throw new Error(`Reservation is ${currentReservation.status}; only checked-in guests can check out`);
+      }
+
       // Lock and validate all related rows before changing any state. This
       // prevents a late validation failure from rolling back the mutation
       // while the client has already shown a success message.
@@ -92,7 +103,12 @@ export async function POST(request: NextRequest) {
         console.error("Checkout activity ledger failed:", auxiliaryError);
       }
 
-      return resResult.rows[0];
+      const verified = await client.query(
+        `SELECT id, status, room_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
+        [reservationId]
+      );
+      if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
+      return verified.rows[0];
     });
 
     return NextResponse.json(

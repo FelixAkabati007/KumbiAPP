@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt } from "lucide-react";
+import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
@@ -95,6 +95,7 @@ function CheckInPage() {
   const [loading, setLoading] = useState(true);
   const [loadingCheckedIn, setLoadingCheckedIn] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [cancellingReservationId, setCancellingReservationId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Room selection dialog state for check-in
@@ -193,6 +194,24 @@ function CheckInPage() {
       });
     } finally {
       setLoadingRooms(false);
+    }
+  };
+
+  const handleCancelReservation = async (reservation: CheckInData) => {
+    if (processing || cancellingReservationId) return;
+    if (!window.confirm(`Cancel reservation ${reservation.reservation_number} for ${reservation.first_name} ${reservation.last_name}?`)) return;
+    setCancellingReservationId(reservation.id);
+    try {
+      const response = await fetch(`/api/hotels/reservations/${reservation.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Failed to cancel reservation");
+      window.dispatchEvent(new Event("reservationUpdated"));
+      await fetchReservations();
+      toast({ title: "Reservation cancelled", description: `${reservation.reservation_number} is no longer awaiting check-in.` });
+    } catch (error) {
+      toast({ title: "Cancellation failed", description: error instanceof Error ? error.message : "Failed to cancel reservation", variant: "destructive" });
+    } finally {
+      setCancellingReservationId(null);
     }
   };
 
@@ -478,14 +497,23 @@ function CheckInPage() {
                             <p className="text-xs text-muted-foreground">Guests</p>
                             <p className="font-semibold">{res.number_of_guests}</p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
                               onClick={() => openRoomSelection(res)}
-                              disabled={processing}
+                              disabled={processing || !!cancellingReservationId}
                               className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
                             >
                               <DoorOpen className="h-4 w-4 mr-2" />
                               Check In
+                            </Button>
+                            <Button
+                              onClick={() => handleCancelReservation(res)}
+                              disabled={processing || !!cancellingReservationId}
+                              variant="outline"
+                              className="flex-1 rounded-lg border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              {cancellingReservationId === res.id ? "Cancelling…" : "Cancel"}
                             </Button>
                           </div>
                         </div>
