@@ -112,6 +112,11 @@ export async function POST(request: NextRequest) {
     const password = String(body.password ?? "");
     const businessEmail = String(body.businessEmail ?? "").trim().toLowerCase();
     const role = body.role === undefined ? "staff" : String(body.role);
+    const managerScope = String(body.managerScope ?? "general");
+
+    if (role === "manager" && !["hotel", "restaurant", "general"].includes(managerScope)) {
+      return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
+    }
 
     // Validate required fields
     if (
@@ -214,7 +219,7 @@ export async function POST(request: NextRequest) {
           session.id,
           "active",
           true,
-          staffRole === "manager" ? "general" : "general",
+          staffRole === "manager" ? managerScope : "general",
         ]
       );
     });
