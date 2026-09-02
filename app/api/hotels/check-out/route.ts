@@ -69,22 +69,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Operational checkout is complete above. Auxiliary housekeeping and
-      // ledger writes must not make a valid checkout fail on older installs.
-      try {
-        await client.query(
-          `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
-           SELECT $1, 'cleaning', 'pending', 'normal'
-           WHERE NOT EXISTS (
-             SELECT 1 FROM housekeeping_tasks
-             WHERE room_id = $1 AND task_type = 'cleaning'
-               AND status IN ('pending', 'in_progress')
-           )`,
-          [checkedOutRoomId]
-        );
-      } catch (auxiliaryError) {
-        console.error("Checkout housekeeping task failed:", auxiliaryError);
-      }
+      // A dirty room must always have an open cleaning task. Keep this in
+      // the same transaction as checkout so the app and database cannot drift.
+      await client.query(
+        `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
+         SELECT $1, 'cleaning', 'pending', 'normal'
+         WHERE NOT EXISTS (
+           SELECT 1 FROM housekeeping_tasks
+           WHERE room_id = $1 AND task_type = 'cleaning'
+             AND status IN ('pending', 'in_progress')
+         )`,
+        [checkedOutRoomId]
+      );
 
       try {
         await client.query(
