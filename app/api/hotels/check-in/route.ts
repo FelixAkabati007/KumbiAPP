@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         throw new Error("Room is no longer available");
       }
 
-      // Create guest folio
+      // Create guest folio and preserve the room charge as a receipt-ready line item.
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
@@ -53,10 +53,20 @@ export async function POST(request: NextRequest) {
         FROM reservations r
         JOIN room_types rt ON rt.id = r.room_type_id
         WHERE r.id = $1
-          AND NOT EXISTS (
-            SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1
-          )
+          AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1)
         `,
+        [reservationId]
+      );
+      await client.query(
+        `INSERT INTO guest_folio_items
+          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
+         SELECT $1, gf.id, 'room', 'Room accommodation', 1, gf.room_charge, gf.room_charge, 'check_in', $1
+         FROM guest_folios gf
+         WHERE gf.reservation_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM guest_folio_items gfi
+             WHERE gfi.reservation_id = $1 AND gfi.source_type = 'check_in'
+           )`,
         [reservationId]
       );
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 
@@ -53,7 +53,13 @@ export async function GET(
       return NextResponse.json({ error: "Folio not found" }, { status: 404 });
     }
 
-    return NextResponse.json(result.rows[0]);
+    const items = await query(
+      `SELECT id, category, description, quantity, unit_amount, total_amount, source_type, source_id, created_at
+       FROM guest_folio_items WHERE reservation_id = $1 ORDER BY created_at ASC`,
+      [reservationId]
+    );
+
+    return NextResponse.json({ ...result.rows[0], items: items.rows });
   } catch (error) {
     console.error("Error fetching guest folio:", error);
     return NextResponse.json(
@@ -89,33 +95,34 @@ export async function PATCH(
     const { chargeType, amount } = validationResult.data;
     const column = chargeColumn[chargeType];
 
-    // Recalculate total_charges and balance server-side from the updated column values
-    const result = await query(
-      `
-      UPDATE guest_folios
-      SET ${column} = COALESCE(${column}, 0) + $1,
-          total_charges = room_charge + service_charges + food_charges + other_charges
-            + CASE WHEN $2 = 'service' THEN $1
-                   WHEN $2 = 'food' THEN $1
-                   WHEN $2 = 'other' THEN $1
-                   ELSE 0 END,
-          balance = GREATEST(
-            0,
-            (room_charge + service_charges + food_charges + other_charges
-              + CASE WHEN $2 = 'service' THEN $1
-                     WHEN $2 = 'food' THEN $1
-                     WHEN $2 = 'other' THEN $1
-                     ELSE 0 END)
-            - COALESCE(paid_amount, 0)
-          ),
-          last_updated = NOW()
-      WHERE reservation_id = $3
-      RETURNING *
-      `,
-      [amount, chargeType, reservationId]
-    );
+    const result = await transaction(async (client) => {
+      const folioResult = await client.query(
+        `SELECT id FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+        [reservationId]
+      );
+      const folio = folioResult.rows[0];
+      if (!folio) return null;
 
-    if (result.rows.length === 0) {
+      await client.query(
+        `INSERT INTO guest_folio_items
+          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type)
+         VALUES ($1, $2, $3, $4, 1, $5, $5, 'folio')`,
+        [reservationId, folio.id, chargeType, validationResult.data.description || `${chargeType} charge`, amount]
+      );
+
+      const updated = await client.query(
+        `UPDATE guest_folios
+         SET ${column} = COALESCE(${column}, 0) + $1,
+             total_charges = COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0) + $1,
+             balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0) + $1 - COALESCE(paid_amount, 0)),
+             last_updated = NOW()
+         WHERE reservation_id = $2 RETURNING *`,
+        [amount, reservationId]
+      );
+      return updated.rows[0] || null;
+    });
+
+    if (!result) {
       return NextResponse.json({ error: "Folio not found" }, { status: 404 });
     }
 

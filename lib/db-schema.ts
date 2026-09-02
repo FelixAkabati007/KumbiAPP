@@ -183,5 +183,22 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
       { name: 'paid_amount', type: 'numeric', nullable: true },
       { name: 'balance', type: 'numeric', nullable: false },
     ]
+  },
+  {
+    name: 'guest_folio_items',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'reservation_id', type: 'uuid', nullable: false },
+      { name: 'folio_id', type: 'uuid', nullable: false },
+      { name: 'category', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: false },
+      { name: 'quantity', type: 'numeric', nullable: false },
+      { name: 'unit_amount', type: 'numeric', nullable: false },
+      { name: 'total_amount', type: 'numeric', nullable: false },
+      { name: 'source_type', type: 'character varying', nullable: false },
+      { name: 'source_id', type: 'character varying', nullable: true },
+      { name: 'created_by', type: 'uuid', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: false },
+    ]
   }
 ];
