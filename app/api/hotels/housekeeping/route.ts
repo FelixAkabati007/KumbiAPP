@@ -56,14 +56,25 @@ export async function POST(request: NextRequest) {
     const { error } = await requirePermission("housekeeping");
     if (error) return error;
 
-    const { roomId, taskType, priority, assignedTo, notes } =
-      await request.json();
+    const { roomId, taskType, priority, assignedTo, notes } = await request.json();
 
     if (!roomId || !taskType) {
       return NextResponse.json(
         { error: "Room ID and task type are required" },
         { status: 400 }
       );
+    }
+
+    const roomResult = await query(`SELECT status FROM rooms WHERE id = $1 AND is_active = true`, [roomId]);
+    if (roomResult.rows[0]?.status !== "dirty") {
+      return NextResponse.json({ error: "Cleaning tasks can only be created for dirty rooms" }, { status: 409 });
+    }
+
+    if (assignedTo) {
+      const staffResult = await query(`SELECT id FROM users WHERE id = $1 AND role = 'housekeeping' AND is_active = true`, [assignedTo]);
+      if (staffResult.rowCount !== 1) {
+        return NextResponse.json({ error: "Assigned account must be an active housekeeping user" }, { status: 400 });
+      }
     }
 
     const result = await query(
