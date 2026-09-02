@@ -112,8 +112,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   if (isLoading) return <Loader2 className="animate-spin" />;
 
   return (
-    <div className="min-w-0 space-y-3 sm:space-y-4">
-      <div className="grid min-w-0 gap-2 rounded-lg border p-3 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-3 lg:p-4">
+    <div className="min-w-0 space-y-2 sm:space-y-3">
+      <div className="grid min-w-0 gap-2 rounded-lg border p-2.5 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-3 lg:p-4">
         <div className="min-w-0 md:col-span-2 lg:col-span-2">
           <Label>Ingredient</Label>
           <Select
@@ -124,7 +124,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
               if (item) setUnit(item.unit);
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9">
               <SelectValue placeholder="Select ingredient..." />
             </SelectTrigger>
             <SelectContent>
@@ -139,13 +139,14 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
         <div>
           <Label>Quantity</Label>
           <Input
+            className="h-9"
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             placeholder="0.00"
           />
         </div>
-        <Button onClick={handleAddIngredient} disabled={isAdding} className="min-h-11 w-full md:w-auto">
+        <Button onClick={handleAddIngredient} disabled={isAdding} className="h-9 w-full md:w-auto">
           {isAdding ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : (

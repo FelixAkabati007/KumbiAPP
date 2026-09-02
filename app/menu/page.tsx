@@ -705,7 +705,7 @@ function MenuContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:max-h-[90vh] sm:max-w-[600px] sm:p-6">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl p-3 sm:max-h-[90vh] sm:max-w-[600px] sm:p-5">
             <DialogHeader>
               <DialogTitle>
                 {isNewItem ? "Add New Menu Item" : "Edit Menu Item"}
@@ -717,7 +717,7 @@ function MenuContent() {
               </DialogDescription>
             </DialogHeader>
             <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsList className="mb-3 grid h-9 w-full grid-cols-2">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="recipe" disabled={isNewItem}>
                   Recipe
