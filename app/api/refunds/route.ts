@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { getServerSettings } from "@/lib/server-settings";
 import { requirePermission } from "@/lib/api-auth";
+import { evaluateHotelRefund } from "@/lib/hotel-refund-policy";
 
 const VALID_STATUSES = [
   "pending",
@@ -11,7 +12,7 @@ const VALID_STATUSES = [
 ] as const;
 
 function isValidStatus(
-  value: unknown
+  value: unknown,
 ): value is (typeof VALID_STATUSES)[number] {
   return (
     typeof value === "string" &&
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
     if (search) {
       params.push(`%${search}%`);
       whereParts.push(
-        `(ordernumber ILIKE $${params.length} OR customername ILIKE $${params.length})`
+        `(ordernumber ILIKE $${params.length} OR customername ILIKE $${params.length})`,
       );
     }
 
@@ -110,7 +111,7 @@ export async function GET(request: Request) {
         ORDER BY requestedat DESC
         LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
-      params
+      params,
     );
 
     return NextResponse.json(result.rows);
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
     console.error("Failed to fetch refunds:", error);
     return NextResponse.json(
       { error: "Failed to fetch refunds" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -141,15 +142,44 @@ export async function POST(request: Request) {
       additionalNotes,
       requestedBy,
       transactionId,
+      source,
+      reservationId,
     } = body as Record<string, unknown>;
 
     const fullSettings = await getServerSettings();
+
+    if (source === "hotel" || typeof reservationId === "string") {
+      const reservationResult = await query<{
+        status: string;
+        paid_amount: string | number;
+        check_in_date: string;
+      }>(
+        `SELECT status, paid_amount, check_in_date FROM reservations WHERE id = $1 LIMIT 1`,
+        [typeof reservationId === "string" ? reservationId : orderId],
+      );
+      const reservation = reservationResult.rows[0];
+      if (!reservation) {
+        return NextResponse.json({ error: "Hotel reservation not found" }, { status: 404 });
+      }
+      const decision = evaluateHotelRefund({
+        status: reservation.status,
+        paidAmount: Number(reservation.paid_amount),
+        checkInDate: reservation.check_in_date,
+        cancellationWindowMinutes: fullSettings.system.refunds.hotelCancellationWindowMinutes,
+      });
+      if (!decision.eligible) {
+        return NextResponse.json(
+          { error: decision.reason, refundPolicy: { deadline: decision.deadline.toISOString() } },
+          { status: 409 },
+        );
+      }
+    }
     const settings = fullSettings.system.refunds;
 
     if (!settings.enabled) {
       return NextResponse.json(
         { error: "Refunds are not enabled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -171,25 +201,25 @@ export async function POST(request: Request) {
     if (!Number.isFinite(original) || original <= 0) {
       return NextResponse.json(
         { error: "Invalid originalAmount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!Number.isFinite(refund) || refund <= 0) {
       return NextResponse.json(
         { error: "Invalid refundAmount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (refund > original) {
       return NextResponse.json(
         { error: "Refund amount cannot exceed original amount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!settings.allowedPaymentMethods.includes(paymentMethod)) {
       return NextResponse.json(
         { error: "Payment method not allowed for refunds" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -214,10 +244,11 @@ export async function POST(request: Request) {
       status = "pending";
     } else if (
       !settings.requireApproval ||
-      refund <= settings.approvalThreshold
+      (["Admin", "Restaurant Manager"].includes(authorizedBy) &&
+        refund <= settings.approvalThreshold)
     ) {
       status = "approved";
-      autoApprovalNote = "Auto-approved (Below Threshold)";
+      autoApprovalNote = "Auto-approved (Below Approval Threshold)";
       approvedBy = authorizedBy;
       approvedAt = new Date().toISOString();
     }
@@ -271,7 +302,7 @@ export async function POST(request: Request) {
           typeof transactionId === "string" ? transactionId : null,
           approvedBy,
           approvedAt,
-        ]
+        ],
       );
 
       const refundRow = insertRes.rows[0];
@@ -295,7 +326,7 @@ export async function POST(request: Request) {
             status,
           }),
           nowIso,
-        ]
+        ],
       );
 
       if (status === "approved") {
@@ -314,7 +345,7 @@ export async function POST(request: Request) {
               reason: autoApprovalNote,
             }),
             nowIso,
-          ]
+          ],
         );
       }
 
@@ -326,7 +357,7 @@ export async function POST(request: Request) {
     console.error("Failed to create refund:", error);
     return NextResponse.json(
       { error: "Failed to create refund" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

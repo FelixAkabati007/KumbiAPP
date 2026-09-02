@@ -84,6 +84,7 @@ export interface AppSettings {
       autoApproveSmallAmounts: boolean;
       smallAmountThreshold: number;
       timeLimit: number;
+      hotelCancellationWindowMinutes: number;
       partialRefunds: boolean;
       restockingFee: number;
     };
@@ -201,6 +202,7 @@ const defaultSettings: AppSettings = {
       autoApproveSmallAmounts: true,
       smallAmountThreshold: 50,
       timeLimit: 24,
+      hotelCancellationWindowMinutes: 30,
       partialRefunds: true,
       restockingFee: 0,
     },

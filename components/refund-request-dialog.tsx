@@ -27,10 +27,12 @@ import { useAuth } from "@/components/auth-provider";
 import { CheckCircle, Clock, DollarSign, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatHotelRefundRule } from "@/lib/hotel-refund-policy";
 
 interface RefundRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialOrderNumber?: string;
   orderData?: {
     orderId: string;
     orderNumber: string;
@@ -46,6 +48,7 @@ export function RefundRequestDialog({
   open,
   onOpenChange,
   orderData,
+  initialOrderNumber,
 }: RefundRequestDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -57,7 +60,7 @@ export function RefundRequestDialog({
   // Form state
   const [formData, setFormData] = useState({
     orderId: "",
-    orderNumber: "",
+    orderNumber: initialOrderNumber ?? "",
     customerName: "",
     customerRefused: false,
     originalAmount: 0,
@@ -88,14 +91,16 @@ export function RefundRequestDialog({
             ? "Admin"
             : user?.role === "manager"
               ? "Restaurant Manager"
-              : "",
+              : user?.role === "frontDesk"
+                ? "Front Desk"
+                : "Cashier",
         additionalNotes: "",
       });
       setIsVerified(true);
     } else {
       setIsVerified(false);
     }
-  }, [orderData, user?.role]);
+  }, [orderData, initialOrderNumber, user?.role]);
 
   const handleVerifyOrder = async () => {
     if (!formData.orderNumber && !formData.orderId) {
@@ -123,7 +128,7 @@ export function RefundRequestDialog({
 
       if (!Array.isArray(transactions) || transactions.length === 0) {
         throw new Error(
-          "Order not found. Please check the Order ID/Number and try again."
+          "Order not found. Please check the Order ID/Number and try again.",
         );
       }
 
@@ -287,7 +292,7 @@ export function RefundRequestDialog({
       onOpenChange(false);
       setFormData({
         orderId: "",
-        orderNumber: "",
+        orderNumber: initialOrderNumber ?? "",
         customerName: "",
         customerRefused: false,
         originalAmount: 0,
@@ -354,7 +359,8 @@ export function RefundRequestDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
             <DollarSign className="h-5 w-5" />
-            Initiate Refund Request
+            Quick Refund —{" "}
+            {user?.role === "frontDesk" ? "Front Desk" : "Cashier"}
           </DialogTitle>
           <DialogDescription className="text-orange-600 dark:text-orange-400">
             You&apos;re about to process a refund. Please confirm the following
@@ -364,6 +370,15 @@ export function RefundRequestDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {user?.role === "frontDesk" && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+              <AlertDescription className="text-sm leading-relaxed">
+                <strong>Hotel cancellation rule:</strong>{" "}
+                {formatHotelRefundRule(settings.system.refunds.hotelCancellationWindowMinutes)}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Approval Status Alert */}
           <Alert
             className={`${
@@ -635,6 +650,8 @@ export function RefundRequestDialog({
                 <SelectItem value="Restaurant Manager">
                   Restaurant Manager
                 </SelectItem>
+                <SelectItem value="Front Desk">Front Desk</SelectItem>
+                <SelectItem value="Cashier">Cashier</SelectItem>
               </SelectContent>
             </Select>
             {errors.authorizedBy && (
