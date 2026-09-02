@@ -11,7 +11,7 @@ export async function PUT(
     const session = await getSession();
     const { id } = await params;
     const body = await req.json();
-    const { quantity, unit, reorderLevel, cost, supplier } = body;
+    const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem } = body;
 
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
@@ -36,6 +36,12 @@ export async function PUT(
     if (supplier !== undefined) {
       fields.push(`supplier = $${idx++}`);
       values.push(supplier);
+    }
+    for (const [column, value] of [["container_unit", containerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem]] as const) {
+      if (value !== undefined) {
+        fields.push(`${column} = $${idx++}`);
+        values.push(value);
+      }
     }
 
     if (fields.length === 0) {

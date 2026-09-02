@@ -132,6 +132,11 @@ function InventoryContent() {
       category: "ingredient",
       quantity: "0",
       unit: "kg",
+      containerUnit: "crate",
+      quantityPerContainer: "1",
+      containerCount: "0",
+      costPerContainer: "0",
+      costPerItem: "0",
       reorderLevel: "5",
       cost: "0",
       supplier: "",
@@ -155,6 +160,11 @@ function InventoryContent() {
         category: item.category || "ingredient",
         quantity: item.quantity?.toString() || "0",
         unit: item.unit || "units",
+        containerUnit: item.containerUnit || "",
+        quantityPerContainer: item.quantityPerContainer?.toString() || "1",
+        containerCount: item.containerCount?.toString() || "0",
+        costPerContainer: item.costPerContainer?.toString() || "0",
+        costPerItem: item.costPerItem?.toString() || "0",
         reorderLevel: item.reorderLevel?.toString() || "0",
         cost: item.cost?.toString() || "0",
         supplier: item.supplier || "",
@@ -723,6 +733,28 @@ function InventoryContent() {
                       }
                     />
                   </div>
+                </div>
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
+                  <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Purchase packaging</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="containerUnit" className="text-orange-700 dark:text-orange-300">Container unit</Label>
+                      <UnitSelect value={editingItem.containerUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })} placeholder="Crate, box, bag..." />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
+                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const total = Number(per || 0) * Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, quantityPerContainer: per, quantity: String(total) }); }} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
+                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const total = Number(editingItem.quantityPerContainer || 0) * Number(count || 0); setEditingItem({ ...editingItem, containerCount: count, quantity: String(total) }); }} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
+                      <Input id="costPerContainer" type="number" min="0" step="0.01" value={editingItem.costPerContainer || ""} onChange={(e) => { const costPerContainer = e.target.value; const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1); const count = Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, costPerContainer, costPerItem: perItem.toFixed(2), cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0) }); }} />
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.unit}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
