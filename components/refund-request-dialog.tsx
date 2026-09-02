@@ -27,6 +27,7 @@ import { useAuth } from "@/components/auth-provider";
 import { CheckCircle, Clock, DollarSign, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatHotelRefundRule } from "@/lib/hotel-refund-policy";
 
 interface RefundRequestDialogProps {
   open: boolean;
@@ -369,6 +370,15 @@ export function RefundRequestDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {user?.role === "frontDesk" && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+              <AlertDescription className="text-sm leading-relaxed">
+                <strong>Hotel cancellation rule:</strong>{" "}
+                {formatHotelRefundRule(settings.system.refunds.hotelCancellationWindowMinutes)}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Approval Status Alert */}
           <Alert
             className={`${

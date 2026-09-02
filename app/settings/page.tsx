@@ -142,6 +142,7 @@ function SettingsPageContent() {
         autoApproveSmallAmounts: true,
         smallAmountThreshold: 50,
         timeLimit: 24,
+        hotelCancellationWindowMinutes: 30,
         partialRefunds: true,
         restockingFee: 0,
       },

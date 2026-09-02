@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { getServerSettings } from "@/lib/server-settings";
 import { requirePermission } from "@/lib/api-auth";
+import { evaluateHotelRefund } from "@/lib/hotel-refund-policy";
 
 const VALID_STATUSES = [
   "pending",
@@ -141,9 +142,38 @@ export async function POST(request: Request) {
       additionalNotes,
       requestedBy,
       transactionId,
+      source,
+      reservationId,
     } = body as Record<string, unknown>;
 
     const fullSettings = await getServerSettings();
+
+    if (source === "hotel" || typeof reservationId === "string") {
+      const reservationResult = await query<{
+        status: string;
+        paid_amount: string | number;
+        check_in_date: string;
+      }>(
+        `SELECT status, paid_amount, check_in_date FROM reservations WHERE id = $1 LIMIT 1`,
+        [typeof reservationId === "string" ? reservationId : orderId],
+      );
+      const reservation = reservationResult.rows[0];
+      if (!reservation) {
+        return NextResponse.json({ error: "Hotel reservation not found" }, { status: 404 });
+      }
+      const decision = evaluateHotelRefund({
+        status: reservation.status,
+        paidAmount: Number(reservation.paid_amount),
+        checkInDate: reservation.check_in_date,
+        cancellationWindowMinutes: fullSettings.system.refunds.hotelCancellationWindowMinutes,
+      });
+      if (!decision.eligible) {
+        return NextResponse.json(
+          { error: decision.reason, refundPolicy: { deadline: decision.deadline.toISOString() } },
+          { status: 409 },
+        );
+      }
+    }
     const settings = fullSettings.system.refunds;
 
     if (!settings.enabled) {
