@@ -70,10 +70,11 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
         <Image
           src={logo || "/logo.svg"}
           alt="Company Logo"
-          fill
+          width={pixelSizes[size]}
+          height={pixelSizes[size]}
           unoptimized
-          className="pointer-events-none !absolute !inset-0 !m-0 !block !h-full !w-full object-contain rounded-full"
-          sizes={size === "sm" ? "32px" : size === "md" ? "40px" : "64px"}
+          className="pointer-events-none !m-0 !block !h-full !w-full object-contain rounded-full"
+          style={{ maxWidth: "100%", maxHeight: "100%" }}
           onError={() => setIsValidImage(false)}
           onLoad={(e) => {
             const img = e.currentTarget;
