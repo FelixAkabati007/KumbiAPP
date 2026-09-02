@@ -118,20 +118,21 @@ export async function DELETE(
     const result = await query(
       `
       UPDATE reservations SET status = 'cancelled', updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1 AND status = 'confirmed'
       RETURNING *
       `,
       [id]
     );
 
     if (result.rows.length === 0) {
+      const existing = await query(`SELECT status FROM reservations WHERE id = $1`, [id]);
       return NextResponse.json(
-        { error: "Reservation not found" },
-        { status: 404 }
+        { error: existing.rows[0] ? `Reservation is already ${existing.rows[0].status}` : "Reservation not found" },
+        { status: existing.rows[0] ? 409 : 404 }
       );
     }
 
-    return NextResponse.json({ message: "Reservation cancelled successfully" });
+    return NextResponse.json({ message: "Reservation cancelled successfully", persisted: true, status: "cancelled", reservation: result.rows[0] });
   } catch (error) {
     console.error("Error cancelling reservation:", error);
     return NextResponse.json(
