@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/select";
 import { LogoDisplay } from "@/components/logo-display";
 import type { SalesData, OrderItem, RefundRequest } from "@/lib/types";
-import { addSaleData } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 import * as XLSX from "xlsx";
 
@@ -167,13 +166,8 @@ function ReportsPage() {
     loadData();
   }, [sourceFilter]);
 
-  // Demo sales generator
-  async function generateDemoSales() {
-    if (typeof window === "undefined") return;
-    const demoSales = [
-      {
-        id: "sale-001",
-        orderNumber: "ORD-20241203-101",
+  /* Demo sales generation removed: reports must reflect Neon-backed transactions only. */
+  /*
         date: new Date().toISOString(),
         items: [
           {
@@ -263,6 +257,8 @@ function ReportsPage() {
     await Promise.all(demoSales.map(addSaleData));
     loadData();
   }
+
+  */
 
   const filteredData = useMemo(() => {
     let filtered = [...data];
@@ -444,20 +440,13 @@ function ReportsPage() {
         </header>
 
         <main className="flex flex-1 flex-col p-4 md:p-6">
-          {/* Show warning and demo button if no sales data */}
           {data.length === 0 && (
-            <div className="mb-6 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg flex flex-col items-center">
-              <p className="text-yellow-800 dark:text-yellow-200 font-semibold mb-2">
-                No sales data found. Complete some orders or generate demo sales
-                to see analytics.
-              </p>
-              <Button
-                onClick={generateDemoSales}
-                className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 py-2 mt-2"
-              >
-                Generate Demo Sales
-              </Button>
-            </div>
+            <Card className="mb-6 rounded-2xl border-orange-200 bg-white/70 dark:border-orange-700 dark:bg-gray-800/70">
+              <CardContent className="flex flex-col items-center gap-2 p-6 text-center">
+                <p className="font-semibold text-orange-800 dark:text-orange-200">No sales recorded for the selected filters.</p>
+                <p className="text-sm text-muted-foreground">Complete a real sale to see it appear here.</p>
+              </CardContent>
+            </Card>
           )}
           {/* Filters */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">

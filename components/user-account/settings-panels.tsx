@@ -22,7 +22,7 @@ import {
   fetchSettings,
   type AppSettings,
 } from "@/lib/settings";
-import { rolePermissions, type AppSection, type UserRole } from "@/lib/roles";
+import { rolePermissions, getRoleDisplayName, type AppSection, type UserRole } from "@/lib/roles";
 import { Bell, Monitor, Shield, Sparkles } from "lucide-react";
 
 export function SettingsPanels() {
@@ -39,7 +39,7 @@ export function SettingsPanels() {
   // Safely narrow user role to the known union for indexing rolePermissions
   const role: UserRole = useMemo(() => {
     const r = user?.role;
-    return r === "admin" || r === "manager" || r === "finance" || r === "staff" || r === "kitchen" || r === "frontDesk" || r === "housekeeping"
+    return r === "admin" || r === "manager" || r === "operationsManager" || r === "finance" || r === "staff" || r === "kitchen" || r === "frontDesk" || r === "housekeeping"
       ? r
       : "staff";
   }, [user?.role]);
@@ -253,7 +253,7 @@ export function SettingsPanels() {
         </CardHeader>
         <CardContent className="space-y-3 relative z-10">
           <p className="text-sm text-muted-foreground">
-            Access for your role: {user?.role ?? "guest"}
+            Access for your role: {getRoleDisplayName(user?.role ?? "staff")}
           </p>
           <div
             className="grid grid-cols-1 sm:grid-cols-2 gap-2"

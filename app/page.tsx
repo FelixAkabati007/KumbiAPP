@@ -44,7 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { rolePermissions, UserRole, AppSection } from "@/lib/roles";
+import { rolePermissions, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { Switch } from "@/components/ui/switch";
@@ -277,15 +277,7 @@ function DashboardContent() {
             <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
               <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                {user && user.role === "admin"
-                  ? "Full Access"
-                  : user && user.role === "manager"
-                    ? "Manager Access"
-                      : user && user.role === "finance"
-                        ? "Finance Access"
-                        : isHousekeeping
-                          ? "Housekeeping Access"
-                          : "Cashier Access"}
+{getRoleDisplayName(user.role)} Access
               </span>
             </div>
           </div>
