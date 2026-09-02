@@ -187,6 +187,7 @@ function DashboardContent() {
   const access: Record<AppSection, boolean> =
     rolePermissions[user.role as UserRole] ||
     ({} as Record<AppSection, boolean>);
+  const isHousekeeping = user.role === "housekeeping";
 
   return (
     <div
@@ -279,9 +280,11 @@ function DashboardContent() {
                   ? "Full Access"
                   : user && user.role === "manager"
                     ? "Manager Access"
-                    : user && user.role === "finance"
-                      ? "Finance Access"
-                      : "Cashier Access"}
+                      : user && user.role === "finance"
+                        ? "Finance Access"
+                        : isHousekeeping
+                          ? "Housekeeping Access"
+                          : "Cashier Access"}
               </span>
             </div>
           </div>
@@ -676,7 +679,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.rooms && (
+          {access.rooms && !isHousekeeping && (
             <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -702,7 +705,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.housekeeping && (
+          {(access.housekeeping || isHousekeeping) && (
             <Card className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -756,7 +759,7 @@ function DashboardContent() {
           )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {!isHousekeeping && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
             <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -864,7 +867,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
           )}
-        </div>
+        </div>}
       </main>
     </div>
   );
