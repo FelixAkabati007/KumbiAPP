@@ -16,6 +16,7 @@ import { useSearchParams } from "next/navigation";
 import { findSaleByOrderNumber } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 import { useReceiptStats } from "@/hooks/use-receipt-stats";
+import { useAuth } from "@/components/auth-provider";
 
 interface ReceiptData {
   orderNumber: string;
@@ -43,6 +44,7 @@ export default function ReceiptPage() {
 
 function ReceiptContent() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { stats } = useReceiptStats();
   const { settings: receiptSettings } = useReceiptSettings();
   const { settings: appSettings } = useSettings();
@@ -65,7 +67,7 @@ function ReceiptContent() {
   });
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
   const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel">(
-    "restaurant",
+    user?.role === "frontDesk" ? "hotel" : "restaurant",
   );
   const [hotelActivity, setHotelActivity] = useState<{
     transaction_id: string;
@@ -80,6 +82,10 @@ function ReceiptContent() {
   } | null>(null);
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === "frontDesk") setReceiptSource("hotel");
+  }, [user?.role]);
 
   useEffect(() => {
     const orderParam = searchParams.get("order");
@@ -313,9 +319,15 @@ function ReceiptContent() {
             <CardContent className="relative z-10 space-y-4">
               {/* Search Field */}
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <select
-                  value={receiptSource}
-                  onChange={(event) => {
+  {user?.role === "frontDesk" && (
+  <p className="w-full text-sm text-orange-800 dark:text-orange-200">
+  Front Desk view: hotel payment receipts and guest folios only.
+  </p>
+  )}
+  <select
+  value={receiptSource}
+  disabled={user?.role === "frontDesk"}
+  onChange={(event) => {
                     setReceiptSource(
                       event.target.value as "restaurant" | "hotel",
                     );
@@ -331,8 +343,8 @@ function ReceiptContent() {
                 <Input
                   placeholder={
                     receiptSource === "hotel"
-                      ? "Enter reservation ID"
-                      : "Enter Order Number (e.g. ORD-20240101-0001)"
+  ? "Enter reservation ID or booking number"
+  : "Enter Order Number (e.g. ORD-20240101-0001)"
                   }
                   value={searchOrderNumber}
                   onChange={(e) => setSearchOrderNumber(e.target.value)}
@@ -533,7 +545,7 @@ function ReceiptContent() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-300 dark:text-gray-600">
                   <span className="text-lg">
-                    Search for a receipt by order number.
+                    Search for a hotel payment receipt by reservation ID or booking number.
                   </span>
                 </div>
               )}
