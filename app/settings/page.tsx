@@ -154,9 +154,19 @@ function SettingsPageContent() {
   });
   const [mounted, setMounted] = useState(false);
   const isAdmin = user?.role === "admin";
-  const canManageStaff = isAdmin || user?.role === "manager";
+  const isManager = user?.role === "manager";
+  const canManageStaff = isAdmin || isManager;
+  const canManageOperationalSettings = isAdmin || isManager;
+  const [featureToggles, setFeatureToggles] = useState({ kitchen_display: true, order_board: true });
+
+  const updateFeatureToggle = async (key: "kitchen_display" | "order_board", enabled: boolean) => {
+    const response = await fetch("/api/feature-toggles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, enabled }) });
+    if (!response.ok) throw new Error("Unable to update feature toggle");
+    setFeatureToggles((current) => ({ ...current, [key]: enabled }));
+    toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : "Order Board"} is now ${enabled ? "on" : "off"}.` });
+  };
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : "appearance"
+    tabParam === "account" ? "account" : tabParam === "staff" && isAdmin ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance"
   );
 
   useEffect(() => {
@@ -166,6 +176,7 @@ function SettingsPageContent() {
   // Load settings on component mount
   useEffect(() => {
     fetchSettings().then(setSettingsState);
+    fetch("/api/feature-toggles").then((response) => response.json()).then((data) => setFeatureToggles((current) => ({ ...current, ...(data.toggles || {}) }))).catch(() => undefined);
   }, []);
 
   // Handle input changes
@@ -356,7 +367,7 @@ function SettingsPageContent() {
         >
           <div className="overflow-x-auto">
             <TabsList
-              className={`grid w-full ${canManageStaff ? "grid-cols-6 min-w-[600px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
+              className={`grid w-full ${isAdmin ? "grid-cols-7 min-w-[700px]" : canManageOperationalSettings ? "grid-cols-4 min-w-[400px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
             >
               <TabsTrigger
                 value="appearance"
@@ -376,18 +387,27 @@ function SettingsPageContent() {
               >
                 Account
               </TabsTrigger>
-              <TabsTrigger
-                value="system"
-                className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
-              >
-                System
-              </TabsTrigger>
-              <TabsTrigger
-                value="security"
-                className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
-              >
-                Security
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="system"
+                  className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                >
+                  System
+                </TabsTrigger>
+              )}
+              {canManageOperationalSettings && (
+                <TabsTrigger value="operations" className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white">
+                  Operations
+                </TabsTrigger>
+              )}
+              {isAdmin && (
+                <TabsTrigger
+                  value="security"
+                  className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                >
+                  Security
+                </TabsTrigger>
+              )}
               {isAdmin && (
                 <TabsTrigger
                   value="staff"
@@ -398,6 +418,16 @@ function SettingsPageContent() {
               )}
             </TabsList>
           </div>
+
+          <TabsContent value="operations" className="space-y-4">
+            <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl">
+              <CardHeader><CardTitle className="flex items-center gap-2"><Monitor className="h-5 w-5 text-orange-600" />Operational Features</CardTitle><CardDescription>Managers can control restaurant display surfaces without changing global system settings.</CardDescription></CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Kitchen Display</Label><p className="text-sm text-muted-foreground">Show the live kitchen production screen.</p></div><Switch checked={featureToggles.kitchen_display} onCheckedChange={(enabled) => updateFeatureToggle("kitchen_display", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Order Board</Label><p className="text-sm text-muted-foreground">Show the active order board for operations.</p></div><Switch checked={featureToggles.order_board} onCheckedChange={(enabled) => updateFeatureToggle("order_board", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Appearance Settings */}
           <TabsContent value="appearance" className="space-y-4">

@@ -53,9 +53,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!canManageFeatureToggles(session.role)) {
+    if (!canManageFeatureToggles(session.role) && session.role !== "manager") {
       return NextResponse.json(
-        { error: "Forbidden: only admins can change feature toggles" },
+        { error: "Forbidden: only admins and managers can change feature toggles" },
         { status: 403 }
       );
     }
