@@ -191,10 +191,18 @@ export async function POST(req: Request) {
     // Or if all failed, we return 500.
     // For now, return 200 with details so client can show warnings.
 
-    return NextResponse.json({
-      success: true, // overall request processed
-      results: details,
-    });
+    const failedCount = details.filter((item) => item.status === "failed").length;
+    const printedCount = details.filter((item) => item.status === "printed").length;
+    const status = printedCount > 0 ? (failedCount > 0 ? 207 : 200) : 502;
+
+    return NextResponse.json(
+      {
+        success: failedCount === 0 && printedCount > 0,
+        results: details,
+        error: printedCount === 0 ? "No configured printer completed the print job." : undefined,
+      },
+      { status }
+    );
   } catch (error) {
     console.error("Print API Error:", error);
     return NextResponse.json(

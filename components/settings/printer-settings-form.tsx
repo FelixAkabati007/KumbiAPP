@@ -72,14 +72,20 @@ export function PrinterSettingsForm({
         body: JSON.stringify({ receipt: testReceipt, configs: [config] }),
       });
 
+      const result = await response.json().catch(() => null);
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || "Print failed");
+        throw new Error(result?.details || result?.error || "Print failed");
+      }
+
+      const failed = result?.results?.filter((item: { status?: string }) => item.status === "failed") ?? [];
+      if (failed.length > 0) {
+        const detail = failed.map((item: { name?: string; error?: string }) => `${item.name || "Printer"}: ${item.error || "connection failed"}`).join("; ");
+        throw new Error(`${detail}. For USB/serial Xprinter devices, use the browser/OS print dialog or a local print bridge.`);
       }
 
       toast({
-        title: "Test Print Successful",
-        description: `Sent test receipt to ${config.name || "Printer"}`,
+        title: "Test Print Sent",
+        description: `Sent test receipt to ${config.name || "Printer"}. If it does not print, confirm the OS driver or network port 9100.`,
       });
     } catch (error) {
       toast({
@@ -103,6 +109,9 @@ export function PrinterSettingsForm({
         <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
           {description}
         </CardDescription>
+        <div className="mx-6 mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-5 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+          <strong>Universal ESC/POS support:</strong> Xprinter and compatible thermal printers work through a network address on TCP port 9100. USB and COM/serial printers require an installed OS driver or local print bridge; a browser cannot directly access every inserted device.
+        </div>
       </CardHeader>
       <CardContent className="space-y-6 p-6 relative z-10">
         {/* Enable Switch */}

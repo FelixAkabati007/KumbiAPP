@@ -30,6 +30,10 @@ export function HardwareDiagnostics() {
         <CardDescription>Check browser support before connecting POS peripherals. Unsupported devices do not block other settings.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-5 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+          <p className="font-semibold">Thermal printer compatibility</p>
+          <p className="mt-1">Xprinter and other ESC/POS models are supported via the standard OS print dialog or configured network printing. USB and serial access depends on your browser, driver, and an optional local bridge.</p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {devices.map((device) => <div key={device} className="flex items-center gap-3 rounded-lg border p-3"><CircleAlert className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><div><p className="text-sm font-medium">{device}</p><p className="text-xs text-muted-foreground">Configuration available</p></div></div>)}
         </div>
