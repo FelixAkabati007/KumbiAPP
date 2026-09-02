@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, CheckCircle2, ArrowLeft, Wrench, SprayCan } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { useAuth } from "@/components/auth-provider";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface HousekeepingTask {
@@ -74,6 +75,8 @@ function readTaskNotes(notes?: string) {
 
 function HousekeepingPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isHousekeeping = user?.role === "housekeeping";
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -95,6 +98,7 @@ function HousekeepingPage() {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [showNewTicketDialog, setShowNewTicketDialog] = useState(false);
   const [savingTicket, setSavingTicket] = useState(false);
+  const [ticketFilters, setTicketFilters] = useState({ status: "", severity: "", roomId: "" });
   const [ticketForm, setTicketForm] = useState({
     roomNumber: "",
     issueDescription: "",
@@ -124,7 +128,11 @@ function HousekeepingPage() {
 
   const fetchTickets = async () => {
     try {
-      const response = await fetch("/api/hotels/maintenance", { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (ticketFilters.status) params.set("status", ticketFilters.status);
+      if (ticketFilters.severity) params.set("severity", ticketFilters.severity);
+      if (ticketFilters.roomId) params.set("roomId", ticketFilters.roomId);
+      const response = await fetch(`/api/hotels/maintenance?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch maintenance tickets");
       const data = await response.json();
       setTickets(data);
@@ -159,6 +167,10 @@ function HousekeepingPage() {
       console.error("Error fetching housekeeping staff:", error);
     }
   };
+
+  useEffect(() => {
+    if (ticketFilters.status || ticketFilters.severity || ticketFilters.roomId) fetchTickets();
+  }, [ticketFilters.status, ticketFilters.severity, ticketFilters.roomId]);
 
   useEffect(() => {
     fetchTasks();
@@ -421,15 +433,17 @@ function HousekeepingPage() {
         </TabsList>
 
         <TabsContent value="cleaning" className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setShowNewTaskDialog(true)}
-              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Task
-            </Button>
-          </div>
+          {!isHousekeeping && (
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowNewTaskDialog(true)}
+                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Task
+              </Button>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
@@ -573,7 +587,18 @@ function HousekeepingPage() {
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
             <CardHeader>
               <CardTitle>Maintenance Tickets</CardTitle>
-              <CardDescription>Room repair and maintenance issues</CardDescription>
+              <CardDescription>Manager and Admin ticket inbox with assignment, priority, status, and internal notes.</CardDescription>
+              <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                <select aria-label="Ticket status" value={ticketFilters.status} onChange={(event) => setTicketFilters((current) => ({ ...current, status: event.target.value }))} className="h-9 rounded-md border bg-background px-2 text-sm">
+                  <option value="">All statuses</option><option value="open">New</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option>
+                </select>
+                <select aria-label="Ticket priority" value={ticketFilters.severity} onChange={(event) => setTicketFilters((current) => ({ ...current, severity: event.target.value }))} className="h-9 rounded-md border bg-background px-2 text-sm">
+                  <option value="">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option>
+                </select>
+                <select aria-label="Ticket room" value={ticketFilters.roomId} onChange={(event) => setTicketFilters((current) => ({ ...current, roomId: event.target.value }))} className="h-9 rounded-md border bg-background px-2 text-sm">
+                  <option value="">All rooms</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.room_number}</option>)}
+                </select>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingTickets ? (
@@ -643,7 +668,7 @@ function HousekeepingPage() {
       </Tabs>
 
       {/* New Housekeeping Task Dialog */}
-      <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
+      {!isHousekeeping && <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Housekeeping Task</DialogTitle>
@@ -741,10 +766,10 @@ function HousekeepingPage() {
               Create Task
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+  </DialogContent>
+</Dialog>}
 
-      {/* New Maintenance Ticket Dialog */}
+  {/* New Maintenance Ticket Dialog */}
       <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

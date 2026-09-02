@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
+    const severity = searchParams.get("severity");
     const roomId = searchParams.get("roomId");
 
     let sql = `
@@ -33,6 +34,11 @@ export async function GET(request: NextRequest) {
     if (status) {
       conditions.push(`mt.status = $${params.length + 1}`);
       params.push(status);
+    }
+
+    if (severity) {
+      conditions.push(`mt.severity = $${params.length + 1}`);
+      params.push(severity);
     }
 
     if (roomId) {
@@ -67,8 +73,11 @@ export async function GET(request: NextRequest) {
 // Create a new maintenance ticket
 export async function POST(request: NextRequest) {
   try {
-    const { error } = await requirePermission("maintenance");
+    const { session, error } = await requirePermission("maintenance");
     if (error) return error;
+    if (session.role !== "admin" && session.role !== "manager") {
+      return NextResponse.json({ error: "Only Admins and Managers can issue maintenance tickets" }, { status: 403 });
+    }
 
     const { roomId, issueDescription, severity, assignedTo, notes, createdBy } =
       await request.json();
@@ -101,7 +110,20 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const ticket = result.rows[0];
+    await query(
+      `INSERT INTO notifications (recipient_user_id, title, message, type)
+       SELECT id, $1, $2, $3 FROM users
+       WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
+      [
+        `New maintenance ticket ${ticketNumber}`,
+        `${severity || "normal"} priority ticket created for room ${roomId}.`,
+        "maintenance",
+        session.id,
+        assignedTo || null,
+      ],
+    );
+    return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
     console.error("Error creating maintenance ticket:", error);
     return NextResponse.json(
