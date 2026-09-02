@@ -75,11 +75,8 @@ export async function POST(request: NextRequest) {
   try {
     const { session, error } = await requirePermission("maintenance");
     if (error) return error;
-    if (session.role === "housekeeping") {
-      return NextResponse.json(
-        { error: "Housekeeping tickets are created automatically from checkout events" },
-        { status: 403 }
-      );
+    if (session.role !== "admin" && session.role !== "manager") {
+      return NextResponse.json({ error: "Only Admins and Managers can issue maintenance tickets" }, { status: 403 });
     }
 
     const { roomId, issueDescription, severity, assignedTo, notes, createdBy } =
@@ -116,12 +113,14 @@ export async function POST(request: NextRequest) {
     const ticket = result.rows[0];
     await query(
       `INSERT INTO notifications (recipient_user_id, title, message, type)
-       SELECT id, $1, $2, $3 FROM users WHERE role IN ('admin', 'manager') AND id <> $4`,
+       SELECT id, $1, $2, $3 FROM users
+       WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
       [
         `New maintenance ticket ${ticketNumber}`,
         `${severity || "normal"} priority ticket created for room ${roomId}.`,
         "maintenance",
         session.id,
+        assignedTo || null,
       ],
     );
     return NextResponse.json(ticket, { status: 201 });

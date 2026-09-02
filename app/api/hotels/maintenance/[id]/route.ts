@@ -62,8 +62,9 @@ export async function PATCH(
     if (status || assignedTo !== undefined) {
       await query(
         `INSERT INTO notifications (recipient_user_id, title, message, type)
-         SELECT id, $1, $2, $3 FROM users WHERE role IN ('admin', 'manager') AND id <> $4`,
-        [`Maintenance ticket ${updatedTicket.ticket_number} updated`, `Status or assignment changed by ${session.email}.`, "maintenance", session.id],
+         SELECT id, $1, $2, $3 FROM users
+         WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
+        [`Maintenance ticket ${updatedTicket.ticket_number} updated`, `Status or assignment changed by ${session.email}.`, "maintenance", session.id, updatedTicket.assigned_to || null],
       );
     }
     return NextResponse.json(updatedTicket);

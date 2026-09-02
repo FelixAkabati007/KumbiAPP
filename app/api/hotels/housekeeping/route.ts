@@ -53,8 +53,11 @@ export async function GET(request: NextRequest) {
 // Create housekeeping task
 export async function POST(request: NextRequest) {
   try {
-    const { error } = await requirePermission("housekeeping");
+    const { session, error } = await requirePermission("housekeeping");
     if (error) return error;
+    if (session.role !== "admin" && session.role !== "manager") {
+      return NextResponse.json({ error: "Only Admins and Managers can issue cleaning tasks" }, { status: 403 });
+    }
 
     const { roomId, taskType, priority, assignedTo, notes } = await request.json();
 
@@ -86,7 +89,20 @@ export async function POST(request: NextRequest) {
       [roomId, taskType, priority || "normal", assignedTo || null, notes || null]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const task = result.rows[0];
+    await query(
+      `INSERT INTO notifications (recipient_user_id, title, message, type)
+       SELECT id, $1, $2, $3 FROM users
+       WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
+      [
+        `New cleaning task for room ${roomId}`,
+        `${priority || "normal"} priority ${taskType} task assigned for housekeeping.` ,
+        "housekeeping",
+        session.id,
+        assignedTo || null,
+      ],
+    );
+    return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error("Error creating housekeeping task:", error);
     return NextResponse.json(
