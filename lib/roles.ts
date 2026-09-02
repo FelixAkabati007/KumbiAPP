@@ -260,7 +260,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     finance: true,
     payments: true,
     receipt: true,
-    system: true,
+    system: false,
     refunds: true,
     rooms: true,
     reservations: true,
@@ -386,5 +386,5 @@ export function canPerformAction(
 export function canManageFeatureToggles(
   role: string | null | undefined,
 ): boolean {
-  return isAdmin(role) || role === "manager";
+  return isAdmin(role);
 }

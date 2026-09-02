@@ -36,12 +36,12 @@ describe("RBAC System", () => {
         "reports",
         "payments",
         "receipt",
-        "system",
         "refunds",
       ];
       sections.forEach((section) => {
         expect(hasPermission("manager", section)).toBe(true);
       });
+      expect(hasPermission("manager", "system")).toBe(false);
     });
 
     it("Staff should have restricted access", () => {
