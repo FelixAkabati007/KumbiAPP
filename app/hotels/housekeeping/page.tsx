@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, CheckCircle2, ArrowLeft, Wrench, SprayCan } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { useAuth } from "@/components/auth-provider";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface HousekeepingTask {
@@ -74,6 +75,8 @@ function readTaskNotes(notes?: string) {
 
 function HousekeepingPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isHousekeeping = user?.role === "housekeeping";
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -421,15 +424,17 @@ function HousekeepingPage() {
         </TabsList>
 
         <TabsContent value="cleaning" className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setShowNewTaskDialog(true)}
-              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Task
-            </Button>
-          </div>
+          {!isHousekeeping && (
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowNewTaskDialog(true)}
+                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Task
+              </Button>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 rounded-2xl">
@@ -643,7 +648,7 @@ function HousekeepingPage() {
       </Tabs>
 
       {/* New Housekeeping Task Dialog */}
-      <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
+      {!isHousekeeping && <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Housekeeping Task</DialogTitle>
@@ -741,10 +746,10 @@ function HousekeepingPage() {
               Create Task
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+  </DialogContent>
+</Dialog>}
 
-      {/* New Maintenance Ticket Dialog */}
+  {/* New Maintenance Ticket Dialog */}
       <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
