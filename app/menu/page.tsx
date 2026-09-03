@@ -705,7 +705,7 @@ function MenuContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl p-3 sm:max-h-[90vh] sm:max-w-[600px] sm:p-5">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-3rem)] max-w-[672px] overflow-x-hidden overflow-y-auto rounded-2xl p-5 sm:max-h-[90vh] sm:p-6">
             <DialogHeader>
               <DialogTitle>
                 {isNewItem ? "Add New Menu Item" : "Edit Menu Item"}

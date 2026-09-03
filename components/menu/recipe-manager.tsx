@@ -112,8 +112,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   if (isLoading) return <Loader2 className="animate-spin" />;
 
   return (
-    <div className="min-w-0 space-y-2 sm:space-y-3">
-      <div className="grid min-w-0 gap-2 rounded-lg border p-2.5 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-3 lg:p-4">
+    <div className="min-w-0 space-y-4">
+      <div className="grid min-w-0 gap-4 rounded-lg border p-4 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <div className="min-w-0 md:col-span-2 lg:col-span-2">
           <Label>Ingredient</Label>
           <Select
@@ -157,7 +157,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
       </div>
 
       <div className="w-full min-w-0 overflow-x-auto rounded-lg">
-      <Table className="min-w-[460px] text-sm">
+      <Table className="min-w-[620px] text-sm">
         <TableHeader>
           <TableRow>
             <TableHead>Ingredient</TableHead>
