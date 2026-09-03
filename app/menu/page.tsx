@@ -705,7 +705,7 @@ function MenuContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1.5rem)] max-w-[672px] overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:max-h-[90vh] sm:p-6">
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[672px] flex-col gap-4 overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:max-h-[90vh] sm:gap-6 sm:p-6">
             <DialogHeader>
               <DialogTitle>
                 {isNewItem ? "Add New Menu Item" : "Edit Menu Item"}
@@ -716,8 +716,8 @@ function MenuContent() {
                   : "Update the menu item details below."}
               </DialogDescription>
             </DialogHeader>
-            <Tabs defaultValue="details">
-              <TabsList className="mb-3 grid h-9 w-full grid-cols-2">
+            <Tabs defaultValue="details" className="min-w-0">
+              <TabsList className="mb-2 grid h-10 w-full grid-cols-2 sm:mb-3">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="recipe" disabled={isNewItem}>
                   Recipe
@@ -725,7 +725,7 @@ function MenuContent() {
               </TabsList>
 
               <TabsContent value="details">
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-3 py-2 sm:gap-4 sm:py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Name</Label>
                     <Input
@@ -851,8 +851,10 @@ function MenuContent() {
                   </Button>
                 </DialogFooter>
               </TabsContent>
-              <TabsContent value="recipe">
-                <RecipeManager menuItemId={editingItem.id} />
+              <TabsContent value="recipe" className="min-w-0">
+                <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(90vh-12rem)]">
+                  <RecipeManager menuItemId={editingItem.id} />
+                </div>
               </TabsContent>
             </Tabs>
           </DialogContent>
