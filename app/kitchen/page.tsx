@@ -455,7 +455,7 @@ function KitchenContent() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
         {/* Client Statistics Sidebar */}
         <div className="w-full shrink-0 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10 lg:w-80 lg:border-b-0 lg:border-r">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700">
@@ -520,7 +520,7 @@ function KitchenContent() {
         </div>
 
         {/* Main Orders Section */}
-        <div className="flex flex-col flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
           {/* Filters and Search */}
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
             <div className="flex flex-wrap items-center gap-4">

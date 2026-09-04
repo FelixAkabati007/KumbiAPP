@@ -207,6 +207,24 @@
   select,
   textarea {
     max-width: 100%;
+    min-width: 0;
+  }
+
+  main,
+  header,
+  footer,
+  section,
+  article,
+  form,
+  nav {
+    min-width: 0;
+  }
+
+  [data-slot="card"],
+  [role="dialog"],
+  [role="alertdialog"] {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .dashboard-category-grid[data-dashboard-category-filter="hotel"] [data-dashboard-category]:not([data-dashboard-category="hotel"]),
@@ -219,6 +237,32 @@
 }
 
 /* Responsive data-heavy layouts */
+.responsive-toolbar {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.responsive-toolbar > * {
+  min-width: 0;
+}
+
+.responsive-grid {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+.safe-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .table-scroll-container {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;

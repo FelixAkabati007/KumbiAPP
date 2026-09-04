@@ -312,7 +312,7 @@ function SettingsPageContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-2 sm:gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-2 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-w-0 flex-wrap items-center gap-2 border-b bg-white/80 px-2 py-2 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80 sm:h-16 sm:flex-nowrap sm:gap-4 sm:px-4 md:px-6">
         {/* Company Logo */}
         <div className="flex items-center gap-2 sm:gap-3">
           <LogoDisplay size="md" />
@@ -368,7 +368,7 @@ function SettingsPageContent() {
         >
           <div className="overflow-x-auto">
             <TabsList
-              className={`grid w-full ${isAdmin ? "grid-cols-7 min-w-[700px]" : canManageOperationalSettings ? "grid-cols-4 min-w-[400px]" : "grid-cols-5 min-w-[500px]"} sm:min-w-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
+              className={`grid w-full ${isAdmin ? "grid-cols-7 min-w-[700px]" : canManageOperationalSettings ? "grid-cols-4 min-w-[400px]" : "grid-cols-5 min-w-[500px]"} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
             >
               <TabsTrigger
                 value="appearance"
