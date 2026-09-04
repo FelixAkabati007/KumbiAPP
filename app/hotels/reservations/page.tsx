@@ -26,6 +26,7 @@ interface Reservation {
   status: string;
   total_price: number;
   room_type_name: string;
+  group_booking_reference?: string | null;
 }
 
 interface RoomType {
@@ -51,6 +52,7 @@ function ReservationsPage() {
     checkInDate: "",
     checkOutDate: "",
     numberOfGuests: 1,
+    roomCount: 1,
     roomTypeId: "",
   });
   const { toast } = useToast();
@@ -152,7 +154,8 @@ function ReservationsPage() {
       );
       const totalPrice = roomType ? Number(roomType.base_price) * nights : 0;
 
-      const reservationResponse = await fetch("/api/hotels/reservations", {
+      const isGroupBooking = formData.roomCount > 1;
+      const reservationResponse = await fetch(isGroupBooking ? "/api/hotels/reservations/group" : "/api/hotels/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -161,7 +164,8 @@ function ReservationsPage() {
           checkInDate: formData.checkInDate,
           checkOutDate: formData.checkOutDate,
           numberOfGuests: formData.numberOfGuests,
-          totalPrice,
+          roomCount: formData.roomCount,
+          totalPrice: totalPrice * formData.roomCount,
           source: "walk_in",
         }),
       });
@@ -188,6 +192,7 @@ function ReservationsPage() {
         checkInDate: "",
         checkOutDate: "",
         numberOfGuests: 1,
+        roomCount: 1,
         roomTypeId: "",
       });
       await fetchReservations();
@@ -274,7 +279,7 @@ function ReservationsPage() {
                 <tbody className="divide-y">
                   {reservations.map((res) => (
                     <tr key={res.id} className="hover:bg-orange-50/50 dark:hover:bg-orange-900/20">
-                      <td className="py-2 px-4 font-medium">{res.reservation_number}</td>
+                      <td className="py-2 px-4 font-medium"><div>{res.reservation_number}</div>{res.group_booking_reference && <div className="text-xs text-orange-700">Group {res.group_booking_reference}</div>}</td>
                       <td className="py-2 px-4">{res.first_name} {res.last_name}</td>
                       <td className="py-2 px-4">{new Date(res.check_in_date).toLocaleDateString()}</td>
                       <td className="py-2 px-4">{new Date(res.check_out_date).toLocaleDateString()}</td>
@@ -401,6 +406,11 @@ function ReservationsPage() {
                   onChange={(e) => setFormData({ ...formData, numberOfGuests: parseInt(e.target.value) })}
                   className="rounded-lg"
                 />
+              </div>
+              <div>
+                <Label htmlFor="roomCount">Rooms to reserve</Label>
+                <Input id="roomCount" type="number" min="1" max="20" value={formData.roomCount} onChange={(e) => setFormData({ ...formData, roomCount: Math.max(1, Math.min(20, parseInt(e.target.value) || 1)) })} className="rounded-lg" />
+                <p className="mt-1 text-xs text-muted-foreground">Use 2 or more for one group booking; each room is tracked separately.</p>
               </div>
               <div>
                 <Label htmlFor="roomType">Room Type <span className="text-destructive" aria-hidden="true">*</span></Label>

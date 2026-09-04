@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate");
 
     let sql = `
-      SELECT r.*, g.first_name, g.last_name, g.email, g.phone, rt.name as room_type_name
+      SELECT r.*, bg.booking_reference as group_booking_reference, g.first_name, g.last_name, g.email, g.phone, rt.name as room_type_name
       FROM reservations r
+      LEFT JOIN booking_groups bg ON bg.id = r.booking_group_id
       JOIN guests g ON r.guest_id = g.id
       JOIN room_types rt ON r.room_type_id = rt.id
     `;
