@@ -18,10 +18,28 @@ type Transaction = {
   created_at: string;
 };
 
+type DepartmentResult = {
+  department: "hotel" | "restaurant" | "event" | "shared";
+  revenue: number;
+  expense: number;
+  profit: number;
+  margin: number;
+};
+
+type PnlResponse = {
+  departments: DepartmentResult[];
+  totals: { revenue: number; expense: number; profit: number; margin: number };
+};
+
+const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared: "Shared / Corporate" } as const;
+
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [pnl, setPnl] = useState<PnlResponse | null>(null);
   const [source, setSource] = useState("all");
+  const [department, setDepartment] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [pnlLoading, setPnlLoading] = useState(true);
   const [authority, setAuthority] = useState<{ actingAuthority: boolean; authorityLabel: string } | null>(null);
 
   useEffect(() => {
@@ -47,6 +65,15 @@ export default function FinancePage() {
   useEffect(() => {
     void loadTransactions();
   }, [source]);
+
+  useEffect(() => {
+    setPnlLoading(true);
+    fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => data && setPnl(data))
+      .catch(() => undefined)
+      .finally(() => setPnlLoading(false));
+  }, [department]);
 
   const totals = useMemo(() => {
     const completed = transactions.filter((item) => ["completed", "succeeded", "success"].includes(item.status.toLowerCase()));
@@ -95,7 +122,11 @@ export default function FinancePage() {
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Select value={source} onValueChange={setSource}>
                 <SelectTrigger className="w-full sm:w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem></SelectContent>
+              </Select>
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger className="w-full sm:w-[170px]" aria-label="Profit and loss department"><SelectValue placeholder="All departments" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All departments</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent>
               </Select>
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Refresh
@@ -127,8 +158,18 @@ export default function FinancePage() {
             <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent></Card>
             <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent></Card>
           </section>
-          <PayrollDesk />
-          <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
+          <section aria-labelledby="pnl-heading" className="space-y-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div><p className="text-sm font-medium text-primary">Departmental performance</p><h2 id="pnl-heading" className="text-2xl font-bold tracking-tight">Profit and loss by business area</h2></div>
+              <p className="text-sm text-muted-foreground">Revenue minus approved expenses and processed payroll.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(pnl?.departments ?? []).map((item) => <Card key={item.department} className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">{departmentLabels[item.department]}</CardTitle><p className="text-xs text-muted-foreground">{item.margin.toFixed(1)}% margin</p></CardHeader><CardContent className="space-y-2"><p className="text-2xl font-bold">GHS {item.profit.toFixed(2)}</p><div className="flex justify-between text-xs text-muted-foreground"><span>Revenue GHS {item.revenue.toFixed(2)}</span><span>Costs GHS {item.expense.toFixed(2)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full ${item.profit >= 0 ? "bg-emerald-500" : "bg-destructive"}`} style={{ width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%` }} /></div></CardContent></Card>)}
++            </div>
++            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
++          </section>
++          <PayrollDesk />
++          <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refund records</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Refund events that can affect cash reconciliation.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p></CardContent></Card>
