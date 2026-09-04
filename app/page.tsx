@@ -218,7 +218,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     >
       <header className="sticky top-0 z-40 w-full min-w-0 border-b bg-white/80 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80">
         <div className="container mx-auto flex min-h-16 w-full min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:justify-between sm:px-4 md:px-6">
-          <div className="flex min-w-0 flex-1 gap-3 md:gap-6 lg:gap-10">
+          <div className="flex min-w-0 flex-1 basis-full gap-3 sm:basis-auto md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
               <LogoDisplay size="sm" />
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -233,7 +233,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </span>
             </div>
           </div>
-<div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end sm:gap-3">
+<div className="flex min-w-0 basis-full flex-wrap items-center justify-start gap-2 sm:basis-auto sm:justify-end sm:gap-3">
   <div className="hidden items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 dark:border-orange-700 dark:bg-orange-900/30 sm:flex">
   <span className="max-w-40 truncate text-sm font-medium text-orange-700 dark:text-orange-300">
   Welcome, {user.name}
@@ -318,7 +318,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   POS Terminal
                 </CardTitle>
                 <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -344,7 +344,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Kitchen Display
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -397,7 +397,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Order Board
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -450,7 +450,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Menu Management
                 </CardTitle>
                 <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -476,7 +476,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Inventory
                 </CardTitle>
                 <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -502,7 +502,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     <Card data-dashboard-category="technical" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
       <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-        <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Technical Operations</CardTitle>
+        <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">Technical Operations</CardTitle>
         <Wrench className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
       </CardHeader>
       <CardContent className="relative z-10">
@@ -518,7 +518,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Finance Desk</CardTitle>
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">Finance Desk</CardTitle>
                 <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
               </CardHeader>
               <CardContent className="relative z-10">
@@ -536,7 +536,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Reports
                 </CardTitle>
                 <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -562,7 +562,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Refund Management
                 </CardTitle>
                 <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -588,7 +588,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Payments
                 </CardTitle>
                 <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -614,7 +614,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Receipt Preview
                 </CardTitle>
                 <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -670,7 +670,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="administration" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   System Monitoring
                 </CardTitle>
                 <Monitor className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -696,7 +696,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Reservations
                 </CardTitle>
                 <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -722,7 +722,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Rooms
                 </CardTitle>
                 <Home className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -748,7 +748,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Housekeeping
                 </CardTitle>
                 <CheckSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -774,7 +774,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
                   Check-In/Out
                 </CardTitle>
                 <DoorOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />
