@@ -17,6 +17,8 @@ interface Authorization {
   ceo_reference: string | null;
   status: string;
   created_at: string;
+  used_amount: string;
+  remaining_amount: string;
 }
 
 export function ComplimentaryAuthorizationsPanel() {
@@ -36,6 +38,13 @@ export function ComplimentaryAuthorizationsPanel() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const revokeAuthorization = async (id: string) => {
+    const response = await fetch("/api/admin/complimentary-authorizations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    const data = await response.json();
+    setMessage(response.ok ? "Authorization revoked." : data.error || "Unable to revoke authorization");
+    if (response.ok) await load();
+  };
 
   const createAuthorization = async () => {
     setSaving(true);
@@ -79,8 +88,8 @@ export function ComplimentaryAuthorizationsPanel() {
         <div className="space-y-2">
           {items.length === 0 ? <p className="text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
             <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p></div>
-              <div className="flex items-center gap-2"><span className="text-sm font-semibold">₦{Number(item.approved_amount).toLocaleString()}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge></div>
+              <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used ₦{Number(item.used_amount || 0).toLocaleString()} · Remaining ₦{Number(item.remaining_amount || item.approved_amount).toLocaleString()}</p></div>
+              <div className="flex items-center gap-2"><span className="text-sm font-semibold">₦{Number(item.approved_amount).toLocaleString()}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
             </div>
           ))}
         </div>
