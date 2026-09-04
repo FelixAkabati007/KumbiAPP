@@ -14,9 +14,9 @@ export const roleDisplayNames: Record<UserRole, string> = {
   manager: "General Manager",
   operationsManager: "Operations Manager",
   finance: "Finance Manager",
-  staff: "Staff",
-  kitchen: "Kitchen Staff",
-  frontDesk: "Front Desk",
+  staff: "Restaurant Server",
+  kitchen: "Chef",
+  frontDesk: "Reception",
   housekeeping: "Housekeeping",
 };
 
