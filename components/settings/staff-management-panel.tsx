@@ -80,15 +80,15 @@ interface StaffMember {
   updated_at: string;
 }
 
-const ROLE_OPTIONS: { value: StaffRole; label: string }[] = [
-  { value: "staff", label: "Staff" },
-  { value: "kitchen", label: "Kitchen Staff" },
-  { value: "frontDesk", label: "Front Desk" },
-  { value: "housekeeping", label: "Housekeeping" },
-  { value: "finance", label: "Finance" },
-  { value: "operationsManager", label: "Operations Manager" },
-  { value: "manager", label: "General Manager" },
-  { value: "admin", label: "Admin" },
+const ROLE_OPTIONS: { value: StaffRole; label: string; description: string }[] = [
+  { value: "staff", label: "Restaurant Server", description: "Create POS orders and serve guests; cannot edit menu prices or approve refunds." },
+  { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
+  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
+  { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
+  { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
+  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations with cross-department oversight." },
+  { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
 ];
 
 const ROLE_BADGE_CLASSES: Record<StaffRole, string> = {
@@ -586,13 +586,16 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                     }
                   >
                     <SelectTrigger id="staff-role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
+  <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+  {ROLE_OPTIONS.map((option) => (
+  <SelectItem key={option.value} value={option.value}>
+  <div className="flex flex-col gap-0.5">
+  <span>{option.label}</span>
+  <span className="text-xs text-muted-foreground">{option.description}</span>
+  </div>
+  </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -832,12 +835,15 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                                     </SelectTrigger>
                                     <SelectContent>
                                       {ROLE_OPTIONS.map((option) => (
-                                        <SelectItem
-                                          key={option.value}
-                                          value={option.value}
-                                        >
-                                          {option.label}
-                                        </SelectItem>
+  <SelectItem
+  key={option.value}
+  value={option.value}
+  >
+  <div className="flex flex-col gap-0.5">
+  <span>{option.label}</span>
+  <span className="text-xs text-muted-foreground">{option.description}</span>
+  </div>
+  </SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
