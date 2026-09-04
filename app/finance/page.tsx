@@ -100,6 +100,9 @@ export default function FinancePage() {
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Refresh
               </Button>
+              <Button asChild variant="outline">
+                <Link href="/expenses">Operating expenses</Link>
+              </Button>
               <Button onClick={exportCsv} disabled={!transactions.length}>
                 <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export CSV
               </Button>
