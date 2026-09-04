@@ -241,7 +241,7 @@ function ReservationsPage() {
       >
         <p className="text-sm font-semibold sm:text-base">No-show and refund policy</p>
         <p className="mt-1 text-xs leading-relaxed text-emerald-900 sm:text-sm">
-          After payment, guests must arrive within 2 hours of the confirmed booking time. If a guest does not arrive within this grace period, the booking is treated as a no-show and the payment becomes non-refundable. Arriving later does not guarantee a refund.
+          After making a reservation, guests are expected to arrive within a reasonable period of the confirmed booking time. Failure to arrive within this grace period will result in the booking being classified as a no-show, and the payment will be deemed non-refundable.
         </p>
       </section>
 
