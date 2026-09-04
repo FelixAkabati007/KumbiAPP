@@ -257,8 +257,8 @@ function CheckInPage() {
     } catch (error) {
       console.error("Error checking in guest:", error);
       toast({
-        title: "Error",
-        description: "Failed to check in guest",
+        title: "Check-in failed",
+        description: error instanceof Error ? error.message : "The guest could not be checked in. Please verify the reservation and room, then try again.",
         variant: "destructive",
       });
     } finally {
