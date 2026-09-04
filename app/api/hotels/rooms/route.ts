@@ -48,8 +48,15 @@ export async function GET(request: NextRequest) {
     const params: (string | undefined)[] = [];
 
     if (status) {
-      sql += ` AND r.status = $${params.length + 1}`;
-      params.push(status);
+      const statuses = status.split(",").map((value) => value.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        sql += ` AND r.status = $${params.length + 1}`;
+        params.push(statuses[0]);
+      } else if (statuses.length > 1) {
+        const placeholders = statuses.map((_, index) => `$${params.length + index + 1}`);
+        sql += ` AND r.status IN (${placeholders.join(", ")})`;
+        params.push(...statuses);
+      }
     }
 
     if (roomTypeId) {

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
       const roomResult = await client.query(
-        `SELECT id FROM rooms WHERE id = $1 AND is_active = true AND status = 'available' FOR UPDATE`,
+        `SELECT id FROM rooms WHERE id = $1 AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
         [roomId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       // Update room status to occupied
       const updatedRoomResult = await client.query(
         `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1), updated_at = NOW()
-         WHERE id = $2 AND status = 'available'`,
+         WHERE id = $2 AND status IN ('available', 'dirty', 'cleaning')`,
         [reservationId, roomId]
       );
       if (updatedRoomResult.rowCount === 0) {
