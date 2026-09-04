@@ -417,7 +417,7 @@ function RoomsPage() {
                               price: room.price?.toString() || room.base_price?.toString() || (roomTypes.find((type) => type.id === room.room_type_id)?.base_price?.toString() || ""),
                               images: Array.isArray(room.images) ? room.images : [],
                             });
-                            setPreviewImages((room.images || []).map(img => img.url));
+                            setPreviewImages((Array.isArray(room.images) ? room.images : []).map((img) => img.url));
                             setImageInput("");
                             setShowEditDialog(true);
                           }}
