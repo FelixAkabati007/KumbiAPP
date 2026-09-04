@@ -283,11 +283,11 @@ function RoomsPage() {
             setEditingRoom(null);
             setFormData({
               roomNumber: "",
-              roomTypeId: "",
+              roomTypeId: roomTypes[0]?.id || "",
               floor: 1,
               building: "Main",
               notes: "",
-              price: "",
+              price: roomTypes[0]?.base_price?.toString() || "",
               images: [],
             });
             setPreviewImages([]);
@@ -667,11 +667,11 @@ function RoomsPage() {
                   setShowAddDialog(false);
                   setFormData({
                     roomNumber: "",
-                    roomTypeId: "standard",
+                    roomTypeId: roomTypes[0]?.id || "",
                     floor: 1,
                     building: "Main",
                     notes: "",
-                    price: "",
+                    price: roomTypes[0]?.base_price?.toString() || "",
                     images: [],
                   });
                   setPreviewImages([]);
