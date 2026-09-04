@@ -22,6 +22,14 @@ interface RoomImage {
   is_primary?: boolean;
 }
 
+interface RoomType {
+  id: string;
+  name: string;
+  base_price: number | string;
+  max_occupants: number;
+  is_active: boolean;
+}
+
 interface Room {
   id: string;
   room_number: string;
@@ -57,14 +65,16 @@ const getStatusColor = (status: string) => {
 function RoomsPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roomTypesLoading, setRoomTypesLoading] = useState(true);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [formData, setFormData] = useState({
     roomNumber: "",
-    roomTypeId: "a7de560e-42b0-4545-a96e-d4705f9ad902",
+    roomTypeId: "",
     floor: 1,
     building: "Main",
     notes: "",
@@ -176,16 +186,45 @@ function RoomsPage() {
   };
 
   const fetchRooms = async () => {
+    setLoading(true);
+    setRoomTypesLoading(true);
     try {
-      const response = await fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Failed to fetch rooms");
-      const data = await response.json();
-      setRooms(data);
+      const [roomsResult, roomTypesResult] = await Promise.allSettled([
+        fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to fetch rooms");
+          return (await response.json()) as Room[];
+        }),
+        fetch(`/api/hotels/room-types?t=${Date.now()}`, { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to fetch room types");
+          return (await response.json()) as RoomType[];
+        }),
+      ]);
+
+      if (roomsResult.status === "fulfilled") {
+        setRooms(roomsResult.value);
+      } else {
+        throw roomsResult.reason;
+      }
+
+      if (roomTypesResult.status === "fulfilled") {
+        const liveRoomTypes = roomTypesResult.value;
+        setRoomTypes(liveRoomTypes);
+        setFormData((current) => ({
+          ...current,
+          roomTypeId: current.roomTypeId && liveRoomTypes.some((type) => type.id === current.roomTypeId)
+            ? current.roomTypeId
+            : liveRoomTypes[0]?.id || "",
+        }));
+      } else {
+        console.error("Error fetching live room types:", roomTypesResult.reason);
+        toast({ title: "Room types unavailable", description: "Rooms loaded, but live room types could not be loaded. Retry to continue.", variant: "destructive" });
+      }
     } catch (error) {
       console.error("Error fetching rooms:", error);
-      toast({ title: "Error", description: "Failed to load rooms", variant: "destructive" });
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load rooms", variant: "destructive" });
     } finally {
       setLoading(false);
+      setRoomTypesLoading(false);
     }
   };
 
@@ -244,7 +283,7 @@ function RoomsPage() {
             setEditingRoom(null);
             setFormData({
               roomNumber: "",
-              roomTypeId: "a7de560e-42b0-4545-a96e-d4705f9ad902",
+              roomTypeId: "",
               floor: 1,
               building: "Main",
               notes: "",
@@ -458,10 +497,12 @@ function RoomsPage() {
                 onChange={(e) => setFormData({ ...formData, roomTypeId: e.target.value })}
                 className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
-                <option value="">Select Room Type</option>
-                <option value="a7de560e-42b0-4545-a96e-d4705f9ad902">Standard Room</option>
-                <option value="dc0bc513-eeb6-4b0d-904f-8457da7b8516">Deluxe Room</option>
-                <option value="1ba61a41-1a68-44e6-9914-d43fc465b2df">Suite</option>
+                <option value="">{roomTypesLoading ? "Loading room types..." : roomTypes.length === 0 ? "No active room types" : "Select Room Type"}</option>
+                {roomTypes.map((roomType) => (
+                  <option key={roomType.id} value={roomType.id}>
+                    {roomType.name} · GHS {Number(roomType.base_price).toFixed(2)} · max {roomType.max_occupants}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -703,10 +744,12 @@ function RoomsPage() {
                 onChange={(e) => setFormData({ ...formData, roomTypeId: e.target.value })}
                 className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg dark:bg-gray-700 dark:border-orange-700 focus:border-orange-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:border-orange-300 dark:hover:border-orange-600 transition"
               >
-                <option value="">Select Room Type</option>
-                <option value="a7de560e-42b0-4545-a96e-d4705f9ad902">Standard Room</option>
-                <option value="dc0bc513-eeb6-4b0d-904f-8457da7b8516">Deluxe Room</option>
-                <option value="1ba61a41-1a68-44e6-9914-d43fc465b2df">Suite</option>
+                <option value="">{roomTypesLoading ? "Loading room types..." : roomTypes.length === 0 ? "No active room types" : "Select Room Type"}</option>
+                {roomTypes.map((roomType) => (
+                  <option key={roomType.id} value={roomType.id}>
+                    {roomType.name} · GHS {Number(roomType.base_price).toFixed(2)} · max {roomType.max_occupants}
+                  </option>
+                ))}
               </select>
             </div>
 
