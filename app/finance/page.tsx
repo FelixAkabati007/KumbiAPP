@@ -92,9 +92,9 @@ export default function FinancePage() {
               <p className="mt-1 text-sm text-muted-foreground">Review completed transactions, refunds, and payment activity.</p>
               </div>
             </div>
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem></SelectContent>
               </Select>
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
@@ -114,6 +114,19 @@ export default function FinancePage() {
               <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
             </Alert>
           )}
+          <section aria-labelledby="finance-areas-heading" className="grid gap-4 md:grid-cols-3">
+            <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
+            <Card className="bg-primary/[0.04]">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
+            </Card>
+            <Card className="bg-primary/[0.04]">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
+              <CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
+            </Card>
+            <Card className="bg-primary/[0.04]">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Payroll & compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader>
+            </Card>
+          </section>
           <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
