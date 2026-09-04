@@ -126,7 +126,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Folio not found" }, { status: 404 });
     }
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error updating guest folio:", error);
     return NextResponse.json(

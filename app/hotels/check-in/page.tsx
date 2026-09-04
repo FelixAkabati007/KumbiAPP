@@ -384,7 +384,8 @@ function CheckInPage() {
           description: chargeDescription || undefined,
         }),
       });
-      if (!response.ok) throw new Error("Failed to add charge");
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Failed to add charge");
       const data = await response.json();
       setFolio(data);
       setChargeAmount("");
@@ -395,7 +396,7 @@ function CheckInPage() {
       console.error("Error adding charge:", error);
       toast({
         title: "Error",
-        description: "Failed to add charge",
+        description: error instanceof Error ? error.message : "Failed to add charge",
         variant: "destructive",
       });
     } finally {
