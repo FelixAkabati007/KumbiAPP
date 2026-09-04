@@ -60,14 +60,14 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO guest_folio_items
           (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
-         SELECT $1, gf.id, 'room', 'Room accommodation', 1, gf.room_charge, gf.room_charge, 'check_in', $1
+         SELECT $1::uuid, gf.id, 'room', 'Room accommodation', 1, gf.room_charge, gf.room_charge, 'check_in', $2::text
          FROM guest_folios gf
-         WHERE gf.reservation_id = $1
+         WHERE gf.reservation_id = $1::uuid
            AND NOT EXISTS (
              SELECT 1 FROM guest_folio_items gfi
-             WHERE gfi.reservation_id = $1 AND gfi.source_type = 'check_in'
+             WHERE gfi.reservation_id = $1::uuid AND gfi.source_type = 'check_in'
            )`,
-        [reservationId]
+        [reservationId, String(reservationId)]
       );
 
       await client.query(
