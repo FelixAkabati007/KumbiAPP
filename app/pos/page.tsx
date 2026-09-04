@@ -664,14 +664,14 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <Label
                   htmlFor="barcode"
                   className="text-sm font-medium text-orange-700 dark:text-orange-300"
                 >
                   Barcode:
                 </Label>
-                <div className="flex">
+                <div className="flex min-w-0 w-full sm:w-auto">
                   <Input
                     id="barcode"
                     placeholder="Scan barcode..."

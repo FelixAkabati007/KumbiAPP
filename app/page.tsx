@@ -216,7 +216,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
       ref={mainRef}
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
-      <header className="sticky top-0 z-40 w-full border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-40 w-full min-w-0 border-b bg-white/80 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80">
         <div className="container mx-auto flex min-h-16 w-full min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:justify-between sm:px-4 md:px-6">
           <div className="flex min-w-0 flex-1 gap-3 md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
@@ -233,7 +233,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </span>
             </div>
           </div>
-<div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+<div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end sm:gap-3">
   <div className="hidden items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 dark:border-orange-700 dark:bg-orange-900/30 sm:flex">
   <span className="max-w-40 truncate text-sm font-medium text-orange-700 dark:text-orange-300">
   Welcome, {user.name}
@@ -294,7 +294,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
           <h2 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">
             Dashboard
           </h2>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
               <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
@@ -313,7 +313,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
           </div>
         </div>
 
-        <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
           {access.pos && (
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
