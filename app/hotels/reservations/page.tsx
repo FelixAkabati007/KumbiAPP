@@ -230,6 +230,16 @@ function ReservationsPage() {
         </div>
       </div>
 
+      <section
+        aria-label="No-show and refund policy"
+        className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-green-50 px-4 py-3 text-emerald-950 shadow-sm sm:px-5 sm:py-4"
+      >
+        <p className="text-sm font-semibold sm:text-base">No-show and refund policy</p>
+        <p className="mt-1 text-xs leading-relaxed text-emerald-900 sm:text-sm">
+          After payment, guests must arrive within 2 hours of the confirmed booking time. If a guest does not arrive within this grace period, the booking is treated as a no-show and the payment becomes non-refundable. Arriving later does not guarantee a refund.
+        </p>
+      </section>
+
       <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
         <CardHeader>
           <CardTitle>Reservation List</CardTitle>
