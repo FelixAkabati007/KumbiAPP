@@ -20,6 +20,7 @@ import { useIntegration } from "@/components/integration-provider";
 import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
 import { RoleGuard } from "@/components/role-guard";
+import { ComplimentaryAuthorizationsPanel } from "@/components/admin/complimentary-authorizations-panel";
 
 function SystemContent() {
   const { isInitialized, systemStatus, initialize, refreshStatus } =
@@ -158,6 +159,8 @@ function SystemContent() {
               </CardContent>
             </Card>
           </div>
+
+          <ComplimentaryAuthorizationsPanel />
 
           {/* Main Dashboard */}
           <Tabs defaultValue="overview" className="w-full">
