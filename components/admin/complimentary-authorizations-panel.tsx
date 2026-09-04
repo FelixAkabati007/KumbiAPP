@@ -25,7 +25,11 @@ export function ComplimentaryAuthorizationsPanel() {
   const [items, setItems] = useState<Authorization[]>([]);
   const [guestName, setGuestName] = useState("");
   const [amount, setAmount] = useState("");
-  const [validUntil, setValidUntil] = useState("");
+  const [validUntil, setValidUntil] = useState(() => {
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const local = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  });
   const [reason, setReason] = useState("");
   const [reference, setReference] = useState("");
   const [scope, setScope] = useState("both");
@@ -47,6 +51,15 @@ export function ComplimentaryAuthorizationsPanel() {
   };
 
   const createAuthorization = async () => {
+    if (!guestName.trim() || Number(amount) <= 0 || !reason.trim()) {
+      setMessage("Guest, a positive amount, and a business reason are required.");
+      return;
+    }
+    const expiry = new Date(validUntil);
+    if (!validUntil || Number.isNaN(expiry.getTime()) || expiry <= new Date()) {
+      setMessage("Valid until must be a future date and time.");
+      return;
+    }
     setSaving(true);
     setMessage("");
     const response = await fetch("/api/admin/complimentary-authorizations", {
@@ -57,7 +70,11 @@ export function ComplimentaryAuthorizationsPanel() {
     const data = await response.json();
     if (!response.ok) setMessage(data.error || "Unable to create authorization");
     else {
-      setGuestName(""); setAmount(""); setValidUntil(""); setReason(""); setReference("");
+      setGuestName(""); setAmount(""); setValidUntil(() => {
+        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const local = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
+      }); setReason(""); setReference("");
       setMessage("Authorization created and available for controlled application.");
       await load();
     }
