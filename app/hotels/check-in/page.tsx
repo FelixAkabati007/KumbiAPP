@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle } from "lucide-react";
+import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Utensils, Minus, Plus } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
@@ -68,6 +68,15 @@ interface CheckedInGuest {
   total_charges: string | null;
   paid_amount: string | null;
   balance: string | null;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  inStock: boolean;
+  category: string;
 }
 
 interface GuestFolio {
@@ -117,6 +126,11 @@ function CheckInPage() {
   const [chargeDescription, setChargeDescription] = useState("");
   const [addingCharge, setAddingCharge] = useState(false);
   const [latestReceiptId, setLatestReceiptId] = useState<string | null>(null);
+  const [restaurantMenu, setRestaurantMenu] = useState<MenuItem[]>([]);
+  const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
+  const [loadingRestaurantMenu, setLoadingRestaurantMenu] = useState(false);
+  const [sendingRestaurantOrder, setSendingRestaurantOrder] = useState(false);
+  const [latestRestaurantOrder, setLatestRestaurantOrder] = useState<{ orderNumber: string; total: number } | null>(null);
 
   const fetchReservations = async () => {
     try {
@@ -339,6 +353,14 @@ function CheckInPage() {
 
   const openFolio = async (guest: CheckedInGuest) => {
     setFolioGuest(guest);
+    setRestaurantCart({});
+    setLatestRestaurantOrder(null);
+    setLoadingRestaurantMenu(true);
+    fetch("/api/menu", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load menu")))
+      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.inStock)))
+      .catch(() => toast({ title: "Menu unavailable", description: "Active food and beverage items could not be loaded.", variant: "destructive" }))
+      .finally(() => setLoadingRestaurantMenu(false));
     setFolio(null);
     setChargeType("service");
     setChargeAmount("");
@@ -358,6 +380,43 @@ function CheckInPage() {
       });
     } finally {
       setLoadingFolio(false);
+    }
+  };
+
+  const restaurantTotal = restaurantMenu.reduce((total, item) => total + item.price * (restaurantCart[item.id] || 0), 0);
+
+  const updateRestaurantQuantity = (itemId: string, delta: number) => {
+    setRestaurantCart((current) => {
+      const nextQuantity = Math.max(0, (current[itemId] || 0) + delta);
+      const next = { ...current };
+      if (nextQuantity === 0) delete next[itemId];
+      else next[itemId] = nextQuantity;
+      return next;
+    });
+  };
+
+  const handleRestaurantOrder = async (print = false) => {
+    if (!folioGuest || restaurantTotal <= 0 || sendingRestaurantOrder) return;
+    setSendingRestaurantOrder(true);
+    try {
+      const response = await fetch(`/api/hotels/folios/${folioGuest.id}/restaurant-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: Object.entries(restaurantCart).map(([menuItemId, quantity]) => ({ menuItemId, quantity })) }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Failed to send restaurant order");
+      setFolio(payload.folio);
+      setLatestRestaurantOrder({ orderNumber: payload.orderNumber, total: payload.total });
+      setRestaurantCart({});
+      await fetchCheckedInGuests();
+      window.dispatchEvent(new Event("ordersUpdated"));
+      toast({ title: "Order sent to restaurant", description: `${payload.orderNumber} was charged to the guest folio.` });
+      if (print) window.open(`/receipt?orderNumber=${encodeURIComponent(payload.orderNumber)}`, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast({ title: "Restaurant order failed", description: error instanceof Error ? error.message : "Could not create restaurant order", variant: "destructive" });
+    } finally {
+      setSendingRestaurantOrder(false);
     }
   };
 
@@ -386,8 +445,7 @@ function CheckInPage() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Failed to add charge");
-      const data = await response.json();
-      setFolio(data);
+      setFolio(payload);
       setChargeAmount("");
       setChargeDescription("");
       toast({ title: "Charge added", description: "Folio balance updated" });
@@ -820,6 +878,38 @@ function CheckInPage() {
                   <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
                     GHS {Number(folio.balance).toFixed(2)}
                   </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3 dark:border-orange-900/50 dark:bg-orange-950/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-semibold"><Utensils className="h-4 w-4 text-orange-600" /> Add Food & Beverage Order</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Select active menu items, charge the folio, and send the order to the restaurant.</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0">GHS {restaurantTotal.toFixed(2)}</Badge>
+                </div>
+                {loadingRestaurantMenu ? (
+                  <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+                ) : restaurantMenu.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">No active menu items are available.</p>
+                ) : (
+                  <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                    {restaurantMenu.map((item) => {
+                      const quantity = restaurantCart[item.id] || 0;
+                      return (
+                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-2">
+                          <div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs text-muted-foreground">GHS {item.price.toFixed(2)} · {item.category}</p></div>
+                          <div className="flex shrink-0 items-center gap-1"><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, -1)} disabled={quantity === 0}><Minus className="h-3 w-3" /></Button><span className="w-6 text-center text-sm font-semibold">{quantity}</span><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, 1)}><Plus className="h-3 w-3" /></Button></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {latestRestaurantOrder && <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">{latestRestaurantOrder.orderNumber} sent to restaurant and charged to folio.</p>}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" className="flex-1 rounded-lg bg-orange-600 text-white hover:bg-orange-700" onClick={() => handleRestaurantOrder(false)} disabled={sendingRestaurantOrder || restaurantTotal <= 0}>{sendingRestaurantOrder ? "Sending…" : "Charge & Send"}</Button>
+                  <Button type="button" variant="outline" className="flex-1 rounded-lg" onClick={() => handleRestaurantOrder(true)} disabled={sendingRestaurantOrder || restaurantTotal <= 0}><Printer className="mr-2 h-4 w-4" /> Charge, Send & Print</Button>
                 </div>
               </div>
 
