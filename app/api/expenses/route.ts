@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
 
-const categories = ["utilities", "maintenance", "transport", "supplies", "communications", "miscellaneous"];
+const categories = ["utilities", "maintenance", "transport", "supplies", "communications", "guest_amenities", "laundry_linen", "security", "food_beverage", "cooking_fuel", "packaging", "pest_control", "marketing", "professional_services", "rent_property", "bank_charges", "taxes_licenses", "staff_welfare", "miscellaneous"];
 const statuses = ["submitted", "approved", "rejected", "paid", "cancelled"];
 
 export async function GET() {
