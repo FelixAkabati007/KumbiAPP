@@ -298,7 +298,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             {canSwitchDashboardCategories && (
               <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
-                  <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="rounded-2xl border-orange-200 text-xs dark:border-orange-700">
+                  <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
                   </Button>
                 ))}
