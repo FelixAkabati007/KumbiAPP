@@ -87,7 +87,7 @@ const ROLE_OPTIONS: { value: StaffRole; label: string; description: string }[] =
   { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
   { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
   { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
-  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations with cross-department oversight." },
+  { value: "manager", label: "Manager", description: "Supervise hotel and restaurant operations; choose Hotel Manager, Restaurant Manager, or General Manager access below." },
   { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
 ];
 
@@ -154,7 +154,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
     position: "",
     employmentStatus: "active",
     role: "staff" as StaffRole,
-    managerScope: "general" as "hotel" | "restaurant" | "general",
+  managerScope: "hotel" as "hotel" | "restaurant" | "general",
   });
 
   const loadStaff = useCallback(async () => {
@@ -459,7 +459,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 Add Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-full sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Staff Account</DialogTitle>
                 <DialogDescription>
@@ -603,7 +603,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
 
                 {createForm.role === "manager" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-manager-scope">Manager scope</Label>
+                    <Label htmlFor="staff-manager-scope">Access level</Label>
                     <Select value={createForm.managerScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
                       <SelectTrigger id="staff-manager-scope"><SelectValue placeholder="Select manager scope" /></SelectTrigger>
                       <SelectContent>
@@ -702,6 +702,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                         className={ROLE_BADGE_CLASSES[member.role] || ""}
                       >
                         {roleLabel(member.role)}
+                        {member.role === "manager" ? ` · ${member.manager_scope === "hotel" ? "Hotel Manager" : member.manager_scope === "restaurant" ? "Restaurant Manager" : "General Manager"}` : ""}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
@@ -739,7 +740,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-            <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-full sm:p-6">
                             <DialogHeader>
                               <DialogTitle>
                                 Edit {member.first_name} {member.last_name}
@@ -850,7 +851,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                                 </div>
                                 {editForm.role === "manager" && (
                                   <div className="space-y-1.5">
-                                    <Label>Manager scope</Label>
+                                    <Label>Access level</Label>
                                     <Select value={editForm.managerScope} onValueChange={(value) => setEditForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
                                       <SelectTrigger><SelectValue /></SelectTrigger>
                                       <SelectContent>
