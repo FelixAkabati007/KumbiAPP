@@ -79,13 +79,13 @@ export function SignInForm() {
     <main className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-6">
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="text-center space-y-4">
+        <div className="space-y-3 text-center sm:space-y-4">
           <div className="flex justify-center">
-            <LogoDisplay size="lg" />
+            <LogoDisplay size="md" />
           </div>
           <div className="space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">
                 <span>{restaurantName}</span>
               </h1>
             </div>

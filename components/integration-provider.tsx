@@ -44,12 +44,7 @@ export function IntegrationProvider({
       const success = await initializeIntegrationService();
       setIsInitialized(success);
 
-      if (success) {
-        toast({
-          title: "System Initialized",
-          description: "All hardware services are ready",
-        });
-      } else {
+      if (!success) {
         toast({
           title: "Initialization Warning",
           description: "Some hardware services failed to initialize",
