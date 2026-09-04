@@ -182,7 +182,18 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
     is_active BOOLEAN DEFAULT true,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    event_scope TEXT NOT NULL DEFAULT 'restaurant'
+);
+
+CREATE TABLE IF NOT EXISTS event_staff_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL,
+    assignment_type TEXT NOT NULL DEFAULT 'service',
+    status TEXT NOT NULL DEFAULT 'assigned',
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (staff_id, event_id, assignment_type)
 );
 
 -- Session Management for Shift-Based Access

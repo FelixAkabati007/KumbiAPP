@@ -76,16 +76,16 @@ export function SignInForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 p-4">
-      <div className="w-full max-w-md space-y-6">
+    <main className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-6">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="text-center space-y-4">
+        <div className="space-y-3 text-center sm:space-y-4">
           <div className="flex justify-center">
-            <LogoDisplay size="lg" />
+            <LogoDisplay size="md" />
           </div>
           <div className="space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">
                 <span>{restaurantName}</span>
               </h1>
             </div>
@@ -116,7 +116,7 @@ export function SignInForm() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="p-6 relative z-10 space-y-6">
+          <CardContent className="relative z-10 space-y-5 p-4 sm:p-6">
             {error && (
               <Alert className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl">
                 <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
@@ -211,7 +211,7 @@ export function SignInForm() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg transition-all duration-300 transform hover:scale-[1.02] rounded-2xl py-6 text-lg font-medium"
+                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 py-5 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:to-amber-700 sm:py-6 sm:text-lg"
                   disabled={isLoading || !isDatabaseReady}
                 >
                   {isLoading ? (
@@ -235,6 +235,6 @@ export function SignInForm() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

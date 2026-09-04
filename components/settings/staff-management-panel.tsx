@@ -76,6 +76,7 @@ interface StaffMember {
   hire_date: string | null;
   role: StaffRole;
   manager_scope: "hotel" | "restaurant" | "general";
+  event_scope: "restaurant" | "events" | "restaurant_events";
   created_at: string;
   updated_at: string;
 }
@@ -125,6 +126,7 @@ const emptyCreateForm = {
   password: "",
   role: "staff" as StaffRole,
   managerScope: "general" as "hotel" | "restaurant" | "general",
+  eventScope: "restaurant" as "restaurant" | "events" | "restaurant_events",
 };
 
 export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
@@ -600,6 +602,21 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {(createForm.role === "kitchen" || createForm.role === "frontDesk" || createForm.role === "manager") && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="staff-event-scope">Operational scope</Label>
+                    <Select value={createForm.eventScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, eventScope: value as "restaurant" | "events" | "restaurant_events" }))}>
+                      <SelectTrigger id="staff-event-scope"><SelectValue placeholder="Select operational scope" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="restaurant">Restaurant only</SelectItem>
+                        <SelectItem value="events">Events only</SelectItem>
+                        <SelectItem value="restaurant_events">Restaurant + Events</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Event access does not grant payment, contract, or guest-management permissions.</p>
+                  </div>
+                )}
 
                 {createForm.role === "manager" && (
                   <div className="space-y-1.5">
