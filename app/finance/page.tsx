@@ -114,7 +114,7 @@ export default function FinancePage() {
               <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
             </Alert>
           )}
-          <section aria-labelledby="finance-areas-heading" className="grid gap-4 md:grid-cols-3">
+          <section aria-labelledby="finance-areas-heading" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
             <Card className="bg-primary/[0.04]">
               <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
@@ -123,9 +123,9 @@ export default function FinancePage() {
               <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
               <CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
             </Card>
-            <Card className="bg-primary/[0.04]">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Payroll & compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader>
-            </Card>
+            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Payroll & compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader></Card>
+            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent></Card>
+            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent></Card>
           </section>
           <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
