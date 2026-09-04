@@ -45,11 +45,16 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
     const body = await request.json();
     const { guestName, scope, reservationId, orderId, approvedAmount, validUntil, reason, ceoReference } = body;
-    if (!guestName || !scope || !approvedAmount || !validUntil || !reason) return NextResponse.json({ error: "Guest, scope, amount, expiry, and reason are required" }, { status: 400 });
+    const parsedAmount = Number(approvedAmount);
+    const parsedValidUntil = new Date(validUntil);
+    if (!guestName?.trim() || !["hotel", "restaurant", "both"].includes(scope) || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || !validUntil || Number.isNaN(parsedValidUntil.getTime()) || parsedValidUntil <= new Date() || !reason?.trim()) {
+      return NextResponse.json({ error: "Guest, scope, a positive amount, a future expiry, and a reason are required" }, { status: 400 });
+    }
     const result = await query(`INSERT INTO public.complimentary_authorizations (guest_name, scope, reservation_id, order_id, approved_amount, valid_until, reason, ceo_reference, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, guest_name, scope, approved_amount, valid_until, reason, ceo_reference, status, created_at`, [guestName, scope, reservationId || null, orderId || null, approvedAmount, validUntil, reason, ceoReference || null, auth.session.id]);
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
     console.error("Failed to create complimentary authorization:", error);
-    return NextResponse.json({ error: "Failed to create complimentary authorization" }, { status: 500 });
+    const detail = error instanceof Error ? error.message : "Failed to create complimentary authorization";
+    return NextResponse.json({ error: detail.includes("complimentary_authorizations") ? "The authorization could not be saved. Check the expiry and amount, then try again." : detail }, { status: 500 });
   }
 }
