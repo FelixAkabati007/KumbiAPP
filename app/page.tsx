@@ -233,12 +233,12 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </span>
             </div>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
-              <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Welcome, {user.name}
-              </span>
-            </div>
+<div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+  <div className="hidden items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 dark:border-orange-700 dark:bg-orange-900/30 sm:flex">
+  <span className="max-w-40 truncate text-sm font-medium text-orange-700 dark:text-orange-300">
+  Welcome, {user.name}
+  </span>
+  </div>
             <Link href="/settings" prefetch={false}>
               <Button
                 variant="outline"
@@ -289,14 +289,14 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
         </div>
       </header>
 
-      <main className="flex-1 space-y-4 p-3 sm:p-4 md:p-8 pt-5 md:pt-6">
+      <main className="flex-1 space-y-5 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">
             Dashboard
           </h2>
           <div className="flex flex-col items-start gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto" role="group" aria-label="Dashboard container category">
+              <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
                   <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
