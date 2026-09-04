@@ -186,26 +186,42 @@ function RoomsPage() {
   };
 
   const fetchRooms = async () => {
+    setLoading(true);
+    setRoomTypesLoading(true);
     try {
-      const [response, roomTypesResponse] = await Promise.all([
-        fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" }),
-        fetch(`/api/hotels/room-types?t=${Date.now()}`, { cache: "no-store" }),
+      const [roomsResult, roomTypesResult] = await Promise.allSettled([
+        fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to fetch rooms");
+          return (await response.json()) as Room[];
+        }),
+        fetch(`/api/hotels/room-types?t=${Date.now()}`, { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to fetch room types");
+          return (await response.json()) as RoomType[];
+        }),
       ]);
-      if (!roomTypesResponse.ok) throw new Error("Failed to fetch room types");
-      const liveRoomTypes = (await roomTypesResponse.json()) as RoomType[];
-      setRoomTypes(liveRoomTypes);
-      setFormData((current) => ({
-        ...current,
-        roomTypeId: current.roomTypeId && liveRoomTypes.some((type) => type.id === current.roomTypeId)
-          ? current.roomTypeId
-          : liveRoomTypes[0]?.id || "",
-      }));
-      if (!response.ok) throw new Error("Failed to fetch rooms");
-      const data = await response.json();
-      setRooms(data);
+
+      if (roomsResult.status === "fulfilled") {
+        setRooms(roomsResult.value);
+      } else {
+        throw roomsResult.reason;
+      }
+
+      if (roomTypesResult.status === "fulfilled") {
+        const liveRoomTypes = roomTypesResult.value;
+        setRoomTypes(liveRoomTypes);
+        setFormData((current) => ({
+          ...current,
+          roomTypeId: current.roomTypeId && liveRoomTypes.some((type) => type.id === current.roomTypeId)
+            ? current.roomTypeId
+            : liveRoomTypes[0]?.id || "",
+        }));
+      } else {
+        console.error("Error fetching live room types:", roomTypesResult.reason);
+        toast({ title: "Room types unavailable", description: "Rooms loaded, but live room types could not be loaded. Retry to continue.", variant: "destructive" });
+      }
     } catch (error) {
-      console.error("Error fetching rooms and room types:", error);
-      toast({ title: "Error", description: "Failed to load rooms", variant: "destructive" });
+      console.error("Error fetching rooms:", error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load rooms", variant: "destructive" });
     } finally {
       setLoading(false);
       setRoomTypesLoading(false);
