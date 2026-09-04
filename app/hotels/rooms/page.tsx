@@ -401,7 +401,8 @@ function RoomsPage() {
                         {room.assigned_housekeeper_name || "—"}
                       </td>
                       <td className="py-2 px-4">
-          <Button
+                          <Button
+                          type="button"
                           variant="outline" 
                           size="sm" 
                           className="rounded-lg"
@@ -409,12 +410,12 @@ function RoomsPage() {
                             setEditingRoom(room);
                             setFormData({
                               roomNumber: room.room_number,
-                              roomTypeId: room.room_type_id,
-                              floor: room.floor,
-                              building: room.building,
+                              roomTypeId: room.room_type_id || roomTypes.find((type) => type.name === room.room_type_name)?.id || "",
+                              floor: room.floor ?? 1,
+                              building: room.building || "Main",
                               notes: room.notes || "",
-                              price: room.price?.toString() || room.base_price?.toString() || "",
-                              images: room.images || [],
+                              price: room.price?.toString() || room.base_price?.toString() || (roomTypes.find((type) => type.id === room.room_type_id)?.base_price?.toString() || ""),
+                              images: Array.isArray(room.images) ? room.images : [],
                             });
                             setPreviewImages((room.images || []).map(img => img.url));
                             setImageInput("");
@@ -862,6 +863,7 @@ function RoomsPage() {
 
           <div className="flex gap-3 justify-end pt-4">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setShowEditDialog(false)}
               className="rounded-lg"
