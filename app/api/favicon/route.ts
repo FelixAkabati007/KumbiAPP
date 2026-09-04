@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { put } from "@vercel/blob";
 import sharp from "sharp";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-const FAVICON_DIR = path.join(process.cwd(), "public", "favicons");
+const BLOB_PREFIX = "brand/favicons";
 const SUPPORTED_FORMATS = ["image/x-icon", "image/png", "image/svg+xml"];
 const MIN_DIMENSIONS = 16;
 const MAX_DIMENSIONS = 512;
@@ -37,26 +35,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure favicon directory exists
-    if (!existsSync(FAVICON_DIR)) {
-      await mkdir(FAVICON_DIR, { recursive: true });
-    }
+    const faviconUrls = await processAndUploadFavicon(file);
 
-    // Process and save the favicon
-    const faviconUrls = await processAndSaveFavicon(file);
-
-    // Persist metadata in Neon DB
-    try {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await query(
-        `INSERT INTO favicons (original_name, mime_type, size, urls, data, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [file.name, file.type, file.size, JSON.stringify(faviconUrls), buffer],
-      );
-    } catch (dbErr) {
-      console.error("Failed to persist favicon metadata:", dbErr);
-      // Continue responding success; storage in /public/favicons is done
-    }
+    // Keep the existing profile logo as the durable source of truth used by
+    // /favicon.ico and the settings account tab.
+    await query(
+      `INSERT INTO restaurant_profile (id, logo, updated_at)
+       VALUES (1, $1, NOW())
+       ON CONFLICT (id) DO UPDATE SET logo = EXCLUDED.logo, updated_at = NOW()`,
+      [faviconUrls.png256],
+    );
 
     return NextResponse.json({
       success: true,
@@ -130,70 +118,32 @@ async function validateFile(file: File): Promise<ValidationResult> {
   };
 }
 
-async function processAndSaveFavicon(file: File) {
+async function processAndUploadFavicon(file: File) {
   const buffer = Buffer.from(await file.arrayBuffer());
-  const timestamp = Date.now();
-  const urls: { [key: string]: string } = {};
+  const version = `${Date.now()}-${crypto.randomUUID()}`;
+  const urls: Record<string, string> = {};
+
+  for (const size of [16, 32, 48, 64, 128, 256]) {
+    const resizedBuffer = await sharp(buffer)
+      .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+      .png()
+      .toBuffer();
+    const blob = await put(`${BLOB_PREFIX}/favicon-${size}-${version}.png`, resizedBuffer, {
+      access: "public",
+      contentType: "image/png",
+      addRandomSuffix: false,
+    });
+    urls[`png${size}`] = blob.url;
+    if (size === 32) urls.ico = blob.url;
+  }
 
   if (file.type === "image/svg+xml") {
-    // Handle SVG files
-    const svgPath = path.join(FAVICON_DIR, `favicon-${timestamp}.svg`);
-    await writeFile(svgPath, buffer);
-
-    // Convert SVG to PNG for different sizes
-    const sizes = [16, 32, 48, 64, 128, 256];
-
-    for (const size of sizes) {
-      const pngBuffer = await sharp(buffer)
-        .resize(size, size, { fit: "cover" })
-        .png()
-        .toBuffer();
-
-      const pngPath = path.join(
-        FAVICON_DIR,
-        `favicon-${size}x${size}-${timestamp}.png`,
-      );
-      await writeFile(pngPath, pngBuffer);
-      urls[`png${size}`] = `/favicons/favicon-${size}x${size}-${timestamp}.png`;
-    }
-
-    // Create ICO from 32x32 PNG
-    const icoBuffer = await sharp(buffer)
-      .resize(32, 32, { fit: "cover" })
-      .png()
-      .toBuffer();
-
-    const icoPath = path.join(FAVICON_DIR, `favicon-${timestamp}.ico`);
-    await writeFile(icoPath, icoBuffer);
-    urls.ico = `/favicons/favicon-${timestamp}.ico`;
-    urls.svg = `/favicons/favicon-${timestamp}.svg`;
-  } else {
-    // Handle PNG/ICO files
-    const sizes = [16, 32, 48, 64, 128, 256];
-
-    for (const size of sizes) {
-      const resizedBuffer = await sharp(buffer)
-        .resize(size, size, { fit: "cover" })
-        .png()
-        .toBuffer();
-
-      const pngPath = path.join(
-        FAVICON_DIR,
-        `favicon-${size}x${size}-${timestamp}.png`,
-      );
-      await writeFile(pngPath, resizedBuffer);
-      urls[`png${size}`] = `/favicons/favicon-${size}x${size}-${timestamp}.png`;
-    }
-
-    // Create ICO file (using 32x32 as base)
-    const icoBuffer = await sharp(buffer)
-      .resize(32, 32, { fit: "cover" })
-      .png()
-      .toBuffer();
-
-    const icoPath = path.join(FAVICON_DIR, `favicon-${timestamp}.ico`);
-    await writeFile(icoPath, icoBuffer);
-    urls.ico = `/favicons/favicon-${timestamp}.ico`;
+    const svgBlob = await put(`${BLOB_PREFIX}/favicon-${version}.svg`, buffer, {
+      access: "public",
+      contentType: "image/svg+xml",
+      addRandomSuffix: false,
+    });
+    urls.svg = svgBlob.url;
   }
 
   return urls;

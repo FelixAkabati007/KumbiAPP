@@ -212,8 +212,9 @@ export default function FaviconUploader({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
+        const errorData = await response.json().catch(() => null);
+        const details = Array.isArray(errorData?.details) ? `: ${errorData.details.join(". ")}` : "";
+        throw new Error(`${errorData?.error || "Upload failed"}${details}`);
       }
 
       const result = await response.json();
