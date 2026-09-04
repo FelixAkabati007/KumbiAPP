@@ -46,10 +46,7 @@ export const metadata: Metadata = {
   description: "Point of Sale, inventory, finance, and operations management for Kumbisaly Heritage Restaurant.",
   generator: "v0.dev",
   icons: {
-    icon: [
-      { url: "/favicon.ico?v=brand", type: "image/png", sizes: "64x64" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/favicon.ico?v=brand", type: "image/png", sizes: "64x64" }],
     apple: "/favicon.ico?v=brand",
   },
 };
@@ -71,7 +68,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="bg-background">
       <head>
         <link rel="icon" href="/favicon.ico?v=brand" type="image/png" sizes="64x64" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/favicon.ico?v=brand" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
