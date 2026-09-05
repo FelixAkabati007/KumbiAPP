@@ -323,25 +323,27 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
 
         <style>{`[data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
-          <Card data-dashboard-category="all" className="relative overflow-hidden rounded-3xl border border-border bg-background shadow-sm transition-shadow hover:shadow-lg">
-            <CardHeader className="relative z-10 flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Staff Attendance Register</CardTitle>
-              <Clock3 className="h-5 w-5 text-primary" />
+          <Card data-dashboard-category="all" className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70 md:hover:scale-105">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+            <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+              <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Staff Attendance Register</CardTitle>
+              <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </CardHeader>
             <CardContent className="relative z-10">
               <p className="text-sm leading-6 text-muted-foreground">Check in, check out, and view the status of today&apos;s attendance record.</p>
-              <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
+              <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
             </CardContent>
           </Card>
           {access.events && (
-            <Card data-dashboard-category="events" className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg">
-              <CardHeader className="relative z-10 flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-foreground">Event Organization</CardTitle>
-                <CalendarDays className="h-5 w-5 text-primary" />
+            <Card data-dashboard-category="events" className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70 md:hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+              <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Event Organization</CardTitle>
+                <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               </CardHeader>
               <CardContent className="relative z-10">
                 <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, and assign delivery teams.</p>
-                <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">Open Event Organization</Link>
+                <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">Open Event Organization</Link>
               </CardContent>
             </Card>
           )}
