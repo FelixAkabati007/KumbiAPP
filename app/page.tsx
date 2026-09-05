@@ -32,6 +32,7 @@ import {
   Wrench,
   Clock3,
   CalendarDays,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -244,6 +245,17 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
   Welcome, {user.name}
   </span>
   </div>
+            <Link href="/split-workspace" prefetch={false}>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Open split POS and Kitchen workspace"
+                className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
+              >
+                <SplitSquareHorizontal className="h-4 w-4" />
+                <span className="hidden xl:inline">Split workspace</span>
+              </Button>
+            </Link>
             <Link href="/settings" prefetch={false}>
               <Button
                 variant="outline"
@@ -330,7 +342,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </CardHeader>
             <CardContent className="relative z-10">
-              <p className="text-sm leading-6 text-muted-foreground">Check in, check out, and view the status of today&apos;s attendance record.</p>
+              <p className="text-sm leading-6 text-muted-foreground"><strong className="font-bold text-foreground">Attendance:</strong> Check in, check out, and view the status of today&apos;s attendance record.</p>
               <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
             </CardContent>
           </Card>
@@ -342,7 +354,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
                 <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               </CardHeader>
               <CardContent className="relative z-10">
-                <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, and assign delivery teams.</p>
+                <p className="text-sm leading-6 text-muted-foreground"><strong className="font-bold text-foreground">Events:</strong> Plan events, coordinate venues, manage guests, and assign delivery teams.</p>
                 <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">Open Event Organization</Link>
               </CardContent>
             </Card>
