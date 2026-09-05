@@ -326,7 +326,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </CardHeader>
             <CardContent className="relative z-10">
               <p className="text-sm leading-6 text-muted-foreground">Check in, check out, and view the status of today&apos;s attendance record.</p>
-              <Link href={user.role === "staff" ? "/staff" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
+              <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
             </CardContent>
           </Card>
           {access.pos && (

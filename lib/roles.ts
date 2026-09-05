@@ -420,7 +420,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     summary: "Service workspace",
     focus: "Process assigned orders, keep your register current, and serve guests accurately.",
     primaryAction: "Open Staff Attendance",
-    primaryHref: "/staff",
+    primaryHref: "/staff/attendance",
     categories: ["restaurant"],
     visibilityNote: "Your assigned service work and personal notifications only.",
   },
