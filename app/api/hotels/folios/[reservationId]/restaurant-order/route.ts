@@ -67,22 +67,33 @@ export async function POST(
         quantity: item.quantity,
         category: item.menuItem.category_slug || "food",
       }));
-
-      const orderResult = await client.query(
-        `INSERT INTO kitchenorders
-          (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items)
-         VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb)
-         RETURNING id, ordernumber`,
-        [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems)]
+      const itemsColumnResult = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'kitchenorders' AND column_name = 'items'`
       );
+      const hasItemsColumn = (itemsColumnResult.rowCount ?? 0) > 0;
+      const orderResult = hasItemsColumn
+        ? await client.query(
+            `INSERT INTO kitchenorders
+              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items)
+             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb)
+             RETURNING id, ordernumber`,
+            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems)]
+          )
+        : await client.query(
+            `INSERT INTO kitchenorders
+              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status)
+             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending')
+             RETURNING id, ordernumber`,
+            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName]
+          );
       const orderId = orderResult.rows[0].id;
 
       for (const item of selected) {
         await client.query(
           `INSERT INTO kitchen_orderitems
-            (kitchenorderid, name, price, category, quantity, status, preptime, notes)
-           VALUES ($1, $2, $3, $4, $5, 'pending', NULL, $6)`,
-          [orderId, item.menuItem.name, item.menuItem.price, item.menuItem.category_slug || "food", item.quantity, `Room ${folioDetails.room_number || "N/A"} · Guest folio`]
+            (kitchenorderid, menuitemid, name, price, category, quantity, status, preptime, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending', NULL, $7)`,
+          [orderId, item.menuItem.id, item.menuItem.name, item.menuItem.price, item.menuItem.category_slug || "food", item.quantity, `Room ${folioDetails.room_number || "N/A"} · Guest folio`]
         );
       }
 
