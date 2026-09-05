@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Utensils, Minus, Plus } from "lucide-react";
+import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Utensils, Minus, Plus, ShieldCheck } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
@@ -712,6 +712,18 @@ function CheckInPage() {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white p-3 text-emerald-950 shadow-sm">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold">Manager approval protects room changes</p>
+                <p className="mt-1 text-xs leading-5 text-emerald-800">
+                  Standard room assignments can be completed here. Any room-type upgrade, downgrade, or rate adjustment must be reviewed and approved by a Manager before completion.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {loadingRooms ? (
             <Skeleton className="h-10 w-full" />
           ) : availableRooms.length === 0 ? (
@@ -748,7 +760,7 @@ function CheckInPage() {
             <Button
               onClick={handleCheckIn}
               disabled={processing || !selectedRoomId}
-              className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
+              className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50"
             >
               {processing ? "Processing…" : "Confirm Check-In"}
             </Button>
