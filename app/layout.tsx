@@ -16,7 +16,6 @@ import { LoadingProvider } from "@/components/loading-provider";
 import { SystemSyncListener } from "@/components/system-sync-listener";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
-import { GlobalNotificationHost } from "@/components/global-notification-host";
 
 // Defensive check for broken localStorage in SSR environment
 if (
@@ -94,7 +93,6 @@ export default function RootLayout({
                     <ReceiptSettingsProvider>
                       <ErrorBoundary>
                         {children}
-                        <GlobalNotificationHost />
                         <InstallAppPrompt />
                         <Toaster />
                       </ErrorBoundary>
