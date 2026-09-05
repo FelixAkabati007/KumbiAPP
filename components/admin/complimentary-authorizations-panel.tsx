@@ -147,8 +147,8 @@ export function ComplimentaryAuthorizationsPanel() {
             <Download className="mr-2 h-4 w-4" /> Download CSV
           </Button>
         </div>
-        <div className="space-y-2">
-          {items.length === 0 ? <p className="text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
+        <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2 pr-1" aria-label="Authorized exceptions list">
+          {items.length === 0 ? <p className="p-2 text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
             <div key={item.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used {formatCurrency(item.used_amount)} · Remaining {formatCurrency(item.remaining_amount || item.approved_amount)}</p></div>
               <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{formatCurrency(item.approved_amount)}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge><Button size="sm" variant="outline" onClick={() => void viewAuthorization(item.id)} disabled={detailLoading}><Eye className="mr-1 h-4 w-4" /> View</Button>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
