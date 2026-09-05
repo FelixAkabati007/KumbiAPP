@@ -30,6 +30,7 @@ import {
   Briefcase,
   CheckSquare,
   Wrench,
+  Clock3,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -318,6 +319,16 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
+          <Card data-dashboard-category="all" className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50/80 shadow-sm transition-shadow hover:shadow-lg dark:border-emerald-800 dark:bg-emerald-950/30">
+            <CardHeader className="relative z-10 flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-950 dark:text-emerald-100">Staff Attendance Register</CardTitle>
+              <Clock3 className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <p className="text-sm leading-6 text-emerald-900/80 dark:text-emerald-100/80">Check in, check out, and view the status of today&apos;s attendance record.</p>
+              <Link href="/attendance" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">Open attendance register</Link>
+            </CardContent>
+          </Card>
           {access.pos && (
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
