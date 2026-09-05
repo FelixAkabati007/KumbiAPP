@@ -45,11 +45,14 @@ export async function POST(request: NextRequest) {
         throw new Error("Room is no longer available");
       }
 
-      // Create guest folio and preserve the room charge as a receipt-ready line item.
+      // VIP authorizations waive the guest-facing room charge while preserving the stay event.
+      const vipAuthorization = await client.query(`SELECT id, room_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1 AND ca.status = 'active' AND ca.valid_until > now() AND ca.room_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [reservationId]);
+      const vipRoom = vipAuthorization.rows[0];
+      const roomChargeExpression = vipRoom ? "0" : "rt.base_price";
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
-        SELECT $1, rt.base_price, rt.base_price, rt.base_price
+        SELECT $1, ${roomChargeExpression}, ${roomChargeExpression}, ${roomChargeExpression}
         FROM reservations r
         JOIN room_types rt ON rt.id = r.room_type_id
         WHERE r.id = $1
@@ -69,6 +72,10 @@ export async function POST(request: NextRequest) {
            )`,
         [reservationId, String(reservationId)]
       );
+
+      if (vipRoom) {
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1, $2, $3, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2`, [vipRoom.id, reservationId, String(session?.id || "system")]);
+      }
 
       await client.query(
         `INSERT INTO reservation_room_changes
