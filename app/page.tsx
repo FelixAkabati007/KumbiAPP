@@ -31,6 +31,7 @@ import {
   CheckSquare,
   Wrench,
   Clock3,
+  CalendarDays,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -320,6 +321,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
         </div>
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
+        <style>{`[data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
           <Card data-dashboard-category="all" className="relative overflow-hidden rounded-3xl border border-border bg-background shadow-sm transition-shadow hover:shadow-lg">
             <CardHeader className="relative z-10 flex flex-row items-center justify-between space-y-0 pb-2">
@@ -331,6 +333,18 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
             </CardContent>
           </Card>
+          {access.events && (
+            <Card data-dashboard-category="events" className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg">
+              <CardHeader className="relative z-10 flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-foreground">Event Organization</CardTitle>
+                <CalendarDays className="h-5 w-5 text-primary" />
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, and assign delivery teams.</p>
+                <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">Open Event Organization</Link>
+              </CardContent>
+            </Card>
+          )}
           {access.pos && (
             <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
