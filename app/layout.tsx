@@ -49,10 +49,10 @@ export const metadata: Metadata = {
   generator: "v0.dev",
   icons: {
     icon: [
-      { url: "/app-icon.png", type: "image/png", sizes: "512x512" },
-      { url: "/app-icon.png", type: "image/png", sizes: "192x192" },
+      { url: "/favicon.ico", type: "image/png", sizes: "64x64" },
+      { url: "/favicon.ico", type: "image/png", sizes: "32x32" },
     ],
-    apple: [{ url: "/app-icon.png", type: "image/png", sizes: "180x180" }],
+    apple: [{ url: "/favicon.ico", type: "image/png", sizes: "180x180" }],
   },
 };
 
@@ -72,8 +72,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="bg-background">
       <head>
-        <link rel="icon" href="/app-icon.png" type="image/png" sizes="512x512" />
-        <link rel="apple-touch-icon" href="/app-icon.png" sizes="180x180" />
+        <link rel="icon" href="/favicon.ico" type="image/png" sizes="64x64" />
+        <link rel="apple-touch-icon" href="/favicon.ico" sizes="180x180" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
