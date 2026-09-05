@@ -68,7 +68,7 @@ export function SignInForm() {
   };
 
   return (
-    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-6 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
+    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-background px-3 py-6 text-foreground sm:items-center sm:p-6">
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="space-y-3 text-center sm:space-y-4">
@@ -88,7 +88,7 @@ export function SignInForm() {
         </div>
 
         {/* Sign In Card */}
-        <Card className="relative overflow-hidden rounded-2xl border border-orange-200 bg-white/80 shadow-xl backdrop-blur-sm dark:border-orange-700 dark:bg-gray-800/80 sm:rounded-3xl">
+        <Card className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70 md:hover:scale-105">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
 
           <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10 text-center">
@@ -203,7 +203,7 @@ export function SignInForm() {
 
                 <Button
                   type="submit"
-                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 py-5 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:to-amber-700 sm:py-6 sm:text-lg"
+                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 py-5 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:py-6 sm:text-lg"
                   disabled={isLoading || !isDatabaseReady}
                 >
                   {isLoading ? (
