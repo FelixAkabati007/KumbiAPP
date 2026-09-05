@@ -106,11 +106,11 @@ export default function FinancePage() {
 
   return (
     <RoleGuard section="finance">
-      <main className="min-h-screen bg-muted/30 p-4 sm:p-6 lg:p-8">
+      <main className="min-h-screen bg-background p-4 text-foreground sm:p-6 lg:p-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-          <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <header className="flex flex-col gap-4 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div className="flex items-start gap-3">
-              <Button asChild variant="outline" size="icon" className="shrink-0 rounded-2xl" aria-label="Back to dashboard">
+              <Button asChild variant="outline" size="icon" className="shrink-0 rounded-md" aria-label="Back to dashboard">
                 <Link href="/"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Link>
               </Button>
               <div>
@@ -140,37 +140,37 @@ export default function FinancePage() {
             </div>
           </header>
           {authority?.actingAuthority && (
-            <Alert className="border-amber-300 bg-amber-50 text-amber-950">
+            <Alert className="border-border bg-muted/50">
               <AlertTitle>Acting Finance Authority</AlertTitle>
               <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
             </Alert>
           )}
           <section aria-labelledby="finance-areas-heading" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
-            <Card className="bg-primary/[0.04]">
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
             </Card>
-            <Card className="bg-primary/[0.04]">
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
               <CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
             </Card>
-            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Payroll & compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader></Card>
-            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent></Card>
-            <Card className="bg-primary/[0.04]"><CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Payroll & compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent></Card>
           </section>
           <section aria-labelledby="pnl-heading" className="space-y-4">
-            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-white via-emerald-50 to-emerald-100 p-4 text-emerald-950 shadow-sm">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-foreground">
               <p className="text-sm font-semibold">Finance terms at a glance</p>
-              <p className="mt-1 text-sm leading-6 text-emerald-900/80"><span className="font-semibold">Gross Value</span> is sales before waivers. <span className="font-semibold">Complimentary</span> is the value waived. <span className="font-semibold">Net Collected</span> is cash received. <span className="font-semibold">Cost</span> is the operational cost consumed. <span className="font-semibold">Net Impact</span> is net collected minus cost. Stock is deducted by the fulfilled operational order, not by Finance.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground"><span className="font-semibold">Gross Value</span> is sales before waivers. <span className="font-semibold">Complimentary</span> is the value waived. <span className="font-semibold">Net Collected</span> is cash received. <span className="font-semibold">Cost</span> is the operational cost consumed. <span className="font-semibold">Net Impact</span> is net collected minus cost. Stock is deducted by the fulfilled operational order, not by Finance.</p>
             </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div><p className="text-sm font-medium text-primary">Departmental performance</p><h2 id="pnl-heading" className="text-2xl font-bold tracking-tight">Profit and loss by business area</h2></div>
               <p className="text-sm text-muted-foreground">Revenue minus approved expenses and processed payroll.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {(pnl?.departments ?? []).map((item) => <Card key={item.department} className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">{departmentLabels[item.department]}</CardTitle><p className="text-xs text-muted-foreground">{item.margin.toFixed(1)}% margin</p></CardHeader><CardContent className="space-y-2"><p className="text-2xl font-bold">GHS {item.profit.toFixed(2)}</p><div className="flex justify-between text-xs text-muted-foreground"><span>Revenue GHS {item.revenue.toFixed(2)}</span><span>Costs GHS {item.expense.toFixed(2)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full ${item.profit >= 0 ? "bg-emerald-500" : "bg-destructive"}`} style={{ width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%` }} /></div></CardContent></Card>)}
+              {(pnl?.departments ?? []).map((item) => <Card key={item.department} className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">{departmentLabels[item.department]}</CardTitle><p className="text-xs text-muted-foreground">{item.margin.toFixed(1)}% margin</p></CardHeader><CardContent className="space-y-2"><p className="text-2xl font-bold">GHS {item.profit.toFixed(2)}</p><div className="flex justify-between text-xs text-muted-foreground"><span>Revenue GHS {item.revenue.toFixed(2)}</span><span>Costs GHS {item.expense.toFixed(2)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full ${item.profit >= 0 ? "bg-primary" : "bg-destructive"}`} style={{ width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%` }} /></div></CardContent></Card>)}
             </div>
-            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
           <PayrollDesk />
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
