@@ -23,6 +23,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { session, error } = await requireSession();
   if (error) return error;
+  if (session.role === "admin") return NextResponse.json({ error: "Administrators review staff attendance instead of registering their own attendance" }, { status: 403 });
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action === "check_out" ? "check_out" : "check_in";

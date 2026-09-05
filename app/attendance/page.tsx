@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
 
 interface RecordRow { id: string; staff_id?: string; check_in_at?: string; check_out_at?: string; status: string; verification_status: string; verified_at?: string }
 interface ManagerData { pending: RecordRow[]; summary?: { present: string; pending: string; absent: string }; frequency: { staff_id: string; verified_days: string; recorded_days: string }[] }
@@ -14,12 +15,15 @@ export default function AttendancePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   async function load() {
+    setLoading(true);
     const statusResponse = await fetch("/api/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
-      setMessage("Sign in with a staff account to use the attendance register.");
+      setMessage("Administrators do not use the staff attendance register. Return to the dashboard to continue.");
+      setLoading(false);
       return;
     }
     const status = statusResponse.ok ? await statusResponse.json() : null;
@@ -27,6 +31,7 @@ export default function AttendancePage() {
     setRecord(status?.record ?? null);
     const review = await fetch("/api/attendance/manager");
     if (review.ok) setManager(await review.json());
+    setLoading(false);
   }
   useEffect(() => { void load(); }, []);
 
@@ -46,10 +51,17 @@ export default function AttendancePage() {
   const open = Boolean(record?.check_in_at && !record.check_out_at);
   return <main className="min-h-screen overflow-x-hidden bg-muted/30 p-3 text-foreground sm:p-4 md:p-8">
     <div className="mx-auto max-w-6xl space-y-6">
-      <header><p className="text-sm font-medium text-primary">Workforce operations</p><h1 className="responsive-heading font-bold tracking-tight">Register</h1><p className="important-description mt-2 text-sm">Record your shift attendance and keep the monthly performance score accurate.</p></header>
-      <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-background to-background p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex gap-3"><div className="rounded-xl bg-emerald-100 p-3 text-emerald-700"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-emerald-800">Check-in is timestamped immediately and confirmed by a manager before attendance points are awarded.</p><p className="mt-3 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{record?.verification_status ?? "Not checked in"}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div><div className="grid w-full gap-2 sm:grid-cols-2 lg:flex lg:w-auto"><button disabled={busy || open} onClick={() => void register("check_in")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" />Check In</button><button disabled={busy || !open} onClick={() => void register("check_out")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 py-3 font-semibold disabled:opacity-50"><LogOut className="h-4 w-4" />Check Out</button></div></div>
-        {message && <div role="status" className={`mt-4 rounded-xl border p-3 text-sm ${accessDenied ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>{message}</div>}
+      <header className="space-y-4">
+        <Link href="/" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to dashboard
+        </Link>
+        <div><p className="text-sm font-medium text-primary">Workforce operations</p><h1 className="responsive-heading font-bold tracking-tight">Register</h1><p className="important-description mt-2 text-sm">Record your shift attendance and keep the monthly performance score accurate.</p></div>
+      </header>
+      <section className="rounded-2xl border border-border bg-background p-5 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-muted-foreground">Check-in is timestamped immediately and confirmed by a manager before attendance points are awarded.</p><p className="mt-3 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{loading ? "Loading…" : record?.verification_status ?? "Not checked in"}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div>{!accessDenied && <div className="grid w-full gap-2 sm:grid-cols-2 lg:flex lg:w-auto"><button disabled={busy || open} onClick={() => void register("check_in")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" />Check In</button><button disabled={busy || !open} onClick={() => void register("check_out")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 py-3 font-semibold disabled:opacity-50"><LogOut className="h-4 w-4" />Check Out</button></div>}
+        </div>
+        {message && <div role="status" className={`mt-4 rounded-xl border p-3 text-sm ${accessDenied ? "border-amber-200 bg-amber-50 text-amber-900" : "border-border bg-muted text-foreground"}`}>{message}</div>}
       </section>
       {manager && <section className="space-y-4"><div className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /><h2 className="text-2xl font-semibold">Attendance</h2></div><div className="grid gap-4 sm:grid-cols-3"><Metric label="Present today" value={manager.summary?.present ?? "0"} icon={<CheckCircle2 />} /><Metric label="Pending review" value={manager.summary?.pending ?? "0"} icon={<Clock3 />} /><Metric label="Absent records" value={manager.summary?.absent ?? "0"} icon={<Users />} /></div><div className="rounded-2xl border bg-background p-5"><h3 className="font-semibold">Pending confirmations</h3><div className="mt-3 divide-y">{manager.pending.length ? manager.pending.map((item) => <div key={item.id} className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">Staff {item.staff_id}</p><p className="text-sm text-muted-foreground">Checked in at {formatTime(item.check_in_at)}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => void decide(item.id, "verified")} className="min-h-10 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Confirm present</button><button onClick={() => void decide(item.id, "late")} className="min-h-10 rounded-lg border px-3 py-2 text-sm">Mark late</button><button onClick={() => void decide(item.id, "rejected")} className="min-h-10 rounded-lg border px-3 py-2 text-sm">Reject</button></div></div>) : <p className="py-4 text-sm text-muted-foreground">No pending confirmations.</p>}</div></div></section>}
     </div>
