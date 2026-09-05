@@ -372,6 +372,84 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
   },
 };
 
+export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration";
+
+export type RoleDashboardConfig = {
+  summary: string;
+  focus: string;
+  primaryAction: string;
+  primaryHref: string;
+  categories: DashboardCategory[];
+  visibilityNote: string;
+};
+
+export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
+  admin: {
+    summary: "System control center",
+    focus: "Monitor the whole property, access audit tools, and keep permissions safe.",
+    primaryAction: "Open system controls",
+    primaryHref: "/system",
+    categories: ["administration", "hotel", "restaurant", "finance", "technical"],
+    visibilityNote: "Full operational visibility with audited configuration access.",
+  },
+  manager: {
+    summary: "Property command center",
+    focus: "Review today’s operations, attendance, approvals, and department performance.",
+    primaryAction: "Review operations",
+    primaryHref: "/operations",
+    categories: ["hotel", "restaurant", "technical", "finance"],
+    visibilityNote: "Cross-department visibility; sensitive changes remain approval-controlled.",
+  },
+  operationsManager: {
+    summary: "Operations control center",
+    focus: "Resolve maintenance issues, coordinate teams, and keep daily operations moving.",
+    primaryAction: "Open operations",
+    primaryHref: "/operations",
+    categories: ["technical"],
+    visibilityNote: "Operational and maintenance data only; payroll remains restricted.",
+  },
+  finance: {
+    summary: "Finance and payroll desk",
+    focus: "Review approved performance, reconcile payments, and prepare payroll decisions.",
+    primaryAction: "Open finance",
+    primaryHref: "/finance",
+    categories: ["finance"],
+    visibilityNote: "Financial data and approved performance inputs; no operational editing.",
+  },
+  staff: {
+    summary: "Service workspace",
+    focus: "Process assigned orders, keep your register current, and serve guests accurately.",
+    primaryAction: "Open POS",
+    primaryHref: "/pos",
+    categories: ["restaurant"],
+    visibilityNote: "Your assigned service work and personal notifications only.",
+  },
+  kitchen: {
+    summary: "Kitchen production desk",
+    focus: "Prioritize active orders, update preparation status, and watch relevant stock alerts.",
+    primaryAction: "Open kitchen",
+    primaryHref: "/kitchen",
+    categories: ["restaurant"],
+    visibilityNote: "Kitchen and order-board access; guest and payroll data stays private.",
+  },
+  frontDesk: {
+    summary: "Guest arrival desk",
+    focus: "Manage arrivals, departures, reservations, rooms, and guest folios.",
+    primaryAction: "Open check-in",
+    primaryHref: "/hotels/check-in",
+    categories: ["hotel"],
+    visibilityNote: "Guest-service information needed for the current shift.",
+  },
+  housekeeping: {
+    summary: "Room readiness desk",
+    focus: "Complete assigned rooms, report maintenance, and keep room status accurate.",
+    primaryAction: "Open housekeeping",
+    primaryHref: "/hotels/housekeeping",
+    categories: ["hotel", "technical"],
+    visibilityNote: "Assigned room and maintenance context; no guest financial data.",
+  },
+};
+
 export function isUserRole(role: string | null | undefined): role is UserRole {
   return typeof role === "string" && role in rolePermissions;
 }

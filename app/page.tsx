@@ -44,7 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { rolePermissions, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
+import { rolePermissions, roleDashboardConfig, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
@@ -196,6 +196,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
   const access: Record<AppSection, boolean> =
     rolePermissions[user.role as UserRole] ||
     ({} as Record<AppSection, boolean>);
+  const roleDashboard = roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
   const categorySectionMap: Record<(typeof dashboardCategories)[number][0], AppSection[]> = {
     all: [],
@@ -206,7 +207,8 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     administration: ["system"],
   };
   const availableDashboardCategories = dashboardCategories.filter(([category]) =>
-    category === "all" || categorySectionMap[category].some((section) => access[section]),
+    category === "all" ||
+    (roleDashboard.categories.includes(category) && categorySectionMap[category].some((section) => access[section])),
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
 
@@ -289,9 +291,11 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
 
       <main className="flex-1 space-y-5 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">
-            Dashboard
-          </h2>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">{roleDashboard.summary}</p>
+            <h2 className="responsive-heading mt-1 font-bold tracking-tight text-gray-800 dark:text-gray-200">Dashboard</h2>
+            <p className="important-description mt-3 max-w-2xl text-sm">{roleDashboard.focus}</p>
+          </div>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
               <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
@@ -302,6 +306,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
                 ))}
               </div>
             )}
+            <Link href={roleDashboard.primaryHref} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>
             <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
               <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
@@ -310,6 +315,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             </div>
           </div>
         </div>
+        <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
           {access.pos && (
