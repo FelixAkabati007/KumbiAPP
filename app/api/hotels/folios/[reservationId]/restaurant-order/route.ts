@@ -38,20 +38,29 @@ export async function POST(
       });
 
       const folioResult = await client.query(
-        `SELECT gf.id, r.reservation_number, g.first_name, g.last_name, rm.room_number
-         FROM guest_folios gf
-         JOIN reservations r ON r.id = gf.reservation_id
-         JOIN guests g ON g.id = r.guest_id
-         LEFT JOIN rooms rm ON rm.id = r.room_id
-         WHERE gf.reservation_id = $1 FOR UPDATE`,
+        `SELECT id
+         FROM guest_folios
+         WHERE reservation_id = $1
+         FOR UPDATE`,
         [params.data.reservationId]
       );
       const folio = folioResult.rows[0];
       if (!folio) throw new Error("Folio not found");
 
+      const folioDetailsResult = await client.query(
+        `SELECT r.reservation_number, g.first_name, g.last_name, rm.room_number
+         FROM reservations r
+         JOIN guests g ON g.id = r.guest_id
+         LEFT JOIN rooms rm ON rm.id = r.room_id
+         WHERE r.id = $1`,
+        [params.data.reservationId]
+      );
+      const folioDetails = folioDetailsResult.rows[0];
+      if (!folioDetails) throw new Error("Reservation not found");
+
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
       const orderNumber = `FO-${Date.now().toString(36).toUpperCase()}`;
-      const customerName = `${folio.first_name} ${folio.last_name}`;
+      const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
         name: item.menuItem.name,
         price: Number(item.menuItem.price),
@@ -64,7 +73,7 @@ export async function POST(
           (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items)
          VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb)
          RETURNING id, ordernumber`,
-        [orderNumber, total.toFixed(2), folio.room_number, customerName, JSON.stringify(orderItems)]
+        [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems)]
       );
       const orderId = orderResult.rows[0].id;
 
@@ -73,7 +82,7 @@ export async function POST(
           `INSERT INTO kitchen_orderitems
             (kitchenorderid, name, price, category, quantity, status, preptime, notes)
            VALUES ($1, $2, $3, $4, $5, 'pending', NULL, $6)`,
-          [orderId, item.menuItem.name, item.menuItem.price, item.menuItem.category_slug || "food", item.quantity, `Room ${folio.room_number || "N/A"} · Guest folio`]
+          [orderId, item.menuItem.name, item.menuItem.price, item.menuItem.category_slug || "food", item.quantity, `Room ${folioDetails.room_number || "N/A"} · Guest folio`]
         );
       }
 

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Download, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Authorization {
   id: string;
@@ -36,6 +38,8 @@ export function ComplimentaryAuthorizationsPanel() {
   const [scope, setScope] = useState("both");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<(Authorization & { usage?: Array<{ id: string; amount_used: string; transaction_type?: string; transaction_id?: string; applied_by?: string }> }) | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const load = async () => {
     const response = await fetch("/api/admin/complimentary-authorizations");
@@ -43,6 +47,18 @@ export function ComplimentaryAuthorizationsPanel() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const viewAuthorization = async (id: string) => {
+    setDetailLoading(true);
+    const response = await fetch(`/api/admin/complimentary-authorizations/${id}`);
+    if (response.ok) setSelected(await response.json());
+    else setMessage("Unable to load authorization details.");
+    setDetailLoading(false);
+  };
+
+  const downloadAuthorizations = () => {
+    window.location.assign("/api/admin/complimentary-authorizations/export");
+  };
 
   const revokeAuthorization = async (id: string) => {
     const response = await fetch("/api/admin/complimentary-authorizations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
@@ -108,15 +124,35 @@ export function ComplimentaryAuthorizationsPanel() {
           <Button onClick={() => void createAuthorization()} disabled={saving || !guestName || !amount || !validUntil || !reason}>{saving ? "Creating..." : "Create authorization"}</Button>
           {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold">Authorized exceptions</p>
+          <Button type="button" variant="outline" size="sm" onClick={downloadAuthorizations} disabled={!items.length}>
+            <Download className="mr-2 h-4 w-4" /> Download CSV
+          </Button>
+        </div>
         <div className="space-y-2">
           {items.length === 0 ? <p className="text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
             <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used {formatCurrency(item.used_amount)} · Remaining {formatCurrency(item.remaining_amount || item.approved_amount)}</p></div>
-              <div className="flex items-center gap-2"><span className="text-sm font-semibold">{formatCurrency(item.approved_amount)}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
+              <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{formatCurrency(item.approved_amount)}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge><Button size="sm" variant="outline" onClick={() => void viewAuthorization(item.id)} disabled={detailLoading}><Eye className="mr-1 h-4 w-4" /> View</Button>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
             </div>
           ))}
         </div>
       </CardContent>
+      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complimentary authorization details</DialogTitle>
+            <DialogDescription>Admin-only audit view for this authorized exception.</DialogDescription>
+          </DialogHeader>
+          {selected && <div className="space-y-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Guest</p><p className="font-medium">{selected.guest_name}</p></div><div><p className="text-muted-foreground">Scope</p><p className="font-medium capitalize">{selected.scope}</p></div><div><p className="text-muted-foreground">Approved</p><p className="font-medium">{formatCurrency(selected.approved_amount)}</p></div><div><p className="text-muted-foreground">Used</p><p className="font-medium">{formatCurrency(selected.used_amount)}</p></div><div><p className="text-muted-foreground">Remaining</p><p className="font-medium">{formatCurrency(selected.remaining_amount)}</p></div><div><p className="text-muted-foreground">Status</p><Badge variant={selected.status === "active" ? "default" : "secondary"}>{selected.status}</Badge></div></div>
+            <div><p className="text-muted-foreground">Business reason</p><p className="mt-1 leading-6">{selected.reason}</p></div>
+            <div className="grid gap-3 border-t pt-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Valid until</p><p>{new Date(selected.valid_until).toLocaleString()}</p></div><div><p className="text-muted-foreground">Created</p><p>{new Date(selected.created_at).toLocaleString()}</p></div></div>
+            <div><p className="mb-2 font-medium">Usage history</p>{selected.usage?.length ? <div className="space-y-2">{selected.usage.map((usage) => <div key={usage.id} className="flex flex-col gap-1 rounded-md border p-2 sm:flex-row sm:items-center sm:justify-between"><span>{usage.transaction_type ? `${usage.transaction_type} · ` : ""}{usage.transaction_id || "Recorded usage"}</span><span className="font-medium">{formatCurrency(usage.amount_used)}</span></div>)}</div> : <p className="text-muted-foreground">No usage recorded.</p>}</div>
+          </div>}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
