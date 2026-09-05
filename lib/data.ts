@@ -1,16 +1,16 @@
 import { MenuItem, InventoryItem, SalesData } from "./types";
+import { apiFetch, ApiError, isExpectedRequestError } from "./api-client";
 
 // --- Menu Items ---
 
 export async function getMenuItems(): Promise<MenuItem[]> {
   if (typeof window === "undefined") return [];
   try {
-    const res = await fetch("/api/menu", { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to fetch menu");
-    const data = await res.json();
-    return data;
+    return await apiFetch<MenuItem[]>("/api/menu");
   } catch (error) {
-    console.error("Error fetching menu items:", error);
+    if (!isExpectedRequestError(error) && !(error instanceof ApiError && (error.status === 401 || error.status === 403))) {
+      console.error("Error fetching menu items:", error);
+    }
     return [];
   }
 }
@@ -61,9 +61,7 @@ export async function deleteMenuItem(id: string): Promise<boolean> {
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   try {
-    const res = await fetch("/api/inventory", { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to fetch inventory");
-    return await res.json();
+    return await apiFetch<InventoryItem[]>("/api/inventory");
   } catch (error) {
     console.error("Error fetching inventory items:", error);
     return [];
@@ -171,9 +169,7 @@ export function getCurrentProductOrderCounter(): number {
 
 export async function getSalesData(): Promise<SalesData[]> {
   try {
-    const res = await fetch("/api/transactions");
-    if (!res.ok) throw new Error("Failed to fetch transactions");
-    const logs = await res.json();
+    const logs = await apiFetch<any[]>("/api/transactions");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return logs.map((log: any) => ({

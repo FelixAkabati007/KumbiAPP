@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSystemSync } from "./use-system-sync";
 import { useAuth } from "@/components/auth-provider";
 import { canManageFeatureToggles } from "@/lib/roles";
+import { apiFetch, isExpectedRequestError } from "@/lib/api-client";
 
 export type FeatureToggleKey = "kitchen_display" | "order_board";
 
@@ -25,12 +26,10 @@ export function useFeatureToggles() {
 
   const fetchToggles = useCallback(async () => {
     try {
-      const res = await fetch("/api/feature-toggles");
-      if (!res.ok) throw new Error("Failed to fetch feature toggles");
-      const data = await res.json();
+      const data = await apiFetch<{ toggles: Partial<ToggleMap> }>("/api/feature-toggles");
       setToggles((prev) => ({ ...prev, ...data.toggles }));
     } catch (error) {
-      console.error("Error fetching feature toggles:", error);
+      if (!isExpectedRequestError(error)) console.error("Error fetching feature toggles:", error);
     } finally {
       setLoading(false);
     }

@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { OrderItem } from "./types";
 import { addSaleData, getSalesData } from "./data";
+import { apiFetch, isExpectedRequestError } from "./api-client";
 
 export interface KitchenOrder {
   id: string;
@@ -63,17 +64,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   // Load orders from API
   const loadOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(data);
-        return true;
-      } else {
-        console.error("Failed to load orders");
-        return false;
-      }
+      const data = await apiFetch<KitchenOrder[]>("/api/orders");
+      setOrders(data);
+      return true;
     } catch (error) {
-      console.error("Error loading orders:", error);
+      if (!isExpectedRequestError(error)) console.error("Error loading orders:", error);
       return false;
     }
   }, []);

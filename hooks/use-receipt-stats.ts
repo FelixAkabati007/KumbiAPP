@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSystemSync } from "./use-system-sync";
 import { useAuth } from "@/components/auth-provider";
+import { apiFetch, ApiError, isExpectedRequestError } from "@/lib/api-client";
 
 interface ReceiptStats {
   today: number;
@@ -38,32 +39,23 @@ export function useReceiptStats() {
       // Actually, keeping it simple:
       // setLoading(true);
 
-      const res = await fetch("/api/receipts/stats");
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          setStats({ today: 0, week: 0, month: 0, total: 0 });
-          return;
-        }
-        throw new Error("Failed to fetch stats");
-      }
-      const data = await res.json();
+      const data = await apiFetch<ReceiptStats>("/api/receipts/stats");
       setStats(data);
       setError(null);
     } catch (err: unknown) {
+      if (isExpectedRequestError(err)) return;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setStats({ today: 0, week: 0, month: 0, total: 0 });
+        return;
+      }
       if (err instanceof Error) {
-        if (err.name === "AbortError") return;
-        if (
-          err.message?.includes("Unauthorized") ||
-          err.message?.includes("Forbidden")
-        ) {
-          setStats({ today: 0, week: 0, month: 0, total: 0 });
-          return;
-        }
         setError(err.message);
       } else {
         setError("An unknown error occurred");
       }
-      console.error("Error fetching receipt stats:", err);
+      if (!isExpectedRequestError(err)) {
+        console.error("Error fetching receipt stats:", err);
+      }
     } finally {
       setLoading(false);
     }
