@@ -49,6 +49,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, roleDashboardConfig, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
+import { NotificationBell } from "@/components/notification-bell";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
@@ -298,6 +299,9 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
+              <NotificationBell />
+            </div>
             {/* User avatar menu */}
             <UserNav />
             {/* Reset Dashboard button REMOVED per user request */}
