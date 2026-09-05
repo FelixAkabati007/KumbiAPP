@@ -20,7 +20,7 @@ export const signupSchema = z
     confirmPassword: z.string(),
     name: z.string().min(2, { message: "Name must be at least 2 characters" }),
     role: z.enum(
-      ["admin", "manager", "staff", "kitchen", "frontDesk", "housekeeping"],
+      ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "staff", "kitchen", "frontDesk", "housekeeping"],
       {
         errorMap: () => ({ message: "Please select a valid role" }),
       }

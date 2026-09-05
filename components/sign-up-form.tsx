@@ -348,7 +348,9 @@ export function SignUpForm() {
                           <SelectItem value="housekeeping">
                             Housekeeping
                           </SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="manager">General Manager</SelectItem>
+                          <SelectItem value="hotelManager">Hotel Manager</SelectItem>
+                          <SelectItem value="restaurantManager">Restaurant Manager</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>

@@ -74,15 +74,75 @@ export async function requireAdmin(): Promise<AuthResult> {
   return { session: session as ApiSession, error: null };
 }
 
-export async function requireFinanceAccess(): Promise<AuthResult & { actingAuthority?: boolean }> {
+export type ManagerialArea = "hotel" | "finance" | "restaurant" | "operations";
+
+export type ManagerialAccess = {
+  session: ApiSession;
+  actingAuthority: boolean;
+  authorityRole: UserRole;
+  coveredRole: UserRole;
+};
+
+export const managerialAreaRoles: Record<ManagerialArea, UserRole> = {
+  hotel: "hotelManager",
+  finance: "finance",
+  restaurant: "restaurantManager",
+  operations: "operationsManager",
+};
+
+/**
+ * Returns the effective authority for a business area. A General Manager
+ * automatically covers an area only while its dedicated manager account is
+ * not active; no placeholder account or stored-role mutation is created.
+ */
+export async function getManagerialAccess(area: ManagerialArea): Promise<
+  | { access: ManagerialAccess; error: null }
+  | { access: null; error: NextResponse }
+> {
   const session = await getSession();
-  if (!session) return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
-  if (session.role === "admin" || session.role === "finance") return { session: session as ApiSession, error: null, actingAuthority: false };
-  if (session.role !== "manager") return { session: null, error: NextResponse.json({ error: "Forbidden: Finance access is restricted" }, { status: 403 }) };
-  const result = await query(`SELECT EXISTS (SELECT 1 FROM users WHERE role = 'finance' AND is_active = true) AS has_finance_manager`);
-  const hasFinanceManager = Boolean(result.rows[0]?.has_finance_manager);
-  if (hasFinanceManager) return { session: session as ApiSession, error: null, actingAuthority: false };
-  return { session: session as ApiSession, error: null, actingAuthority: true };
+  if (!session) {
+    return { access: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const coveredRole = managerialAreaRoles[area];
+  const hasDedicatedManager = Boolean(
+    (await query(
+      `SELECT EXISTS (SELECT 1 FROM users WHERE role = $1 AND is_active = true) AS has_manager`,
+      [coveredRole],
+    )).rows[0]?.has_manager,
+  );
+
+  if (session.role === "admin") {
+    return {
+      access: { session: session as ApiSession, actingAuthority: false, authorityRole: "admin", coveredRole },
+      error: null,
+    };
+  }
+
+  if (session.role === coveredRole) {
+    return {
+      access: { session: session as ApiSession, actingAuthority: false, authorityRole: coveredRole, coveredRole },
+      error: null,
+    };
+  }
+
+  if (session.role === "manager" && !hasDedicatedManager) {
+    return {
+      access: { session: session as ApiSession, actingAuthority: true, authorityRole: "manager", coveredRole },
+      error: null,
+    };
+  }
+
+  return {
+    access: null,
+    error: NextResponse.json({ error: `Forbidden: ${area} access is restricted` }, { status: 403 }),
+  };
+}
+
+export async function requireFinanceAccess(): Promise<AuthResult & { actingAuthority?: boolean }> {
+  const result = await getManagerialAccess("finance");
+  if (result.error) return { session: null, error: result.error };
+  return { session: result.access.session, error: null, actingAuthority: result.access.actingAuthority };
 }
 
 export async function requireRole(
