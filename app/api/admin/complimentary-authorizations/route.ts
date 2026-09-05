@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const { guestName, scope, reservationId, orderId, approvedAmount, validUntil, reason, ceoReference } = body;
     const parsedAmount = Number(approvedAmount);
     const parsedValidUntil = new Date(validUntil);
-    if (!guestName?.trim() || !["hotel", "restaurant", "both"].includes(scope) || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || !validUntil || Number.isNaN(parsedValidUntil.getTime()) || parsedValidUntil <= new Date() || !reason?.trim()) {
+    if (!guestName?.trim() || !["hotel", "restaurant", "event", "both"].includes(scope) || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || !validUntil || Number.isNaN(parsedValidUntil.getTime()) || parsedValidUntil <= new Date() || !reason?.trim()) {
       return NextResponse.json({ error: "Guest, scope, a positive amount, a future expiry, and a reason are required" }, { status: 400 });
     }
     const result = await query(`INSERT INTO public.complimentary_authorizations (guest_name, scope, reservation_id, order_id, approved_amount, valid_until, reason, ceo_reference, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, guest_name, scope, approved_amount, valid_until, reason, ceo_reference, status, created_at`, [guestName, scope, reservationId || null, orderId || null, approvedAmount, validUntil, reason, ceoReference || null, auth.session.id]);
