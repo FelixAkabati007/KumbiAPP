@@ -113,7 +113,7 @@ export function ComplimentaryAuthorizationsPanel() {
     <Card className="border-emerald-200 bg-white/80">
       <CardHeader>
         <CardTitle className="text-emerald-900">VIP / Complimentary Exceptions</CardTitle>
-        <p className="text-sm text-muted-foreground">Admin-created authorizations only. Frontdesk cannot create, edit, or extend these exceptions.</p>
+        <p className="text-sm text-muted-foreground">Reception can create and operate approved stays. Admin can review the audit log, extend, or revoke any exception.</p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-white via-emerald-50 to-emerald-100 p-4 text-emerald-950 shadow-sm">
