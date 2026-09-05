@@ -100,6 +100,18 @@ function InventoryContent() {
       .catch(() => setHotelActivityCount(0));
   }, []);
 
+  const selectedCategory = ["ingredient", "beverage", "supply"].includes(activeTab)
+    ? activeTab
+    : null;
+  const selectedCategoryItems = selectedCategory
+    ? filteredItems
+    : [];
+  const selectedCategoryLabel = selectedCategory === "ingredient"
+    ? "Ingredients"
+    : selectedCategory === "beverage"
+      ? "Beverages"
+      : "Supplies";
+
   // Filter items based on search query and active tab
   useEffect(() => {
     let filtered = items;
@@ -448,6 +460,42 @@ function InventoryContent() {
             </SelectContent>
           </Select>
         </div>
+
+        {selectedCategory && (
+          <Card className="mb-6 border-orange-200 bg-orange-50/70 shadow-sm dark:border-orange-800 dark:bg-orange-950/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-orange-900 dark:text-orange-100">
+                Select {selectedCategoryLabel}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Search and select from every {selectedCategory} currently in inventory.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-56 overflow-y-auto rounded-xl border border-orange-200 bg-background/70 p-2 dark:border-orange-800">
+                {selectedCategoryItems.length > 0 ? (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {selectedCategoryItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleEditItem(item)}
+                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-transparent bg-background px-3 py-2 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 dark:hover:border-orange-700 dark:hover:bg-orange-950/30"
+                      >
+                        <span className="min-w-0 truncate font-medium">{item.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-4 text-center text-sm text-muted-foreground">
+                    No {selectedCategory} match your search.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
