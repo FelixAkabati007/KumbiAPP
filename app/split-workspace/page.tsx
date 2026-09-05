@@ -22,7 +22,7 @@ export default function SplitWorkspacePage() {
         <p className="text-sm text-muted-foreground">Optimized for one desktop without a secondary display</p>
       </header>
 
-      <section className="grid flex-1 gap-4 p-4 lg:grid-cols-2">
+      <section className="grid flex-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-2">
         <WorkspacePanel title="Sales" description="POS Terminal" icon={<ShoppingCart className="h-5 w-5" />} href="/pos" />
         <WorkspacePanel title="Orders" description="Kitchen Display" icon={<ChefHat className="h-5 w-5" />} href="/kitchen" />
       </section>
