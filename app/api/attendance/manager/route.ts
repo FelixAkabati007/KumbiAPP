@@ -32,6 +32,11 @@ export async function PATCH(request: Request) {
     );
     if (!result.rowCount) return NextResponse.json({ error: "Attendance record is already resolved" }, { status: 409 });
     if (body.status === "verified") await query(`INSERT INTO performance_events (staff_id, source_type, source_id, points, verification_status, verified_by, metadata) VALUES ($1, 'attendance_check_in', $2, 1, 'verified', $3, $4) ON CONFLICT DO NOTHING`, [result.rows[0].staff_id, body.id, session.id, JSON.stringify({ source: "register" })]);
+    await query(
+      `INSERT INTO notifications (recipient_user_id, title, message, type)
+       VALUES ($1, $2, $3, 'attendance_decision')`,
+      [result.rows[0].staff_id, `Attendance ${body.status}`, `Your attendance check-in was ${body.status} by ${session.email}.`,],
+    );
     return NextResponse.json({ record: result.rows[0] });
   } catch (cause) {
     console.error("[attendance] manager decision failed", cause);

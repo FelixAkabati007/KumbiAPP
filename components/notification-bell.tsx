@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,10 +28,10 @@ const fetcher = (url: string) => fetch(url).then((response) => {
 });
 
 export function NotificationBell() {
-  const { data, mutate } = useSWR<{ notifications: NotificationItem[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{ notifications: NotificationItem[] }>(
     "/api/notifications",
     fetcher,
-    { refreshInterval: 30000 },
+    { refreshInterval: 15000, revalidateOnFocus: true, shouldRetryOnError: true },
   );
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((item) => !item.read_at).length;
@@ -49,7 +49,7 @@ export function NotificationBell() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
-          <Bell className="h-5 w-5" aria-hidden="true" />
+          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
           {unreadCount > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -69,7 +69,12 @@ export function NotificationBell() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {notifications.length === 0 ? (
+          {error ? (
+            <DropdownMenuItem className="items-center gap-2 text-destructive" onClick={() => void mutate()}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              Unable to load notifications. Retry
+            </DropdownMenuItem>
+          ) : notifications.length === 0 ? (
             <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
           ) : (
             notifications.map((item, index) => {

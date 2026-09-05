@@ -46,7 +46,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
-import { NotificationBell } from "@/components/notification-bell";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
@@ -217,7 +216,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="sticky top-0 z-40 w-full min-w-0 border-b bg-white/80 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80">
-        <div className="container mx-auto flex min-h-16 w-full min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:justify-between sm:px-4 md:px-6">
+        <div className="container mx-auto flex min-h-16 w-full min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:justify-between sm:px-4 md:px-6 lg:gap-4">
           <div className="flex min-w-0 flex-1 basis-full gap-3 sm:basis-auto md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
               <LogoDisplay size="sm" />
@@ -281,7 +280,6 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-            <NotificationBell />
             {/* User avatar menu */}
             <UserNav />
             {/* Reset Dashboard button REMOVED per user request */}
@@ -296,7 +294,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
           </h2>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
             {canSwitchDashboardCategories && (
-              <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
+              <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
                   <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
