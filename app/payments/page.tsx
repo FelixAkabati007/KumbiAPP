@@ -246,7 +246,7 @@ export default function PaymentsPage() {
           </Link>
         </header>
 
-        <main className="flex flex-1 flex-col p-4 md:p-6">
+        <main className="flex flex-1 flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-4 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 md:p-6">
           {/* Filters */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
