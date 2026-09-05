@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Utensils, Minus, Plus, ShieldCheck } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
+import { ComplimentaryAuthorizationsPanel } from "@/components/admin/complimentary-authorizations-panel";
 
 interface CheckInData {
   id: string;
@@ -482,6 +483,8 @@ function CheckInPage() {
         </div>
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
+
+      <ComplimentaryAuthorizationsPanel />
 
       {latestReceiptId && (
         <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20">

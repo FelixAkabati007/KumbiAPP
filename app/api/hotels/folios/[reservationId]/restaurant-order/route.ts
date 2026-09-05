@@ -59,6 +59,10 @@ export async function POST(
       if (!folioDetails) throw new Error("Reservation not found");
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
+      const authorizationResult = await client.query(`SELECT id, status, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1 AND ca.status = 'active' AND ca.folio_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
+      const authorization = authorizationResult.rows[0];
+      const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
+      const billableTotal = isWaived ? 0 : total;
       const orderNumber = `FO-${Date.now().toString(36).toUpperCase()}`;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
@@ -101,8 +105,11 @@ export async function POST(
         `INSERT INTO guest_folio_items
           (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
          VALUES ($1, $2, 'food', $3, 1, $4, $4, 'restaurant_order', $5)`,
-        [params.data.reservationId, folio.id, `Restaurant order ${orderNumber}`, total.toFixed(2), orderId]
+        [params.data.reservationId, folio.id, `Restaurant order ${orderNumber}${isWaived ? " · Complimentary" : ""}`, billableTotal.toFixed(2), orderId]
       );
+      if (isWaived) {
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) VALUES ($1,$2,$3,'restaurant_order',$4,$5)`, [authorization.id, String(orderId), "guest_folio", total.toFixed(2), `Restaurant order ${orderNumber} waived through VIP authorization`]);
+      }
       const updatedFolio = await client.query(
         `UPDATE guest_folios
          SET food_charges = COALESCE(food_charges, 0) + $1,
@@ -110,7 +117,7 @@ export async function POST(
              balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0) - COALESCE(paid_amount, 0)),
              last_updated = NOW()
          WHERE reservation_id = $2 RETURNING *`,
-        [total.toFixed(2), params.data.reservationId]
+        [billableTotal.toFixed(2), params.data.reservationId]
       );
 
       return { orderId, orderNumber, total, folio: updatedFolio.rows[0] };
