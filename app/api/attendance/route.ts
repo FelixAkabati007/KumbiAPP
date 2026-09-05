@@ -37,12 +37,24 @@ export async function POST(request: Request) {
         `INSERT INTO attendance_records (staff_id, check_in_at, status, verification_status, notes) VALUES ($1, now(), 'pending_verification', 'pending', $2) RETURNING *`,
         [session.id, typeof body.notes === "string" ? body.notes.slice(0, 500) : null]
       );
+      await query(
+        `INSERT INTO notifications (recipient_user_id, title, message, type)
+         SELECT id, $1, $2, 'attendance_check_in' FROM users
+         WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
+        ["Attendance check-in awaiting confirmation", `${session.email} checked in at ${new Date().toLocaleTimeString()}. Please confirm their presence.`, session.id],
+      );
       return NextResponse.json({ record: inserted.rows[0] }, { status: 201 });
     }
     if (!current?.check_in_at || current.check_out_at) return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
     const updated = await query(
       `UPDATE attendance_records SET check_out_at = now(), status = 'checked_out', updated_at = now() WHERE id = $1 RETURNING *`,
       [current.id]
+    );
+    await query(
+      `INSERT INTO notifications (recipient_user_id, title, message, type)
+       SELECT id, $1, $2, 'attendance_check_out' FROM users
+       WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
+      ["Attendance check-out recorded", `${session.email} checked out at ${new Date().toLocaleTimeString()}.`, session.id],
     );
     return NextResponse.json({ record: updated.rows[0] });
   } catch (cause) {
