@@ -439,7 +439,7 @@ function ReportsPage() {
           </div>
         </header>
 
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-3 sm:p-4 md:p-6">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
           {data.length === 0 && (
             <Card className="mb-6 rounded-2xl border-orange-200 bg-white/70 dark:border-orange-700 dark:bg-gray-800/70">
               <CardContent className="flex flex-col items-center gap-2 p-6 text-center">

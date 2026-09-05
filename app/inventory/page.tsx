@@ -422,7 +422,7 @@ function InventoryContent() {
         </div>
       </header>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-3 sm:p-4 md:p-6">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

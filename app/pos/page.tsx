@@ -649,7 +649,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         </div>
       </header>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:flex-row lg:overflow-hidden">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 lg:flex-row lg:overflow-hidden">
         {/* Menu Items Section */}
         <div className="flex min-w-0 w-full flex-col border-orange-200 dark:border-orange-700 lg:flex-1 lg:border-r xl:w-2/3">
           <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">

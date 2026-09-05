@@ -49,7 +49,7 @@ export default function AttendancePage() {
   }
 
   const open = Boolean(record?.check_in_at && !record.check_out_at);
-  return <main className="min-h-screen overflow-x-hidden bg-muted/30 p-3 text-foreground sm:p-4 md:p-8">
+  return <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-8">
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-4">
         <Link href="/" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
