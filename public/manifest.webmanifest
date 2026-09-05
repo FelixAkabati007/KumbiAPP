@@ -4,15 +4,21 @@
   "description": "Point of Sale system for Kumbisaly Heritage Restaurant",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fff7ed",
-  "theme_color": "#f97316",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "lang": "en",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
