@@ -485,7 +485,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 Add Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-full sm:p-6">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:p-6">
               <DialogHeader>
                 <DialogTitle>Create Staff Account</DialogTitle>
                 <DialogDescription>
@@ -703,8 +703,9 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+              <DialogFooter className="flex-col-reverse gap-2 border-t pt-3 sm:flex-row sm:justify-end sm:pt-4">
                 <Button
+                  className="w-full sm:w-auto"
                   variant="outline"
                   onClick={() => setIsCreateOpen(false)}
                   disabled={isSubmitting}
@@ -714,7 +715,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 <Button
                   onClick={handleCreateStaff}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white"
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 sm:w-auto"
                 >
                   {isSubmitting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -806,7 +807,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-full sm:p-6">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden p-3 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:p-6">
                             <DialogHeader>
                               <DialogTitle>
                                 Edit {member.first_name} {member.last_name}
