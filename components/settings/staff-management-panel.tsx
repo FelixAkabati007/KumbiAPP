@@ -63,6 +63,19 @@ import {
 
 type StaffRole = "admin" | "manager" | "hotelManager" | "restaurantManager" | "operationsManager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
 
+type StaffClassification = "reception" | "restaurantPos" | "waiterWaitress" | "chef" | "housekeeping" | "security" | "labour" | "other";
+
+const STAFF_CLASSIFICATION_OPTIONS: { value: StaffClassification; label: string; department: "Hotel" | "Restaurant" | "Operations"; description: string }[] = [
+  { value: "reception", label: "Reception", department: "Hotel", description: "Hotel guest reception, reservations, check-in, and check-out." },
+  { value: "restaurantPos", label: "Restaurant Front Desk / POS", department: "Restaurant", description: "Restaurant POS, order entry, cashier, and payment handling." },
+  { value: "waiterWaitress", label: "Waiter/Waitress", department: "Restaurant", description: "Serve food, manage tables, and update served orders." },
+  { value: "chef", label: "Chef", department: "Restaurant", description: "Prepare and complete kitchen orders." },
+  { value: "housekeeping", label: "Housekeeping", department: "Hotel", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "security", label: "Security", department: "Operations", description: "Security and site coverage." },
+  { value: "labour", label: "Labour", department: "Operations", description: "General labour and operational support." },
+  { value: "other", label: "Other", department: "Operations", description: "A configurable operational classification." },
+];
+
 interface StaffMember {
   id: string;
   user_id: string;
@@ -72,6 +85,7 @@ interface StaffMember {
   phone: string | null;
   department: string;
   position: string;
+  job_classification?: StaffClassification | string | null;
   employment_status: string;
   hire_date: string | null;
   role: StaffRole;
@@ -82,7 +96,7 @@ interface StaffMember {
 }
 
 const ROLE_OPTIONS: { value: StaffRole; label: string; description: string }[] = [
-  { value: "staff", label: "Restaurant Server", description: "Create POS orders and serve guests; cannot edit menu prices or approve refunds." },
+  { value: "staff", label: "Staff", description: "Use the classification field below to identify hotel or restaurant duties." },
   { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
   { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
   { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
@@ -128,6 +142,7 @@ const emptyCreateForm = {
   phone: "",
   department: "",
   position: "",
+  jobClassification: "reception" as StaffClassification,
   hireDate: "",
   password: "",
   role: "staff" as StaffRole,
@@ -160,6 +175,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
     phone: "",
     department: "",
     position: "",
+    jobClassification: "reception" as StaffClassification,
     employmentStatus: "active",
     role: "staff" as StaffRole,
   managerScope: "hotel" as "hotel" | "restaurant" | "general",
@@ -258,8 +274,9 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
           lastName: createForm.lastName.trim(),
           businessEmail: email,
           department: createForm.department.trim(),
-          position: createForm.position.trim(),
-          phone: createForm.phone.trim() || null,
+  position: createForm.position.trim(),
+  jobClassification: createForm.jobClassification,
+  phone: createForm.phone.trim() || null,
         }),
       });
       const data = await res.json();
@@ -338,6 +355,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       phone: member.phone || "",
       department: member.department || "",
       position: member.position || "",
+      jobClassification: (member.job_classification || "other") as StaffClassification,
       employmentStatus: member.employment_status || "active",
       role: member.role || "staff",
       managerScope: member.manager_scope || "general",
@@ -552,6 +570,31 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-classification">Job classification</Label>
+                  <Select
+                    value={createForm.jobClassification}
+                    onValueChange={(value) => {
+                      const option = STAFF_CLASSIFICATION_OPTIONS.find((item) => item.value === value);
+                      setCreateForm((f) => ({
+                        ...f,
+                        jobClassification: value as StaffClassification,
+                        department: option?.department ?? f.department,
+                        position: option?.label ?? f.position,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger id="staff-classification"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STAFF_CLASSIFICATION_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex flex-col gap-0.5"><span>{option.label}</span><span className="text-xs text-muted-foreground">{option.department} · {option.description}</span></div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-phone">Phone</Label>
@@ -705,7 +748,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                   <TableHead>Name</TableHead>
                   <TableHead>Login Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Department / classification</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -729,8 +772,8 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {member.department}
-                      {member.position ? ` · ${member.position}` : ""}
+  <div>{member.department}</div>
+  <div className="text-xs text-muted-foreground">{STAFF_CLASSIFICATION_OPTIONS.find((option) => option.value === member.job_classification)?.label || member.job_classification || member.position || "Other"}</div>
                     </TableCell>
                     <TableCell>
                       <Badge

@@ -154,6 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_check_in ON reservations(check_in_da
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_housekeeping_room_id ON housekeeping_tasks(room_id);
 CREATE INDEX IF NOT EXISTS idx_housekeeping_status ON housekeeping_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_staff_profiles_classification ON staff_profiles(job_classification, department, employment_status);
 CREATE INDEX IF NOT EXISTS idx_maintenance_room_id ON maintenance_tickets(room_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_status ON maintenance_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_guest_folios_reservation_id ON guest_folios(reservation_id);
@@ -170,6 +171,7 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
     phone VARCHAR(20),
     department VARCHAR(100),
     position VARCHAR(100),
+    job_classification VARCHAR(100) DEFAULT 'other',
     employment_status VARCHAR(50) DEFAULT 'active', -- active, on_leave, terminated
     hire_date DATE,
     password_hash VARCHAR(255) NOT NULL,
@@ -286,3 +288,33 @@ CREATE INDEX IF NOT EXISTS idx_staff_audit_logs_timestamp ON staff_audit_logs(ti
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_staff_id ON password_reset_tokens(staff_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
 CREATE INDEX IF NOT EXISTS idx_device_registrations_fingerprint ON device_registrations(device_fingerprint);
+
+-- Configurable workforce schedules and daily assignments
+CREATE TABLE IF NOT EXISTS work_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(120) NOT NULL,
+    job_classification VARCHAR(100) NOT NULL,
+    department VARCHAR(100),
+    shift_period VARCHAR(20) NOT NULL DEFAULT 'standard',
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    reminder_minutes INTEGER NOT NULL DEFAULT 20,
+    timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Accra',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS staff_schedule_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+    schedule_id UUID NOT NULL REFERENCES work_schedules(id),
+    work_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (staff_id, work_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_schedules_classification ON work_schedules(job_classification, is_active);
+CREATE INDEX IF NOT EXISTS idx_staff_schedule_assignments_date ON staff_schedule_assignments(work_date, status);

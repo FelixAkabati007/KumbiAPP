@@ -1,7 +1,9 @@
 "use client";
 
 import useSWR from "swr";
+import { useEffect, useMemo, useRef } from "react";
 import { Bell, CheckCheck, Loader2, RefreshCw } from "lucide-react";
+import { playNotificationSound } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,8 +35,17 @@ export function NotificationBell() {
     fetcher,
     { refreshInterval: 15000, revalidateOnFocus: true, shouldRetryOnError: true },
   );
-  const notifications = data?.notifications ?? [];
+  const notifications = useMemo(() => data?.notifications ?? [], [data?.notifications]);
   const unreadCount = notifications.filter((item) => !item.read_at).length;
+  const previousUnreadCount = useRef(unreadCount);
+
+  useEffect(() => {
+    if (unreadCount > previousUnreadCount.current) {
+      const newest = notifications.find((item) => !item.read_at);
+      if (newest?.type === "shift_reminder") playNotificationSound();
+    }
+    previousUnreadCount.current = unreadCount;
+  }, [notifications, unreadCount]);
 
   async function markRead(id?: string) {
     await fetch("/api/notifications", {

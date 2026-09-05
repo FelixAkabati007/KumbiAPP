@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
         sp.phone,
         sp.department,
         sp.position,
+        COALESCE(sp.job_classification, CASE WHEN sp.position ILIKE '%reception%' OR sp.position ILIKE '%front desk%' THEN 'reception' WHEN sp.position ILIKE '%waiter%' OR sp.position ILIKE '%waitress%' OR sp.position ILIKE '%server%' THEN 'waiterWaitress' WHEN sp.position ILIKE '%chef%' OR sp.position ILIKE '%kitchen%' THEN 'chef' WHEN sp.position ILIKE '%housekeeping%' THEN 'housekeeping' ELSE 'other' END) AS job_classification,
         sp.employment_status,
         sp.hire_date,
         sp.manager_scope,
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
     const phone = String(body.phone ?? "").trim() || null;
     const department = String(body.department ?? "").trim();
     const position = String(body.position ?? "").trim();
+    const jobClassification = String(body.jobClassification ?? "other").trim();
     const hireDate = String(body.hireDate ?? "").trim();
     const password = String(body.password ?? "");
     const businessEmail = String(body.businessEmail ?? "").trim().toLowerCase();
@@ -117,6 +119,10 @@ export async function POST(request: NextRequest) {
 
     if (!["restaurant", "events", "restaurant_events"].includes(eventScope)) {
       return NextResponse.json({ error: "Invalid event scope" }, { status: 400 });
+    }
+
+    if (!["reception", "restaurantPos", "waiterWaitress", "chef", "housekeeping", "security", "labour", "other"].includes(jobClassification)) {
+      return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
     }
 
     if (role === "manager" && !["hotel", "restaurant", "general"].includes(managerScope)) {
@@ -207,9 +213,9 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO staff_profiles (
           id, user_id, first_name, last_name, business_email, phone,
-          department, position, hire_date, password_hash, created_by,
+          department, position, job_classification, hire_date, password_hash, created_by,
           employment_status, is_active, manager_scope, event_scope
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           staffId,
           userId,
@@ -219,6 +225,7 @@ export async function POST(request: NextRequest) {
           phone || null,
           department,
           position,
+          jobClassification,
           hireDate || null,
           passwordHash,
           session.id,

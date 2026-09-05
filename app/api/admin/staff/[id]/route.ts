@@ -39,6 +39,7 @@ export async function GET(
         sp.phone,
         sp.department,
         sp.position,
+        COALESCE(sp.job_classification, 'other') AS job_classification,
         sp.employment_status,
         sp.hire_date,
         sp.manager_scope,
@@ -88,10 +89,15 @@ export async function PATCH(
       phone,
       department,
       position,
+      jobClassification,
       employmentStatus,
       role,
       managerScope,
     } = body;
+
+    if (jobClassification && !["reception", "restaurantPos", "waiterWaitress", "chef", "housekeeping", "security", "labour", "other"].includes(jobClassification)) {
+      return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
+    }
 
     if (managerScope && !["hotel", "restaurant", "general"].includes(managerScope)) {
       return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
@@ -137,6 +143,9 @@ export async function PATCH(
     if (position && position !== currentStaff.position) {
       changes.position = { from: currentStaff.position, to: position };
     }
+    if (jobClassification && jobClassification !== currentStaff.job_classification) {
+      changes.job_classification = { from: currentStaff.job_classification, to: jobClassification };
+    }
     if (employmentStatus && employmentStatus !== currentStaff.employment_status) {
       changes.employment_status = {
         from: currentStaff.employment_status,
@@ -152,16 +161,18 @@ export async function PATCH(
            phone = COALESCE($3, phone),
            department = COALESCE($4, department),
            position = COALESCE($5, position),
-           employment_status = COALESCE($6, employment_status),
-           manager_scope = CASE WHEN $8::text IS NULL THEN manager_scope ELSE $8::text END,
+           job_classification = COALESCE($6, job_classification),
+           employment_status = COALESCE($7, employment_status),
+           manager_scope = CASE WHEN $9::text IS NULL THEN manager_scope ELSE $9::text END,
            updated_at = NOW()
-       WHERE id = $7`,
+       WHERE id = $8`,
       [
         firstName || null,
         lastName || null,
         phone || null,
         department || null,
         position || null,
+        jobClassification || null,
         employmentStatus || null,
         id,
         managerScope || null,
