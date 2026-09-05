@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const preferredRegion = "home";
 
 async function requireAuthorizationAccess() {
   const session = await getSession();

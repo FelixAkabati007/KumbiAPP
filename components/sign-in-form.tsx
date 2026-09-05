@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchSettings } from "@/lib/settings";
+import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,14 +33,7 @@ export function SignInForm() {
   const { showLoading, hideLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [restaurantName, setRestaurantName] = useState("Kumbisaly Heritage Restaurant");
-
-  useEffect(() => {
-    void fetchSettings().then((settings) => {
-      const name = settings.account?.restaurantName?.trim();
-      if (name) setRestaurantName(name);
-    });
-  }, []);
+  const restaurantName = "Kumbisaly Heritage Restaurant";
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -76,7 +68,7 @@ export function SignInForm() {
   };
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-6">
+    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-6 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="space-y-3 text-center sm:space-y-4">
@@ -96,11 +88,11 @@ export function SignInForm() {
         </div>
 
         {/* Sign In Card */}
-        <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+        <Card className="relative overflow-hidden rounded-2xl border border-orange-200 bg-white/80 shadow-xl backdrop-blur-sm dark:border-orange-700 dark:bg-gray-800/80 sm:rounded-3xl">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
 
           <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10 text-center">
-            <CardTitle className="flex items-center justify-center gap-2 text-xl text-gray-800 dark:text-gray-200">
+            <CardTitle className="flex items-center justify-center gap-2 text-lg text-gray-800 dark:text-gray-200 sm:text-xl">
               <div className="p-2 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-full shadow-lg">
                 <Lock className="h-5 w-5 text-white" />
               </div>
