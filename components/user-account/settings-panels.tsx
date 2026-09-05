@@ -32,8 +32,9 @@ export function SettingsPanels() {
   const [settings, setSettings] = useState<AppSettings>(getSettings());
 
   useEffect(() => {
-    fetchSettings().then(setSettings);
-  }, []);
+    if (!user) return;
+    void fetchSettings().then(setSettings);
+  }, [user]);
 
   const canUpdateSecurity = user?.role === "admin" || user?.role === "manager";
   // Safely narrow user role to the known union for indexing rolePermissions

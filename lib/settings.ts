@@ -254,18 +254,8 @@ export async function fetchSettings(): Promise<AppSettings> {
         },
       },
     };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (
-        error.name !== "AbortError" &&
-        !error.message?.includes("Unauthorized") &&
-        !error.message?.includes("Forbidden")
-      ) {
-        console.error("Failed to fetch settings:", error);
-      }
-    } else {
-      console.error("Failed to fetch settings:", error);
-    }
+  } catch {
+    // Public surfaces can render before the authenticated settings API is available.
     return defaultSettings;
   }
 }

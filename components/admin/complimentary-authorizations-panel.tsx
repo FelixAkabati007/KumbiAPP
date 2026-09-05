@@ -111,11 +111,11 @@ export function ComplimentaryAuthorizationsPanel() {
 
   return (
     <Card className="border-emerald-200 bg-white/80">
-      <CardHeader>
-        <CardTitle className="text-emerald-900">VIP / Complimentary Exceptions</CardTitle>
+      <CardHeader className="space-y-2 p-4 sm:p-6">
+        <CardTitle className="text-lg text-emerald-900 sm:text-xl">VIP / Complimentary Exceptions</CardTitle>
         <p className="text-sm text-muted-foreground">Reception can create and operate approved stays. Admin can review the audit log, extend, or revoke any exception.</p>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-5 p-4 sm:p-6">
         <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-white via-emerald-50 to-emerald-100 p-4 text-emerald-950 shadow-sm">
           <p className="text-sm font-semibold">How complimentary usage affects finance and stock</p>
           <p className="mt-1 text-sm leading-6 text-emerald-900/80">Gross Value is the normal selling price before an exception. Complimentary is the amount waived for the guest. Net Collected is what the guest actually pays. Cost is the real food, beverage, room-service, event, or operating cost consumed. Net Impact is Net Collected minus Cost.</p>
@@ -128,7 +128,7 @@ export function ComplimentaryAuthorizationsPanel() {
           <select aria-label="Scope" className="h-10 rounded-md border bg-background px-3 text-sm" value={scope} onChange={(event) => setScope(event.target.value)}>
             <option value="both">Hotel and restaurant</option><option value="hotel">Hotel</option><option value="restaurant">Restaurant</option><option value="event">Event Organization</option>
           </select>
-          <select aria-label="VIP room" className="h-10 rounded-md border bg-background px-3 text-sm" value={roomId} onChange={(event) => setRoomId(event.target.value)}>
+          <select aria-label="VIP room" className="h-10 min-w-0 rounded-md border bg-background px-3 text-sm" value={roomId} onChange={(event) => setRoomId(event.target.value)}>
             <option value="">No room stay / link later</option>
             {rooms.map((room) => <option key={room.id} value={room.id}>Room {room.room_number} · {room.room_type_name} · {room.status}</option>)}
           </select>
@@ -137,8 +137,8 @@ export function ComplimentaryAuthorizationsPanel() {
           <Input aria-label="CEO reference" placeholder="CEO reference (optional)" value={reference} onChange={(event) => setReference(event.target.value)} />
           <Textarea aria-label="Business reason" className="sm:col-span-2 lg:col-span-3" placeholder="Business reason" value={reason} onChange={(event) => setReason(event.target.value)} />
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button onClick={() => void createAuthorization()} disabled={saving || !guestName || !amount || !validUntil || !reason}>{saving ? "Creating..." : "Create authorization"}</Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button className="w-full sm:w-auto" onClick={() => void createAuthorization()} disabled={saving || !guestName || !amount || !validUntil || !reason}>{saving ? "Creating..." : "Create authorization"}</Button>
           {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -149,7 +149,7 @@ export function ComplimentaryAuthorizationsPanel() {
         </div>
         <div className="space-y-2">
           {items.length === 0 ? <p className="text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
-            <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div key={item.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used {formatCurrency(item.used_amount)} · Remaining {formatCurrency(item.remaining_amount || item.approved_amount)}</p></div>
               <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{formatCurrency(item.approved_amount)}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge><Button size="sm" variant="outline" onClick={() => void viewAuthorization(item.id)} disabled={detailLoading}><Eye className="mr-1 h-4 w-4" /> View</Button>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
             </div>
@@ -157,7 +157,7 @@ export function ComplimentaryAuthorizationsPanel() {
         </div>
       </CardContent>
       <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Complimentary authorization details</DialogTitle>
             <DialogDescription>Admin-only audit view for this authorized exception.</DialogDescription>
