@@ -9,7 +9,7 @@ export async function GET() {
   if (error) return error;
   try {
     const [pending, summary, frequency] = await Promise.all([
-      query(`SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, created_at FROM attendance_records WHERE verification_status = 'pending' ORDER BY check_in_at ASC LIMIT 100`),
+      query(`SELECT ar.id, ar.staff_id, CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name, sp.position, ar.check_in_at, ar.check_out_at, ar.status, ar.verification_status, ar.created_at, CASE WHEN ss.scheduled_start IS NULL THEN 'Unscheduled' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 10 THEN 'Early' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 14 THEN 'Mid' ELSE 'Late' END AS shift_period FROM attendance_records ar LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id LEFT JOIN staff_shifts ss ON ss.id = ar.shift_id WHERE ar.verification_status = 'pending' ORDER BY ar.check_in_at ASC LIMIT 100`),
       query(`SELECT COUNT(*) FILTER (WHERE check_in_at IS NOT NULL) AS present, COUNT(*) FILTER (WHERE verification_status = 'pending') AS pending, COUNT(*) FILTER (WHERE check_in_at IS NULL) AS absent FROM attendance_records WHERE created_at::date = CURRENT_DATE`),
       query(`SELECT staff_id, COUNT(*) FILTER (WHERE verification_status = 'verified') AS verified_days, COUNT(*) AS recorded_days FROM attendance_records WHERE created_at >= date_trunc('month', CURRENT_DATE) GROUP BY staff_id ORDER BY verified_days DESC`),
     ]);
