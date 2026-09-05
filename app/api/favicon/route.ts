@@ -9,7 +9,7 @@ const BLOB_PREFIX = "brand/favicons";
 const SUPPORTED_FORMATS = ["image/x-icon", "image/png", "image/svg+xml"];
 const MIN_DIMENSIONS = 16;
 const MAX_DIMENSIONS = 512;
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB source limit; output is optimized below 512px
 
 interface ValidationResult {
   isValid: boolean;
@@ -124,9 +124,9 @@ async function processAndUploadFavicon(file: File) {
   const urls: Record<string, string> = {};
 
   for (const size of [16, 32, 48, 64, 128, 256]) {
-    const resizedBuffer = await sharp(buffer)
+    const resizedBuffer = await sharp(buffer, { density: 300 })
       .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
-      .png()
+      .png({ compressionLevel: 9, adaptiveFiltering: true, palette: size <= 64 })
       .toBuffer();
     const blob = await put(`${BLOB_PREFIX}/favicon-${size}-${version}.png`, resizedBuffer, {
       access: "public",
