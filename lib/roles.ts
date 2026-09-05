@@ -44,7 +44,8 @@ export type AppSection =
   | "maintenance"
   | "operations"
   | "guestFolio"
-  | "events";
+  | "events"
+  | "eventPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
 
@@ -224,6 +225,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: true,
     guestFolio: true,
     events: true,
+    eventPricing: false,
   },
   operationsManager: {
     pos: false,
@@ -245,7 +247,8 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: true,
     guestFolio: false,
-    events: false,
+    events: true,
+    eventPricing: true,
   },
   finance: {
     pos: false,
@@ -268,6 +271,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: false,
     guestFolio: true,
     events: true,
+    eventPricing: false,
   },
   manager: {
     pos: true,
@@ -290,6 +294,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: true,
     guestFolio: true,
     events: true,
+    eventPricing: true,
   },
   kitchen: {
     pos: false,
@@ -312,6 +317,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: false,
     guestFolio: false,
     events: false,
+    eventPricing: false,
   },
   staff: {
     pos: true,
@@ -334,6 +340,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: false,
     guestFolio: false,
     events: false,
+    eventPricing: false,
   },
   frontDesk: {
     pos: false,
@@ -356,6 +363,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: false,
     guestFolio: true,
     events: true,
+    eventPricing: false,
   },
   housekeeping: {
     pos: false,
@@ -378,6 +386,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     operations: false,
     guestFolio: false,
     events: false,
+    eventPricing: false,
   },
 };
 
