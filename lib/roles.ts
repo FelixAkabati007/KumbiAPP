@@ -2,6 +2,8 @@
 export type UserRole =
   | "admin"
   | "manager"
+  | "hotelManager"
+  | "restaurantManager"
   | "operationsManager"
   | "finance"
   | "staff"
@@ -12,6 +14,8 @@ export type UserRole =
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: "Administrator",
   manager: "General Manager",
+  hotelManager: "Hotel Manager",
+  restaurantManager: "Restaurant Manager",
   operationsManager: "Operations Manager",
   finance: "Finance Manager",
   staff: "Staff",
@@ -80,6 +84,22 @@ export const roleCapabilities: Record<
       delete: false,
       manage: false,
     },
+  },
+  hotelManager: {
+    rooms: { view: true, create: true, edit: true, delete: false, manage: true },
+    reservations: { view: true, create: true, edit: true, delete: false, manage: true },
+    housekeeping: { view: true, create: true, edit: true, delete: false, manage: true },
+    checkIn: { view: true, create: true, edit: true, delete: false, manage: true },
+    checkOut: { view: true, create: true, edit: true, delete: false, manage: true },
+    reports: { view: true, create: true, edit: true, delete: false, manage: false },
+  },
+  restaurantManager: {
+    pos: { view: true, create: true, edit: true, delete: false, manage: true },
+    kitchen: { view: true, create: true, edit: true, delete: false, manage: true },
+    orderBoard: { view: true, create: true, edit: true, delete: false, manage: true },
+    menu: { view: true, create: true, edit: true, delete: false, manage: true },
+    inventory: { view: true, create: true, edit: true, delete: false, manage: true },
+    reports: { view: true, create: true, edit: true, delete: false, manage: false },
   },
   operationsManager: {
     operations: { view: true, create: false, edit: false, delete: false, manage: true },
@@ -203,7 +223,7 @@ export const roleCapabilities: Record<
   },
 };
 
-export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
+export const rolePermissions = {
   admin: {
     pos: true,
     kitchen: true,
@@ -388,6 +408,44 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     events: false,
     eventPricing: false,
   },
+} as Record<UserRole, Record<AppSection, boolean>>;
+
+rolePermissions.hotelManager = {
+  ...rolePermissions.manager,
+  pos: false,
+  kitchen: false,
+  orderBoard: false,
+  menu: false,
+  inventory: false,
+  reports: true,
+  finance: false,
+  payments: false,
+  receipt: false,
+  system: false,
+  refunds: false,
+  rooms: true,
+  reservations: true,
+  checkIn: true,
+  checkOut: true,
+  housekeeping: true,
+  maintenance: true,
+  operations: true,
+  guestFolio: true,
+  events: false,
+  eventPricing: false,
+};
+
+rolePermissions.restaurantManager = {
+  ...rolePermissions.manager,
+  rooms: false,
+  reservations: false,
+  checkIn: false,
+  checkOut: false,
+  housekeeping: false,
+  maintenance: false,
+  guestFolio: false,
+  events: false,
+  eventPricing: false,
 };
 
 export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration" | "events";
@@ -417,6 +475,22 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     primaryHref: "/operations",
     categories: ["hotel", "restaurant", "technical", "finance", "events"],
     visibilityNote: "Cross-department visibility; sensitive changes remain approval-controlled.",
+  },
+  hotelManager: {
+    summary: "Hotel management center",
+    focus: "Coordinate rooms, reservations, reception, housekeeping, and hotel performance.",
+    primaryAction: "Open hotel operations",
+    primaryHref: "/hotels/rooms",
+    categories: ["hotel", "technical"],
+    visibilityNote: "Hotel operations and approved workforce data only.",
+  },
+  restaurantManager: {
+    summary: "Restaurant management center",
+    focus: "Coordinate service, kitchen production, orders, menu, inventory, and restaurant performance.",
+    primaryAction: "Open restaurant operations",
+    primaryHref: "/pos",
+    categories: ["restaurant", "finance"],
+    visibilityNote: "Restaurant operations and approved workforce data only.",
   },
   operationsManager: {
     summary: "Operations control center",

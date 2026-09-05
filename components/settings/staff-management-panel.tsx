@@ -61,7 +61,7 @@ import {
   KeyRound,
 } from "lucide-react";
 
-type StaffRole = "admin" | "manager" | "operationsManager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
+type StaffRole = "admin" | "manager" | "hotelManager" | "restaurantManager" | "operationsManager" | "finance" | "staff" | "kitchen" | "frontDesk" | "housekeeping";
 
 interface StaffMember {
   id: string;
@@ -88,7 +88,9 @@ const ROLE_OPTIONS: { value: StaffRole; label: string; description: string }[] =
   { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
   { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
   { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
-  { value: "manager", label: "Manager", description: "Supervise hotel and restaurant operations; choose Hotel Manager, Restaurant Manager, or General Manager access below." },
+  { value: "hotelManager", label: "Hotel Manager", description: "Manage hotel rooms, reservations, reception, housekeeping, and hotel performance." },
+  { value: "restaurantManager", label: "Restaurant Manager", description: "Manage restaurant service, kitchen production, orders, menu, and inventory." },
+  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations and approve cross-department decisions." },
   { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
 ];
 
@@ -97,6 +99,10 @@ const ROLE_BADGE_CLASSES: Record<StaffRole, string> = {
     "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
   manager:
     "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700",
+  hotelManager:
+    "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700",
+  restaurantManager:
+    "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-700",
   staff:
     "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
   kitchen:
