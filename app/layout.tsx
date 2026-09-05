@@ -70,7 +70,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="bg-background">
+    <html lang="en" translate="no" suppressHydrationWarning className="bg-background">
       <head>
         <link rel="icon" href="/favicon.ico" type="image/png" sizes="64x64" />
         <link rel="apple-touch-icon" href="/favicon.ico" sizes="180x180" />

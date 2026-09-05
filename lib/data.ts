@@ -1,6 +1,26 @@
 import { MenuItem, InventoryItem, SalesData } from "./types";
 import { apiFetch, ApiError, isExpectedRequestError } from "./api-client";
 
+type TransactionMetadata = {
+  orderNumber?: string;
+  items?: unknown;
+  orderType?: string;
+  tableNumber?: string;
+  customerName?: string;
+  customerRefused?: boolean;
+  [key: string]: unknown;
+};
+
+type TransactionLog = {
+  id?: string;
+  transaction_id?: string;
+  created_at?: string;
+  amount?: number | string;
+  payment_method?: string;
+  customer_id?: string;
+  metadata?: TransactionMetadata;
+};
+
 // --- Menu Items ---
 
 export async function getMenuItems(): Promise<MenuItem[]> {
@@ -169,20 +189,19 @@ export function getCurrentProductOrderCounter(): number {
 
 export async function getSalesData(): Promise<SalesData[]> {
   try {
-    const logs = await apiFetch<any[]>("/api/transactions");
+    const logs = await apiFetch<TransactionLog[]>("/api/transactions");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return logs.map((log: any) => ({
-      id: log.transaction_id || log.id,
-      orderNumber: log.metadata?.orderNumber || log.transaction_id || "Unknown",
-      date: log.created_at,
-      total: Number(log.amount),
-      paymentMethod: log.payment_method,
-      items: log.metadata?.items || [],
-      orderType: log.metadata?.orderType || "dine-in",
-      tableNumber: log.metadata?.tableNumber,
-      customerName: log.metadata?.customerName || log.customer_id,
-      customerRefused: log.metadata?.customerRefused,
+    return logs.map((log) => ({
+      id: log.transaction_id ?? log.id ?? "",
+      orderNumber: log.metadata?.orderNumber ?? log.transaction_id ?? "Unknown",
+      date: log.created_at ?? "",
+      total: Number(log.amount ?? 0),
+      paymentMethod: log.payment_method ?? "unknown",
+      items: Array.isArray(log.metadata?.items) ? log.metadata.items as SalesData["items"] : [],
+      orderType: (log.metadata?.orderType as string | undefined) ?? "dine-in",
+      tableNumber: log.metadata?.tableNumber as string | undefined,
+      customerName: (log.metadata?.customerName as string | undefined) ?? log.customer_id,
+      customerRefused: log.metadata?.customerRefused as boolean | undefined,
     }));
   } catch (error) {
     console.error("Error fetching sales data:", error);
