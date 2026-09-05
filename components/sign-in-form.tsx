@@ -68,7 +68,7 @@ export function SignInForm() {
   };
 
   return (
-    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-background px-3 py-6 text-foreground sm:items-center sm:p-6">
+    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-6 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="space-y-3 text-center sm:space-y-4">
