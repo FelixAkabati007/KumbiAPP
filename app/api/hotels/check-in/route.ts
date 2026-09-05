@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/api-auth";
 // Check-in guest to room
 export async function POST(request: NextRequest) {
   try {
-    const { error } = await requirePermission("checkIn");
+    const { session, error } = await requirePermission("checkIn");
     if (error) return error;
 
     const { reservationId, roomId } = await request.json();
@@ -71,9 +71,19 @@ export async function POST(request: NextRequest) {
       );
 
       await client.query(
+        `INSERT INTO reservation_room_changes
+          (reservation_id, previous_room_type_id, new_room_type_id, previous_room_id, new_room_id, rate_difference, adjustment_type, reason, approval_status, changed_by)
+         SELECT r.id, r.room_type_id, rm.room_type_id, NULL, rm.id, 0, 'same_price', $3, 'not_required', $4
+         FROM reservations r
+         JOIN rooms rm ON rm.id = $2
+         WHERE r.id = $1`,
+        [reservationId, roomId, "Room assigned during check-in", session?.id || null]
+      );
+
+      await client.query(
         `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
          VALUES ('checked_in', 'reservation', $1, $1, $2, $3, 0, $4, $5)`,
-        [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId })]
+        [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId, approvalStatus: "not_required" })]
       );
 
       const receiptResult = await client.query(
