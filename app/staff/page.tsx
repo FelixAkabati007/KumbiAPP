@@ -2,13 +2,24 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 
 interface AttendanceRecord {
   check_in_at?: string;
   check_out_at?: string;
   verification_status?: string;
+}
+
+interface WorkSchedule {
+  schedule_name: string;
+  job_classification: string;
+  department: string;
+  shift_period: string;
+  start_time: string;
+  end_time: string;
+  reminder_minutes: number;
+  assignment_status: string;
 }
 
 function formatTime(value?: string) {
@@ -18,12 +29,17 @@ function formatTime(value?: string) {
 export default function StaffPage() {
   const { user, isLoading } = useAuth();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
+  const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function load() {
-    const response = await fetch("/api/attendance");
-    if (response.ok) setRecord((await response.json()).record ?? null);
+    const [attendanceResponse, scheduleResponse] = await Promise.all([
+      fetch("/api/attendance"),
+      fetch("/api/workforce/schedule"),
+    ]);
+    if (attendanceResponse.ok) setRecord((await attendanceResponse.json()).record ?? null);
+    if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()).schedule ?? null);
   }
 
   useEffect(() => {
@@ -62,6 +78,13 @@ export default function StaffPage() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Use this page to record your shift start and finish.</p>
           </div>
         </header>
+        <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-background p-3 text-primary"><CalendarDays className="h-6 w-6" aria-hidden="true" /></div>
+            <div><h2 className="text-xl font-semibold">Today&apos;s schedule</h2><p className="mt-1 text-sm text-muted-foreground">Your reminder is sent 20 minutes before reporting time.</p></div>
+          </div>
+          {schedule ? <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Role</p><p className="mt-1 font-semibold">{schedule.job_classification}</p></div><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Report</p><p className="mt-1 font-semibold">{schedule.start_time}</p></div><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Close</p><p className="mt-1 font-semibold">{schedule.end_time}</p></div></div> : <p className="mt-5 rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">No schedule assigned for today.</p>}
+        </section>
         <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" aria-hidden="true" /></div>
