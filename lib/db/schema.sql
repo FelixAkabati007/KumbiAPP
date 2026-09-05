@@ -154,6 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_check_in ON reservations(check_in_da
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_housekeeping_room_id ON housekeeping_tasks(room_id);
 CREATE INDEX IF NOT EXISTS idx_housekeeping_status ON housekeeping_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_staff_profiles_classification ON staff_profiles(job_classification, department, employment_status);
 CREATE INDEX IF NOT EXISTS idx_maintenance_room_id ON maintenance_tickets(room_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_status ON maintenance_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_guest_folios_reservation_id ON guest_folios(reservation_id);
@@ -170,6 +171,7 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
     phone VARCHAR(20),
     department VARCHAR(100),
     position VARCHAR(100),
+    job_classification VARCHAR(100) DEFAULT 'other',
     employment_status VARCHAR(50) DEFAULT 'active', -- active, on_leave, terminated
     hire_date DATE,
     password_hash VARCHAR(255) NOT NULL,

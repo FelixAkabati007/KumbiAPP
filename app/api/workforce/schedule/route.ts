@@ -15,15 +15,15 @@ export async function GET() {
 
   try {
     const result = await query(
-      `SELECT
+      `       SELECT
          COALESCE(a.work_date, CURRENT_DATE) AS work_date,
-         COALESCE(s.name, CONCAT(sp.position, ' standard')) AS schedule_name,
-         COALESCE(s.job_classification, sp.position, 'Staff') AS job_classification,
+         COALESCE(s.name, CONCAT(COALESCE(sp.job_classification, sp.position, 'Staff'), ' standard')) AS schedule_name,
+         COALESCE(s.job_classification, sp.job_classification, sp.position, 'Staff') AS job_classification,
          COALESCE(s.department, sp.department, 'Operations') AS department,
          COALESCE(s.shift_period, 'standard') AS shift_period,
          COALESCE(s.start_time, CASE
-           WHEN LOWER(COALESCE(sp.position, 'staff')) IN ('reception', 'front desk', 'frontdesk') THEN '07:00'::time
-           WHEN LOWER(COALESCE(sp.position, 'staff')) = 'chef' THEN '08:00'::time
+           WHEN LOWER(COALESCE(sp.job_classification, sp.position, 'staff')) IN ('reception', 'front desk', 'frontdesk') THEN '07:00'::time
+           WHEN LOWER(COALESCE(sp.job_classification, sp.position, 'staff')) IN ('chef', 'kitchen') THEN '08:00'::time
            ELSE '06:00'::time
          END) AS start_time,
          COALESCE(s.end_time, CASE

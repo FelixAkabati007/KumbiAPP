@@ -28,6 +28,50 @@ export function getRoleDisplayName(role: UserRole | string): string {
   return roleDisplayNames[role as UserRole] || "Staff";
 }
 
+export type StaffClassification =
+  | "reception"
+  | "restaurantPos"
+  | "waiterWaitress"
+  | "chef"
+  | "housekeeping"
+  | "security"
+  | "labour"
+  | "other";
+
+const classificationLabels: Record<StaffClassification, string> = {
+  reception: "Reception",
+  restaurantPos: "Restaurant Front Desk / POS",
+  waiterWaitress: "Waiter/Waitress",
+  chef: "Chef",
+  housekeeping: "Housekeeping",
+  security: "Security",
+  labour: "Labour",
+  other: "Other",
+};
+
+export function normalizeStaffClassification(value?: string | null): StaffClassification {
+  const normalized = value?.trim().toLowerCase().replace(/[\s/-]+/g, "_");
+  if (["reception", "frontdesk", "front_desk"].includes(normalized ?? "")) return "reception";
+  if (["restaurantpos", "restaurant_pos", "restaurant_front_desk", "pos", "cashier"].includes(normalized ?? "")) return "restaurantPos";
+  if (["waiter", "waitress", "waiter_waitress", "server"].includes(normalized ?? "")) return "waiterWaitress";
+  if (normalized === "chef" || normalized === "kitchen") return "chef";
+  if (normalized === "housekeeping") return "housekeeping";
+  if (normalized === "security") return "security";
+  if (normalized === "labour" || normalized === "labor") return "labour";
+  return "other";
+}
+
+export function getStaffClassificationLabel(value?: string | null): string {
+  return classificationLabels[normalizeStaffClassification(value)];
+}
+
+export function getClassificationDepartment(value?: string | null): "Hotel" | "Restaurant" | "Operations" {
+  const classification = normalizeStaffClassification(value);
+  if (classification === "reception" || classification === "housekeeping") return "Hotel";
+  if (classification === "restaurantPos" || classification === "waiterWaitress" || classification === "chef") return "Restaurant";
+  return "Operations";
+}
+
 export type AppSection =
   | "pos"
   | "kitchen"
