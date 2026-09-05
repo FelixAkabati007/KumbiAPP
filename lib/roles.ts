@@ -43,7 +43,8 @@ export type AppSection =
   | "housekeeping"
   | "maintenance"
   | "operations"
-  | "guestFolio";
+  | "guestFolio"
+  | "events";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
 
@@ -222,6 +223,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: true,
     guestFolio: true,
+    events: true,
   },
   operationsManager: {
     pos: false,
@@ -243,6 +245,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: true,
     guestFolio: false,
+    events: false,
   },
   finance: {
     pos: false,
@@ -264,6 +267,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: false,
     operations: false,
     guestFolio: true,
+    events: true,
   },
   manager: {
     pos: true,
@@ -285,6 +289,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: true,
     guestFolio: true,
+    events: true,
   },
   kitchen: {
     pos: false,
@@ -306,6 +311,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: false,
     operations: false,
     guestFolio: false,
+    events: false,
   },
   staff: {
     pos: true,
@@ -327,6 +333,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: false,
     operations: false,
     guestFolio: false,
+    events: false,
   },
   frontDesk: {
     pos: false,
@@ -348,6 +355,7 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: false,
     guestFolio: true,
+    events: true,
   },
   housekeeping: {
     pos: false,
@@ -369,10 +377,11 @@ export const rolePermissions: Record<UserRole, Record<AppSection, boolean>> = {
     maintenance: true,
     operations: false,
     guestFolio: false,
+    events: false,
   },
 };
 
-export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration";
+export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration" | "events";
 
 export type RoleDashboardConfig = {
   summary: string;
@@ -389,7 +398,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Monitor the whole property, access audit tools, and keep permissions safe.",
     primaryAction: "Open system controls",
     primaryHref: "/system",
-    categories: ["administration", "hotel", "restaurant", "finance", "technical"],
+    categories: ["administration", "hotel", "restaurant", "finance", "technical", "events"],
     visibilityNote: "Full operational visibility with audited configuration access.",
   },
   manager: {
@@ -397,7 +406,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Review today’s operations, attendance, approvals, and department performance.",
     primaryAction: "Review operations",
     primaryHref: "/operations",
-    categories: ["hotel", "restaurant", "technical", "finance"],
+    categories: ["hotel", "restaurant", "technical", "finance", "events"],
     visibilityNote: "Cross-department visibility; sensitive changes remain approval-controlled.",
   },
   operationsManager: {
@@ -405,7 +414,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Resolve maintenance issues, coordinate teams, and keep daily operations moving.",
     primaryAction: "Open operations",
     primaryHref: "/operations",
-    categories: ["technical"],
+    categories: ["technical", "events"],
     visibilityNote: "Operational and maintenance data only; payroll remains restricted.",
   },
   finance: {

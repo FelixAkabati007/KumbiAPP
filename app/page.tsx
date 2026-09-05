@@ -89,6 +89,7 @@ function DashboardContent() {
   ["finance", "Finance"],
   ["technical", "Technical Operations"],
   ["administration", "Administration"],
+  ["events", "Event Organization"],
 ] as const;
 const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof dashboardCategories)[number][0]>("all");
 
@@ -206,6 +207,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     finance: ["finance", "payments", "refunds", "reports", "receipt"],
     technical: ["operations", "maintenance"],
     administration: ["system"],
+  events: ["events"],
   };
   const availableDashboardCategories = dashboardCategories.filter(([category]) =>
     category === "all" ||
