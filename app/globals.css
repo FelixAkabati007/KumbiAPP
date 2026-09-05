@@ -105,9 +105,9 @@
     --highlight-foreground: 24 100% 20%;
     --neutral: 30 100% 90%;
     --neutral-foreground: 24 100% 20%;
-    --description-start: 142 76% 94%;
-    --description-end: 0 0% 100%;
-    --description-foreground: 151 55% 24%;
+    --description-start: 34 97% 88%;
+    --description-end: 39 92% 90%;
+    --description-foreground: 34 98% 35%;
   }
   .dark {
     --background: 24 50% 10%;
@@ -154,6 +154,9 @@
     --highlight-foreground: 0 0% 100%;
     --neutral: 24 50% 25%;
     --neutral-foreground: 0 0% 100%;
+    --description-start: 34 97% 20%;
+    --description-end: 39 92% 25%;
+    --description-foreground: 34 98% 75%;
   }
   .hc {
     --background: 0 0% 100%;
