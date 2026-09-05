@@ -30,6 +30,21 @@
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
   }
+
+  .important-description {
+    border: 1px solid hsl(var(--description-start));
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, hsl(var(--description-start)), hsl(var(--description-end)) 78%);
+    color: hsl(var(--description-foreground));
+    padding: 0.75rem 1rem;
+    line-height: 1.5;
+  }
+
+  .responsive-heading {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    line-height: 1.15;
+    text-wrap: balance;
+  }
 }
 
 @layer base {
@@ -90,6 +105,9 @@
     --highlight-foreground: 24 100% 20%;
     --neutral: 30 100% 90%;
     --neutral-foreground: 24 100% 20%;
+    --description-start: 142 76% 94%;
+    --description-end: 0 0% 100%;
+    --description-foreground: 151 55% 24%;
   }
   .dark {
     --background: 24 50% 10%;
@@ -195,6 +213,13 @@
   }
   body {
     overflow-wrap: anywhere;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
   }
   img,
   video,
