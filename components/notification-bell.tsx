@@ -48,7 +48,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
+        <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
           {isLoading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
           {unreadCount > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
@@ -57,7 +57,7 @@ export function NotificationBell() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
+      <DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="w-[min(24rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] p-0">
         <div className="flex max-h-[min(32rem,70vh)] flex-col overflow-hidden">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
