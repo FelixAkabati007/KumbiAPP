@@ -646,29 +646,29 @@ function InventoryContent() {
           <CardContent className="p-0 relative z-10">
             <ScrollArea className="h-[calc(100vh-400px)]">
               <div className="p-6 pt-0">
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {filteredItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`flex min-w-0 flex-col items-stretch gap-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-2xl border hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors ${
+                      className={`flex min-w-0 items-center justify-between gap-2 rounded-xl border bg-white/50 p-2.5 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:gap-3 sm:p-3 ${
                         isLowStock(item)
                           ? "border-red-400 dark:border-red-600 animate-pulse"
                           : "border-orange-100 dark:border-orange-800"
                       }`}
                     >
-                      <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <div
-                          className={`p-3 rounded-xl ${getCategoryColor(
+                          className={`shrink-0 rounded-lg p-2 ${getCategoryColor(
                             item.category
                           )}`}
                         >
-                          <Package className="h-5 w-5" />
+                          <Package className="h-4 w-4" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+                          <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-200 sm:text-base">
                             {item.name}
                           </h3>
-                          <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
                             <span className="font-mono">{item.sku}</span>
                             <span>•</span>
                             <span className="capitalize">{item.category}</span>
@@ -682,10 +682,10 @@ function InventoryContent() {
                         </div>
                       </div>
 
-                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end sm:gap-6">
+                      <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
                         <div className="text-left sm:text-right">
                           <div
-                            className={`font-bold flex items-center justify-end gap-1 ${
+                            className={`flex items-center justify-end gap-1 text-sm font-bold sm:text-base ${
                               isLowStock(item)
                                 ? "text-red-600 dark:text-red-400"
                                 : "text-gray-800 dark:text-gray-200"
