@@ -355,7 +355,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Events</div>
-                <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, and assign delivery teams.</p>
+                <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, assign delivery teams, and prepare quotations through the Pricing desk.</p>
                 <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">Open Event Organization</Link>
               </CardContent>
             </Card>
