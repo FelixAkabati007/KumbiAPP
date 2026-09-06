@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const menuItemIds = Array.isArray(items) ? items.map((item: { id?: string }) => item.id).filter(Boolean) : [];
     if (menuItemIds.length > 0) {
       const stockResult = await query(
-        `SELECT menu_item_id, quantity FROM inventory WHERE menu_item_id = ANY($1::uuid[]) AND category IN ('ingredient', 'beverage')`,
+        `SELECT menu_item_id, quantity FROM inventory WHERE menu_item_id = ANY($1::uuid[]) AND category IN ('ingredient', 'beverage', 'supply')`,
         [menuItemIds]
       );
       const stockByMenuItem = new Map(stockResult.rows.map((row) => [String(row.menu_item_id), Number(row.quantity)]));
