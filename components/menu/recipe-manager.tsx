@@ -45,6 +45,15 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const [selectedInvId, setSelectedInvId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("units");
+  const [ingredientSearch, setIngredientSearch] = useState("");
+
+  const filteredInventoryItems = inventoryItems.filter((item) => {
+    const query = ingredientSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${item.name} ${item.unit} ${item.category ?? ""} ${item.sku ?? ""}`
+      .toLowerCase()
+      .includes(query);
+  });
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -115,7 +124,14 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
     <div className="min-w-0 space-y-3 sm:space-y-4">
       <div className="grid min-w-0 gap-3 rounded-lg border p-3 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-4 lg:p-4">
         <div className="min-w-0 md:col-span-2 lg:col-span-2">
-          <Label>Ingredient</Label>
+          <Label htmlFor="ingredient-search">Ingredient</Label>
+          <Input
+            id="ingredient-search"
+            value={ingredientSearch}
+            onChange={(event) => setIngredientSearch(event.target.value)}
+            placeholder="Search by ingredient name, keyword, SKU..."
+            className="mb-2 h-9"
+          />
           <Select
             value={selectedInvId}
             onValueChange={(val) => {
@@ -128,11 +144,17 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
               <SelectValue placeholder="Select ingredient..." />
             </SelectTrigger>
             <SelectContent>
-              {inventoryItems.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name} ({item.unit})
+              {filteredInventoryItems.length > 0 ? (
+                filteredInventoryItems.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name} ({item.unit})
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-matching-ingredients" disabled>
+                  No matching ingredients found.
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
         </div>
