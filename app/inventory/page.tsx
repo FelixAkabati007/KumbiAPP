@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import {
   TrendingDown,
   Sparkles,
   Building2,
+  Download,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -372,6 +374,33 @@ function InventoryContent() {
     }
   };
 
+  const handleExportRestockHistory = () => {
+    if (restockLogs.length === 0) {
+      toast({ title: "No restock history", description: "There are no restock records to download." });
+      return;
+    }
+
+    const rows = restockLogs.map((log) => ({
+      Item: log.details.item?.name || "Inventory item",
+      Category: log.details.item?.category || "Inventory",
+      "Quantity Before": log.details.quantityBefore ?? 0,
+      "Quantity Added": log.details.quantityAdded ?? 0,
+      "Quantity After": log.details.quantityAfter ?? 0,
+      Unit: log.details.unit || "units",
+      Supplier: log.details.supplier || "",
+      "Recorded At": new Date(log.created_at).toLocaleString(),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 16 },
+      { wch: 17 }, { wch: 12 }, { wch: 24 }, { wch: 24 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Restock History");
+    XLSX.writeFile(workbook, `restock-history-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: "Excel download started", description: `${rows.length} restock records exported.` });
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case "ingredient":
@@ -577,9 +606,14 @@ function InventoryContent() {
         {restockLogs.length > 0 && (
           <Card className="mb-6 border-orange-200 bg-white/70 shadow-xl dark:border-orange-700 dark:bg-gray-800/70">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-3 text-lg">
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-lg">
                 <span>Restock History</span>
-                <Badge variant="outline">Authorized staff only</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Authorized staff only</Badge>
+                  <Button type="button" variant="outline" size="sm" onClick={handleExportRestockHistory} className="border-orange-200 text-orange-700 dark:border-orange-700 dark:text-orange-300">
+                    <Download className="mr-2 h-4 w-4" /> Excel
+                  </Button>
+                </div>
               </CardTitle>
               <p className="text-sm text-muted-foreground">Quantity snapshots recorded whenever stock increases.</p>
             </CardHeader>
