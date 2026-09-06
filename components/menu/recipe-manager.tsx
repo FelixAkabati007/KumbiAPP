@@ -28,6 +28,25 @@ interface RecipeManagerProps {
   menuItemId: string;
 }
 
+function parseRecipeQuantity(value: string) {
+  const normalized = value.trim().replace(/\u2044/g, "/");
+  if (!normalized) return Number.NaN;
+
+  const mixed = normalized.match(/^(\d+(?:\.\d+)?)\s+(\d+)\/(\d+)$/);
+  if (mixed) {
+    const denominator = Number(mixed[3]);
+    return denominator > 0 ? Number(mixed[1]) + Number(mixed[2]) / denominator : Number.NaN;
+  }
+
+  const fraction = normalized.match(/^(\d+)\/(\d+)$/);
+  if (fraction) {
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? Number(fraction[1]) / denominator : Number.NaN;
+  }
+
+  return Number(normalized);
+}
+
 export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -73,7 +92,11 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   }, [loadData]);
 
   const handleAddIngredient = async () => {
-    if (!selectedInvId || !quantity) return;
+    const parsedQuantity = parseRecipeQuantity(quantity);
+    if (!selectedInvId || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      window.alert("Enter a valid quantity, such as 1.5 or 1 1/2.");
+      return;
+    }
 
     setIsAdding(true);
     try {
@@ -82,7 +105,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           inventory_item_id: selectedInvId,
-          quantity: parseFloat(quantity),
+          quantity: parsedQuantity,
           unit,
         }),
       });
@@ -167,11 +190,14 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           <Label>Quantity</Label>
           <Input
             className="h-9"
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            placeholder="0.00"
+            placeholder="1.5 or 1 1/2"
+            aria-describedby="recipe-quantity-help"
           />
+          <p id="recipe-quantity-help" className="mt-1 text-xs text-muted-foreground">Examples: 1.5 or 1 1/2</p>
         </div>
         <Button onClick={handleAddIngredient} disabled={isAdding} className="h-9 w-full md:w-auto">
           {isAdding ? (
