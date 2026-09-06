@@ -95,9 +95,9 @@ export async function POST(req: Request) {
         description ?? null,
         price,
         categoryId,
-        image ?? null,
-        barcode ?? null,
-        !!inStock,
+        image?.trim() || null,
+        barcode?.trim() || null,
+        inStock !== false,
       ]
     );
 

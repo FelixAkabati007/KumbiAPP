@@ -311,8 +311,12 @@ function MenuContent() {
       setFormErrors({});
       console.debug("✅ [MenuPage] Save operation completed");
     } catch (err) {
-      console.error("❌ [MenuPage] Error saving item:", err);
-      alert("Error saving item. Please check your input and try again.");
+      console.error("[MenuPage] Error saving item:", err);
+      toast({
+        title: "Unable to save menu item",
+        description: err instanceof Error ? err.message : "Please check your input and try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
