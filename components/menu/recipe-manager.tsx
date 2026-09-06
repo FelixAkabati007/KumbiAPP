@@ -47,10 +47,14 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const [unit, setUnit] = useState("units");
   const [ingredientSearch, setIngredientSearch] = useState("");
 
-  const filteredInventoryItems = inventoryItems.filter((item) => {
+  const foodInventoryItems = inventoryItems.filter((item) =>
+    ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase())
+  );
+
+  const filteredInventoryItems = foodInventoryItems.filter((item) => {
     const query = ingredientSearch.trim().toLowerCase();
     if (!query) return true;
-    return `${item.name} ${item.unit} ${item.category ?? ""} ${item.sku ?? ""}`
+    return `${item.name} ${item.unit} ${item.category ?? ""} ${item.sku ?? ""} ${item.supplier ?? ""}`
       .toLowerCase()
       .includes(query);
   });
@@ -131,7 +135,13 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
             onChange={(event) => setIngredientSearch(event.target.value)}
             placeholder="Search by ingredient name, keyword, SKU..."
             className="mb-2 h-9"
+            aria-describedby="ingredient-search-help"
           />
+          <p id="ingredient-search-help" className="mb-2 text-xs text-muted-foreground">
+            {ingredientSearch.trim()
+              ? `${filteredInventoryItems.length} matching food item${filteredInventoryItems.length === 1 ? "" : "s"}`
+              : `${foodInventoryItems.length} food items available`}
+          </p>
           <Select
             value={selectedInvId}
             onValueChange={(val) => {
@@ -143,7 +153,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Select ingredient..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-72">
               {filteredInventoryItems.length > 0 ? (
                 filteredInventoryItems.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
