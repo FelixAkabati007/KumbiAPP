@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -13,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trash2, Plus, Loader2, ChevronDown } from "lucide-react";
+import { Trash2, Plus, Loader2 } from "lucide-react";
 import { getInventoryItems } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
 
@@ -123,51 +122,46 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
       <div className="grid min-w-0 gap-3 rounded-lg border p-3 bg-gray-50 dark:bg-gray-900/50 md:grid-cols-2 lg:grid-cols-4 lg:items-end lg:gap-4 lg:p-4">
         <div className="min-w-0 md:col-span-2 lg:col-span-2">
           <Label htmlFor="ingredient-search">Ingredient</Label>
-          <Input
-            id="ingredient-search"
-            value={ingredientSearch}
-            onChange={(event) => setIngredientSearch(event.target.value)}
-            placeholder="Search by ingredient name, keyword, SKU..."
-            className="mb-2 h-9"
-            aria-describedby="ingredient-search-help"
-          />
-          <p id="ingredient-search-help" className="mb-2 text-xs text-muted-foreground">
-            {ingredientSearch.trim()
-              ? `${filteredInventoryItems.length} matching food item${filteredInventoryItems.length === 1 ? "" : "s"}`
-              : `${foodInventoryItems.length} food items available`}
-          </p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="outline" className="h-9 w-full justify-between font-normal">
-                {selectedInvId
-                  ? inventoryItems.find((item) => item.id === selectedInvId)?.name || "Select ingredient..."
-                  : "Select ingredient..."}
-                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[min(26rem,calc(100vw-2rem))] p-2">
-              <div className="max-h-72 overflow-y-auto">
+          <div className="relative">
+            <Input
+              id="ingredient-search"
+              value={selectedInvId ? inventoryItems.find((item) => item.id === selectedInvId)?.name || ingredientSearch : ingredientSearch}
+              onChange={(event) => {
+                setSelectedInvId("");
+                setIngredientSearch(event.target.value);
+              }}
+              onFocus={() => selectedInvId && setIngredientSearch("")}
+              placeholder="Search or select ingredient..."
+              className="h-9"
+              aria-describedby="ingredient-search-help"
+            />
+            {ingredientSearch.trim() && !selectedInvId && (
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background p-1 shadow-lg">
                 {filteredInventoryItems.length > 0 ? (
                   filteredInventoryItems.map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                      className="flex w-full rounded-md px-3 py-2 text-left text-sm hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
                         setSelectedInvId(item.id);
+                        setIngredientSearch("");
                         setUnit(item.unit);
                       }}
                     >
-                      <span className="min-w-0 truncate">{item.name}</span>
-                      <span className="ml-3 shrink-0 text-xs text-muted-foreground">{item.unit} · {item.sku || item.category}</span>
+                      <span className="truncate">{item.name}</span>
                     </button>
                   ))
                 ) : (
-                  <p className="px-3 py-4 text-center text-sm text-muted-foreground">No matching ingredients found.</p>
+                  <p className="px-3 py-3 text-center text-sm text-muted-foreground">No matching ingredients found.</p>
                 )}
               </div>
-            </PopoverContent>
-          </Popover>
+            )}
+          </div>
+          <p id="ingredient-search-help" className="mt-1 text-xs text-muted-foreground">
+            {selectedInvId ? "Ingredient selected" : `${foodInventoryItems.length} food items available`}
+          </p>
         </div>
         <div>
           <Label>Quantity</Label>
