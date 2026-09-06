@@ -231,10 +231,8 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
               <span className="inline-block min-w-0 truncate font-bold text-base text-gray-800 dark:text-gray-200 sm:text-lg lg:text-xl">
                 {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
-                {/* Mobile view: KHRMS (max-width: 768px) */}
-                <span className="md:hidden">KHRMS</span>
-                {/* Desktop view: Full Name */}
-                <span className="hidden lg:inline" suppressHydrationWarning>
+                <span className="sm:hidden">KHRMS</span>
+                <span className="hidden min-w-0 truncate sm:inline" suppressHydrationWarning>
                   {settings.account.restaurantName}
                 </span>
               </span>
@@ -276,9 +274,6 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
                     className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent relative group"
                   >
                     <LogOut className="h-4 w-4" />
-                    <span className="absolute -top-1 -right-1 text-xs bg-orange-500 text-white rounded-full w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      L
-                    </span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
