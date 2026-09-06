@@ -44,7 +44,10 @@ export async function createMenuItem(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
-    if (!res.ok) throw new Error("Failed to create menu item");
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(data?.error || `Failed to create menu item (${res.status})`);
+    }
     const data = await res.json();
     return { ...item, id: data.id } as MenuItem;
   } catch (error) {

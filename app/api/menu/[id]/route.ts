@@ -108,7 +108,7 @@ export async function PUT(
     }
     if (barcode !== undefined) {
       fields.push(`barcode = $${idx++}`);
-      values.push(barcode);
+      values.push(typeof barcode === "string" ? barcode.trim() || null : barcode);
     }
     if (inStock !== undefined) {
       fields.push(`is_available = $${idx++}`);
