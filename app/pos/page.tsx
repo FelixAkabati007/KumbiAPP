@@ -84,6 +84,7 @@ function POSContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
+  const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState("dine-in");
   const [tableNumber, setTableNumber] = useState("");
@@ -129,6 +130,33 @@ function POSContent() {
         ? generateOrderId()
         : ""
     );
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAvailability = async () => {
+      try {
+        const response = await fetch("/api/inventory", { cache: "no-store" });
+        if (!response.ok) return;
+        const items = await response.json();
+        if (cancelled) return;
+        setInventoryAvailability(
+          Object.fromEntries(
+            items
+              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage"].includes(item.category ?? ""))
+              .map((item: { menuItemId: string; quantity: string }) => [item.menuItemId, Number(item.quantity) || 0])
+          )
+        );
+      } catch {
+        // Keep the last known availability if inventory polling is unavailable.
+      }
+    };
+    loadAvailability();
+    const interval = window.setInterval(loadAvailability, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, []);
 
   // Reload menu items periodically or when triggered (via polling if needed)
@@ -193,7 +221,16 @@ function POSContent() {
   };
 
   // Add item to current order
+  const isItemAvailable = (item: MenuItem) => {
+    const quantity = inventoryAvailability[item.id];
+    return quantity === undefined ? item.inStock : quantity > 0;
+  };
+
   const addItemToOrder = (item: MenuItem) => {
+    if (!isItemAvailable(item)) {
+      toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
+      return;
+    }
     setCurrentOrder((prev) => {
       const existingItem = prev.find((orderItem) => orderItem.id === item.id);
 
@@ -223,6 +260,11 @@ function POSContent() {
 
   // Update item quantity in order
   const updateItemQuantity = (itemId: string, newQuantity: number) => {
+    const orderItem = currentOrder.find((item) => item.id === itemId);
+    if (orderItem && newQuantity > 0 && !isItemAvailable(orderItem)) {
+      toast({ title: "Out of Stock", description: `${orderItem.name} is no longer available.`, variant: "destructive" });
+      return;
+    }
     if (newQuantity <= 0) {
       setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
     } else {
@@ -738,13 +780,15 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               {filteredItems.map((item) => (
                 <Card
                   key={item.id}
-                  className="cursor-pointer overflow-hidden bg-white/70 backdrop-blur-sm border border-orange-200 dark:bg-gray-800/70 dark:border-orange-700 rounded-2xl transition-shadow duration-200 hover:border-orange-400 hover:shadow-lg sm:rounded-3xl sm:hover:scale-[1.02] relative"
-                  onClick={() => addItemToOrder(item)}
+  className={`relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
+  onClick={() => addItemToOrder(item)}
+  aria-disabled={!isItemAvailable(item)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
                   <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden sm:aspect-[5/3] sm:rounded-t-3xl">
-                    {(() => {
-                      if (!item.image) {
+  <div className={!isItemAvailable(item) ? "grayscale" : undefined}>
+  {(() => {
+  if (!item.image) {
                         return (
                           <div className="flex items-center justify-center h-full">
                             <ImageIcon className="h-8 w-8 text-muted-foreground" />
@@ -792,15 +836,14 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                           }}
                         />
                       );
-                    })()}
-                    {!item.inStock && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Badge variant="destructive" className="rounded-full">
-                          Out of Stock
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
+  })()}
+  </div>
+  {!isItemAvailable(item) && (
+  <div className="absolute inset-0 flex items-center justify-center bg-black/45">
+  <Badge variant="destructive" className="rounded-full px-3 py-1 text-sm">Out of Stock</Badge>
+  </div>
+  )}
+  </div>
                   <CardHeader className="p-2 relative z-10 sm:p-3">
                     <CardTitle className="text-sm line-clamp-2">
                       {item.name}

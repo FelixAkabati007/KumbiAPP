@@ -82,6 +82,20 @@ export async function POST(req: Request) {
       estimatedTime,
     } = body;
 
+    const menuItemIds = Array.isArray(items) ? items.map((item: { id?: string }) => item.id).filter(Boolean) : [];
+    if (menuItemIds.length > 0) {
+      const stockResult = await query(
+        `SELECT menu_item_id, quantity FROM inventory WHERE menu_item_id = ANY($1::uuid[]) AND category IN ('ingredient', 'beverage')`,
+        [menuItemIds]
+      );
+      const stockByMenuItem = new Map(stockResult.rows.map((row) => [String(row.menu_item_id), Number(row.quantity)]));
+      const unavailable = (items as Array<{ id?: string; name?: string; quantity?: number }>)
+        .find((item) => item.id && stockByMenuItem.has(String(item.id)) && Number(item.quantity ?? 0) > (stockByMenuItem.get(String(item.id)) ?? 0));
+      if (unavailable) {
+        return NextResponse.json({ error: `${unavailable.name ?? "Item"} is out of stock` }, { status: 409 });
+      }
+    }
+
     const orderResult = await query(
       `INSERT INTO kitchenorders (
         ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status
