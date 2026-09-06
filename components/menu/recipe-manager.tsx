@@ -4,13 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -19,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trash2, Plus, Loader2 } from "lucide-react";
+import { Trash2, Plus, Loader2, ChevronDown } from "lucide-react";
 import { getInventoryItems } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
 
@@ -142,31 +136,38 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
               ? `${filteredInventoryItems.length} matching food item${filteredInventoryItems.length === 1 ? "" : "s"}`
               : `${foodInventoryItems.length} food items available`}
           </p>
-          <Select
-            value={selectedInvId}
-            onValueChange={(val) => {
-              setSelectedInvId(val);
-              const item = inventoryItems.find((i) => i.id === val);
-              if (item) setUnit(item.unit);
-            }}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Select ingredient..." />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              {filteredInventoryItems.length > 0 ? (
-                filteredInventoryItems.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} ({item.unit})
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="no-matching-ingredients" disabled>
-                  No matching ingredients found.
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" className="h-9 w-full justify-between font-normal">
+                {selectedInvId
+                  ? inventoryItems.find((item) => item.id === selectedInvId)?.name || "Select ingredient..."
+                  : "Select ingredient..."}
+                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(26rem,calc(100vw-2rem))] p-2">
+              <div className="max-h-72 overflow-y-auto">
+                {filteredInventoryItems.length > 0 ? (
+                  filteredInventoryItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                      onClick={() => {
+                        setSelectedInvId(item.id);
+                        setUnit(item.unit);
+                      }}
+                    >
+                      <span className="min-w-0 truncate">{item.name}</span>
+                      <span className="ml-3 shrink-0 text-xs text-muted-foreground">{item.unit} · {item.sku || item.category}</span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-4 text-center text-sm text-muted-foreground">No matching ingredients found.</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
           <Label>Quantity</Label>
