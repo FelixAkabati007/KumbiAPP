@@ -13,6 +13,13 @@ export async function PUT(
     const body = await req.json();
     const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem } = body;
 
+    const beforeResult = await query(
+      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price FROM inventory WHERE id = $1",
+      [id]
+    );
+    const before = beforeResult.rows[0];
+    if (!before) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
     let idx = 1;
@@ -58,6 +65,26 @@ export async function PUT(
 
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    const nextQuantity = quantity === undefined ? Number(before.quantity) : Number(quantity);
+    if (Number.isFinite(nextQuantity) && nextQuantity > Number(before.quantity)) {
+      await logAudit({
+        action: "RESTOCK_INVENTORY",
+        entityType: "INVENTORY",
+        entityId: id,
+        details: {
+          item: before,
+          quantityBefore: Number(before.quantity),
+          quantityAdded: nextQuantity - Number(before.quantity),
+          quantityAfter: nextQuantity,
+          unit: unit ?? before.unit,
+          supplier: supplier ?? before.supplier,
+          cost: cost ?? before.cost_price,
+        },
+        performedBy: session?.id,
+        ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+      });
     }
 
     await logAudit({
