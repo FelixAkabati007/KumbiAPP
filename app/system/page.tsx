@@ -50,7 +50,7 @@ function SystemContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-3 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -58,11 +58,11 @@ function SystemContent() {
           <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
           <Monitor className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          <h1 className="truncate text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">
             System Monitoring
           </h1>
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
           <Button
             variant="outline"
             size="sm"
@@ -88,7 +88,7 @@ function SystemContent() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-6">
+      <main className="flex-1 px-3 py-4 sm:p-4 md:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* System Status Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -164,13 +164,13 @@ function SystemContent() {
 
           {/* Main Dashboard */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg">
+            <TabsList className="grid h-auto w-full grid-cols-3 overflow-hidden rounded-xl border border-orange-200 bg-white/70 p-1 shadow-lg dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-full">
               <TabsTrigger
                 value="overview"
                 className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
               >
-                <Monitor className="h-4 w-4 mr-2" />
-                Overview
+                <Monitor className="mr-1 h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Overview</span><span className="sm:hidden">View</span>
               </TabsTrigger>
               <TabsTrigger
                 value="hardware"
@@ -201,7 +201,7 @@ function SystemContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {/* Cash Drawer Status */}
                     <Card>
                       <CardHeader className="pb-2">
