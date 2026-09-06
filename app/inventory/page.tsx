@@ -669,7 +669,7 @@ function InventoryContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden rounded-3xl border border-orange-200 bg-white/95 p-4 backdrop-blur-md dark:border-orange-700 dark:bg-gray-800/95 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-orange-800 dark:text-orange-200">
                 {isNewItem ? "Add Inventory Item" : "Edit Inventory Item"}
@@ -682,6 +682,7 @@ function InventoryContent() {
             </DialogHeader>
 
             {editingItem && (
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label
@@ -699,7 +700,7 @@ function InventoryContent() {
                     className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label
                       htmlFor="sku"
@@ -771,7 +772,7 @@ function InventoryContent() {
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.unit}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label
                       htmlFor="reorderLevel"
@@ -830,19 +831,21 @@ function InventoryContent() {
                   />
                 </div>
               </div>
+
+              </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
-                className="rounded-2xl border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
+                className="w-full rounded-2xl border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveItem}
-                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+                className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:w-auto"
               >
                 <Save className="mr-2 h-4 w-4" />
                 {isNewItem ? "Add Item" : "Save Changes"}
