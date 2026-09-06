@@ -52,6 +52,7 @@ import {
   generateProductOrderNumber,
 } from "@/lib/data";
 import type { MenuItem, OrderItem, ReceiptData } from "@/lib/types";
+import { isInventoryAvailable } from "@/lib/inventory-availability";
 import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -85,6 +86,7 @@ function POSContent() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
+  const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState("dine-in");
   const [tableNumber, setTableNumber] = useState("");
@@ -143,8 +145,15 @@ function POSContent() {
         setInventoryAvailability(
           Object.fromEntries(
             items
-              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage"].includes(item.category ?? ""))
+              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage", "supply"].includes(item.category ?? ""))
               .map((item: { menuItemId: string; quantity: string }) => [item.menuItemId, Number(item.quantity) || 0])
+          )
+        );
+        setInventoryCategories(
+          Object.fromEntries(
+            items
+              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage", "supply"].includes(item.category ?? ""))
+              .map((item: { menuItemId: string; category: string }) => [item.menuItemId, item.category])
           )
         );
       } catch {
@@ -223,7 +232,9 @@ function POSContent() {
   // Add item to current order
   const isItemAvailable = (item: MenuItem) => {
     const quantity = inventoryAvailability[item.id];
-    return quantity === undefined ? item.inStock : quantity > 0;
+    return quantity === undefined
+      ? item.inStock
+      : isInventoryAvailable({ quantity, category: inventoryCategories[item.id], menuItemId: item.id });
   };
 
   const addItemToOrder = (item: MenuItem) => {
