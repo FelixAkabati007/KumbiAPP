@@ -44,8 +44,11 @@ export async function POST(request: Request) {
 
   const announcement = await transaction(async (client) => {
     const created = await client.query(`INSERT INTO announcements (title, message, priority, audience_type, audience_roles, created_by, created_by_name, created_by_role, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, title, message, priority, audience_type, audience_roles, created_by_name, created_by_role, created_at, expires_at`, [title, message, priority, audienceType, audienceRoles, session.id, session.email, session.role, body?.expiresAt || null]);
-    const target = audienceType === "all" ? "u.is_active = true" : "u.is_active = true AND u.role::text = ANY($4::text[])";
-    await client.query(`INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE ${target}`, [title, message, body?.expiresAt || null, audienceRoles]);
+    const notificationSql = audienceType === "all"
+      ? `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true`
+      : `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true AND u.role::text = ANY($4::text[])`;
+    const notificationParams = audienceType === "all" ? [title, message, body?.expiresAt || null] : [title, message, body?.expiresAt || null, audienceRoles];
+    await client.query(notificationSql, notificationParams);
     return created.rows[0];
   });
   await fetch(new URL("/api/realtime", request.url), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: "announcements.updated", resource: announcement.id }) }).catch(() => undefined);
