@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
          WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
         ["Attendance check-in awaiting confirmation", `${session.email} checked in at ${new Date().toLocaleTimeString()}. Please confirm their presence.`, session.id],
       );
+      await publishRealtime("attendance.updated", session.id);
       return NextResponse.json({ record: inserted.rows[0], nextAction: "check_out", message: "Check-in successful" }, { status: 201 });
     }
     if (!current?.check_in_at || current.check_out_at) return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
        WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
       ["Attendance check-out recorded", `${session.email} checked out at ${new Date().toLocaleTimeString()}.`, session.id],
     );
+    await publishRealtime("attendance.updated", session.id);
     return NextResponse.json({ record: updated.rows[0], nextAction: "complete", message: "Check-out successful" });
   } catch (cause) {
     console.error("[attendance] register action failed", cause);
