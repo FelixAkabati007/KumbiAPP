@@ -48,9 +48,9 @@ export async function POST(request: Request) {
       ? `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true`
       : `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true AND u.role::text = ANY($4::text[])`;
     const notificationParams = audienceType === "all" ? [title, message, body?.expiresAt || null] : [title, message, body?.expiresAt || null, audienceRoles];
-    await client.query(notificationSql, notificationParams);
-    return created.rows[0];
+    const delivered = await client.query(notificationSql, notificationParams);
+    return { announcement: created.rows[0], recipientCount: delivered.rowCount ?? 0 };
   });
-  await fetch(new URL("/api/realtime", request.url), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: "announcements.updated", resource: announcement.id }) }).catch(() => undefined);
-  return NextResponse.json({ announcement }, { status: 201 });
+  await fetch(new URL("/api/realtime", request.url), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: "announcements.updated", resource: announcement.announcement.id }) }).catch(() => undefined);
+  return NextResponse.json(announcement, { status: 201 });
 }
