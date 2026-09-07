@@ -291,6 +291,50 @@
   overflow-wrap: anywhere;
 }
 
+.dashboard-filter-button,
+.dashboard-primary-action,
+.dashboard-launcher-action {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.dashboard-filter-button::after,
+.dashboard-primary-action::after,
+.dashboard-launcher-action::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 25%, rgb(255 255 255 / 0.28) 50%, transparent 75%);
+  content: "";
+  transform: translateX(-120%);
+  transition: transform 500ms ease;
+}
+
+.dashboard-filter-button:hover::after,
+.dashboard-primary-action:hover::after,
+.dashboard-launcher-action:hover::after {
+  transform: translateX(120%);
+}
+
+.dashboard-filter-button:focus-visible,
+.dashboard-primary-action:focus-visible,
+.dashboard-launcher-action:focus-visible {
+  outline: 2px solid rgb(234 88 12 / 0.55);
+  outline-offset: 3px;
+}
+
+.dashboard-launcher-action {
+  min-height: 2.5rem;
+  letter-spacing: 0.01em;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.dashboard-launcher-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgb(234 88 12 / 0.18);
+}
+
 .dashboard-launcher-card [data-slot="card-content"] {
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
