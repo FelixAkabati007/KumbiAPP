@@ -11,6 +11,8 @@ export type UserRole =
   | "frontDesk"
   | "housekeeping";
 
+export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
+
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: "Administrator",
   manager: "General Manager",
