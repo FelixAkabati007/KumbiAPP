@@ -32,7 +32,6 @@ interface Authorization {
 export function ComplimentaryAuthorizationsPanel() {
   const [items, setItems] = useState<Authorization[]>([]);
   const [guestName, setGuestName] = useState("");
-  const [amount, setAmount] = useState("");
   const [validUntil, setValidUntil] = useState(() => {
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const local = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
@@ -82,8 +81,8 @@ export function ComplimentaryAuthorizationsPanel() {
   };
 
   const createAuthorization = async () => {
-    if (!guestName.trim() || Number(amount) <= 0 || !reason.trim()) {
-      setMessage("Guest, a positive amount, and a business reason are required.");
+    if (!guestName.trim() || !reason.trim()) {
+      setMessage("Guest and a business reason are required.");
       return;
     }
     const expiry = new Date(validUntil);
@@ -96,12 +95,12 @@ export function ComplimentaryAuthorizationsPanel() {
     const response = await fetch("/api/admin/complimentary-authorizations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guestName, scope, approvedAmount: amount, validUntil, reason, ceoReference: reference, roomId: roomId || undefined, stayNights: roomId ? Number(stayNights) : undefined, activateStay }),
+      body: JSON.stringify({ guestName, scope, validUntil, reason, ceoReference: reference, roomId: roomId || undefined, stayNights: roomId ? Number(stayNights) : undefined, activateStay }),
     });
     const data = await response.json();
     if (!response.ok) setMessage(data.error || "Unable to create authorization");
     else {
-      setGuestName(""); setAmount(""); setRoomId(""); setStayNights("1"); setValidUntil(() => {
+      setGuestName(""); setRoomId(""); setStayNights("1"); setValidUntil(() => {
         const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const local = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
         return local.toISOString().slice(0, 16);
@@ -126,7 +125,6 @@ export function ComplimentaryAuthorizationsPanel() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Input aria-label="Guest name" placeholder="Guest name" value={guestName} onChange={(event) => setGuestName(event.target.value)} />
-          <Input aria-label="Approved amount" type="number" min="0" placeholder="Approved amount" value={amount} onChange={(event) => setAmount(event.target.value)} />
           <Input aria-label="Valid until" type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
           <select aria-label="Scope" className="h-10 rounded-md border bg-background px-3 text-sm" value={scope} onChange={(event) => setScope(event.target.value)}>
             <option value="both">Hotel and restaurant</option><option value="hotel">Hotel</option><option value="restaurant">Restaurant</option><option value="event">Event Organization</option>
@@ -141,7 +139,7 @@ export function ComplimentaryAuthorizationsPanel() {
           <Textarea aria-label="Business reason" className="sm:col-span-2 lg:col-span-3" placeholder="Business reason" value={reason} onChange={(event) => setReason(event.target.value)} />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button className="w-full sm:w-auto" onClick={() => void createAuthorization()} disabled={saving || !guestName || !amount || !validUntil || !reason}>{saving ? "Creating..." : "Create authorization"}</Button>
+          <Button className="w-full sm:w-auto" onClick={() => void createAuthorization()} disabled={saving || !guestName || !validUntil || !reason}>{saving ? "Creating..." : "Create authorization"}</Button>
           {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -153,8 +151,8 @@ export function ComplimentaryAuthorizationsPanel() {
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2 pr-1" aria-label="Authorized exceptions list">
           {items.length === 0 ? <p className="p-2 text-sm text-muted-foreground">No complimentary authorizations recorded.</p> : items.map((item) => (
             <div key={item.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used {formatCurrency(item.used_amount)} · Remaining {formatCurrency(item.remaining_amount || item.approved_amount)}</p></div>
-              <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{formatCurrency(item.approved_amount)}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge><Button size="sm" variant="outline" onClick={() => void viewAuthorization(item.id)} disabled={detailLoading}><Eye className="mr-1 h-4 w-4" /> View</Button>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
+              <div><p className="font-medium">{item.guest_name} · {item.scope}</p><p className="text-xs text-muted-foreground">{item.reason} · Expires {new Date(item.valid_until).toLocaleString()}</p><p className="text-xs text-muted-foreground">Used complimentary value {formatCurrency(item.used_amount)}</p></div>
+              <div className="flex flex-wrap items-center gap-2"><Badge variant={item.status === "active" ? "default" : "secondary"}>{item.status}</Badge><Button size="sm" variant="outline" onClick={() => void viewAuthorization(item.id)} disabled={detailLoading}><Eye className="mr-1 h-4 w-4" /> View</Button>{item.status === "active" && <Button size="sm" variant="outline" onClick={() => void revokeAuthorization(item.id)}>Revoke</Button>}</div>
             </div>
           ))}
         </div>
@@ -166,7 +164,7 @@ export function ComplimentaryAuthorizationsPanel() {
             <DialogDescription>Admin-only audit view for this authorized exception.</DialogDescription>
           </DialogHeader>
           {selected && <div className="space-y-4 text-sm">
-            <div className="grid gap-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Guest</p><p className="font-medium">{selected.guest_name}</p></div><div><p className="text-muted-foreground">Scope</p><p className="font-medium capitalize">{selected.scope}</p></div><div><p className="text-muted-foreground">Approved</p><p className="font-medium">{formatCurrency(selected.approved_amount)}</p></div><div><p className="text-muted-foreground">Used</p><p className="font-medium">{formatCurrency(selected.used_amount)}</p></div><div><p className="text-muted-foreground">Remaining</p><p className="font-medium">{formatCurrency(selected.remaining_amount)}</p></div><div><p className="text-muted-foreground">Status</p><Badge variant={selected.status === "active" ? "default" : "secondary"}>{selected.status}</Badge></div></div>
+            <div className="grid gap-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Guest</p><p className="font-medium">{selected.guest_name}</p></div><div><p className="text-muted-foreground">Scope</p><p className="font-medium capitalize">{selected.scope}</p></div><div><p className="text-muted-foreground">Used</p><p className="font-medium">{formatCurrency(selected.used_amount)}</p></div><div><p className="text-muted-foreground">Remaining</p><p className="font-medium">{formatCurrency(selected.remaining_amount)}</p></div><div><p className="text-muted-foreground">Status</p><Badge variant={selected.status === "active" ? "default" : "secondary"}>{selected.status}</Badge></div></div>
             <div><p className="text-muted-foreground">Business reason</p><p className="mt-1 leading-6">{selected.reason}</p></div>
             {(selected.room_id || selected.stay_nights) && <div className="rounded-md border bg-muted/30 p-3"><p className="font-medium">VIP stay controls</p><p className="text-muted-foreground">Room linked: {selected.room_id || "Booking pending"} · {selected.stay_nights || 0} night(s)</p><p className="text-muted-foreground">Room waiver: {selected.room_waived ? "Automatic" : "Not enabled"} · Folio waiver: {selected.folio_waived ? "Automatic" : "Not enabled"}</p></div>}
             <div className="grid gap-3 border-t pt-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Valid until</p><p>{new Date(selected.valid_until).toLocaleString()}</p></div><div><p className="text-muted-foreground">Created</p><p>{new Date(selected.created_at).toLocaleString()}</p></div></div>
