@@ -316,13 +316,13 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
             {canSwitchDashboardCategories && (
               <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
-                  <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
+                  <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
                   </Button>
                 ))}
               </div>
             )}
-            <Link href={roleDashboard.primaryHref} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>
+            <Link href={roleDashboard.primaryHref} className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>
             <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
               <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
@@ -383,7 +383,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/pos" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Open POS
                   </Button>
                 </Link>
@@ -436,7 +436,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/kitchen" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Kitchen
                   </Button>
                 </Link>
@@ -489,7 +489,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/order-display?mode=grid" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Orders
                   </Button>
                 </Link>
@@ -515,7 +515,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/menu" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Manage Menu
                   </Button>
                 </Link>
@@ -541,7 +541,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/inventory" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Inventory
                   </Button>
                 </Link>
@@ -560,7 +560,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
         <p className="text-xs text-muted-foreground">Coordinate hotel and restaurant technical issues</p>
       </CardContent>
       <CardFooter className="relative z-10">
-        <Link href="/operations" className="w-full"><Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">Open Operations</Button></Link>
+        <Link href="/operations" className="w-full"><Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">Open Operations</Button></Link>
       </CardFooter>
     </Card>
   )}
@@ -577,7 +577,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/finance" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">Open Finance</Button>
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">Open Finance</Button>
                 </Link>
               </CardFooter>
             </Card>
@@ -601,7 +601,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/reports" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Reports
                   </Button>
                 </Link>
@@ -627,7 +627,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/refunds" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Manage Refunds
                   </Button>
                 </Link>
@@ -653,7 +653,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/payments" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Payments
                   </Button>
                 </Link>
@@ -709,7 +709,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/receipt" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Receipts
                   </Button>
                 </Link>
@@ -735,7 +735,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/system" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View System
                   </Button>
                 </Link>
