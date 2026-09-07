@@ -10,10 +10,12 @@ export async function GET() {
   try {
     const result = await query(
       `SELECT id, check_in_at, check_out_at, status, verification_status, verified_at, late_minutes, early_checkout_minutes, notes
-       FROM attendance_records WHERE staff_id = $1 ORDER BY created_at DESC LIMIT 1`,
+       FROM attendance_records WHERE staff_id = $1 AND check_in_at::date = CURRENT_DATE ORDER BY check_in_at DESC LIMIT 1`,
       [session.id]
     );
-    return NextResponse.json({ record: result.rows[0] ?? null });
+    const record = result.rows[0] ?? null;
+    const nextAction = record?.check_in_at && !record?.check_out_at ? "check_out" : record?.check_out_at ? "complete" : "check_in";
+    return NextResponse.json({ record, nextAction });
   } catch (cause) {
     console.error("[attendance] status failed", cause);
     return NextResponse.json({ error: "Unable to load register status" }, { status: 500 });
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
          WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
         ["Attendance check-in awaiting confirmation", `${session.email} checked in at ${new Date().toLocaleTimeString()}. Please confirm their presence.`, session.id],
       );
-      return NextResponse.json({ record: inserted.rows[0] }, { status: 201 });
+      return NextResponse.json({ record: inserted.rows[0], nextAction: "check_out", message: "Check-in successful" }, { status: 201 });
     }
     if (!current?.check_in_at || current.check_out_at) return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
     const updated = await query(
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
        WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
       ["Attendance check-out recorded", `${session.email} checked out at ${new Date().toLocaleTimeString()}.`, session.id],
     );
-    return NextResponse.json({ record: updated.rows[0] });
+    return NextResponse.json({ record: updated.rows[0], nextAction: "complete", message: "Check-out successful" });
   } catch (cause) {
     console.error("[attendance] register action failed", cause);
     return NextResponse.json({ error: "Unable to update register" }, { status: 500 });
