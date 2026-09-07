@@ -4,17 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
+import { AuthShell, AuthSpinner } from "@/components/auth-shell";
+import { forgotPasswordSchema } from "@/lib/validations/auth";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -24,9 +17,14 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
     setSuccess(false);
+    const parsed = forgotPasswordSchema.safeParse({ email });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please enter a valid email address");
+      return;
+    }
+    setLoading(true);
 
     try {
       const res = await fetch("/api/auth/forgot-password", {
@@ -54,22 +52,14 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 dark:bg-gray-950">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Reset Password</CardTitle>
-          <CardDescription>
-            Enter your email address and we&apos;ll send you a link to reset
-            your password.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthShell title="Reset password" description="Enter your email address and we&apos;ll send reset instructions if an account exists." footer={<Link href="/login" className="flex items-center justify-center text-sm text-orange-600 hover:underline dark:text-orange-400"><ArrowLeft className="mr-2 h-4 w-4" />Back to login</Link>}>
+        <div className="space-y-4">
           {success ? (
             <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-300">
               <CheckCircle2 className="h-4 w-4" color="currentColor" />
               <AlertTitle>Check your email</AlertTitle>
               <AlertDescription>
-                We have sent a password reset link to <strong>{email}</strong>.
+                If an account exists for this email, we&apos;ll send reset instructions shortly.
               </AlertDescription>
             </Alert>
           ) : (
@@ -82,7 +72,7 @@ export default function ForgotPasswordPage() {
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email address</label>
                 <Input
                   id="email"
                   type="email"
@@ -94,21 +84,12 @@ export default function ForgotPasswordPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Sending link..." : "Send Reset Link"}
+                {loading ? <AuthSpinner label="Sending link..." /> : "Send reset link"}
               </Button>
             </form>
           )}
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <Link
-            href="/login"
-            className="flex items-center text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Login
-          </Link>
-        </CardFooter>
-      </Card>
-    </div>
+          {success && <Button type="button" variant="outline" className="w-full" onClick={() => { setSuccess(false); setError(""); }}>Use a different email</Button>}
+        </div>
+    </AuthShell>
   );
 }
