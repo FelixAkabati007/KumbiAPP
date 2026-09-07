@@ -6,13 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { AuthShell, AuthSpinner } from "@/components/auth-shell";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
@@ -33,7 +27,6 @@ export function SignInForm() {
   const { showLoading, hideLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const restaurantName = "Kumbisaly Heritage Restaurant";
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -56,59 +49,18 @@ export function SignInForm() {
         window.location.href = "/";
       } else {
         setError("Invalid email or password. Please try again.");
-        hideLoading();
       }
     } catch (err) {
       console.error("Sign in error:", err);
-      setError("An error occurred during sign in. Please try again.");
-      hideLoading();
+      setError("Sign in is temporarily unavailable. Please try again.");
     } finally {
       hideLoading();
     }
   };
 
   return (
-    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-6 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="space-y-3 text-center sm:space-y-4">
-          <div className="flex justify-center">
-            <LogoDisplay size="md" />
-          </div>
-          <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">
-                <span>{restaurantName}</span>
-              </h1>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Point of Sale System
-            </p>
-          </div>
-        </div>
-
-        {/* Sign In Card */}
-        <Card className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70 md:hover:scale-105">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-
-          <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10 text-center">
-            <CardTitle className="flex items-center justify-center gap-2 text-lg text-gray-800 dark:text-gray-200 sm:text-xl">
-              <div className="p-2 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-full shadow-lg">
-                <Lock className="h-5 w-5 text-white" />
-              </div>
-              Sign In to POS
-            </CardTitle>
-            <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-              Enter your credentials to access the sales terminal
-              {!isDatabaseReady && (
-                <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Connecting to Neon database...
-                </div>
-              )}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="relative z-10 space-y-5 p-4 sm:p-6">
+    <AuthShell title="Sign in to POS" description={<>Enter your credentials to access the sales terminal{!isDatabaseReady && <span className="mt-2 block text-xs text-amber-600 dark:text-amber-400">Connecting to database. Please wait...</span>}</>} footer={<p className="text-center text-sm text-gray-600 dark:text-gray-400">Need an account? Contact your administrator to have one created for you.</p>}>
+          <div className="mb-4 flex justify-center"><div className="rounded-full bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 p-2 shadow-lg"><Lock className="h-5 w-5 text-white" /></div></div>
             {error && (
               <Alert className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl">
                 <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
@@ -171,6 +123,7 @@ export function SignInForm() {
                             size="icon"
                             className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
                             disabled={isLoading}
                           >
                             {showPassword ? (
@@ -190,15 +143,7 @@ export function SignInForm() {
                 />
 
                 <div className="flex justify-end">
-                  <Link href="/forgot-password">
-                    <Button
-                      variant="link"
-                      className="px-0 h-auto font-normal text-xs text-orange-600 dark:text-orange-400 hover:no-underline"
-                      type="button"
-                    >
-                      Forgot password?
-                    </Button>
-                  </Link>
+                  <Link href="/forgot-password" className="text-xs font-normal text-orange-600 hover:underline dark:text-orange-400">Forgot password?</Link>
                 </div>
 
                 <Button
@@ -207,26 +152,13 @@ export function SignInForm() {
                   disabled={isLoading || !isDatabaseReady}
                 >
                   {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Signing in...
-                    </span>
+                    <AuthSpinner label="Signing in..." />
                   ) : (
                     "Sign In"
                   )}
                 </Button>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-          <p>
-            Need an account? Contact your administrator to have one created
-            for you.
-          </p>
-        </div>
-      </div>
-    </main>
+    </AuthShell>
   );
 }
