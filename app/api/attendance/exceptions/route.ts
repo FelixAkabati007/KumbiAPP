@@ -37,10 +37,10 @@ export async function PATCH(request: Request) {
   const session = await getSession();
   if (!session || !managerRoles.includes(session.role)) return NextResponse.json({ error: "Manager access required" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { id?: string; status?: string; message?: string } | null;
-  if (!body?.id || !["approved", "denied", "confirmed"].includes(body.status || "")) return NextResponse.json({ error: "Invalid exception decision" }, { status: 400 });
+  if (!body?.id || !["approved", "denied", "confirmed", "resumed"].includes(body.status || "")) return NextResponse.json({ error: "Invalid exception decision" }, { status: 400 });
   const result = await query(
     `UPDATE attendance_exceptions SET status = $2, manager_message = COALESCE($3, manager_message), resolved_by = $4, resolved_at = now(), updated_at = now()
-     WHERE id = $1 AND status IN ('awaiting_reason', 'pending_approval') RETURNING *`,
+     WHERE id = $1 AND status IN ('awaiting_reason', 'pending_approval', 'approved', 'denied') RETURNING *`,
     [body.id, body.status, body.message?.trim().slice(0, 2000) || null, session.id],
   );
   if (!result.rowCount) return NextResponse.json({ error: "Exception is already resolved" }, { status: 409 });
