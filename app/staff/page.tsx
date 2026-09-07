@@ -10,6 +10,7 @@ interface AttendanceRecord {
   check_out_at?: string;
   verification_status?: string;
 }
+interface AttendanceException { id: string; attendance_date: string; status: string; manager_message?: string; staff_reply?: string }
 
 interface WorkSchedule {
   schedule_name: string;
@@ -30,6 +31,9 @@ export default function StaffPage() {
   const { user, isLoading } = useAuth();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
+  const [exceptions, setExceptions] = useState<AttendanceException[]>([]);
+  const [reply, setReply] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -40,6 +44,8 @@ export default function StaffPage() {
     ]);
     if (attendanceResponse.ok) setRecord((await attendanceResponse.json()).record ?? null);
     if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()).schedule ?? null);
+    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
+    if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
   }
 
   useEffect(() => {
@@ -97,6 +103,7 @@ export default function StaffPage() {
           </div>
           {message && <p role="status" className="mt-4 rounded-xl border border-border bg-muted p-3 text-sm">{message}</p>}
         </section>
+        {exceptions.length > 0 && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm"><h2 className="text-xl font-semibold text-amber-950">Attendance messages</h2><div className="mt-3 space-y-3">{exceptions.map((item) => <div key={item.id} className="rounded-xl border border-amber-200 bg-background p-4"><p className="text-sm font-semibold">{item.attendance_date} · {item.status}</p>{item.manager_message && <p className="mt-2 text-sm">{item.manager_message}</p>}{(item.status === "approved" || item.status === "denied") && <button type="button" onClick={async () => { await fetch("/api/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, status: "resumed" }) }); await load(); }} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Resume work</button>}{item.status === "awaiting_reason" && <>{replyingTo === item.id ? <div className="mt-3 space-y-2"><textarea value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-24 w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder="Explain your absence..." /><button type="button" onClick={async () => { await fetch("/api/attendance/exceptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, message: reply }) }); setReply(""); setReplyingTo(null); await load(); }} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Send</button></div> : <button type="button" onClick={() => setReplyingTo(item.id)} className="mt-3 rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold">Reply</button>}</>}</div>)}</div></section>}
         <div className="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="h-4 w-4" aria-hidden="true" /> Attendance times are recorded automatically.</div>
       </div>
     </main>

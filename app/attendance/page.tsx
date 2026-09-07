@@ -6,12 +6,14 @@ import { ArrowLeft, CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } fr
 
 interface RecordRow { id: string; staff_id?: string; staff_name?: string; position?: string; check_in_at?: string; check_out_at?: string; status: string; verification_status: string; verified_at?: string; shift_period?: string }
 interface ManagerData { pending: RecordRow[]; summary?: { present: string; pending: string; absent: string }; frequency: { staff_id: string; verified_days: string; recorded_days: string }[] }
+interface AttendanceException { id: string; staff_name?: string; attendance_date: string; status: string; manager_message?: string; staff_reply?: string }
 
 function formatTime(value?: string) { return value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"; }
 
 export default function AttendancePage() {
   const [record, setRecord] = useState<RecordRow | null>(null);
   const [manager, setManager] = useState<ManagerData | null>(null);
+  const [exceptions, setExceptions] = useState<AttendanceException[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
@@ -29,8 +31,11 @@ export default function AttendancePage() {
     const status = statusResponse.ok ? await statusResponse.json() : null;
     setAccessDenied(false);
     setRecord(status?.record ?? null);
+    await fetch("/api/attendance/reconcile", { method: "POST" });
     const review = await fetch("/api/attendance/manager");
     if (review.ok) setManager(await review.json());
+    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
+    if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
@@ -45,6 +50,11 @@ export default function AttendancePage() {
   }
   async function decide(id: string, status: "verified" | "late" | "rejected") {
     await fetch("/api/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    void load();
+  }
+
+  async function decideException(id: string, status: "approved" | "denied" | "resumed") {
+    await fetch("/api/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
@@ -65,6 +75,7 @@ export default function AttendancePage() {
       </section>
       {manager && <section className="space-y-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /><h2 className="text-2xl font-semibold">Attendance control center</h2></div><Link href="/attendance/reports" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold transition hover:bg-muted"><CheckCircle2 className="h-4 w-4 text-primary" /> Open approved report</Link></div><div className="grid gap-4 sm:grid-cols-3"><Metric label="Present today" value={manager.summary?.present ?? "0"} icon={<CheckCircle2 />} /><Metric label="Pending review" value={manager.summary?.pending ?? "0"} icon={<Clock3 />} /><Metric label="Absent records" value={manager.summary?.absent ?? "0"} icon={<Users />} /></div><div className="rounded-2xl border bg-background p-5"><h3 className="font-semibold">Pending confirmations</h3><div className="mt-3 divide-y">{manager.pending.length ? manager.pending.map((item) => <div key={item.id} className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{item.staff_name || `Staff ${item.staff_id}`}</p><p className="text-sm text-muted-foreground">{item.position || "Staff"} · Checked in at {formatTime(item.check_in_at)}</p><span className="mt-2 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{item.shift_period || "Unscheduled"} shift</span></div><div className="flex flex-wrap gap-2"><button onClick={() => void decide(item.id, "verified")} className="min-h-10 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Confirm present</button><button onClick={() => void decide(item.id, "late")} className="min-h-10 rounded-lg border px-3 py-2 text-sm">Mark late</button><button onClick={() => void decide(item.id, "rejected")} className="min-h-10 rounded-lg border px-3 py-2 text-sm">Reject</button></div></div>) : <p className="py-4 text-sm text-muted-foreground">No pending confirmations.</p>}</div></div></section>}
     </div>
+      {manager && <section className="rounded-2xl border border-border bg-background p-5"><h2 className="text-xl font-semibold">Attendance exceptions</h2><p className="mt-1 text-sm text-muted-foreground">Review staff explanations and record an approval or denial.</p><div className="mt-4 divide-y divide-border">{exceptions.length ? exceptions.map((item) => <div key={item.id} className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between"><div><p className="font-semibold">{item.staff_name || "Staff member"}</p><p className="text-sm text-muted-foreground">{item.attendance_date} · {item.status}</p>{item.staff_reply && <p className="mt-2 text-sm">Reply: {item.staff_reply}</p>}</div><div className="flex gap-2"><button onClick={() => void decideException(item.id, "approved")} className="min-h-10 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Approved</button><button onClick={() => void decideException(item.id, "denied")} className="min-h-10 rounded-lg border border-destructive/30 px-3 py-2 text-sm font-semibold text-destructive">Deny</button>{(item.status === "approved" || item.status === "denied") && <button onClick={() => void decideException(item.id, "resumed")} className="min-h-10 rounded-lg border border-border px-3 py-2 text-sm font-semibold">Resume / Unlock</button>}</div></div>) : <p className="py-6 text-sm text-muted-foreground">No attendance exceptions require review.</p>}</div></section>}
   </main>
 }
 function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) { return <div className="rounded-2xl border bg-background p-4"><div className="flex items-center justify-between text-muted-foreground"><span className="text-sm">{label}</span><span className="h-5 w-5 text-primary">{icon}</span></div><p className="mt-2 text-3xl font-bold">{value}</p></div> }
