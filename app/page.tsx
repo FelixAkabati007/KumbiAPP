@@ -50,7 +50,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, roleDashboardConfig, managementRoles, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
-import { FrontendAnnouncementsCard } from "@/components/frontend-announcements-card";
+import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
@@ -333,10 +333,11 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
         </div>
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
-        {managementRoles.includes(user.role as UserRole) && <FrontendAnnouncementsCard />}
-
         <style>{`[data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
+          <div data-dashboard-category="all" className="min-w-0">
+            <AnnouncementCard />
+          </div>
           <Card data-dashboard-category="all" className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70 md:hover:scale-105">
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
