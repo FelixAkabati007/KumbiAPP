@@ -15,13 +15,24 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const result = await query(`
     SELECT a.id, a.title, a.message, a.priority, a.audience_type, a.audience_roles,
-      a.created_by_name, a.created_by_role, a.created_at, a.expires_at,
+      a.created_by_name, a.created_by_role, a.created_at, a.expires_at, a.archived_at,
       EXISTS (SELECT 1 FROM notifications n WHERE n.recipient_user_id = $1 AND n.type = 'announcement' AND n.title = a.title AND n.message = a.message AND n.read_at IS NOT NULL) AS is_read
     FROM announcements a
-    WHERE a.archived_at IS NULL AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
+    WHERE (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
       AND (a.audience_type = 'all' OR $2 = ANY(a.audience_roles) OR a.created_by = $1)
     ORDER BY a.created_at DESC LIMIT 8`, [session.id, session.role]);
   return NextResponse.json({ announcements: result.rows });
+}
+
+export async function PATCH(request: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canAnnounce(session.role)) return NextResponse.json({ error: "Your role cannot manage announcements" }, { status: 403 });
+  const body = (await request.json().catch(() => null)) as { id?: string; hidden?: boolean } | null;
+  if (!body?.id || typeof body.hidden !== "boolean") return NextResponse.json({ error: "Announcement id and hidden state are required" }, { status: 400 });
+  const result = await query(`UPDATE announcements SET archived_at = CASE WHEN $2 THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id = $1 RETURNING id, archived_at`, [body.id, body.hidden]);
+  if (!result.rowCount) return NextResponse.json({ error: "Announcement not found" }, { status: 404 });
+  return NextResponse.json({ announcement: result.rows[0] });
 }
 
 export async function POST(request: Request) {
@@ -43,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   const announcement = await transaction(async (client) => {
-    const created = await client.query(`INSERT INTO announcements (title, message, priority, audience_type, audience_roles, created_by, created_by_name, created_by_role, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, title, message, priority, audience_type, audience_roles, created_by_name, created_by_role, created_at, expires_at`, [title, message, priority, audienceType, audienceRoles, session.id, session.email, session.role, body?.expiresAt || null]);
+    const created = await client.query(`INSERT INTO announcements (title, message, priority, audience_type, audience_roles, created_by, created_by_name, created_by_role, expires_at, archived_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP) RETURNING id, title, message, priority, audience_type, audience_roles, created_by_name, created_by_role, created_at, expires_at`, [title, message, priority, audienceType, audienceRoles, session.id, session.email, session.role, body?.expiresAt || null]);
     const notificationSql = audienceType === "all"
       ? `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true`
       : `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true AND u.role::text = ANY($4::text[])`;
