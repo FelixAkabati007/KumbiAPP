@@ -50,6 +50,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { rolePermissions, roleDashboardConfig, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
+import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
@@ -331,6 +332,8 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
+
+        <AnnouncementCard />
 
         <style>{`[data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
         <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
