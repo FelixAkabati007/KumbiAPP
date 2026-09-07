@@ -22,6 +22,12 @@ export async function POST() {
             WHERE ar.staff_id = ss.staff_id
               AND ar.shift_id = ss.id
           )
+          AND NOT EXISTS (
+            SELECT 1 FROM attendance_permission_requests apr
+            WHERE apr.staff_id = ss.staff_id
+              AND apr.status = 'approved'
+              AND ss.shift_date BETWEEN apr.start_date AND apr.end_date
+          )
       ), created_records AS (
         INSERT INTO attendance_records (staff_id, shift_id, status, verification_status, notes)
         SELECT staff_id, shift_id, 'absent', 'absent', 'Automatically marked absent after 24 hours without check-in.'
