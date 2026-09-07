@@ -27,6 +27,15 @@ export async function POST(request: Request) {
   return NextResponse.json({ schedule: result.rows[0] }, { status: 201 });
 }
 
+export async function DELETE(request: Request) {
+  const { error } = await requireRole("admin", "manager");
+  if (error) return error;
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Schedule ID is required." }, { status: 400 });
+  await query("DELETE FROM work_schedules WHERE id = $1", [id]);
+  return NextResponse.json({ success: true });
+}
+
 export async function PATCH(request: Request) {
   const { error } = await requireRole("admin", "manager");
   if (error) return error;
