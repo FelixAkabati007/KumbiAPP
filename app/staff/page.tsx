@@ -153,9 +153,10 @@ export default function StaffPage() {
             <div><h2 className="text-xl font-semibold">Today&apos;s attendance</h2><p className="mt-1 text-sm text-muted-foreground">Your manager will review the recorded attendance.</p></div>
           </div>
           <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4 text-sm">Status: <span className="font-semibold">{record?.verification_status ?? "Not checked in"}</span><span className="mx-2 text-muted-foreground">·</span>In {formatTime(record?.check_in_at)}<span className="mx-2 text-muted-foreground">·</span>Out {formatTime(record?.check_out_at)}</div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button disabled={busy || !canCheckIn} onClick={() => void register("check_in")} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>
-            <button disabled={busy || !open} onClick={() => void register("check_out")} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 py-3 font-semibold disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>
+          <div className="mt-5">
+            {canCheckIn && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>}
+            {open && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>}
+            {nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-800">Attendance completed for today</div>}
           </div>
           {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}
         </section>
