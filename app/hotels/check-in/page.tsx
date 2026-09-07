@@ -484,8 +484,6 @@ function CheckInPage() {
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
 
-      <ComplimentaryAuthorizationsPanel />
-
       {latestReceiptId && (
         <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -753,18 +751,10 @@ function CheckInPage() {
           )}
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setSelectedReservation(null)}
-              className="rounded-lg"
-            >
+            <Button variant="outline" onClick={() => setSelectedReservation(null)} className="rounded-lg">
               Cancel
             </Button>
-            <Button
-              onClick={handleCheckIn}
-              disabled={processing || !selectedRoomId}
-              className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50"
-            >
+            <Button onClick={handleCheckIn} disabled={processing || !selectedRoomId} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50">
               {processing ? "Processing…" : "Confirm Check-In"}
             </Button>
           </DialogFooter>
@@ -977,6 +967,8 @@ function CheckInPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ComplimentaryAuthorizationsPanel />
     </div>
   );
 }
