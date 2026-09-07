@@ -87,6 +87,7 @@ function POSContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
@@ -118,13 +119,25 @@ function POSContent() {
     "images.unsplash.com",
   ]);
 
-  // Load menu items
+  // Load menu items with a short retry window so the POS does not render a false empty state while auth/API hydration settles.
   useEffect(() => {
-    // getMenuItems is async now (fetches from API)
-    getMenuItems().then((items) => {
-      setMenuItems(items);
-      setFilteredItems(items);
-    });
+    let cancelled = false;
+    const loadMenu = async () => {
+      setMenuLoading(true);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const items = await getMenuItems();
+        if (items.length > 0 || attempt === 2) {
+          if (!cancelled) {
+            setMenuItems(items);
+            setFilteredItems(items);
+            setMenuLoading(false);
+          }
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    };
+    void loadMenu();
 
     // For order numbers, we use the async getter or generate a temp one
     getOrderNumber().then((num) => setOrderNumber(num));
@@ -134,11 +147,13 @@ function POSContent() {
         ? generateOrderId()
         : ""
     );
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (lastEvent?.topic === "menu.updated") {
-      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); });
+      setMenuLoading(true);
+      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); setMenuLoading(false); });
     }
   }, [lastEvent]);
 
@@ -796,7 +811,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
 
           <ScrollArea className="flex-1 p-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredItems.map((item) => (
+              {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
+              {!menuLoading && filteredItems.map((item) => (
                 <Card
                   key={item.id}
   className={`relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
