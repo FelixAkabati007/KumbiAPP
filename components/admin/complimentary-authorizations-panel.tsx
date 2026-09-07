@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface FolioSummary { gross_amount: number | string; complimentary_amount: number | string; net_amount: number | string }
 interface Authorization {
   id: string;
   guest_name: string;
@@ -46,7 +47,7 @@ export function ComplimentaryAuthorizationsPanel() {
   const [activateStay, setActivateStay] = useState(true);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [selected, setSelected] = useState<(Authorization & { usage?: Array<{ id: string; amount_used: string; transaction_type?: string; transaction_id?: string; applied_by?: string }>; audit_log?: Array<{ id: string; action: string; actor_id?: string; details?: { reason?: string; roomId?: string }; created_at: string }> }) | null>(null);
+  const [selected, setSelected] = useState<(Authorization & { usage?: Array<{ id: string; amount_used: string; transaction_type?: string; transaction_id?: string; applied_by?: string }>; audit_log?: Array<{ id: string; action: string; actor_id?: string; details?: { reason?: string; roomId?: string }; created_at: string }>; folio_items?: Array<{ id: string; category: string; description: string; quantity: number; total_amount: number | string; created_at: string }>; folio_summary?: FolioSummary }) | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   const load = async () => {
@@ -56,7 +57,9 @@ export function ComplimentaryAuthorizationsPanel() {
 
   useEffect(() => {
     void load();
+    const refresh = window.setInterval(() => void load(), 5000);
     void fetch("/api/hotels/rooms?status=available,dirty,cleaning").then((response) => response.ok ? response.json() : []).then((data) => setRooms(Array.isArray(data) ? data : []));
+    return () => window.clearInterval(refresh);
   }, []);
 
   const viewAuthorization = async (id: string) => {
@@ -168,6 +171,7 @@ export function ComplimentaryAuthorizationsPanel() {
             {(selected.room_id || selected.stay_nights) && <div className="rounded-md border bg-muted/30 p-3"><p className="font-medium">VIP stay controls</p><p className="text-muted-foreground">Room linked: {selected.room_id || "Booking pending"} · {selected.stay_nights || 0} night(s)</p><p className="text-muted-foreground">Room waiver: {selected.room_waived ? "Automatic" : "Not enabled"} · Folio waiver: {selected.folio_waived ? "Automatic" : "Not enabled"}</p></div>}
             <div className="grid gap-3 border-t pt-3 sm:grid-cols-2"><div><p className="text-muted-foreground">Valid until</p><p>{new Date(selected.valid_until).toLocaleString()}</p></div><div><p className="text-muted-foreground">Created</p><p>{new Date(selected.created_at).toLocaleString()}</p></div></div>
             <div><p className="mb-2 font-medium">Admin activity log</p>{selected.audit_log?.length ? <div className="space-y-2">{selected.audit_log.map((entry) => <div key={entry.id} className="rounded-md border p-2"><div className="flex justify-between gap-2"><span className="font-medium">{entry.action}</span><span className="text-xs text-muted-foreground">{new Date(entry.created_at).toLocaleString()}</span></div><p className="text-xs text-muted-foreground">{entry.details?.reason || entry.details?.roomId || "Activity recorded"}</p></div>)}</div> : <p className="text-muted-foreground">No audit activity recorded.</p>}</div>
+            {selected.folio_summary && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="font-semibold text-emerald-950">Guest checkout disclosure</p><div className="mt-3 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-emerald-800">Services, food & beverages</p><p className="text-lg font-bold text-emerald-950">{formatCurrency(selected.folio_summary.gross_amount)}</p></div><div><p className="text-xs text-emerald-800">Complimentary approved/used</p><p className="text-lg font-bold text-emerald-950">{formatCurrency(selected.folio_summary.complimentary_amount)}</p></div><div><p className="text-xs text-emerald-800">Net collected</p><p className="text-lg font-bold text-emerald-950">{formatCurrency(selected.folio_summary.net_amount)}</p></div></div>{selected.folio_items?.length ? <div className="mt-4 space-y-2 border-t border-emerald-200 pt-3">{selected.folio_items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm"><span>{item.description} · {item.quantity} × {item.category}</span><span className="font-medium">{formatCurrency(item.total_amount)}</span></div>)}</div> : <p className="mt-3 text-sm text-emerald-800">No services, food, or beverage charges have been posted.</p>}</div>}
             <div><p className="mb-2 font-medium">Usage history</p>{selected.usage?.length ? <div className="space-y-2">{selected.usage.map((usage) => <div key={usage.id} className="flex flex-col gap-1 rounded-md border p-2 sm:flex-row sm:items-center sm:justify-between"><span>{usage.transaction_type ? `${usage.transaction_type} · ` : ""}{usage.transaction_id || "Recorded usage"}</span><span className="font-medium">{formatCurrency(usage.amount_used)}</span></div>)}</div> : <p className="text-muted-foreground">No usage recorded.</p>}</div>
           </div>}
         </DialogContent>

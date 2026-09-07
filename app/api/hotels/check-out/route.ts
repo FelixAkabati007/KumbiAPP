@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
       const outstandingBalance = Number(folioResult.rows[0]?.balance ?? 0);
+      const folioItems = await client.query(`SELECT category, description, quantity, unit_amount, total_amount FROM guest_folio_items WHERE reservation_id = $1 ORDER BY created_at ASC`, [reservationId]);
+      const complimentaryResult = await client.query(`SELECT COALESCE(SUM(u.amount_used), 0) AS complimentary_amount FROM complimentary_authorization_usage u JOIN complimentary_authorizations a ON a.id = u.authorization_id WHERE a.reservation_id = $1`, [reservationId]);
+      const grossSpent = folioItems.rows.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+      const complimentaryAmount = Number(complimentaryResult.rows[0]?.complimentary_amount || 0);
+      const netSpent = Math.max(0, grossSpent - complimentaryAmount);
       if (paid > outstandingBalance) {
         throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
       }
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
-      return verified.rows[0];
+      return { ...verified.rows[0], folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
 
     // Auxiliary records are follow-up work; neither can roll back a successful checkout.
