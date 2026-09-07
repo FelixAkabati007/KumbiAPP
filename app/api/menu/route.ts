@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
+import { publishRealtime } from "@/lib/realtime";
 
 async function ensureCategory(slug: string): Promise<string> {
   const existing = await query<{ id: string }>(
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
     });
 
     await updateSystemState("menu");
+    await publishRealtime("menu.updated", result.rows[0].id);
 
     return NextResponse.json({ id: result.rows[0].id }, { status: 201 });
   } catch (error) {

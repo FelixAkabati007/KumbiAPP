@@ -59,6 +59,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useSettings } from "@/components/settings-provider";
 import { OrderProvider, useOrders } from "@/lib/order-context";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
+import { useRealtime } from "@/components/realtime-provider";
 import {
   processPaymentWithIntegration,
   processBarcodeWithIntegration,
@@ -81,6 +82,7 @@ function POSContent() {
   const { user, logout } = useAuth();
   const { addOrder } = useOrders();
   const { settings } = useReceiptSettings();
+  const { lastEvent } = useRealtime();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -133,6 +135,12 @@ function POSContent() {
         : ""
     );
   }, []);
+
+  useEffect(() => {
+    if (lastEvent?.topic === "menu.updated") {
+      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); });
+    }
+  }, [lastEvent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -880,8 +888,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               ))}
 
               {filteredItems.length === 0 && (
-                <div className="col-span-full flex justify-center items-center h-40">
-                  <p className="text-muted-foreground">No items found</p>
+                <div className="col-span-full flex min-h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-orange-300 bg-white/50 p-6 text-center dark:border-orange-700 dark:bg-gray-800/40">
+                  <p className="font-semibold text-foreground">{menuItems.length === 0 ? "Menu unavailable" : "No matching items"}</p>
+                  <p className="max-w-sm text-sm text-muted-foreground">{menuItems.length === 0 ? "No published menu items are available for this till. Ask Menu Management to publish an item, then refresh this page." : "Try another search term or category."}</p>
+                  {menuItems.length === 0 && <Button type="button" variant="outline" onClick={() => window.location.reload()}>Retry menu</Button>}
                 </div>
               )}
             </div>
