@@ -60,6 +60,7 @@ import {
 import { PrinterSettingsForm } from "@/components/settings/printer-settings-form";
 import { StaffManagementPanel } from "@/components/settings/staff-management-panel";
 import { HardwareDiagnostics } from "@/components/settings/hardware-diagnostics";
+import { StaffSchedulePanel } from "@/components/settings/staff-schedule-panel";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -167,7 +168,7 @@ function SettingsPageContent() {
     toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : "Order Board"} is now ${enabled ? "on" : "off"}.` });
   };
   const [activeTab, setActiveTab] = useState<string>(
-    tabParam === "account" ? "account" : tabParam === "staff" && isAdmin ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance"
+    tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance"
   );
 
   useEffect(() => {
@@ -409,7 +410,7 @@ function SettingsPageContent() {
                   Security
                 </TabsTrigger>
               )}
-              {isAdmin && (
+              {canManageStaff && (
                 <TabsTrigger
                   value="staff"
                   className="text-xs sm:text-sm rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:via-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
@@ -1823,9 +1824,10 @@ function SettingsPageContent() {
             </Card>
           </TabsContent>
 
-          {/* Staff Management (Admin Only) */}
-{canManageStaff && (
+  {/* Staff Management and Time Schedules */}
+  {canManageStaff && (
   <TabsContent value="staff" className="space-y-4">
+  <StaffSchedulePanel />
   <StaffManagementPanel currentRole={user?.role || "staff"} />
             </TabsContent>
           )}
