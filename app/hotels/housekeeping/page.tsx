@@ -81,6 +81,7 @@ function HousekeepingPage() {
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [staff, setStaff] = useState<HousekeepingStaff[]>([]);
+  const [advancedMode, setAdvancedMode] = useState(false);
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
   const [formData, setFormData] = useState({
@@ -167,6 +168,10 @@ function HousekeepingPage() {
       console.error("Error fetching housekeeping staff:", error);
     }
   };
+
+  useEffect(() => {
+    fetch("/api/feature-toggles", { cache: "no-store" }).then((response) => response.json()).then((data) => setAdvancedMode(data.toggles?.housekeeping_advanced === true)).catch(() => setAdvancedMode(false));
+  }, []);
 
   useEffect(() => {
     if (ticketFilters.status || ticketFilters.severity || ticketFilters.roomId) fetchTickets();
@@ -420,7 +425,8 @@ function HousekeepingPage() {
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
 
-      <Tabs defaultValue="cleaning" className="space-y-4">
+      {!advancedMode && <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">Simple housekeeping mode is active. Staff only need to open the room task and mark it complete. Advanced priorities, assignments, and status controls are hidden.</div>}
+  <Tabs defaultValue="cleaning" className="space-y-4">
         <TabsList className="flex w-full gap-1 overflow-x-auto sm:grid sm:grid-cols-2">
           <TabsTrigger value="cleaning">
             <SprayCan className="h-4 w-4 shrink-0 sm:mr-2" />
@@ -495,11 +501,11 @@ function HousekeepingPage() {
                     <article key={task.id} className="rounded-2xl border border-orange-200 bg-background/70 p-4 shadow-sm dark:border-orange-700">
                       <div className="flex items-start justify-between gap-3">
                         <div><p className="font-semibold">Room {task.room_number}</p><p className="mt-1 text-sm capitalize text-muted-foreground">{task.task_type.replace(/_/g, " ")}</p></div>
-                        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                        {advancedMode && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>}
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs">
                         <span className={`rounded-full px-3 py-1 font-medium ${getStatusColor(task.status)}`}>{task.status.replace("_", " ")}</span>
-                        <span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">{task.assigned_to_name || "Unassigned"}</span>
+                        {advancedMode && <span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">{task.assigned_to_name || "Unassigned"}</span>}
                       </div>
                       <Button variant="outline" className="mt-4 min-h-11 w-full rounded-xl" disabled={task.status === "completed"} onClick={() => handleMarkTaskDone(task.id)}><CheckCircle2 className="mr-2 h-4 w-4" />Mark Done</Button>
                     </article>

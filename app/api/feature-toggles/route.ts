@@ -5,7 +5,7 @@ import { createAuditLog } from "@/lib/audit-logger";
 import { updateSystemState } from "@/lib/system-sync";
 import { canManageFeatureToggles } from "@/lib/roles";
 
-const TOGGLE_KEYS = ["kitchen_display", "order_board"] as const;
+const TOGGLE_KEYS = ["kitchen_display", "order_board", "housekeeping_advanced"] as const;
 type ToggleKey = (typeof TOGGLE_KEYS)[number];
 
 function isToggleKey(value: unknown): value is ToggleKey {
