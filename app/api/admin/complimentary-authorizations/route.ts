@@ -57,10 +57,10 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
     const body = await request.json();
     const { guestName, scope, reservationId, orderId, approvedAmount, validUntil, reason, ceoReference, roomId, stayNights, activateStay } = body;
-    const parsedAmount = Number(approvedAmount);
+    const calculatedAmount = Number(approvedAmount || 0);
     const parsedValidUntil = new Date(validUntil);
     const nights = Number(stayNights || 0);
-    if (!guestName?.trim() || !["hotel", "restaurant", "event", "both"].includes(scope) || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || !validUntil || Number.isNaN(parsedValidUntil.getTime()) || parsedValidUntil <= new Date() || !reason?.trim()) {
+    if (!guestName?.trim() || !["hotel", "restaurant", "event", "both"].includes(scope) || !Number.isFinite(calculatedAmount) || calculatedAmount < 0 || !validUntil || Number.isNaN(parsedValidUntil.getTime()) || parsedValidUntil <= new Date() || !reason?.trim()) {
       return NextResponse.json({ error: "Guest, scope, a positive amount, a future expiry, and a reason are required" }, { status: 400 });
     }
     if (roomId && (!Number.isInteger(nights) || nights < 1 || nights > 90)) {
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
           await client.query(`UPDATE rooms SET status = 'occupied', current_guest_id = $1, updated_at = now() WHERE id = $2`, [guest.rows[0].id, roomId]);
         }
       }
-      const inserted = await client.query(`INSERT INTO public.complimentary_authorizations (guest_name, scope, reservation_id, order_id, room_id, stay_nights, room_waived, folio_waived, approved_amount, valid_until, reason, ceo_reference, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, guest_name, scope, reservation_id, room_id, stay_nights, room_waived, folio_waived, approved_amount, valid_until, reason, ceo_reference, status, created_at`, [guestName, scope, linkedReservationId, orderId || null, roomId || null, roomId ? nights : null, Boolean(roomId), scope === "restaurant" || scope === "both", approvedAmount, validUntil, reason, ceoReference || null, auth.session.id]);
+      const inserted = await client.query(`INSERT INTO public.complimentary_authorizations (guest_name, scope, reservation_id, order_id, room_id, stay_nights, room_waived, folio_waived, approved_amount, valid_until, reason, ceo_reference, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, guest_name, scope, reservation_id, room_id, stay_nights, room_waived, folio_waived, approved_amount, valid_until, reason, ceo_reference, status, created_at`, [guestName, scope, linkedReservationId, orderId || null, roomId || null, roomId ? nights : null, Boolean(roomId), scope === "restaurant" || scope === "both", calculatedAmount, validUntil, reason, ceoReference || null, auth.session.id]);
       await client.query(`INSERT INTO public.complimentary_authorization_audit (authorization_id, actor_id, action, details) VALUES ($1,$2,$3,$4)`, [inserted.rows[0].id, auth.session.id, activateStay ? "authorized_and_checked_in" : linkedReservationId ? "authorized_and_booked" : "authorized", JSON.stringify({ roomId: roomId || null, stayNights: roomId ? nights : null, scope, activateStay: Boolean(activateStay) })]);
       return inserted.rows[0];
     });
@@ -91,6 +91,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to create complimentary authorization:", error);
     const detail = error instanceof Error ? error.message : "Failed to create complimentary authorization";
-    return NextResponse.json({ error: detail.includes("complimentary_authorizations") ? "The authorization could not be saved. Check the expiry and amount, then try again." : detail }, { status: 500 });
+    return NextResponse.json({ error: detail.includes("complimentary_authorizations") ? "The authorization could not be saved. Check the expiry and guest details, then try again." : detail }, { status: 500 });
   }
 }
