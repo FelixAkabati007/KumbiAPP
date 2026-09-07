@@ -291,6 +291,26 @@
   overflow-wrap: anywhere;
 }
 
+.dashboard-launcher-card [data-slot="card-content"] {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.dashboard-launcher-card [data-slot="card-footer"] {
+  padding-top: 0.75rem;
+  padding-bottom: 1rem;
+}
+
+.dashboard-launcher-card .text-2xl {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.dashboard-launcher-card .text-xs,
+.dashboard-launcher-card .text-sm {
+  line-height: 1.4;
+}
+
 .announcement-scroll-area {
   scrollbar-width: none;
   -ms-overflow-style: none;
