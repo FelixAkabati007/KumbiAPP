@@ -55,6 +55,16 @@ import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 
+const DASHBOARD_CATEGORIES = [
+  ["all", "All Categories"],
+  ["hotel", "Hotel"],
+  ["restaurant", "Restaurant"],
+  ["finance", "Finance"],
+  ["technical", "Technical Operations"],
+  ["administration", "Administration"],
+  ["events", "Event Organization"],
+] as const;
+
 function DashboardContent() {
   const { user, logout } = useAuth();
   const { settings } = useSettings();
@@ -87,16 +97,7 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const dashboardCategories = [
-  ["all", "All Categories"],
-  ["hotel", "Hotel"],
-  ["restaurant", "Restaurant"],
-  ["finance", "Finance"],
-  ["technical", "Technical Operations"],
-  ["administration", "Administration"],
-  ["events", "Event Organization"],
-] as const;
-const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof dashboardCategories)[number][0]>("all");
+  const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -205,7 +206,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     ({} as Record<AppSection, boolean>);
   const roleDashboard = roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const categorySectionMap: Record<(typeof dashboardCategories)[number][0], AppSection[]> = {
+  const categorySectionMap: Record<(typeof DASHBOARD_CATEGORIES)[number][0], AppSection[]> = {
     all: [],
     hotel: ["rooms", "reservations", "checkIn", "checkOut", "housekeeping", "guestFolio"],
     restaurant: ["pos", "kitchen", "orderBoard", "menu", "inventory"],
@@ -214,7 +215,7 @@ const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof d
     administration: ["system"],
   events: ["events"],
   };
-  const availableDashboardCategories = dashboardCategories.filter(([category]) =>
+  const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(([category]) =>
     category === "all" ||
     (roleDashboard.categories.includes(category) && categorySectionMap[category].some((section) => access[section])),
   );
