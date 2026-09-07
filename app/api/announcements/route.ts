@@ -20,7 +20,8 @@ export async function GET() {
     FROM announcements a
     WHERE (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
       AND (a.audience_type = 'all' OR $2 = ANY(a.audience_roles) OR a.created_by = $1)
-    ORDER BY a.created_at DESC LIMIT 8`, [session.id, session.role]);
+      AND ($3 = true OR a.archived_at IS NULL)
+    ORDER BY a.created_at DESC LIMIT 8`, [session.id, session.role, canAnnounce(session.role)]);
   return NextResponse.json({ announcements: result.rows });
 }
 

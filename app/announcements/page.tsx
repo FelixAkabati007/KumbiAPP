@@ -20,7 +20,7 @@ export default function AnnouncementsPage() {
             Read official updates from management or publish clear broadcast notices for eligible teams. Use Technical Operations for maintenance tickets and issue resolution.
           </p>
         </header>
-        <AnnouncementCard embedded />
+        <AnnouncementCard variant="page" />
       </div>
     </main>
   );
