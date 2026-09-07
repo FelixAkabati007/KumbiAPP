@@ -4,7 +4,7 @@ interface SystemState {
   [key: string]: string;
 }
 
-const POLL_INTERVAL = 10000; // 10 seconds
+const POLL_INTERVAL = 30000; // Realtime handles immediate updates; polling is a background fallback
 
 export function useSystemSync() {
   const [versions, setVersions] = useState<SystemState>({});
@@ -17,8 +17,9 @@ export function useSystemSync() {
     isMounted.current = true;
 
     const fetchState = async () => {
+      if (document.hidden || !navigator.onLine) return;
       try {
-        const res = await fetch("/api/system/sync");
+        const res = await fetch("/api/system/sync", { cache: "no-store" });
         if (res.ok) {
           const newState = await res.json();
           if (isMounted.current) {
@@ -41,14 +42,18 @@ export function useSystemSync() {
       }
     };
 
-    // Initial fetch
-    fetchState();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchState();
+    };
 
+    fetchState();
     const interval = setInterval(fetchState, POLL_INTERVAL);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isMounted.current = false;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
