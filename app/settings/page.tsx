@@ -155,6 +155,7 @@ function SettingsPageContent() {
     },
   });
   const [mounted, setMounted] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "unsaved" | "saving" | "error">("saved");
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const canManageStaff = isAdmin || isManager;
@@ -187,6 +188,7 @@ function SettingsPageContent() {
     field: string,
     value: string | number | boolean | Record<string, unknown> | PrinterConfig
   ) => {
+    setSaveState("unsaved");
     setSettingsState((prev) => {
       if (field === "") {
         // For top-level fields like theme
@@ -281,21 +283,25 @@ function SettingsPageContent() {
 
   // Save all settings
   const handleSaveSettings = async () => {
-    await saveSettings(settings);
+    setSaveState("saving");
+    try {
+      await saveSettings(settings);
 
     // Notify mounted consumers, including the Navbar, of the saved business name.
     window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: settings }));
 
-    toast({
-      title: "Settings Saved",
-      description: "Your preferences have been saved successfully",
-    });
+      setSaveState("saved");
+      toast({ title: "Settings Saved", description: "Your preferences have been saved successfully" });
+    } catch {
+      setSaveState("error");
+      toast({ title: "Save failed", description: "Your changes were not saved. Try again.", variant: "destructive" });
+    }
   };
 
   // Reset to defaults
   const handleResetSettings = () => {
     if (
-      confirm("Are you sure you want to reset all settings to default values?")
+      confirm("This resets Appearance, Notifications, Account, System, Security, and operational preferences. Continue?")
     ) {
       const defaultSettings = getSettings(true);
       setSettingsState(defaultSettings);
@@ -329,7 +335,10 @@ function SettingsPageContent() {
           </Link>
         </div>
 
-        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <span aria-live="polite" className={`hidden text-xs sm:inline ${saveState === "error" ? "text-destructive" : saveState === "unsaved" ? "text-amber-700" : "text-muted-foreground"}`}>
+            {saveState === "saving" ? "Saving…" : saveState === "unsaved" ? "Unsaved changes" : saveState === "error" ? "Save failed" : "Saved"}
+          </span>
           <Button
             variant="outline"
             onClick={handleResetSettings}
@@ -364,7 +373,7 @@ function SettingsPageContent() {
 
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={(tab) => { setActiveTab(tab); window.history.replaceState(null, "", `/settings?tab=${tab}`); }}
           className="space-y-4"
         >
           <div className="overflow-x-auto">
