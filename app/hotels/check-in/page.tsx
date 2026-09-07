@@ -117,6 +117,7 @@ function CheckInPage() {
   // Checkout dialog state
   const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [checkoutDisclosure, setCheckoutDisclosure] = useState<{ grossSpent: number; complimentaryAmount: number; netSpent: number; items: Array<{ category: string; description: string; quantity: number; total_amount: number }> } | null>(null);
 
   // Guest folio panel state
   const [folioGuest, setFolioGuest] = useState<CheckedInGuest | null>(null);
@@ -325,6 +326,7 @@ function CheckInPage() {
       if (payload?.persisted !== true) {
         throw new Error("Checkout was not confirmed by the server. Please try again.");
       }
+      setCheckoutDisclosure(payload.folioDisclosure ?? null);
 
       // The checkout endpoint is transactional and is the source of truth.
       // Refresh the list for the UI, but do not reject a successful mutation
@@ -833,6 +835,8 @@ function CheckInPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {checkoutDisclosure && <Dialog open={Boolean(checkoutDisclosure)} onOpenChange={(open) => !open && setCheckoutDisclosure(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Checkout amount disclosed</DialogTitle><DialogDescription>Final server-calculated spending summary for Admin and Hotel Reception.</DialogDescription></DialogHeader><div className="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-3"><div><p className="text-xs text-emerald-800">Services, food & beverages</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.grossSpent.toFixed(2)}</p></div><div><p className="text-xs text-emerald-800">Complimentary</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.complimentaryAmount.toFixed(2)}</p></div><div><p className="text-xs text-emerald-800">Net collected</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.netSpent.toFixed(2)}</p></div></div><div className="space-y-2">{checkoutDisclosure.items.map((item, index) => <div key={`${item.description}-${index}`} className="flex justify-between gap-3 border-b py-2 text-sm"><span>{item.description} · {item.quantity} × {item.category}</span><span className="font-medium">GHS {Number(item.total_amount).toFixed(2)}</span></div>)}</div><DialogFooter><Button onClick={() => setCheckoutDisclosure(null)}>Close</Button></DialogFooter></DialogContent></Dialog>}
 
       {/* Guest folio dialog */}
       <Dialog open={!!folioGuest} onOpenChange={(open) => !open && setFolioGuest(null)}>
