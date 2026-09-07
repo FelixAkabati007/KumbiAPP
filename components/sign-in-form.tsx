@@ -60,7 +60,6 @@ export function SignInForm() {
 
   return (
     <AuthShell title="Sign in to POS" description={<>Enter your credentials to access the sales terminal{!isDatabaseReady && <span className="mt-2 block text-xs text-amber-600 dark:text-amber-400">Connecting to database. Please wait...</span>}</>} footer={<p className="text-center text-sm text-gray-600 dark:text-gray-400">Need an account? Contact your administrator to have one created for you.</p>}>
-          <div className="mb-4 flex justify-center"><div className="rounded-full bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 p-2 shadow-lg"><Lock className="h-5 w-5 text-white" /></div></div>
             {error && (
               <Alert className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl">
                 <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
