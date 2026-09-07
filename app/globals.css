@@ -291,6 +291,15 @@
   overflow-wrap: anywhere;
 }
 
+.announcement-scroll-area {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.announcement-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
 .table-scroll-container {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
