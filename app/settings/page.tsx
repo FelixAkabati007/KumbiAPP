@@ -159,13 +159,13 @@ function SettingsPageContent() {
   const isManager = user?.role === "manager";
   const canManageStaff = isAdmin || isManager;
   const canManageOperationalSettings = isAdmin || isManager;
-  const [featureToggles, setFeatureToggles] = useState({ kitchen_display: true, order_board: true });
+  const [featureToggles, setFeatureToggles] = useState({ kitchen_display: true, order_board: true, housekeeping_advanced: false });
 
-  const updateFeatureToggle = async (key: "kitchen_display" | "order_board", enabled: boolean) => {
+  const updateFeatureToggle = async (key: "kitchen_display" | "order_board" | "housekeeping_advanced", enabled: boolean) => {
     const response = await fetch("/api/feature-toggles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, enabled }) });
     if (!response.ok) throw new Error("Unable to update feature toggle");
     setFeatureToggles((current) => ({ ...current, [key]: enabled }));
-    toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : "Order Board"} is now ${enabled ? "on" : "off"}.` });
+    toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : key === "order_board" ? "Order Board" : "Advanced Housekeeping"} is now ${enabled ? "on" : "off"}.` });
   };
   const [activeTab, setActiveTab] = useState<string>(
     tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance"
@@ -427,6 +427,7 @@ function SettingsPageContent() {
               <CardContent className="grid gap-4">
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Kitchen Display</Label><p className="text-sm text-muted-foreground">Show the live kitchen production screen.</p></div><Switch checked={featureToggles.kitchen_display} onCheckedChange={(enabled) => updateFeatureToggle("kitchen_display", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Order Board</Label><p className="text-sm text-muted-foreground">Show the active order board for operations.</p></div><Switch checked={featureToggles.order_board} onCheckedChange={(enabled) => updateFeatureToggle("order_board", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Advanced Housekeeping</Label><p className="text-sm text-muted-foreground">Turn on priorities, assignments, status workflow, and operational detail when your housekeeping team is ready.</p></div><Switch checked={featureToggles.housekeeping_advanced} onCheckedChange={(enabled) => updateFeatureToggle("housekeeping_advanced", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
               </CardContent>
             </Card>
           </TabsContent>
