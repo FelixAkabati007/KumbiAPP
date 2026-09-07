@@ -20,7 +20,9 @@ export async function POST(request: Request) {
   const department = String(body.department || "").trim();
   const startTime = String(body.startTime || "");
   const endTime = String(body.endTime || "");
-  if (!name || !jobClassification || !department || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return NextResponse.json({ error: "Enter a name, department, role, start time, and end time." }, { status: 400 });
+  const validDepartments = ["Hotel", "Restaurant", "Operations"];
+  const validClassifications = ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Security", "Labour", "Other"];
+  if (!name || !validClassifications.includes(jobClassification) || !validDepartments.includes(department) || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return NextResponse.json({ error: "Select an existing department and role or classification, then enter valid times." }, { status: 400 });
   const result = await query(`INSERT INTO work_schedules (name, job_classification, department, start_time, end_time, reminder_minutes, timezone, is_active) VALUES ($1,$2,$3,$4,$5,$6,'Africa/Accra',true) RETURNING id, name, job_classification, department, start_time::text, end_time::text, reminder_minutes`, [name, jobClassification, department, startTime, endTime, Math.max(0, Math.min(180, Number(body.reminderMinutes) || 20))]);
   return NextResponse.json({ schedule: result.rows[0] }, { status: 201 });
 }
@@ -30,6 +32,9 @@ export async function PATCH(request: Request) {
   if (error) return error;
   const body = await request.json().catch(() => ({}));
   if (!body.id) return NextResponse.json({ error: "Schedule ID is required." }, { status: 400 });
-  const result = await query(`UPDATE work_schedules SET start_time=$1, end_time=$2, reminder_minutes=$3, updated_at=now() WHERE id=$4 RETURNING *`, [body.startTime, body.endTime, Number(body.reminderMinutes) || 20, body.id]);
+  const validDepartments = ["Hotel", "Restaurant", "Operations"];
+  const validClassifications = ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Security", "Labour", "Other"];
+  if (!validDepartments.includes(String(body.department)) || !validClassifications.includes(String(body.jobClassification)) || !/^\d{2}:\d{2}$/.test(String(body.startTime)) || !/^\d{2}:\d{2}$/.test(String(body.endTime))) return NextResponse.json({ error: "Select existing department and role values, then enter valid times." }, { status: 400 });
+  const result = await query(`UPDATE work_schedules SET name=$1, department=$2, job_classification=$3, start_time=$4, end_time=$5, reminder_minutes=$6, updated_at=now() WHERE id=$7 RETURNING *`, [body.name, body.department, body.jobClassification, body.startTime, body.endTime, Number(body.reminderMinutes) || 20, body.id]);
   return NextResponse.json({ schedule: result.rows[0] });
 }
