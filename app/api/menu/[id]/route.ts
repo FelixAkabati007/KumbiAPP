@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { updateSystemState } from "@/lib/system-sync";
 import { logAudit } from "@/lib/audit";
+import { publishRealtime } from "@/lib/realtime";
 
 interface MenuRow {
   id: string;
@@ -142,6 +143,7 @@ export async function PUT(
     });
 
     await updateSystemState("menu");
+    await publishRealtime("menu.updated", id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -180,6 +182,7 @@ export async function DELETE(
     });
 
     await updateSystemState("menu");
+    await publishRealtime("menu.updated", id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

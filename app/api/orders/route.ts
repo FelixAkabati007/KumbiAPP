@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,6 +134,8 @@ export async function POST(req: Request) {
       }
     }
 
+    await publishRealtime("orders.updated", String(orderId));
+    await publishRealtime("pos.updated", String(orderId));
     return NextResponse.json({ success: true, id: orderId });
   } catch (error) {
     console.error("Failed to create order:", error);

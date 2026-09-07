@@ -11,6 +11,7 @@ import {
 import type { OrderItem } from "./types";
 import { addSaleData, getSalesData } from "./data";
 import { apiFetch, isExpectedRequestError } from "./api-client";
+import { useRealtime } from "@/components/realtime-provider";
 
 export interface KitchenOrder {
   id: string;
@@ -60,6 +61,7 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
+  const { lastEvent } = useRealtime();
 
   // Load orders from API
   const loadOrders = useCallback(async () => {
@@ -76,6 +78,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (lastEvent?.topic === "orders.updated" || lastEvent?.topic === "pos.updated" || lastEvent?.topic === "inventory.updated") {
+      void loadOrders();
+    }
+  }, [lastEvent, loadOrders]);
 
   // Save orders to API and dispatch events
   const saveOrders = useCallback(async (newOrders: KitchenOrder[]) => {

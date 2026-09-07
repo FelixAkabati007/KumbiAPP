@@ -16,6 +16,7 @@ import { LoadingProvider } from "@/components/loading-provider";
 import { SystemSyncListener } from "@/components/system-sync-listener";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
+import { RealtimeProvider } from "@/components/realtime-provider";
 
 // Defensive check for broken localStorage in SSR environment
 if (
@@ -76,6 +77,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
+          <RealtimeProvider>
           <GlobalErrorHandler />
           <ServiceWorkerRegister />
           <SystemSyncListener />
@@ -102,6 +104,7 @@ export default function RootLayout({
               </LoadingProvider>
             </Suspense>
           </ThemeProvider>
+          </RealtimeProvider>
         </AuthProvider>
       </body>
     </html>

@@ -59,6 +59,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useSettings } from "@/components/settings-provider";
 import { OrderProvider, useOrders } from "@/lib/order-context";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
+import { useRealtime } from "@/components/realtime-provider";
 import {
   processPaymentWithIntegration,
   processBarcodeWithIntegration,
@@ -81,10 +82,12 @@ function POSContent() {
   const { user, logout } = useAuth();
   const { addOrder } = useOrders();
   const { settings } = useReceiptSettings();
+  const { lastEvent } = useRealtime();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
@@ -116,13 +119,25 @@ function POSContent() {
     "images.unsplash.com",
   ]);
 
-  // Load menu items
+  // Load menu items with a short retry window so the POS does not render a false empty state while auth/API hydration settles.
   useEffect(() => {
-    // getMenuItems is async now (fetches from API)
-    getMenuItems().then((items) => {
-      setMenuItems(items);
-      setFilteredItems(items);
-    });
+    let cancelled = false;
+    const loadMenu = async () => {
+      setMenuLoading(true);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const items = await getMenuItems();
+        if (items.length > 0 || attempt === 2) {
+          if (!cancelled) {
+            setMenuItems(items);
+            setFilteredItems(items);
+            setMenuLoading(false);
+          }
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    };
+    void loadMenu();
 
     // For order numbers, we use the async getter or generate a temp one
     getOrderNumber().then((num) => setOrderNumber(num));
@@ -132,7 +147,15 @@ function POSContent() {
         ? generateOrderId()
         : ""
     );
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (lastEvent?.topic === "menu.updated") {
+      setMenuLoading(true);
+      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); setMenuLoading(false); });
+    }
+  }, [lastEvent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -788,7 +811,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
 
           <ScrollArea className="flex-1 p-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredItems.map((item) => (
+              {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
+              {!menuLoading && filteredItems.map((item) => (
                 <Card
                   key={item.id}
   className={`relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
@@ -880,8 +904,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               ))}
 
               {filteredItems.length === 0 && (
-                <div className="col-span-full flex justify-center items-center h-40">
-                  <p className="text-muted-foreground">No items found</p>
+                <div className="col-span-full flex min-h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-orange-300 bg-white/50 p-6 text-center dark:border-orange-700 dark:bg-gray-800/40">
+                  <p className="font-semibold text-foreground">{menuItems.length === 0 ? "Menu unavailable" : "No matching items"}</p>
+                  <p className="max-w-sm text-sm text-muted-foreground">{menuItems.length === 0 ? "No published menu items are available for this till. Ask Menu Management to publish an item, then refresh this page." : "Try another search term or category."}</p>
+                  {menuItems.length === 0 && <Button type="button" variant="outline" onClick={() => window.location.reload()}>Retry menu</Button>}
                 </div>
               )}
             </div>
