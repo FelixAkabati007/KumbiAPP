@@ -43,13 +43,19 @@ export default function StaffPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "error" | "neutral">("neutral");
+  const [nextAction, setNextAction] = useState<"check_in" | "check_out" | "complete">("check_in");
 
   async function load() {
     const [attendanceResponse, scheduleResponse] = await Promise.all([
       fetch("/api/attendance"),
       fetch("/api/workforce/schedule"),
     ]);
-    if (attendanceResponse.ok) setRecord((await attendanceResponse.json()).record ?? null);
+    if (attendanceResponse.ok) {
+      const attendance = await attendanceResponse.json();
+      setRecord(attendance.record ?? null);
+      setNextAction(attendance.nextAction ?? "check_in");
+    }
     if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()).schedule ?? null);
     const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
     if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
@@ -100,20 +106,27 @@ export default function StaffPage() {
   async function register(action: "check_in" | "check_out") {
     setBusy(true);
     setMessage("");
+    setMessageTone("neutral");
     const response = await fetch("/api/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
     const data = await response.json();
-    setMessage(response.ok ? "Attendance updated successfully." : data.error ?? "Unable to update attendance.");
-    if (response.ok) await load();
+    const successMessage = action === "check_in" ? "Check-in successful" : "Check-out successful";
+    setMessage(response.ok ? successMessage : data.error ?? `Check-${action === "check_in" ? "in" : "out"} failed`);
+    setMessageTone(response.ok ? "success" : "error");
+    if (response.ok) {
+      setNextAction(data.nextAction ?? (action === "check_in" ? "check_out" : "complete"));
+      await load();
+    }
     setBusy(false);
   }
 
   if (isLoading || !user || user.role !== "staff") return null;
 
-  const open = Boolean(record?.check_in_at && !record.check_out_at);
+  const open = nextAction === "check_out";
+  const canCheckIn = nextAction === "check_in";
   return (
     <main className="min-h-screen bg-muted/30 p-4 text-foreground sm:p-8">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -141,10 +154,10 @@ export default function StaffPage() {
           </div>
           <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4 text-sm">Status: <span className="font-semibold">{record?.verification_status ?? "Not checked in"}</span><span className="mx-2 text-muted-foreground">·</span>In {formatTime(record?.check_in_at)}<span className="mx-2 text-muted-foreground">·</span>Out {formatTime(record?.check_out_at)}</div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button disabled={busy || open} onClick={() => void register("check_in")} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>
+            <button disabled={busy || !canCheckIn} onClick={() => void register("check_in")} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>
             <button disabled={busy || !open} onClick={() => void register("check_out")} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 py-3 font-semibold disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>
           </div>
-          {message && <p role="status" className="mt-4 rounded-xl border border-border bg-muted p-3 text-sm">{message}</p>}
+          {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}
         </section>
         <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6"><h2 className="text-xl font-semibold">Request planned absence</h2><p className="mt-1 text-sm text-muted-foreground">Submit permission before your absence so it is recorded as excused instead of missing attendance.</p><form onSubmit={submitPermission} className="mt-4 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Start date<input required type="date" value={permissionForm.startDate} onChange={(event) => setPermissionForm((current) => ({ ...current, startDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium">End date<input required type="date" value={permissionForm.endDate} onChange={(event) => setPermissionForm((current) => ({ ...current, endDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Reason<textarea required value={permissionForm.reason} onChange={(event) => setPermissionForm((current) => ({ ...current, reason: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" placeholder="Why do you need permission?" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Handover notes<textarea value={permissionForm.handoverNotes} onChange={(event) => setPermissionForm((current) => ({ ...current, handoverNotes: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" placeholder="Optional arrangements with your replacement" /></label><button disabled={busy} type="submit" className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">Send permission request</button></form>{permissionRequests.length > 0 && <div className="mt-5 space-y-2">{permissionRequests.map((item) => <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-3 text-sm"><span className="font-semibold">{item.start_date} to {item.end_date}</span><span className="mx-2 text-muted-foreground">·</span>{item.status}{item.reviewer_message && <p className="mt-1 text-muted-foreground">{item.reviewer_message}</p>}</div>)}</div>}</section>
         <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6"><h2 className="text-xl font-semibold">Request leave</h2><p className="mt-1 text-sm text-muted-foreground">Sick and maternity leave require a medical hospital report.</p><form onSubmit={submitLeave} className="mt-4 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Leave type<select value={leaveForm.leaveType} onChange={(event) => setLeaveForm((current) => ({ ...current, leaveType: event.target.value, medicalReportPath: "" }))} className="min-h-11 rounded-xl border border-border bg-background px-3"><option value="annual">Annual leave</option><option value="sick">Sick leave</option><option value="maternity">Maternity leave</option><option value="emergency">Emergency leave</option><option value="unpaid">Unpaid leave</option><option value="other">Other leave</option></select></label><div /><label className="grid gap-1 text-sm font-medium">Start date<input required type="date" value={leaveForm.startDate} onChange={(event) => setLeaveForm((current) => ({ ...current, startDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium">End date<input required type="date" value={leaveForm.endDate} onChange={(event) => setLeaveForm((current) => ({ ...current, endDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Reason<textarea required value={leaveForm.reason} onChange={(event) => setLeaveForm((current) => ({ ...current, reason: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" /></label>{["sick", "maternity"].includes(leaveForm.leaveType) && <label className="grid gap-1 text-sm font-medium sm:col-span-2">Medical hospital report<input required type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedicalReport(file); }} className="min-h-11 rounded-xl border border-border bg-background p-2 text-sm" /><span className="text-xs font-normal text-muted-foreground">PDF, JPG, or PNG up to 10 MB. {reportName && `Uploaded: ${reportName}`}</span></label>}<button disabled={busy || (["sick", "maternity"].includes(leaveForm.leaveType) && !leaveForm.medicalReportPath)} type="submit" className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">Send leave request</button></form>{leaveRequests.length > 0 && <div className="mt-5 space-y-2">{leaveRequests.map((item) => <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-3 text-sm"><span className="font-semibold">{item.leave_type} · {item.start_date} to {item.end_date}</span><span className="mx-2 text-muted-foreground">·</span>{item.status}{item.reviewer_message && <p className="mt-1 text-muted-foreground">{item.reviewer_message}</p>}</div>)}</div>}</section>
