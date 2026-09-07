@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { useState } from "react";
+import Link from "next/link";
 import { Megaphone, Plus, Send, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +66,7 @@ export function AnnouncementCard({ embedded = false }: { embedded?: boolean }) {
       </CardHeader>
       {publishResult && <p role="status" className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{publishResult}</p>}<CardContent className={embedded ? "flex flex-col gap-3 px-0 pt-4" : "flex flex-col gap-3 pt-0"}>
         {announcements.length === 0 ? <div className="flex items-center gap-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground"><ShieldAlert className="size-4" />No active announcements.</div> : announcements.slice(0, embedded ? 3 : 1).map((item) => <article key={item.id} className="rounded-xl border bg-background/70 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3>{item.priority !== "normal" && <Badge variant={item.priority === "urgent" ? "destructive" : "secondary"}>{item.priority}</Badge>}</div><p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.message}</p></div>{!item.is_read && <span className="mt-1 size-2 shrink-0 rounded-full bg-primary" aria-label="Unread announcement" />}</div><div className="mt-2 text-xs text-muted-foreground">{item.created_by_name} · {getRoleDisplayName(item.created_by_role)} · {new Date(item.created_at).toLocaleString()}</div></article>)}
+        {!embedded && <Link href="/announcements" className="inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">Open announcements</Link>}
       </CardContent>
     </Card>
   );
