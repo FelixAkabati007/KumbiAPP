@@ -42,9 +42,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await query("SELECT * FROM users WHERE email = $1", [
-      cleanEmail,
-    ]);
+    const result = await query(
+      `SELECT u.id, u.email, u.name, u.role, u.email_verified,
+              sp.password_hash, sp.employment_status, sp.is_active
+       FROM staff_profiles sp
+       JOIN users u ON sp.user_id = u.id
+       WHERE LOWER(sp.business_email) = $1
+         AND sp.is_active = true
+         AND sp.employment_status = 'active'`,
+      [cleanEmail],
+    );
+
+    if (cleanEmail === "admin@example.com") {
+      console.warn("[auth] Deprecated seed credential attempted; staff records only");
+    }
     if (result.rows.length === 0) {
       return NextResponse.json(
         {
