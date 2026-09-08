@@ -40,8 +40,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (password.length < 12 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setError("Password must be 12+ characters with uppercase, lowercase, number, and special character");
       setLoading(false);
       return;
     }
@@ -100,7 +100,7 @@ function ResetPasswordForm() {
       <CardHeader>
         <CardTitle>Set New Password</CardTitle>
         <CardDescription>
-          Please enter your new password below.
+          Use 12+ characters with uppercase, lowercase, number, and special character.
         </CardDescription>
       </CardHeader>
       <CardContent>
