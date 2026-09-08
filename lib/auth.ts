@@ -10,7 +10,6 @@ function getJwtSecret(): string {
   return secret;
 }
 
-const JWT_SECRET = getJwtSecret();
 
 export type JwtPayloadData = {
   id: string;
@@ -30,12 +29,12 @@ export async function comparePassword(
 }
 
 export function signToken(payload: JwtPayloadData): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "1d" });
 }
 
 export function verifyToken(token: string): JwtPayloadData | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayloadData;
+    return jwt.verify(token, getJwtSecret()) as JwtPayloadData;
   } catch {
     return null;
   }
