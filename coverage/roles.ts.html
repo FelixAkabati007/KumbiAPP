@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.15% </span>
+                <span class="strong">98.22% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>585/596</span>
+                <span class='fraction'>607/618</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.15% </span>
+                <span class="strong">98.22% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>585/596</span>
+                <span class='fraction'>607/618</span>
             </div>
         
             
@@ -749,7 +749,31 @@
 <a name='L684'></a><a href='#L684'>684</a>
 <a name='L685'></a><a href='#L685'>685</a>
 <a name='L686'></a><a href='#L686'>686</a>
-<a name='L687'></a><a href='#L687'>687</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L687'></a><a href='#L687'>687</a>
+<a name='L688'></a><a href='#L688'>688</a>
+<a name='L689'></a><a href='#L689'>689</a>
+<a name='L690'></a><a href='#L690'>690</a>
+<a name='L691'></a><a href='#L691'>691</a>
+<a name='L692'></a><a href='#L692'>692</a>
+<a name='L693'></a><a href='#L693'>693</a>
+<a name='L694'></a><a href='#L694'>694</a>
+<a name='L695'></a><a href='#L695'>695</a>
+<a name='L696'></a><a href='#L696'>696</a>
+<a name='L697'></a><a href='#L697'>697</a>
+<a name='L698'></a><a href='#L698'>698</a>
+<a name='L699'></a><a href='#L699'>699</a>
+<a name='L700'></a><a href='#L700'>700</a>
+<a name='L701'></a><a href='#L701'>701</a>
+<a name='L702'></a><a href='#L702'>702</a>
+<a name='L703'></a><a href='#L703'>703</a>
+<a name='L704'></a><a href='#L704'>704</a>
+<a name='L705'></a><a href='#L705'>705</a>
+<a name='L706'></a><a href='#L706'>706</a>
+<a name='L707'></a><a href='#L707'>707</a>
+<a name='L708'></a><a href='#L708'>708</a>
+<a name='L709'></a><a href='#L709'>709</a>
+<a name='L710'></a><a href='#L710'>710</a>
+<a name='L711'></a><a href='#L711'>711</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -762,6 +786,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -790,6 +827,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1450,6 +1498,19 @@ export type UserRole =
 &nbsp;
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 &nbsp;
+export const roleOptions: { value: UserRole; label: string; description: string }[] = [
+  { value: "staff", label: "Staff", description: "Use the job classification to identify assigned duties." },
+  { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
+  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
+  { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
+  { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
+  { value: "hotelManager", label: "Hotel Manager", description: "Manage hotel rooms, reservations, reception, housekeeping, and hotel performance." },
+  { value: "restaurantManager", label: "Restaurant Manager", description: "Manage restaurant service, kitchen production, orders, menu, and inventory." },
+  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations and approve cross-department decisions." },
+  { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
+];
+&nbsp;
 export const roleDisplayNames: Record&lt;UserRole, string&gt; = {
   admin: "Administrator",
   manager: "General Manager",
@@ -1476,6 +1537,17 @@ export type StaffClassification =
   | "security"
   | "labour"
   | "other";
+&nbsp;
+export const staffClassificationOptions: { value: StaffClassification; label: string; department: "Hotel" | "Restaurant" | "Operations"; description: string }[] = [
+  { value: "reception", label: "Reception", department: "Hotel", description: "Hotel guest reception, reservations, check-in, and check-out." },
+  { value: "restaurantPos", label: "Restaurant Front Desk / POS", department: "Restaurant", description: "Restaurant POS, order entry, cashier, and payment handling." },
+  { value: "waiterWaitress", label: "Waiter/Waitress", department: "Restaurant", description: "Serve food, manage tables, and update served orders." },
+  { value: "chef", label: "Chef", department: "Restaurant", description: "Prepare and complete kitchen orders." },
+  { value: "housekeeping", label: "Housekeeping", department: "Hotel", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "security", label: "Security", department: "Operations", description: "Security and site coverage." },
+  { value: "labour", label: "Labour", department: "Operations", description: "General labour and operational support." },
+  { value: "other", label: "Other", department: "Operations", description: "A configurable operational classification." },
+];
 &nbsp;
 const classificationLabels: Record&lt;StaffClassification, string&gt; = {
   reception: "Reception",
@@ -2128,7 +2200,7 @@ export function canManageFeatureToggles(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-08T04:45:03.007Z
+                at 2026-09-08T04:48:07.216Z
             </div>
         <script src="prettify.js"></script>
         <script>

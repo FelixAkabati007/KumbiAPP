@@ -13,6 +13,19 @@ export type UserRole =
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
+export const roleOptions: { value: UserRole; label: string; description: string }[] = [
+  { value: "staff", label: "Staff", description: "Use the job classification to identify assigned duties." },
+  { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
+  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
+  { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
+  { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
+  { value: "hotelManager", label: "Hotel Manager", description: "Manage hotel rooms, reservations, reception, housekeeping, and hotel performance." },
+  { value: "restaurantManager", label: "Restaurant Manager", description: "Manage restaurant service, kitchen production, orders, menu, and inventory." },
+  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations and approve cross-department decisions." },
+  { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
+];
+
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: "Administrator",
   manager: "General Manager",
@@ -39,6 +52,17 @@ export type StaffClassification =
   | "security"
   | "labour"
   | "other";
+
+export const staffClassificationOptions: { value: StaffClassification; label: string; department: "Hotel" | "Restaurant" | "Operations"; description: string }[] = [
+  { value: "reception", label: "Reception", department: "Hotel", description: "Hotel guest reception, reservations, check-in, and check-out." },
+  { value: "restaurantPos", label: "Restaurant Front Desk / POS", department: "Restaurant", description: "Restaurant POS, order entry, cashier, and payment handling." },
+  { value: "waiterWaitress", label: "Waiter/Waitress", department: "Restaurant", description: "Serve food, manage tables, and update served orders." },
+  { value: "chef", label: "Chef", department: "Restaurant", description: "Prepare and complete kitchen orders." },
+  { value: "housekeeping", label: "Housekeeping", department: "Hotel", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "security", label: "Security", department: "Operations", description: "Security and site coverage." },
+  { value: "labour", label: "Labour", department: "Operations", description: "General labour and operational support." },
+  { value: "other", label: "Other", department: "Operations", description: "A configurable operational classification." },
+];
 
 const classificationLabels: Record<StaffClassification, string> = {
   reception: "Reception",
