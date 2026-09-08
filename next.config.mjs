@@ -10,13 +10,6 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
-  // Keep output file tracing stable when multiple lockfiles exist
-  outputFileTracingRoot: process.cwd(),
-  output: "standalone",
-  // Performance optimizations
-  experimental: {
-    webpackMemoryOptimizations: true,
-  },
   images: {
     domains: ["scontent.facc5-2.fna.fbcdn.net", "images.unsplash.com"],
     formats: ["image/avif", "image/webp"],
