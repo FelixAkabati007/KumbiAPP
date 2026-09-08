@@ -98,8 +98,73 @@ export type AppSection =
   | "eventPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
+export type OperationalScope = "hotel" | "restaurant" | "general" | "events";
 
 export type RoleCapability = Record<CrudAction, boolean>;
+
+export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
+  admin: ["general", "hotel", "restaurant", "events"],
+  manager: ["general", "hotel", "restaurant", "events"],
+  hotelManager: ["hotel"],
+  restaurantManager: ["restaurant", "events"],
+  operationsManager: ["general", "events"],
+  finance: ["general"],
+  staff: ["restaurant"],
+  kitchen: ["restaurant"],
+  frontDesk: ["hotel"],
+  housekeeping: ["hotel"],
+};
+
+export const classificationRoleHints: Record<StaffClassification, UserRole[]> = {
+  reception: ["frontDesk", "hotelManager", "manager", "admin"],
+  restaurantPos: ["staff", "restaurantManager", "manager", "admin"],
+  waiterWaitress: ["staff", "restaurantManager", "manager", "admin"],
+  chef: ["kitchen", "restaurantManager", "manager", "admin"],
+  housekeeping: ["housekeeping", "hotelManager", "manager", "admin"],
+  security: ["operationsManager", "manager", "admin"],
+  labour: ["operationsManager", "manager", "admin"],
+  other: ["staff", "manager", "admin"],
+};
+
+export function getRoleAccessSummary(role: UserRole | string) {
+  if (!isUserRole(role)) return null;
+  return {
+    role,
+    label: getRoleDisplayName(role),
+    scopes: roleOperationalScopes[role],
+    sections: Object.entries(rolePermissions[role])
+      .filter(([, allowed]) => allowed)
+      .map(([section]) => section as AppSection),
+  };
+}
+
+export function validateStaffAccessProfile({
+  role,
+  classification,
+  scope,
+}: {
+  role: string;
+  classification?: string | null;
+  scope?: string | null;
+}) {
+  const normalizedRole = isUserRole(role) ? role : null;
+  const normalizedClassification = normalizeStaffClassification(classification);
+  const normalizedScope = scope as OperationalScope | undefined;
+  const errors: string[] = [];
+
+  if (!normalizedRole) errors.push("Select a valid role.");
+  if (normalizedScope && !["hotel", "restaurant", "general", "events"].includes(normalizedScope)) {
+    errors.push("Select a valid operational scope.");
+  }
+  if (normalizedRole && !classificationRoleHints[normalizedClassification].includes(normalizedRole)) {
+    errors.push(`${getStaffClassificationLabel(normalizedClassification)} is not aligned with ${getRoleDisplayName(normalizedRole)}.`);
+  }
+  if (normalizedRole && normalizedScope && !roleOperationalScopes[normalizedRole].includes(normalizedScope)) {
+    errors.push(`${getRoleDisplayName(normalizedRole)} cannot be assigned to the ${normalizedScope} scope.`);
+  }
+
+  return { valid: errors.length === 0, errors, role: normalizedRole, classification: normalizedClassification, scope: normalizedScope };
+}
 
 /** Traceable least-privilege capability defaults. Section booleans remain the UI visibility contract. */
 export const roleCapabilities: Record<

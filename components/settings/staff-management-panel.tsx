@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { validateStaffAccessProfile } from "@/lib/roles";
 import {
   Loader2,
   Pencil,
@@ -254,6 +255,11 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       });
       return;
     }
+    const accessProfile = validateStaffAccessProfile({ role: createForm.role, classification: createForm.jobClassification, scope: createForm.managerScope });
+    if (!accessProfile.valid) {
+      toast({ title: "Review access assignment", description: accessProfile.errors.join(" "), variant: "destructive" });
+      return;
+    }
     if (createForm.password.length < 8) {
       toast({
         title: "Password is too short",
@@ -364,6 +370,11 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
 
   const handleUpdateStaff = async () => {
     if (!editingStaff) return;
+    const accessProfile = validateStaffAccessProfile({ role: editForm.role, classification: editForm.jobClassification, scope: editForm.managerScope });
+    if (!accessProfile.valid) {
+      toast({ title: "Review access assignment", description: accessProfile.errors.join(" "), variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/admin/staff/${editingStaff.id}`, {
