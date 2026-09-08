@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
+import { query } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
+import { buildVerificationEmail, sendEmail } from "@/lib/email";
+import { signUpWithEmail } from "@/lib/auth-neon";
+import { recordSignupAttempt, isRateLimited } from "@/lib/rate-limit";
+import { signupSchema } from "@/lib/validations/auth";
+import env from "@/lib/env";
+import crypto from "crypto";
+
 export async function POST(req: Request) {
   try {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Accounts must be created by an administrator in Settings > Staff Accounts.",
-        code: "staff_account_creation_only",
-      },
-      { status: 403 },
-    );
-
-    /*
     const body = await req.json();
 
     // Zod Validation
@@ -148,7 +147,6 @@ export async function POST(req: Request) {
         message: "Please return to Sign In page to login.",
       });
     }
-    */
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(

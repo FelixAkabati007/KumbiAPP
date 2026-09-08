@@ -40,7 +40,7 @@ export const roleDisplayNames: Record<UserRole, string> = {
 };
 
 export function getRoleDisplayName(role: UserRole | string): string {
-  return roleDisplayNames[role as UserRole] || "Staff";
+  return roleDisplayNames[role as UserRole] || "Unknown role";
 }
 
 export type StaffClassification =
@@ -124,6 +124,13 @@ export type AppSection =
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
 export type OperationalScope = "hotel" | "restaurant" | "general" | "events";
 
+export const operationalScopeOptions: { value: OperationalScope; label: string; description: string }[] = [
+  { value: "general", label: "All operations", description: "Cross-department access within the assigned authority." },
+  { value: "hotel", label: "Hotel", description: "Rooms, reservations, reception, housekeeping, and hotel reporting." },
+  { value: "restaurant", label: "Restaurant", description: "POS, orders, kitchen, menu, inventory, and restaurant reporting." },
+  { value: "events", label: "Events", description: "Event planning and event pricing without finance or guest-management access." },
+];
+
 export type RoleCapability = Record<CrudAction, boolean>;
 
 export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
@@ -180,14 +187,18 @@ export function validateStaffAccessProfile({
   if (normalizedScope && !["hotel", "restaurant", "general", "events"].includes(normalizedScope)) {
     errors.push("Select a valid operational scope.");
   }
-  if (normalizedRole && !classificationRoleHints[normalizedClassification].includes(normalizedRole)) {
-    errors.push(`${getStaffClassificationLabel(normalizedClassification)} is not aligned with ${getRoleDisplayName(normalizedRole)}.`);
-  }
   if (normalizedRole && normalizedScope && !roleOperationalScopes[normalizedRole].includes(normalizedScope)) {
     errors.push(`${getRoleDisplayName(normalizedRole)} cannot be assigned to the ${normalizedScope} scope.`);
   }
 
-  return { valid: errors.length === 0, errors, role: normalizedRole, classification: normalizedClassification, scope: normalizedScope };
+  return {
+    valid: errors.length === 0,
+    errors,
+    role: normalizedRole,
+    classification: normalizedClassification,
+    scope: normalizedScope,
+    classificationIsGuidance: Boolean(normalizedRole),
+  };
 }
 
 /** Traceable least-privilege capability defaults. Section booleans remain the UI visibility contract. */

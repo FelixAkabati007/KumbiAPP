@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { updateStaffPassword } from "@/lib/password-manager";
+import { hashPassword } from "@/lib/auth";
 import crypto from "crypto";
 import { z } from "zod";
 
@@ -9,10 +9,10 @@ const resetSchema = z.object({
   token: z.string(),
   password: z
     .string()
-    .min(12, { message: "Password must be at least 12 characters" })
-    .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/, {
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
       message:
-        "Password must contain uppercase, lowercase, number, and special character",
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number",
     }),
 });
 
@@ -34,15 +34,8 @@ export async function POST(req: Request) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
     const tokenRes = await query(
-      `SELECT prt.id, prt.staff_id, prt.expires_at
-       FROM password_reset_tokens prt
-       JOIN staff_profiles sp ON sp.id = prt.staff_id
-       WHERE LOWER(TRIM(sp.business_email)) = LOWER(TRIM($1))
-         AND prt.token_hash = $2
-         AND prt.is_used = false
-         AND prt.expires_at > NOW()
-         AND sp.is_active = true
-         AND sp.employment_status = 'active'`,
+      `SELECT id, expires_at, used_at FROM password_reset_tokens
+       WHERE email = $1 AND token_hash = $2 AND used_at IS NULL`,
       [email, tokenHash]
     );
 
@@ -54,23 +47,24 @@ export async function POST(req: Request) {
     }
 
     const tokenData = tokenRes.rows[0];
-
-    await updateStaffPassword(tokenData.staff_id, password);
-
-    const consumedToken = await query(
-      `UPDATE password_reset_tokens
-       SET is_used = true, used_at = NOW()
-       WHERE id = $1 AND is_used = false
-       RETURNING id`,
-      [tokenData.id]
-    );
-
-    if (consumedToken.rows.length === 0) {
+    if (new Date() > new Date(tokenData.expires_at)) {
       return NextResponse.json(
-        { success: false, error: "This reset link has already been used" },
+        { success: false, error: "Token has expired" },
         { status: 400 }
       );
     }
+
+    // Update password
+    const hashedPassword = await hashPassword(password);
+    await query("UPDATE users SET password_hash = $1 WHERE email = $2", [
+      hashedPassword,
+      email,
+    ]);
+
+    // Mark token used
+    await query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [
+      tokenData.id,
+    ]);
 
     return NextResponse.json({
       success: true,

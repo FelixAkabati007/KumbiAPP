@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
+import { query } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
 
 export async function POST() {
   try {
-    return NextResponse.json(
-      { error: "Admin seeding is disabled. Create staff accounts in Settings." },
-      { status: 410 },
-    );
-
-    /*
     if (process.env.NODE_ENV !== "development") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -37,7 +33,6 @@ export async function POST() {
       seeded: true,
       admin: result.rows[0],
     });
-    */
   } catch {
     return NextResponse.json({ error: "Seeding failed" }, { status: 500 });
   }

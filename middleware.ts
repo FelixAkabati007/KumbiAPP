@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-me";
 
 // Define role-based access control for routes.
 // NOTE: Object key order matters — more specific paths must be listed
@@ -103,9 +103,6 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      if (!JWT_SECRET) {
-        return NextResponse.json({ error: "Authentication is not configured" }, { status: 503 });
-      }
       const secret = new TextEncoder().encode(JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
       const userRole = payload.role as string;
