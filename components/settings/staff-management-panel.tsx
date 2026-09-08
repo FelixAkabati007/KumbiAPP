@@ -48,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { roleOptions, staffClassificationOptions, validateStaffAccessProfile } from "@/lib/roles";
+import { getRoleAccessSummary, operationalScopeOptions, roleOptions, staffClassificationOptions, validateStaffAccessProfile } from "@/lib/roles";
 import type { StaffClassification, UserRole } from "@/lib/roles";
 import {
   Loader2,
@@ -124,8 +124,7 @@ const emptyCreateForm = {
   hireDate: "",
   password: "",
   role: "staff" as StaffRole,
-  managerScope: "general" as "hotel" | "restaurant" | "general",
-  eventScope: "restaurant" as "restaurant" | "events" | "restaurant_events",
+  operationalScope: "general" as "hotel" | "restaurant" | "general" | "events",
 };
 
 export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
@@ -156,7 +155,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
     jobClassification: "reception" as StaffClassification,
     employmentStatus: "active",
     role: "staff" as StaffRole,
-  managerScope: "hotel" as "hotel" | "restaurant" | "general",
+    operationalScope: "general" as "hotel" | "restaurant" | "general" | "events",
   });
 
   const loadStaff = useCallback(async () => {
@@ -232,7 +231,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       });
       return;
     }
-    const accessProfile = validateStaffAccessProfile({ role: createForm.role, classification: createForm.jobClassification, scope: createForm.managerScope });
+    const accessProfile = validateStaffAccessProfile({ role: createForm.role, classification: createForm.jobClassification, scope: createForm.operationalScope });
     if (!accessProfile.valid) {
       toast({ title: "Review access assignment", description: accessProfile.errors.join(" "), variant: "destructive" });
       return;
@@ -253,6 +252,8 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...createForm,
+          managerScope: createForm.operationalScope,
+          operationalScope: createForm.operationalScope,
           firstName: createForm.firstName.trim(),
           lastName: createForm.lastName.trim(),
           businessEmail: email,
@@ -341,13 +342,13 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       jobClassification: (member.job_classification || "other") as StaffClassification,
       employmentStatus: member.employment_status || "active",
       role: member.role || "staff",
-      managerScope: member.manager_scope || "general",
-    });
+  operationalScope: (member.manager_scope || "general") as "hotel" | "restaurant" | "general" | "events",
+  });
   };
 
   const handleUpdateStaff = async () => {
     if (!editingStaff) return;
-    const accessProfile = validateStaffAccessProfile({ role: editForm.role, classification: editForm.jobClassification, scope: editForm.managerScope });
+    const accessProfile = validateStaffAccessProfile({ role: editForm.role, classification: editForm.jobClassification, scope: editForm.operationalScope });
     if (!accessProfile.valid) {
       toast({ title: "Review access assignment", description: accessProfile.errors.join(" "), variant: "destructive" });
       return;
@@ -357,7 +358,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
       const res = await fetch(`/api/admin/staff/${editingStaff.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...editForm, managerScope: editForm.role === "manager" ? editForm.managerScope : "general" }),
+        body: JSON.stringify({ ...editForm, managerScope: editForm.operationalScope, operationalScope: editForm.operationalScope }),
       });
       const data = await res.json();
 
@@ -559,7 +560,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="staff-classification">Job classification</Label>
+                  <div className="space-y-1"><Label htmlFor="staff-classification">Job classification</Label><p className="text-xs text-muted-foreground">Your day-to-day function. This guides defaults; access is controlled by the access role.</p></div>
                   <Select
                     value={createForm.jobClassification}
                     onValueChange={(value) => {
@@ -614,7 +615,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="staff-role">Role &amp; access level</Label>
+                  <Label htmlFor="staff-role">Access role</Label>
                   <Select
                     value={createForm.role}
                     onValueChange={(value) =>
@@ -640,34 +641,14 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                   </Select>
                 </div>
 
-                {(createForm.role === "kitchen" || createForm.role === "frontDesk" || createForm.role === "manager") && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="staff-event-scope">Operational scope</Label>
-                    <Select value={createForm.eventScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, eventScope: value as "restaurant" | "events" | "restaurant_events" }))}>
-                      <SelectTrigger id="staff-event-scope"><SelectValue placeholder="Select operational scope" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="restaurant">Restaurant only</SelectItem>
-                        <SelectItem value="events">Events only</SelectItem>
-                        <SelectItem value="restaurant_events">Restaurant + Events</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">Event access does not grant payment, contract, or guest-management permissions.</p>
-                  </div>
-                )}
-
-                {createForm.role === "manager" && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="staff-manager-scope">Access level</Label>
-                    <Select value={createForm.managerScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
-                      <SelectTrigger id="staff-manager-scope"><SelectValue placeholder="Select manager scope" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General Manager</SelectItem>
-                        <SelectItem value="hotel">Hotel Manager</SelectItem>
-                        <SelectItem value="restaurant">Restaurant Manager</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/40 p-3 dark:border-orange-800/60 dark:bg-orange-950/20">
+                  <div className="space-y-1"><Label htmlFor="staff-operational-scope">Operational scope</Label><p className="text-xs text-muted-foreground">Where this person works. Scope limits the access role; it does not grant permissions.</p></div>
+                  <Select value={createForm.operationalScope} onValueChange={(value) => setCreateForm((f) => ({ ...f, operationalScope: value as typeof f.operationalScope }))}>
+                    <SelectTrigger id="staff-operational-scope"><SelectValue placeholder="Select operational scope" /></SelectTrigger>
+                    <SelectContent>{operationalScopeOptions.map((option) => <SelectItem key={option.value} value={option.value}><div className="flex flex-col gap-0.5"><span>{option.label}</span><span className="text-xs text-muted-foreground">{option.description}</span></div></SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                {(() => { const summary = getRoleAccessSummary(createForm.role); return <div className="rounded-2xl border border-border/70 bg-muted/30 p-3 text-sm"><div className="font-medium">Effective access preview</div><p className="mt-1 text-xs text-muted-foreground">{summary?.label} can access {summary?.sections.length ?? 0} modules within {operationalScopeOptions.find((option) => option.value === createForm.operationalScope)?.label.toLowerCase()} scope.</p><div className="mt-2 flex flex-wrap gap-1">{summary?.sections.slice(0, 8).map((section) => <Badge key={section} variant="secondary" className="text-[10px]">{section}</Badge>)}</div></div>; })()}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="staff-password">Temporary password</Label>
@@ -876,7 +857,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
 
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div className="space-y-1.5">
-                                  <Label>Role &amp; access level</Label>
+                                  <Label>Access role</Label>
                                   <Select
                                     value={editForm.role}
                                     onValueChange={(value) =>
@@ -904,19 +885,13 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                {editForm.role === "manager" && (
-                                  <div className="space-y-1.5">
-                                    <Label>Access level</Label>
-                                    <Select value={editForm.managerScope} onValueChange={(value) => setEditForm((f) => ({ ...f, managerScope: value as "hotel" | "restaurant" | "general" }))}>
-                                      <SelectTrigger><SelectValue /></SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="hotel">Hotel Manager</SelectItem>
-                                        <SelectItem value="restaurant">Restaurant Manager</SelectItem>
-                                        <SelectItem value="general">General Manager</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                )}
+                                <div className="space-y-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/40 p-3 dark:border-orange-800/60 dark:bg-orange-950/20">
+                                  <div className="space-y-1"><Label>Operational scope</Label><p className="text-xs text-muted-foreground">Where this person works. Scope limits the role; it does not grant permissions.</p></div>
+                                  <Select value={editForm.operationalScope} onValueChange={(value) => setEditForm((f) => ({ ...f, operationalScope: value as typeof f.operationalScope }))}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>{operationalScopeOptions.map((option) => <SelectItem key={option.value} value={option.value}><div className="flex flex-col gap-0.5"><span>{option.label}</span><span className="text-xs text-muted-foreground">{option.description}</span></div></SelectItem>)}</SelectContent>
+                                  </Select>
+                                </div>
                                 <div className="space-y-1.5">
                                   <Label>Employment status</Label>
                                   <Select

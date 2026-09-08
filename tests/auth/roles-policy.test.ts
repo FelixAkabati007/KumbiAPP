@@ -41,9 +41,10 @@ describe("RBAC policy", () => {
     expect(validateStaffAccessProfile({ role: "kitchen", classification: "chef", scope: "restaurant" }).valid).toBe(true);
   });
 
-  it("rejects contradictory access assignments", () => {
+  it("treats classification as guidance but rejects invalid scope", () => {
     const result = validateStaffAccessProfile({ role: "frontDesk", classification: "chef", scope: "restaurant" });
     expect(result.valid).toBe(false);
-    expect(result.errors).toHaveLength(2);
+    expect(result.errors).toEqual(["Reception cannot be assigned to the restaurant scope."]);
+    expect(validateStaffAccessProfile({ role: "admin", classification: "chef", scope: "general" }).valid).toBe(true);
   });
 });
