@@ -13,6 +13,19 @@ export type UserRole =
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
+export const roleOptions: { value: UserRole; label: string; description: string }[] = [
+  { value: "staff", label: "Staff", description: "Use the job classification to identify assigned duties." },
+  { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
+  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
+  { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
+  { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
+  { value: "hotelManager", label: "Hotel Manager", description: "Manage hotel rooms, reservations, reception, housekeeping, and hotel performance." },
+  { value: "restaurantManager", label: "Restaurant Manager", description: "Manage restaurant service, kitchen production, orders, menu, and inventory." },
+  { value: "manager", label: "General Manager", description: "Supervise hotel and restaurant operations and approve cross-department decisions." },
+  { value: "admin", label: "Admin", description: "Manage system settings, staff access, and administrative controls." },
+];
+
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: "Administrator",
   manager: "General Manager",
@@ -39,6 +52,17 @@ export type StaffClassification =
   | "security"
   | "labour"
   | "other";
+
+export const staffClassificationOptions: { value: StaffClassification; label: string; department: "Hotel" | "Restaurant" | "Operations"; description: string }[] = [
+  { value: "reception", label: "Reception", department: "Hotel", description: "Hotel guest reception, reservations, check-in, and check-out." },
+  { value: "restaurantPos", label: "Restaurant Front Desk / POS", department: "Restaurant", description: "Restaurant POS, order entry, cashier, and payment handling." },
+  { value: "waiterWaitress", label: "Waiter/Waitress", department: "Restaurant", description: "Serve food, manage tables, and update served orders." },
+  { value: "chef", label: "Chef", department: "Restaurant", description: "Prepare and complete kitchen orders." },
+  { value: "housekeeping", label: "Housekeeping", department: "Hotel", description: "Manage room-cleaning tasks and housekeeping status." },
+  { value: "security", label: "Security", department: "Operations", description: "Security and site coverage." },
+  { value: "labour", label: "Labour", department: "Operations", description: "General labour and operational support." },
+  { value: "other", label: "Other", department: "Operations", description: "A configurable operational classification." },
+];
 
 const classificationLabels: Record<StaffClassification, string> = {
   reception: "Reception",
@@ -98,8 +122,73 @@ export type AppSection =
   | "eventPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
+export type OperationalScope = "hotel" | "restaurant" | "general" | "events";
 
 export type RoleCapability = Record<CrudAction, boolean>;
+
+export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
+  admin: ["general", "hotel", "restaurant", "events"],
+  manager: ["general", "hotel", "restaurant", "events"],
+  hotelManager: ["hotel"],
+  restaurantManager: ["restaurant", "events"],
+  operationsManager: ["general", "events"],
+  finance: ["general"],
+  staff: ["restaurant"],
+  kitchen: ["restaurant"],
+  frontDesk: ["hotel"],
+  housekeeping: ["hotel"],
+};
+
+export const classificationRoleHints: Record<StaffClassification, UserRole[]> = {
+  reception: ["frontDesk", "hotelManager", "manager", "admin"],
+  restaurantPos: ["staff", "restaurantManager", "manager", "admin"],
+  waiterWaitress: ["staff", "restaurantManager", "manager", "admin"],
+  chef: ["kitchen", "restaurantManager", "manager", "admin"],
+  housekeeping: ["housekeeping", "hotelManager", "manager", "admin"],
+  security: ["operationsManager", "manager", "admin"],
+  labour: ["operationsManager", "manager", "admin"],
+  other: ["staff", "manager", "admin"],
+};
+
+export function getRoleAccessSummary(role: UserRole | string) {
+  if (!isUserRole(role)) return null;
+  return {
+    role,
+    label: getRoleDisplayName(role),
+    scopes: roleOperationalScopes[role],
+    sections: Object.entries(rolePermissions[role])
+      .filter(([, allowed]) => allowed)
+      .map(([section]) => section as AppSection),
+  };
+}
+
+export function validateStaffAccessProfile({
+  role,
+  classification,
+  scope,
+}: {
+  role: string;
+  classification?: string | null;
+  scope?: string | null;
+}) {
+  const normalizedRole = isUserRole(role) ? role : null;
+  const normalizedClassification = normalizeStaffClassification(classification);
+  const normalizedScope = scope as OperationalScope | undefined;
+  const errors: string[] = [];
+
+  if (!normalizedRole) errors.push("Select a valid role.");
+  if (normalizedScope && !["hotel", "restaurant", "general", "events"].includes(normalizedScope)) {
+    errors.push("Select a valid operational scope.");
+  }
+  if (normalizedRole && !classificationRoleHints[normalizedClassification].includes(normalizedRole)) {
+    errors.push(`${getStaffClassificationLabel(normalizedClassification)} is not aligned with ${getRoleDisplayName(normalizedRole)}.`);
+  }
+  if (normalizedRole && normalizedScope && !roleOperationalScopes[normalizedRole].includes(normalizedScope)) {
+    errors.push(`${getRoleDisplayName(normalizedRole)} cannot be assigned to the ${normalizedScope} scope.`);
+  }
+
+  return { valid: errors.length === 0, errors, role: normalizedRole, classification: normalizedClassification, scope: normalizedScope };
+}
 
 /** Traceable least-privilege capability defaults. Section booleans remain the UI visibility contract. */
 export const roleCapabilities: Record<

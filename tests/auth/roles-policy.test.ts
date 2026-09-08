@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canManageFeatureToggles, canPerformAction, hasPermission } from "@/lib/roles";
+import {
+  canManageFeatureToggles,
+  canPerformAction,
+  getRoleAccessSummary,
+  hasPermission,
+  validateStaffAccessProfile,
+} from "@/lib/roles";
 
 describe("RBAC policy", () => {
   it("grants admins every section and action", () => {
@@ -20,5 +26,24 @@ describe("RBAC policy", () => {
     expect(hasPermission(undefined, "pos")).toBe(false);
     expect(canPerformAction("superuser", "pos", "view")).toBe(false);
     expect(canManageFeatureToggles(null)).toBe(false);
+  });
+
+  it("exposes one explainable access summary per role", () => {
+    expect(getRoleAccessSummary("frontDesk")).toMatchObject({
+      label: "Reception",
+      scopes: ["hotel"],
+    });
+    expect(getRoleAccessSummary("unknown")).toBeNull();
+  });
+
+  it("accepts aligned role, scope, and job classification combinations", () => {
+    expect(validateStaffAccessProfile({ role: "frontDesk", classification: "reception", scope: "hotel" }).valid).toBe(true);
+    expect(validateStaffAccessProfile({ role: "kitchen", classification: "chef", scope: "restaurant" }).valid).toBe(true);
+  });
+
+  it("rejects contradictory access assignments", () => {
+    const result = validateStaffAccessProfile({ role: "frontDesk", classification: "chef", scope: "restaurant" });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(2);
   });
 });
