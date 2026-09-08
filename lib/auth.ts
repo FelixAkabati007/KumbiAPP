@@ -2,7 +2,15 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-me";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET must be configured; refusing to start with a fallback secret");
+  }
+  return secret;
+}
+
+const JWT_SECRET = getJwtSecret();
 
 export type JwtPayloadData = {
   id: string;
