@@ -15,7 +15,7 @@ export function AuthShell({ title, description, children, footer }: { title: str
           <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
           <CardHeader className="relative z-10 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 text-center dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
             <CardTitle className="text-lg text-gray-800 dark:text-gray-200 sm:text-xl">{title}</CardTitle>
-            <CardDescription className="text-sm text-gray-600 dark:text-gray-400">{description}</CardDescription>
+            <CardDescription className="auth-description border-transparent bg-transparent px-0 py-0 text-sm text-gray-600 dark:bg-transparent dark:text-gray-400">{description}</CardDescription>
           </CardHeader>
           <CardContent className="relative z-10 p-4 sm:p-6">{children}</CardContent>
         </Card>
