@@ -107,9 +107,17 @@ function POSContent() {
   const paymentConfirmation = usePaymentCompletionConfirmation();
 
   useEffect(() => {
-    setCurrentDate(new Date());
-    const timer = setInterval(() => setCurrentDate(new Date()), 1000);
-    return () => clearInterval(timer);
+    const updateClock = () => {
+      if (document.hidden) return;
+      setCurrentDate(new Date());
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 30000);
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
   }, []);
 
   // Hosts that are allowed for next/image optimization. Keep small and explicit.
@@ -159,9 +167,13 @@ function POSContent() {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    const controller = new AbortController();
     const loadAvailability = async () => {
+      if (cancelled || inFlight || document.hidden || !navigator.onLine) return;
+      inFlight = true;
       try {
-        const response = await fetch("/api/inventory", { cache: "no-store" });
+        const response = await fetch("/api/inventory", { cache: "no-store", signal: controller.signal });
         if (!response.ok) return;
         const items = await response.json();
         if (cancelled) return;
@@ -181,13 +193,18 @@ function POSContent() {
         );
       } catch {
         // Keep the last known availability if inventory polling is unavailable.
+      } finally {
+        inFlight = false;
       }
     };
     loadAvailability();
     const interval = window.setInterval(loadAvailability, 30000);
+    document.addEventListener("visibilitychange", loadAvailability);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", loadAvailability);
     };
   }, []);
 
@@ -674,7 +691,7 @@ function POSContent() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+    <div className="flex min-h-[100dvh] w-full min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
       <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-white/90 px-3 py-2 backdrop-blur-md dark:bg-gray-900/90 sm:min-h-16 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
@@ -809,8 +826,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             </Tabs>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+  <ScrollArea className="min-h-0 flex-1 p-2 sm:p-4">
+  <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
               {!menuLoading && filteredItems.map((item) => (
                 <Card

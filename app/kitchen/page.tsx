@@ -144,13 +144,24 @@ function KitchenContent() {
     }
   };
 
-  // Auto-refresh every 5 seconds for near real-time updates
+  // Realtime events drive updates; use a slower visible-tab fallback only when needed.
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshOrders();
-    }, 5000);
-
-    return () => clearInterval(interval);
+    let inFlight = false;
+    const refreshWhenVisible = async () => {
+      if (document.hidden || !navigator.onLine || inFlight) return;
+      inFlight = true;
+      try {
+        await refreshOrders();
+      } finally {
+        inFlight = false;
+      }
+    };
+    const interval = setInterval(refreshWhenVisible, 30000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [refreshOrders]);
 
   // Detect new orders and play notifications

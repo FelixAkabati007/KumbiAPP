@@ -15,11 +15,14 @@ export function useSystemSync() {
 
   useEffect(() => {
     isMounted.current = true;
+    const controller = new AbortController();
+    let requestInFlight = false;
 
     const fetchState = async () => {
-      if (document.hidden || !navigator.onLine) return;
+      if (requestInFlight || document.hidden || !navigator.onLine) return;
+      requestInFlight = true;
       try {
-        const res = await fetch("/api/system/sync", { cache: "no-store" });
+        const res = await fetch("/api/system/sync", { cache: "no-store", signal: controller.signal });
         if (res.ok) {
           const newState = await res.json();
           if (isMounted.current) {
@@ -34,11 +37,9 @@ export function useSystemSync() {
           }
         }
       } catch (error) {
-        // Suppress network errors during navigation/unmount
-        if (error instanceof Error && error.message.includes("ERR_ABORTED")) {
-          return;
-        }
-        // console.error("Failed to poll system state:", error);
+        if (error instanceof Error && error.name === "AbortError") return;
+      } finally {
+        requestInFlight = false;
       }
     };
 
@@ -52,6 +53,7 @@ export function useSystemSync() {
 
     return () => {
       isMounted.current = false;
+      controller.abort();
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };

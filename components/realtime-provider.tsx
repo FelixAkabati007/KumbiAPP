@@ -22,10 +22,14 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let source: EventSource | null = null;
     let fallback: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
+    let reconnectDelay = 3000;
     const connect = () => {
+      if (stopped || document.hidden || !navigator.onLine) return;
+      source?.close();
       source = new EventSource("/api/realtime");
-      source.onopen = () => { setConnected(true); if (fallback) { clearInterval(fallback); fallback = null; } };
+      source.onopen = () => { setConnected(true); reconnectDelay = 3000; if (fallback) { clearInterval(fallback); fallback = null; } };
       const handleEvent = (message: MessageEvent<string>) => {
         if (document.hidden) return;
         try {
@@ -38,7 +42,15 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       };
       source.onmessage = handleEvent;
       ["attendance.updated", "dashboard.updated", "hotel.updated", "pos.updated", "orders.updated", "menu.updated", "inventory.updated", "finance.updated", "payments.updated", "refunds.updated", "staff.updated", "housekeeping.updated", "events.updated", "notifications.updated", "announcements.updated", "vip.updated"].forEach((topic) => source?.addEventListener(topic, handleEvent));
-      source.onerror = () => { setConnected(false); source?.close(); if (!fallback) fallback = setInterval(() => { if (!document.hidden) router.refresh(); }, 15_000); if (!stopped) setTimeout(connect, 3_000); };
+      source.onerror = () => {
+        setConnected(false);
+        source?.close();
+        if (!fallback) fallback = setInterval(() => { if (!document.hidden && navigator.onLine) router.refresh(); }, 30_000);
+        if (!stopped && !reconnectTimer) {
+          reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 30_000);
+        }
+      };
     };
     connect();
     const handleVisibilityChange = () => {
@@ -49,6 +61,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       stopped = true;
       source?.close();
       if (fallback) clearInterval(fallback);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
