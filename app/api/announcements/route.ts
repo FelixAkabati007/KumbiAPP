@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query, transaction } from "@/lib/db";
-import { getRoleDisplayName, UserRole } from "@/lib/roles";
+import { UserRole } from "@/lib/roles";
 
 const ANNOUNCEMENT_ROLES: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 const ROLE_RANK: Record<string, number> = { admin: 6, manager: 5, restaurantManager: 4, hotelManager: 4, finance: 4, operationsManager: 4, staff: 1, kitchen: 1, frontDesk: 1, housekeeping: 1 };
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canAnnounce(session.role)) return NextResponse.json({ error: "Your role cannot publish announcements" }, { status: 403 });
 
-  const body = (await request.json().catch(() => null)) as { title?: string; message?: string; priority?: string; audienceType?: string; audienceRoles?: string[]; expiresAt?: string | null } | null;
+  const body = (await request.json().catch(() => null)) as { title?: string; message?: string; priority?: string; audienceType?: string; audienceRoles?: string[]; audienceUserId?: string | null; expiresAt?: string | null } | null;
   const title = body?.title?.trim();
   const message = body?.message?.trim();
   const priority = ["normal", "important", "urgent"].includes(body?.priority ?? "") ? body?.priority : "normal";
@@ -53,13 +53,21 @@ export async function POST(request: Request) {
   if (audienceRoles.some((role) => (ROLE_RANK[role] ?? 0) > (ROLE_RANK[session.role] ?? 0))) {
     return NextResponse.json({ error: "You cannot target a higher role" }, { status: 403 });
   }
+  let audienceUserId: string | null = null;
+  if (body?.audienceUserId && audienceType === "roles") {
+    const recipient = await query(`SELECT id FROM users WHERE id = $1 AND is_active = true AND role::text = ANY($2::text[])`, [body.audienceUserId, audienceRoles]);
+    if (!recipient.rowCount) return NextResponse.json({ error: "Select an active user from the chosen role" }, { status: 400 });
+    audienceUserId = body.audienceUserId;
+  }
 
   const announcement = await transaction(async (client) => {
     const created = await client.query(`INSERT INTO announcements (title, message, priority, audience_type, audience_roles, created_by, created_by_name, created_by_role, expires_at, archived_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP) RETURNING id, title, message, priority, audience_type, audience_roles, created_by_name, created_by_role, created_at, expires_at`, [title, message, priority, audienceType, audienceRoles, session.id, session.email, session.role, body?.expiresAt || null]);
     const notificationSql = audienceType === "all"
       ? `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true`
-      : `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true AND u.role::text = ANY($4::text[])`;
-    const notificationParams = audienceType === "all" ? [title, message, body?.expiresAt || null] : [title, message, body?.expiresAt || null, audienceRoles];
+      : audienceUserId
+        ? `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.id = $4 AND u.is_active = true`
+        : `INSERT INTO notifications (recipient_user_id, title, message, type, expires_at) SELECT u.id, $1, $2, 'announcement', $3 FROM users u WHERE u.is_active = true AND u.role::text = ANY($4::text[])`;
+    const notificationParams = audienceType === "all" ? [title, message, body?.expiresAt || null] : audienceUserId ? [title, message, body?.expiresAt || null, audienceUserId] : [title, message, body?.expiresAt || null, audienceRoles];
     const delivered = await client.query(notificationSql, notificationParams);
     return { announcement: created.rows[0], recipientCount: delivered.rowCount ?? 0 };
   });
