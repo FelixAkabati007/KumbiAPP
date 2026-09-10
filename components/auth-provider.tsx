@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 interface AppUser {
   id: string;
@@ -35,9 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDatabaseReady] = useState(true);
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -48,19 +48,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Auth check failed:", error);
       setUser(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkAuth().finally(() => setIsLoading(false));
-  }, []);
+  }, [checkAuth]);
 
   // Re-fetches the current user (e.g. after avatar/profile updates) so
   // context consumers stay in sync without requiring a full page reload.
-  const refreshUser = async (): Promise<void> => {
+  const refreshUser = useCallback(async (): Promise<void> => {
     await checkAuth();
-  };
+  }, [checkAuth]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -81,9 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const signup = async (
+  const signup = useCallback(async (
     email: string,
     password: string,
     name: string,
@@ -116,9 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -128,31 +128,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const switchRole = (role: string) => {
+  const switchRole = useCallback((role: string) => {
     // Role switching is not supported in real auth without admin privileges or re-login
     // For now, we'll just log it or we could implement an impersonation feature later
     console.warn(
       "Switching role is not supported in production mode yet.",
       role
     );
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    login,
+    signup,
+    logout,
+    switchRole,
+    refreshUser,
+    isLoading,
+    authLoading: isLoading,
+    isDatabaseReady,
+  }), [user, login, signup, logout, switchRole, refreshUser, isLoading, isDatabaseReady]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        signup,
-        logout,
-        switchRole,
-        refreshUser,
-        isLoading,
-        authLoading: isLoading,
-        isDatabaseReady,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
