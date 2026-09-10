@@ -1,8 +1,19 @@
+"use client";
+
 import type { ReactNode } from "react";
+import useSWR from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogoDisplay } from "@/components/logo-display";
 
+const fetcher = (url: string) => fetch(url).then((response) => response.json());
+
 export function AuthShell({ title, description, children, footer }: { title: string; description: ReactNode; children: ReactNode; footer?: ReactNode }) {
+  const { data } = useSWR<{ account?: { restaurantName?: string } }>("/api/settings", fetcher, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  });
+  const restaurantName = data?.account?.restaurantName?.trim() || "Kumbisaly Heritage Restaurant";
+
   return (
     <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-5 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
