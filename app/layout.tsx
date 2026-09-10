@@ -15,6 +15,7 @@ import { GlobalErrorHandler } from "@/components/global-error-handler";
 import { LoadingProvider } from "@/components/loading-provider";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { RouteRuntime } from "@/components/route-runtime";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Defensive check for broken localStorage in SSR environment
 if (
@@ -92,6 +93,7 @@ export default function RootLayout({
                       <ErrorBoundary>
                         <RouteRuntime>{children}</RouteRuntime>
                         <Toaster />
+                        <SpeedInsights />
                       </ErrorBoundary>
                     </ReceiptSettingsProvider>
                   </IntegrationProvider>
