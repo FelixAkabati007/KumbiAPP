@@ -19,7 +19,7 @@ export function AuthShell({ title, description, children, footer }: { title: str
       <div className="w-full max-w-md space-y-4 sm:space-y-6">
         <header className="space-y-2 text-center">
           <div className="flex justify-center"><LogoDisplay size="md" /></div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">Kumbisaly Heritage Restaurant</h1>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">{restaurantName}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">Point of Sale System</p>
         </header>
         <Card className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm dark:border-orange-700 dark:bg-gray-800/70">
