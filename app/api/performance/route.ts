@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/api-auth";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { session, error } = await requireRole("admin", "manager", "restaurantManager", "hotelManager", "operationsManager");
+  const { session, error } = await requireRole("admin", "manager", "finance", "restaurantManager", "hotelManager", "operationsManager");
   if (error) return error;
   try {
     const url = new URL(request.url);
