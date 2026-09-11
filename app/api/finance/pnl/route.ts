@@ -39,10 +39,21 @@ export async function GET(request: Request) {
           0::numeric AS expense
         FROM transaction_logs
         WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded')
+          AND ${departmentSql} <> 'hotel'
         UNION ALL
-        SELECT 'hotel' AS department, occurred_at, 0::numeric, 0::numeric
+        SELECT 'hotel' AS department,
+          occurred_at,
+          CASE
+            WHEN LOWER(event_type) LIKE '%refund%'
+              OR LOWER(event_type) LIKE '%reverse%'
+              OR LOWER(event_type) LIKE '%cancel%' THEN -ABS(amount::numeric)
+            WHEN amount > 0 THEN ABS(amount::numeric)
+            ELSE 0::numeric
+          END AS revenue,
+          0::numeric AS expense
         FROM hotel_activity_ledger
-        WHERE amount = 0
+        WHERE amount <> 0
+          AND LOWER(COALESCE(metadata->>'source', 'hotel')) = 'hotel'
         UNION ALL
         SELECT CASE
           WHEN LOWER(COALESCE(department, '')) LIKE '%event%' THEN 'event'
