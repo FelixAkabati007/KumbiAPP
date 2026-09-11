@@ -30,12 +30,19 @@ export async function GET() {
       is_available: boolean;
       image_url: string | null;
       category_slug: string | null;
+      recipe_count: string;
+      unavailable_ingredients: string[] | null;
     }>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available,
-             mi.image_url, c.slug AS category_slug
+             mi.image_url, c.slug AS category_slug,
+             COUNT(ri.id)::text AS recipe_count,
+             ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
+      LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
+      LEFT JOIN inventory i ON i.id = ri.inventory_item_id
+      GROUP BY mi.id, c.slug
       ORDER BY mi.created_at DESC
       `
     );
@@ -46,7 +53,9 @@ export async function GET() {
       description: r.description ?? "",
       price: Number(r.price),
       barcode: r.barcode ?? undefined,
-      inStock: r.is_available,
+      inStock: r.recipe_count === "0" ? false : r.unavailable_ingredients?.length === 0 && r.is_available,
+      stockStatus: r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.is_available ? "available" : "manually_unavailable",
+      stockShortages: r.unavailable_ingredients ?? [],
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as
         | "ghanaian"
@@ -73,8 +82,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, price, category, barcode, inStock, image } =
-      body;
+    const { name, description, price, category, barcode, image } = body;
 
     if (!name || typeof price !== "number" || !category) {
       return NextResponse.json(
@@ -98,7 +106,7 @@ export async function POST(req: Request) {
         categoryId,
         image?.trim() || null,
         barcode?.trim() || null,
-        inStock !== false,
+        true,
       ]
     );
 
