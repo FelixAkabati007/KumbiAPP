@@ -31,6 +31,7 @@ export default function PerformancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      await fetch("/api/performance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "sync", from, to }) });
       const response = await fetch(`/api/performance?from=${from}&to=${to}`);
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to load performance");
@@ -54,7 +55,7 @@ export default function PerformancePage() {
     finally { setSaving(false); }
   }
 
-  return <DashboardPageShell eyebrow="Operations intelligence" title="Staff Performance" description="Review verified points, recognize strong work, and audit performance over time." backHref="/finance" backLabel="Back to Finance" actions={<><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button><Button onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" />Record points</Button></>}>
+  return <DashboardPageShell eyebrow="Operations intelligence" title="Staff Performance" description="System-scored attendance and task completion, with an auditable manager review trail." backHref="/finance" backLabel="Back to Finance" actions={<><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button><Button onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" />Record points</Button></>}>
     <div className="space-y-6">
     <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-background p-4"><div className="grid gap-1"><Label htmlFor="from">From</Label><Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div><div className="grid gap-1"><Label htmlFor="to">To</Label><Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div><Badge variant="secondary" className="mb-2">Scope: {data.scope || "Loading"}</Badge></div>
     <div className="grid gap-4 md:grid-cols-3"><Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Staff measured</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{data.summary?.staff_count ?? 0}</div><p className="text-xs text-muted-foreground">With verified activity</p></CardContent></Card><Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Verified points</CardTitle><Award className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{Number(data.summary?.total_points ?? 0).toLocaleString()}</div><p className="text-xs text-muted-foreground">Net points in selected period</p></CardContent></Card><Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ledger events</CardTitle><BarChart3 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{data.summary?.event_count ?? 0}</div><p className="text-xs text-muted-foreground">Auditable verified events</p></CardContent></Card></div>

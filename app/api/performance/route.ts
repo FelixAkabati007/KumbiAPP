@@ -32,6 +32,19 @@ export async function POST(request: Request) {
   if (error) return error;
   try {
     const body = await request.json();
+    if (body.mode === "sync") {
+      const from = typeof body.from === "string" ? body.from : "1970-01-01";
+      const to = typeof body.to === "string" ? body.to : "2999-12-31";
+      const attendance = await query(`INSERT INTO performance_events (staff_id, source_type, source_id, points, completed_at, verified_by, verification_status, metadata)
+        SELECT ar.staff_id, 'attendance_verified', ar.id, 1, COALESCE(ar.verified_at, ar.check_in_at), ar.verified_by, 'verified', '{"category":"Attendance"}'::jsonb
+        FROM attendance_records ar WHERE ar.verification_status = 'verified' AND COALESCE(ar.verified_at, ar.check_in_at)::date BETWEEN $1 AND $2
+        AND NOT EXISTS (SELECT 1 FROM performance_events pe WHERE pe.source_id = ar.id AND pe.source_type = 'attendance_verified')`, [from, to]);
+      const tasks = await query(`INSERT INTO performance_events (staff_id, source_type, source_id, points, completed_at, verified_by, verification_status, metadata)
+        SELECT ht.assigned_to, 'housekeeping_task_completed', ht.id, 2, ht.completed_at, $3, 'verified', '{"category":"Task completion"}'::jsonb
+        FROM housekeeping_tasks ht WHERE ht.status IN ('completed', 'done') AND ht.assigned_to IS NOT NULL AND ht.completed_at::date BETWEEN $1 AND $2
+        AND NOT EXISTS (SELECT 1 FROM performance_events pe WHERE pe.source_id = ht.id AND pe.source_type = 'housekeeping_task_completed')`, [from, to, session.id]);
+      return NextResponse.json({ synced: (attendance.rowCount ?? 0) + (tasks.rowCount ?? 0), attendance: attendance.rowCount ?? 0, tasks: tasks.rowCount ?? 0 });
+    }
     const points = Number(body.points);
     if (!body.staffId || !Number.isFinite(points) || points === 0 || !String(body.reason || "").trim()) return NextResponse.json({ error: "Staff member, non-zero points, and a reason are required" }, { status: 400 });
     const staff = await query(`SELECT id, department FROM staff_profiles WHERE id = $1 AND is_active = true`, [body.staffId]);
