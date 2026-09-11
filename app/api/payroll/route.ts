@@ -22,6 +22,18 @@ const recordSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(255),
 })
 
+const generateSchema = z.object({
+  mode: z.literal("generate"),
+  payPeriodStart: z.string().date(),
+  payPeriodEnd: z.string().date(),
+})
+
+const statusSchema = z.object({
+  mode: z.literal("status"),
+  id: z.string().uuid(),
+  status: z.enum(["draft", "submitted", "approved", "paid", "rejected"]),
+})
+
 export async function GET() {
   const auth = await requireFinanceAccess()
   if (auth.error) return auth.error
@@ -42,10 +54,22 @@ export async function POST(request: Request) {
   const auth = await requireFinanceAccess()
   if (auth.error) return auth.error
   const body = await request.json().catch(() => null)
-  const mode = body?.mode === "profile" ? "profile" : "record"
-  const parsed = mode === "profile" ? profileSchema.safeParse(body) : recordSchema.safeParse(body)
+  const mode = body?.mode === "profile" || body?.mode === "generate" || body?.mode === "status" ? body.mode : "record"
+  const parsed = mode === "profile" ? profileSchema.safeParse(body) : mode === "generate" ? generateSchema.safeParse(body) : mode === "status" ? statusSchema.safeParse(body) : recordSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid payroll data", issues: parsed.error.flatten() }, { status: 400 })
   try {
+    if (mode === "generate") {
+      const data = parsed.data as z.infer<typeof generateSchema>
+      if (new Date(data.payPeriodEnd) < new Date(data.payPeriodStart)) return NextResponse.json({ error: "Pay period end must be on or after start" }, { status: 400 })
+      const result = await query(`INSERT INTO payroll_records (compensation_profile_id, staff_profile_id, pay_period_start, pay_period_end, gross_amount, deductions, net_amount, idempotency_key, created_by) SELECT cp.id, cp.staff_profile_id, $1, $2, cp.base_amount + cp.allowances, cp.default_deductions, GREATEST(cp.base_amount + cp.allowances - cp.default_deductions, 0), CONCAT('period:', cp.staff_profile_id, ':', $1, ':', $2), $3 FROM compensation_profiles cp JOIN staff_profiles sp ON sp.id = cp.staff_profile_id WHERE cp.is_active = true AND sp.is_active = true ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`, [data.payPeriodStart, data.payPeriodEnd, auth.session.id])
+      return NextResponse.json({ created: result.rowCount ?? 0, records: result.rows }, { status: 201 })
+    }
+    if (mode === "status") {
+      const data = parsed.data as z.infer<typeof statusSchema>
+      const result = await query(`UPDATE payroll_records SET status = $1, updated_at = now() WHERE id = $2 RETURNING *`, [data.status, data.id])
+      if (!result.rows[0]) return NextResponse.json({ error: "Payroll record not found" }, { status: 404 })
+      return NextResponse.json(result.rows[0])
+    }
     if (mode === "profile") {
       const data = parsed.data as z.infer<typeof profileSchema>
       const result = await query(`WITH deactivated AS (UPDATE compensation_profiles SET is_active = false, updated_at = now() WHERE staff_profile_id = $1 AND is_active = true) INSERT INTO compensation_profiles (staff_profile_id, pay_frequency, base_amount, allowances, default_deductions, effective_from, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`, [data.staffProfileId, data.payFrequency, data.baseAmount, data.allowances, data.defaultDeductions, data.effectiveFrom, auth.session.id])
