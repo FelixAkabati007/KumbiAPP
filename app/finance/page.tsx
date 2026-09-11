@@ -9,6 +9,7 @@ import { RoleGuard } from "@/components/role-guard";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
 import { PayrollDesk } from "@/components/finance/payroll-desk";
+import { StaffRewardsPanel } from "@/components/finance/staff-rewards-panel";
 
 type Transaction = {
   transaction_id?: string;
@@ -172,7 +173,13 @@ export default function FinancePage() {
             </div>
             <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
-          <PayrollDesk />
+          <section aria-labelledby="people-costs-heading" className="space-y-4">
+            <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Payroll and staff rewards</h2><p className="text-sm text-muted-foreground">Review recurring compensation alongside verified staff performance before approving monetary rewards.</p></div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PayrollDesk />
+              <StaffRewardsPanel />
+            </div>
+          </section>
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
