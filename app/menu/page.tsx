@@ -150,6 +150,11 @@ function MenuContent() {
         });
 
         setItems(validItems);
+      setEditingItem((current) => {
+        if (!current.id) return current;
+        const refreshed = validItems.find((item) => item.id === current.id);
+        return refreshed ? { ...current, ...refreshed } : current;
+      });
       } catch (error) {
         console.error("❌ [MenuPage] Error loading menu items:", error);
         setError(
@@ -808,21 +813,21 @@ function MenuContent() {
                       placeholder="Enter barcode"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="inStock">Stock Status</Label>
-                    <Select
-                      value={editingItem.inStock.toString()}
-                      onValueChange={handleStockChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">In Stock</SelectItem>
-                        <SelectItem value="false">Out of Stock</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+  <div className="grid gap-2">
+  <Label htmlFor="inStock">Stock Status</Label>
+  {editingItem.stockStatus && editingItem.stockStatus !== "recipe_required" ? (
+    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm" aria-live="polite">
+      <span className={editingItem.inStock ? "font-medium text-green-700 dark:text-green-400" : "font-medium text-red-700 dark:text-red-400"}>
+        {editingItem.inStock ? "In Stock" : "Out of Stock"}
+      </span>
+      {editingItem.stockShortages?.length ? <p className="mt-1 text-xs text-muted-foreground">Missing: {editingItem.stockShortages.join(", ")}</p> : <p className="mt-1 text-xs text-muted-foreground">Calculated from the recipe and current inventory.</p>}
+    </div>
+  ) : (
+    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+      Recipe required to calculate availability.
+    </div>
+  )}
+  </div>
                   <div className="grid gap-2">
                     <Label htmlFor="image">Image URL (Optional)</Label>
                     <Input
