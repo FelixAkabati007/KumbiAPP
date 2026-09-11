@@ -55,6 +55,13 @@ export async function GET(request: Request) {
         WHERE amount <> 0
           AND LOWER(COALESCE(metadata->>'source', 'hotel')) = 'hotel'
         UNION ALL
+        SELECT 'event' AS department,
+          COALESCE(q.updated_at, q.created_at) AS occurred_at,
+          CASE WHEN q.status IN ('approved', 'accepted') THEN ABS(q.total::numeric) ELSE 0::numeric END AS revenue,
+          0::numeric AS expense
+        FROM event_quotes q
+        WHERE q.status IN ('approved', 'accepted')
+        UNION ALL
         SELECT CASE
           WHEN LOWER(COALESCE(department, '')) LIKE '%event%' THEN 'event'
           WHEN LOWER(COALESCE(department, '')) LIKE '%restaurant%' OR LOWER(COALESCE(department, '')) LIKE '%food%' THEN 'restaurant'
