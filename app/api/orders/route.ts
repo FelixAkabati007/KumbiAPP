@@ -32,6 +32,8 @@ export async function GET() {
         ) as items
       FROM kitchenorders k
       LEFT JOIN kitchen_orderitems i ON k.id = i.kitchenorderid
+      WHERE k.kitchen_closed_at IS NULL
+      WHERE k.kitchen_closed_at IS NULL
       GROUP BY k.id
       ORDER BY k.created_at DESC
     `);

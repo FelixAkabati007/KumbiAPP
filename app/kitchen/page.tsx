@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Archive,
   ArrowLeft,
   ChefHat,
   Filter,
@@ -50,6 +51,7 @@ import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { FeatureDisabledBanner } from "@/components/feature-disabled-banner";
+import { useAuth } from "@/components/auth-provider";
 
 function WaitTimer({ createdAt }: { createdAt: string }) {
   const [elapsed, setElapsed] = useState(0);
@@ -92,6 +94,7 @@ function WaitTimer({ createdAt }: { createdAt: string }) {
 
 function KitchenContent() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { orders, updateOrderItemStatus, getOrdersByClient, refreshOrders } =
     useOrders();
 
@@ -104,6 +107,8 @@ function KitchenContent() {
   const [previousOrderCount, setPreviousOrderCount] = useState(0);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClosingDay, setIsClosingDay] = useState(false);
+  const canCloseKitchenDay = user?.role === "manager" || user?.role === "restaurantManager";
 
   // Real-time updates
   useEffect(() => {
@@ -351,23 +356,30 @@ function KitchenContent() {
     }
   };
 
-  // Enhanced reset handler for Kitchen Display with data preservation and analytics
-  const handleResetKitchen = async () => {
+  const handleCloseKitchenDay = async () => {
+    if (isClosingDay) return;
+
+    setIsClosingDay(true);
     try {
-      toast({
-        title: "Not Supported",
-        description:
-          "Kitchen reset is disabled in Database mode. Please complete orders individually.",
-        variant: "destructive",
-      });
+      const response = await fetch("/api/kitchen/close-day", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Close failed");
+
+      await refreshOrders();
       setResetDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to reset kitchen:", error);
       toast({
-        title: "Reset Failed",
-        description: "An error occurred while resetting the kitchen display",
+        title: "Kitchen Day Closed",
+        description: `${result.closedOrders} order${result.closedOrders === 1 ? "" : "s"} archived from the display. Order history was preserved.`,
+      });
+    } catch (error) {
+      console.error("Failed to close kitchen day:", error);
+      toast({
+        title: "Close Failed",
+        description: "The kitchen day could not be closed. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsClosingDay(false);
     }
   };
 
@@ -427,21 +439,26 @@ function KitchenContent() {
             />
             <span className="sr-only">Refresh Orders</span>
           </Button>
+          {canCloseKitchenDay && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResetDialogOpen(true)}
+              className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Close Kitchen Day
+            </Button>
+          )}
           <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
             <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
               <DialogHeader>
-                <DialogTitle>Reset Kitchen Display?</DialogTitle>
+                <DialogTitle>Close Kitchen Day?</DialogTitle>
                 <DialogDescription className="space-y-2">
-                  <p>This will:</p>
-                  <ul className="list-disc list-inside text-sm">
-                    <li>Clear all active kitchen orders</li>
-                    <li>Reset order counters</li>
-                    <li>Archive current orders for history</li>
-                    <li>Synchronize all kitchen displays</li>
-                  </ul>
-                  <p className="mt-2 text-sm text-orange-600 dark:text-orange-400">
-                    Order history will be preserved and can be accessed in
-                    reports.
+                  <p>This will remove all current orders from the Kitchen Display.</p>
+                  <p>Orders will not be deleted. They will be archived with the closing manager and remain available in reports and history.</p>
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Only the Restaurant Manager or General Manager can perform this action.
                   </p>
                 </DialogDescription>
               </DialogHeader>
@@ -450,15 +467,17 @@ function KitchenContent() {
                   variant="outline"
                   onClick={() => setResetDialogOpen(false)}
                   className="rounded-2xl border-orange-200 dark:border-orange-700"
+                  disabled={isClosingDay}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={handleResetKitchen}
+                  onClick={handleCloseKitchenDay}
                   className="rounded-2xl"
+                  disabled={isClosingDay}
                 >
-                  Reset Kitchen
+                  {isClosingDay ? "Closing..." : "Close Kitchen Day"}
                 </Button>
               </DialogFooter>
             </DialogContent>
