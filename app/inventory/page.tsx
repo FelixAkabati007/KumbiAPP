@@ -69,6 +69,8 @@ function InventoryContent() {
   });
   const [hotelActivityCount, setHotelActivityCount] = useState(0);
   const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string }; created_at: string }>>([]);
+  const [nameSuggestions, setNameSuggestions] = useState<InventoryItem[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     fetch("/api/inventory/restocks")
@@ -76,6 +78,32 @@ function InventoryContent() {
       .then((data) => data?.logs && setRestockLogs(data.logs))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const query = editingItem?.name.trim() ?? "";
+    if (!isDialogOpen || !isNewItem || query.length < 2) {
+      setNameSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const response = await fetch(`/api/inventory/suggestions?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        const data = response.ok ? await response.json() : { suggestions: [] };
+        setNameSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setNameSuggestions([]);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 250);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [editingItem?.name, isDialogOpen, isNewItem]);
 
   // Load inventory items on component mount
   useEffect(() => {
@@ -761,14 +789,34 @@ function InventoryContent() {
                   >
                     Name
                   </Label>
-                  <Input
-                    id="name"
-                    value={editingItem.name}
-                    onChange={(e) =>
-                      setEditingItem({ ...editingItem, name: e.target.value })
-                    }
-                    className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="name"
+                      autoComplete="off"
+                      value={editingItem.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                      className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
+                    />
+                    {(isLoadingSuggestions || nameSuggestions.length > 0) && (
+                      <div className="absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-orange-200 bg-background p-1 shadow-lg">
+                        {isLoadingSuggestions && <p className="px-3 py-2 text-sm text-muted-foreground">Searching inventory history...</p>}
+                        {nameSuggestions.map((suggestion) => (
+                          <button
+                            key={`${suggestion.sku}-${suggestion.name}`}
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => {
+                              setEditingItem({ ...editingItem, ...suggestion, id: editingItem.id, quantity: editingItem.quantity });
+                              setNameSuggestions([]);
+                            }}
+                          >
+                            <span className="min-w-0 truncate font-medium">{suggestion.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">{suggestion.sku || "No SKU"} · {suggestion.category}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">

@@ -39,7 +39,30 @@ export async function POST(req: Request) {
       if (!String(name ?? "").trim()) return NextResponse.json({ error: "Name is required for standalone inventory items" }, { status: 400 });
       res = await query(`INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW()) RETURNING id`, [String(name).trim(), sku ?? "", category ?? "ingredient", normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem]);
     }
-    await logAudit({ performedBy: session?.id, action: "UPDATE_INVENTORY", entityType: "INVENTORY", entityId: res.rows[0].id, details: body, ipAddress: req.headers.get("x-forwarded-for") || "unknown" });
+    await logAudit({
+      performedBy: session?.id,
+      action: "UPDATE_INVENTORY",
+      entityType: "INVENTORY",
+      entityId: res.rows[0].id,
+      details: {
+        ...body,
+        item: {
+          name: String(name ?? "").trim(),
+          sku: String(sku ?? ""),
+          category: category ?? "ingredient",
+          unit: unit ?? "units",
+          containerUnit: containerUnit ?? "",
+          quantityPerContainer: String(quantityPerContainer ?? 1),
+          containerCount: String(containerCount ?? 0),
+          costPerContainer: String(costPerContainer ?? 0),
+          costPerItem: String(normalizedCostPerItem),
+          reorderLevel: String(reorderLevel ?? 0),
+          cost: String(cost ?? 0),
+          supplier: supplier ?? "",
+        },
+      },
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    });
     await updateSystemState("inventory");
     return NextResponse.json({ id: res.rows[0].id }, { status: 201 });
   } catch (error) {
