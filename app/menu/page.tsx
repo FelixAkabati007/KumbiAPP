@@ -728,9 +728,11 @@ function MenuContent() {
             <Tabs defaultValue="details" className="min-w-0">
               <TabsList className="mb-2 grid h-10 w-full grid-cols-2 sm:mb-3">
                 <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="recipe" disabled={isNewItem}>
-                  Recipe
-                </TabsTrigger>
+                {editingItem.inventoryMode !== "direct" && (
+                  <TabsTrigger value="recipe" disabled={isNewItem}>
+                    Recipe
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="details">
@@ -813,6 +815,32 @@ function MenuContent() {
                       placeholder="Enter barcode"
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="inventoryMode">Inventory Tracking</Label>
+                    <Select
+                      value={editingItem.inventoryMode ?? "recipe"}
+                      onValueChange={(value) => setEditingItem((current) => ({ ...current, inventoryMode: value as "recipe" | "direct", directInventoryId: value === "recipe" ? undefined : current.directInventoryId }))}
+                    >
+                      <SelectTrigger id="inventoryMode"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recipe">Prepared item — use recipe</SelectItem>
+                        <SelectItem value="direct">Direct stock — deduct item</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Use direct stock for bottled beverages and supplies. No ingredient quantities are required.</p>
+                  </div>
+                  {editingItem.inventoryMode === "direct" && (
+                    <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20 sm:grid-cols-2">
+                      <div className="grid gap-2">
+                        <Label htmlFor="directInventoryId">Inventory Item ID</Label>
+                        <Input id="directInventoryId" value={editingItem.directInventoryId ?? ""} onChange={(event) => setEditingItem((current) => ({ ...current, directInventoryId: event.target.value }))} placeholder="Paste inventory item ID" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="directUnitsPerSale">Stock units per sale</Label>
+                        <Input id="directUnitsPerSale" type="number" min="0.01" step="0.01" value={editingItem.directUnitsPerSale ?? 1} onChange={(event) => setEditingItem((current) => ({ ...current, directUnitsPerSale: Number(event.target.value) || 1 }))} />
+                      </div>
+                    </div>
+                  )}
   <div className="grid gap-2">
   <Label htmlFor="inStock">Stock Status</Label>
   {editingItem.stockStatus && editingItem.stockStatus !== "recipe_required" ? (
@@ -860,11 +888,13 @@ function MenuContent() {
                   </Button>
                 </DialogFooter>
               </TabsContent>
-              <TabsContent value="recipe" className="min-w-0">
-                <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(90vh-12rem)]">
-                  <RecipeManager menuItemId={editingItem.id} />
-                </div>
-              </TabsContent>
+              {editingItem.inventoryMode !== "direct" && (
+                <TabsContent value="recipe" className="min-w-0">
+                  <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(90vh-12rem)]">
+                    <RecipeManager menuItemId={editingItem.id} />
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </DialogContent>
         </Dialog>

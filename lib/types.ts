@@ -9,6 +9,9 @@ export interface MenuItem {
   stockStatus?: "available" | "out_of_stock" | "recipe_required" | "manually_unavailable";
   stockShortages?: string[];
   image?: string; // Add image field for product images
+  inventoryMode?: "recipe" | "direct";
+  directInventoryId?: string;
+  directUnitsPerSale?: number;
 }
 
 export interface OrderItem extends MenuItem {
