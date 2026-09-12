@@ -362,7 +362,7 @@ function CheckInPage() {
     setLoadingRestaurantMenu(true);
     fetch("/api/menu", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load menu")))
-      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.isAvailable)))
+      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.inStock)))
       .catch(() => toast({ title: "Menu unavailable", description: "Active food and beverage items could not be loaded.", variant: "destructive" }))
       .finally(() => setLoadingRestaurantMenu(false));
     setFolio(null);
