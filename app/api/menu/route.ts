@@ -28,6 +28,7 @@ export async function GET() {
       price: string;
       barcode: string | null;
       is_available: boolean;
+      availability_mode: "manual" | "automatic";
       image_url: string | null;
       category_slug: string | null;
       recipe_count: string;
@@ -39,7 +40,7 @@ export async function GET() {
       direct_inventory_category: string | null;
     }>(
       `
-      SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available,
+      SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available, mi.availability_mode,
              mi.image_url, c.slug AS category_slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale,
              di.quantity::text AS direct_inventory_quantity, di.category AS direct_inventory_category,
              COUNT(ri.id)::text AS recipe_count,
@@ -49,7 +50,7 @@ export async function GET() {
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
       LEFT JOIN inventory i ON i.id = ri.inventory_item_id
       LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category
+      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category
       ORDER BY mi.created_at DESC
       `
     );
@@ -57,6 +58,7 @@ export async function GET() {
     const items = res.rows.map((r) => ({
       id: r.id,
       isAvailable: r.is_available,
+      availabilityMode: r.availability_mode,
       name: r.name,
       description: r.description ?? "",
       price: Number(r.price),
@@ -65,8 +67,8 @@ export async function GET() {
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
       directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
-      inStock: r.inventory_mode === "direct" ? r.is_available && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale) : r.recipe_count !== "0" && r.unavailable_ingredients?.length === 0 && r.is_available,
-      stockStatus: r.inventory_mode === "direct" ? (!r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available") : r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.is_available ? "available" : "manually_unavailable",
+      inStock: r.inventory_mode === "direct" ? (r.availability_mode === "automatic" || r.is_available) && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale) : r.recipe_count !== "0" && r.unavailable_ingredients?.length === 0 && (r.availability_mode === "automatic" || r.is_available),
+      stockStatus: r.inventory_mode === "direct" ? (r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available") : r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : "available",
       stockShortages: r.unavailable_ingredients ?? [],
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as
@@ -94,8 +96,8 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, price, category, barcode, image, inventoryMode = "recipe", directInventoryId = null, directUnitsPerSale = 1 } = body;
-    if (!["recipe", "direct"].includes(inventoryMode) || (inventoryMode === "direct" && !directInventoryId)) {
+    const { name, description, price, category, barcode, image, inventoryMode = "recipe", directInventoryId = null, directUnitsPerSale = 1, availabilityMode = "manual" } = body;
+    if (!["recipe", "direct"].includes(inventoryMode) || !["manual", "automatic"].includes(availabilityMode) || (inventoryMode === "direct" && !directInventoryId)) {
       return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
     }
 
@@ -110,8 +112,8 @@ export async function POST(req: Request) {
     const result = await query<{ id: string }>(
       `
       INSERT INTO menu_items
-        (name, description, price, category_id, image_url, barcode, is_available, inventory_mode, direct_inventory_id, direct_units_per_sale)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        (name, description, price, category_id, image_url, barcode, is_available, availability_mode, inventory_mode, direct_inventory_id, direct_units_per_sale)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id
       `,
       [
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
         image?.trim() || null,
         barcode?.trim() || null,
         true,
+        availabilityMode,
         inventoryMode,
         directInventoryId,
         directUnitsPerSale,

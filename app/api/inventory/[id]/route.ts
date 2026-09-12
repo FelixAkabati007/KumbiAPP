@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { updateSystemState } from "@/lib/system-sync";
+import { publishRealtime } from "@/lib/realtime";
 
 export async function PUT(
   req: Request,
@@ -87,6 +89,9 @@ export async function PUT(
       });
     }
 
+    await updateSystemState("menu");
+    await publishRealtime("inventory.updated", id);
+
     await logAudit({
       action: "UPDATE_INVENTORY",
       entityType: "INVENTORY",
@@ -119,6 +124,9 @@ export async function DELETE(
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
+
+    await updateSystemState("menu");
+    await publishRealtime("inventory.updated", id);
 
     await logAudit({
       action: "DELETE_INVENTORY",

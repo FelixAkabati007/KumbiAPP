@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
         image_url TEXT,
         barcode VARCHAR(100) UNIQUE,
         is_available BOOLEAN DEFAULT TRUE,
+        availability_mode TEXT NOT NULL DEFAULT 'manual' CHECK (availability_mode IN ('manual', 'automatic')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
