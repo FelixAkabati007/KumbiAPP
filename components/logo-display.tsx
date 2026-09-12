@@ -61,7 +61,7 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
 
   return (
     <div
-      className={`relative isolate ${sizeClasses[size]} overflow-hidden bg-gradient-to-br from-orange-100 to-amber-200 dark:from-orange-800 dark:to-amber-900 rounded-full border-2 border-orange-300 dark:border-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg ${className}`}
+      className={`pointer-events-none relative isolate ${sizeClasses[size]} overflow-hidden bg-gradient-to-br from-orange-100 to-amber-200 dark:from-orange-800 dark:to-amber-900 rounded-full border-2 border-orange-300 dark:border-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg ${className}`}
     >
       {isValidImage ? (
         <Image
