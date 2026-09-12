@@ -32,17 +32,20 @@ export async function GET() {
       category_slug: string | null;
       recipe_count: string;
       unavailable_ingredients: string[] | null;
+      inventory_mode: "recipe" | "direct";
+      direct_inventory_id: string | null;
+      direct_units_per_sale: string;
     }>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available,
-             mi.image_url, c.slug AS category_slug,
+             mi.image_url, c.slug AS category_slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale,
              COUNT(ri.id)::text AS recipe_count,
              ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
       LEFT JOIN inventory i ON i.id = ri.inventory_item_id
-      GROUP BY mi.id, c.slug
+      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
       ORDER BY mi.created_at DESC
       `
     );
@@ -53,8 +56,11 @@ export async function GET() {
       description: r.description ?? "",
       price: Number(r.price),
       barcode: r.barcode ?? undefined,
-      inStock: r.recipe_count === "0" ? false : r.unavailable_ingredients?.length === 0 && r.is_available,
-      stockStatus: r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.is_available ? "available" : "manually_unavailable",
+      inventoryMode: r.inventory_mode,
+      directInventoryId: r.direct_inventory_id ?? undefined,
+      directUnitsPerSale: Number(r.direct_units_per_sale),
+      inStock: r.inventory_mode === "direct" ? r.is_available : r.recipe_count !== "0" && r.unavailable_ingredients?.length === 0 && r.is_available,
+      stockStatus: r.inventory_mode === "direct" ? (r.is_available ? "available" : "manually_unavailable") : r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.is_available ? "available" : "manually_unavailable",
       stockShortages: r.unavailable_ingredients ?? [],
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as
@@ -82,7 +88,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, price, category, barcode, image } = body;
+    const { name, description, price, category, barcode, image, inventoryMode = "recipe", directInventoryId = null, directUnitsPerSale = 1 } = body;
+    if (!["recipe", "direct"].includes(inventoryMode) || (inventoryMode === "direct" && !directInventoryId)) {
+      return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
+    }
 
     if (!name || typeof price !== "number" || !category) {
       return NextResponse.json(
@@ -95,8 +104,8 @@ export async function POST(req: Request) {
     const result = await query<{ id: string }>(
       `
       INSERT INTO menu_items
-        (name, description, price, category_id, image_url, barcode, is_available)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (name, description, price, category_id, image_url, barcode, is_available, inventory_mode, direct_inventory_id, direct_units_per_sale)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id
       `,
       [
@@ -107,6 +116,9 @@ export async function POST(req: Request) {
         image?.trim() || null,
         barcode?.trim() || null,
         true,
+        inventoryMode,
+        directInventoryId,
+        directUnitsPerSale,
       ]
     );
 

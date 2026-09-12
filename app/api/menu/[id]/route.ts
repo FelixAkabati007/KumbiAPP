@@ -14,6 +14,9 @@ interface MenuRow {
   is_available: boolean;
   image_url: string | null;
   category_slug: string | null;
+  inventory_mode: "recipe" | "direct";
+  direct_inventory_id: string | null;
+  direct_units_per_sale: string;
 }
 
 export async function GET(
@@ -25,7 +28,7 @@ export async function GET(
     const res = await query<MenuRow>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available,
-             mi.image_url, c.slug AS category_slug
+             mi.image_url, c.slug AS category_slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
       WHERE mi.id = $1
@@ -44,6 +47,9 @@ export async function GET(
       description: r.description ?? "",
       price: Number(r.price),
       barcode: r.barcode ?? undefined,
+      inventoryMode: r.inventory_mode,
+      directInventoryId: r.direct_inventory_id ?? undefined,
+      directUnitsPerSale: Number(r.direct_units_per_sale),
       inStock: r.is_available,
       image: r.image_url ?? undefined,
       category: r.category_slug || "ghanaian",
@@ -71,8 +77,10 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, description, price, category, barcode, inStock, image } =
-      body;
+    const { name, description, price, category, barcode, inStock, image, inventoryMode, directInventoryId, directUnitsPerSale } = body;
+    if (inventoryMode === "direct" && !directInventoryId) {
+      return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
+    }
 
     // Validate category and get ID
     let categoryId = null;
@@ -118,6 +126,18 @@ export async function PUT(
     if (image !== undefined) {
       fields.push(`image_url = $${idx++}`);
       values.push(image);
+    }
+    if (inventoryMode !== undefined) {
+      fields.push(`inventory_mode = $${idx++}`);
+      values.push(inventoryMode);
+    }
+    if (directInventoryId !== undefined) {
+      fields.push(`direct_inventory_id = $${idx++}`);
+      values.push(directInventoryId);
+    }
+    if (directUnitsPerSale !== undefined) {
+      fields.push(`direct_units_per_sale = $${idx++}`);
+      values.push(directUnitsPerSale);
     }
 
     if (fields.length === 0) {

@@ -24,11 +24,27 @@ export class InventoryManager {
 
     await transaction(async (client) => {
       for (const item of items) {
-        // 1. Check for recipe
+        // The menu item explicitly controls whether this sale consumes a recipe or direct stock.
         let recipeFound = false;
+        let directStockHandled = false;
 
         if (item.menu_item_id) {
-          const recipeRes = await client.query(
+          const modeRes = await client.query(
+            `SELECT inventory_mode, direct_inventory_id, direct_units_per_sale
+             FROM menu_items WHERE id = $1`,
+            [item.menu_item_id]
+          );
+          const mode = modeRes.rows[0];
+          if (mode?.inventory_mode === "direct") {
+            if (!mode.direct_inventory_id) throw new Error(`Direct inventory is not configured for ${item.item_name}`);
+            await client.query(
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2`,
+              [Number(mode.direct_units_per_sale) * item.quantity, mode.direct_inventory_id]
+            );
+            directStockHandled = true;
+          }
+
+          const recipeRes = directStockHandled ? { rows: [] } : await client.query(
             `SELECT inventory_item_id, quantity, unit 
              FROM recipe_ingredients 
              WHERE menu_item_id = $1`,
@@ -60,7 +76,7 @@ export class InventoryManager {
 
         // 2. Fallback: Direct Name/SKU Match (Legacy Mode)
         // Only if no recipe was found/processed
-        if (!recipeFound) {
+        if (!recipeFound && !directStockHandled) {
           // If no recipe, try to find an inventory item with the exact same name
           const invItemRes = await client.query(
             `SELECT id, quantity FROM inventory WHERE name = $1 LIMIT 1`,
