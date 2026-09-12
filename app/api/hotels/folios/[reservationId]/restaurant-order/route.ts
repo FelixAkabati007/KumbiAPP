@@ -24,7 +24,8 @@ export async function POST(
 
     const result = await transaction(async (client) => {
       const menuResult = await client.query(
-        `SELECT mi.id, mi.name, mi.price, c.slug AS category_slug
+        `SELECT mi.id, mi.name, mi.price, c.slug AS category_slug,
+                mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
          FROM menu_items mi
          LEFT JOIN categories c ON c.id = mi.category_id
          WHERE mi.id = ANY($1::uuid[]) AND mi.is_available = TRUE`,
@@ -57,6 +58,44 @@ export async function POST(
       );
       const folioDetails = folioDetailsResult.rows[0];
       if (!folioDetails) throw new Error("Reservation not found");
+
+      for (const item of selected) {
+        const mode = item.menuItem.inventory_mode ?? "recipe";
+        if (mode === "direct") {
+          if (!item.menuItem.direct_inventory_id) throw new Error(`${item.menuItem.name} has no direct inventory item configured`);
+          const deduction = Number(item.menuItem.direct_units_per_sale ?? 1) * item.quantity;
+          const directUpdate = await client.query(
+            `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
+             WHERE id = $2 AND quantity >= $1 RETURNING id`,
+            [deduction, item.menuItem.direct_inventory_id]
+          );
+          if (directUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} is out of stock`);
+          continue;
+        }
+
+        const recipeResult = await client.query(
+          `SELECT inventory_item_id, quantity FROM recipe_ingredients WHERE menu_item_id = $1`,
+          [item.menuItem.id]
+        );
+        if (recipeResult.rowCount) {
+          for (const ingredient of recipeResult.rows) {
+            const deduction = Number(ingredient.quantity) * item.quantity;
+            const ingredientUpdate = await client.query(
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
+               WHERE id = $2 AND quantity >= $1 RETURNING id`,
+              [deduction, ingredient.inventory_item_id]
+            );
+            if (ingredientUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} cannot be prepared because an ingredient is out of stock`);
+          }
+        } else {
+          const legacyUpdate = await client.query(
+            `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
+             WHERE name = $2 AND quantity >= $1 RETURNING id`,
+            [item.quantity, item.menuItem.name]
+          );
+          if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
+        }
+      }
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
       const authorizationResult = await client.query(`SELECT id, status, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1 AND ca.status = 'active' AND ca.folio_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
