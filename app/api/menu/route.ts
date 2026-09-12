@@ -56,6 +56,7 @@ export async function GET() {
 
     const items = res.rows.map((r) => ({
       id: r.id,
+      isAvailable: r.is_available,
       name: r.name,
       description: r.description ?? "",
       price: Number(r.price),
