@@ -33,7 +33,6 @@ export async function GET() {
       FROM kitchenorders k
       LEFT JOIN kitchen_orderitems i ON k.id = i.kitchenorderid
       WHERE k.kitchen_closed_at IS NULL
-      WHERE k.kitchen_closed_at IS NULL
       GROUP BY k.id
       ORDER BY k.created_at DESC
     `);
@@ -88,12 +87,28 @@ export async function POST(req: Request) {
     const menuItemIds = Array.isArray(items) ? items.map((item: { id?: string }) => item.id).filter(Boolean) : [];
     if (menuItemIds.length > 0) {
       const stockResult = await query(
-        `SELECT menu_item_id, quantity FROM inventory WHERE menu_item_id = ANY($1::uuid[]) AND category IN ('ingredient', 'beverage', 'supply')`,
+        `SELECT mi.id AS menu_item_id,
+                mi.inventory_mode,
+                mi.direct_inventory_id,
+                mi.direct_units_per_sale,
+                di.quantity AS direct_quantity
+         FROM menu_items mi
+         LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
+         WHERE mi.id = ANY($1::uuid[])`,
         [menuItemIds]
       );
-      const stockByMenuItem = new Map(stockResult.rows.map((row) => [String(row.menu_item_id), Number(row.quantity)]));
+      const stockByMenuItem = new Map(stockResult.rows.map((row) => [String(row.menu_item_id), row]));
       const unavailable = (items as Array<{ id?: string; name?: string; quantity?: number }>)
-        .find((item) => item.id && stockByMenuItem.has(String(item.id)) && Number(item.quantity ?? 0) > (stockByMenuItem.get(String(item.id)) ?? 0));
+        .find((item) => {
+          if (!item.id) return false;
+          const stock = stockByMenuItem.get(String(item.id));
+          if (!stock) return false;
+          const requested = Number(item.quantity ?? 0);
+          if (stock.inventory_mode === "direct") {
+            return !stock.direct_inventory_id || Number(stock.direct_quantity ?? 0) < Number(stock.direct_units_per_sale ?? 1) * requested;
+          }
+          return false;
+        });
       if (unavailable) {
         return NextResponse.json({ error: `${unavailable.name ?? "Item"} is out of stock` }, { status: 409 });
       }
