@@ -50,6 +50,7 @@ export async function GET(
       inventoryMode: r.inventory_mode,
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
+      isAvailable: r.is_available,
       inStock: r.is_available,
       image: r.image_url ?? undefined,
       category: r.category_slug || "ghanaian",
@@ -77,7 +78,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, description, price, category, barcode, inStock, image, inventoryMode, directInventoryId, directUnitsPerSale } = body;
+    const { name, description, price, category, barcode, inStock, isAvailable, image, inventoryMode, directInventoryId, directUnitsPerSale } = body;
     if (inventoryMode === "direct" && !directInventoryId) {
       return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
     }
@@ -119,9 +120,10 @@ export async function PUT(
       fields.push(`barcode = $${idx++}`);
       values.push(typeof barcode === "string" ? barcode.trim() || null : barcode);
     }
-    if (inStock !== undefined) {
+    const manualAvailability = isAvailable !== undefined ? isAvailable : inStock;
+    if (manualAvailability !== undefined) {
       fields.push(`is_available = $${idx++}`);
-      values.push(inStock);
+      values.push(Boolean(manualAvailability));
     }
     if (image !== undefined) {
       fields.push(`image_url = $${idx++}`);
