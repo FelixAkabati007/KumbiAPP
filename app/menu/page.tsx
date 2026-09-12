@@ -65,6 +65,7 @@ const isValidMenuItem = (item: unknown): item is MenuItem => {
     typeof it.price === "number" &&
     typeof it.inStock === "boolean" &&
     typeof it.isAvailable === "boolean" &&
+    (it.availabilityMode === undefined || it.availabilityMode === "manual" || it.availabilityMode === "automatic") &&
     ["ghanaian", "continental", "beverages", "desserts", "sides"].includes(
       String(it.category)
     )
@@ -91,6 +92,7 @@ const createEmptyMenuItem = (): MenuItem => {
     category: "ghanaian",
     inStock: true,
     isAvailable: true,
+    availabilityMode: "manual",
     barcode: "",
     image: "",
   };
@@ -661,11 +663,14 @@ function MenuContent() {
                     <ImageIcon className="h-12 w-12 text-muted-foreground" />
                   </div>
                 )}
-                {item.inStock && (
-                  <Badge className="absolute top-2 right-2 bg-green-500 hover:bg-green-600 text-white rounded-full animate-pulse">
-                    In Stock
-                  </Badge>
-                )}
+  {item.inStock && (
+  <Badge className="absolute top-2 right-2 bg-green-500 hover:bg-green-600 text-white rounded-full animate-pulse">
+  In Stock
+  </Badge>
+  )}
+  <Badge variant="outline" className="absolute top-2 left-2 bg-background/90">
+  {item.availabilityMode === "automatic" ? "Auto stock" : "Manual"}
+  </Badge>
               </div>
               <CardContent className="p-4 relative z-10">
                 <div className="flex justify-between items-start mb-2">
@@ -876,9 +881,20 @@ function MenuContent() {
                       </div>
                     </div>
                   )}
+    <div className="grid gap-2">
+    <Label htmlFor="availabilityMode">Availability policy</Label>
+    <Select value={editingItem.availabilityMode ?? "manual"} onValueChange={(value) => setEditingItem((prev) => ({ ...prev, availabilityMode: value as "manual" | "automatic" }))}>
+      <SelectTrigger id="availabilityMode"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="manual">Manual control</SelectItem>
+        <SelectItem value="automatic">Automatic from stock</SelectItem>
+      </SelectContent>
+    </Select>
+    <p className="text-xs text-muted-foreground">Automatic mode follows linked stock and reactivates after restocking. Manual mode preserves the explicit availability setting.</p>
+  </div>
   <div className="grid gap-2">
     <Label htmlFor="isAvailable">Availability</Label>
-    <Select value={String(editingItem.isAvailable !== false)} onValueChange={handleAvailabilityChange}>
+    <Select disabled={editingItem.availabilityMode === "automatic"} value={String(editingItem.isAvailable !== false)} onValueChange={handleAvailabilityChange}>
       <SelectTrigger id="isAvailable"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value="true">Available for sale</SelectItem>
