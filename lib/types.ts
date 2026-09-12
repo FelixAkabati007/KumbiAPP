@@ -12,6 +12,7 @@ export interface MenuItem {
   inventoryMode?: "recipe" | "direct";
   directInventoryId?: string;
   directUnitsPerSale?: number;
+  directInventoryQuantity?: number;
 }
 
 export interface OrderItem extends MenuItem {
