@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
+import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
 
 const paramsSchema = z.object({
   reservationId: z.string().uuid({ message: "Invalid reservation id" }),
@@ -37,6 +38,7 @@ export async function GET(
     }
     const { reservationId } = paramsResult.data;
 
+    const syncResult = await transaction((client) => syncOverdueRoomCharges(client, reservationId));
     const result = await query(
       `
       SELECT gf.*, r.reservation_number, g.first_name, g.last_name, rm.room_number
@@ -59,7 +61,7 @@ export async function GET(
       [reservationId]
     );
 
-    return NextResponse.json({ ...result.rows[0], items: items.rows });
+    return NextResponse.json({ ...result.rows[0], items: items.rows, overdueStay: syncResult });
   } catch (error) {
     console.error("Error fetching guest folio:", error);
     return NextResponse.json(
