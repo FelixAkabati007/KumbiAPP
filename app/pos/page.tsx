@@ -179,16 +179,16 @@ function POSContent() {
         if (cancelled) return;
         setInventoryAvailability(
           Object.fromEntries(
-            items
-              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage", "supply"].includes(item.category ?? ""))
-              .map((item: { menuItemId: string; quantity: string }) => [item.menuItemId, Number(item.quantity) || 0])
+              items
+              .filter((item: { id?: string; menuItemId?: string; category?: string }) => item.id && ["ingredient", "beverage", "beverages", "supply", "supplies"].includes(String(item.category ?? "").toLowerCase()))
+              .map((item: { id: string; menuItemId?: string; quantity: string }) => [item.menuItemId ?? item.id, Number(item.quantity) || 0])
           )
         );
         setInventoryCategories(
           Object.fromEntries(
-            items
-              .filter((item: { menuItemId?: string; category?: string }) => item.menuItemId && ["ingredient", "beverage", "supply"].includes(item.category ?? ""))
-              .map((item: { menuItemId: string; category: string }) => [item.menuItemId, item.category])
+              items
+              .filter((item: { id?: string; menuItemId?: string; category?: string }) => item.id && ["ingredient", "beverage", "beverages", "supply", "supplies"].includes(String(item.category ?? "").toLowerCase()))
+              .map((item: { id: string; menuItemId?: string; category: string }) => [item.menuItemId ?? item.id, item.category])
           )
         );
       } catch {
@@ -271,10 +271,11 @@ function POSContent() {
 
   // Add item to current order
   const isItemAvailable = (item: MenuItem) => {
-    const quantity = inventoryAvailability[item.id];
+    const inventoryKey = item.inventoryMode === "direct" ? item.directInventoryId : item.id;
+    const quantity = inventoryKey ? inventoryAvailability[inventoryKey] : undefined;
     return quantity === undefined
       ? item.inStock
-      : isInventoryAvailable({ quantity, category: inventoryCategories[item.id], menuItemId: item.id });
+      : isInventoryAvailable({ quantity, category: inventoryKey ? inventoryCategories[inventoryKey] : undefined, menuItemId: item.inventoryMode === "direct" ? undefined : item.id });
   };
 
   const addItemToOrder = (item: MenuItem) => {
