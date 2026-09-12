@@ -6,6 +6,7 @@ export interface MenuItem {
   category: "ghanaian" | "continental" | "beverages" | "desserts" | "sides";
   barcode?: string;
   inStock: boolean;
+  isAvailable?: boolean;
   stockStatus?: "available" | "out_of_stock" | "recipe_required" | "manually_unavailable";
   stockShortages?: string[];
   image?: string; // Add image field for product images

@@ -271,6 +271,7 @@ function POSContent() {
 
   // Add item to current order
   const isItemAvailable = (item: MenuItem) => {
+    if (item.isAvailable === false) return false;
     const inventoryKey = item.inventoryMode === "direct" ? item.directInventoryId : item.id;
     const quantity = inventoryKey ? inventoryAvailability[inventoryKey] : undefined;
     return quantity === undefined
