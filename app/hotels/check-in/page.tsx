@@ -73,6 +73,7 @@ interface CheckedInGuest {
 
 interface MenuItem {
   id: string;
+  isAvailable: boolean;
   name: string;
   description?: string;
   price: number;
@@ -361,7 +362,7 @@ function CheckInPage() {
     setLoadingRestaurantMenu(true);
     fetch("/api/menu", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load menu")))
-      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.inStock)))
+      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.isAvailable)))
       .catch(() => toast({ title: "Menu unavailable", description: "Active food and beverage items could not be loaded.", variant: "destructive" }))
       .finally(() => setLoadingRestaurantMenu(false));
     setFolio(null);
@@ -909,7 +910,7 @@ function CheckInPage() {
                       return (
                         <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-2">
                           <div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs text-muted-foreground">GHS {item.price.toFixed(2)} · {item.category}</p></div>
-                          <div className="flex shrink-0 items-center gap-1"><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, -1)} disabled={quantity === 0}><Minus className="h-3 w-3" /></Button><span className="w-6 text-center text-sm font-semibold">{quantity}</span><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, 1)}><Plus className="h-3 w-3" /></Button></div>
+                          <div className="flex shrink-0 items-center gap-1"><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, -1)} disabled={quantity === 0}><Minus className="h-3 w-3" /></Button><span className="w-6 text-center text-sm font-semibold">{quantity}</span><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, 1)} disabled={!item.inStock}><Plus className="h-3 w-3" /></Button></div>
                         </div>
                       );
                     })}
