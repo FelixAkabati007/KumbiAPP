@@ -23,7 +23,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
   const inserted = await client.query(
     `INSERT INTO guest_folio_items
       (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
-     SELECT r.id, gf.id, 'room_extension',
+     SELECT r.id, gf.id, 'room',
             CONCAT('Overdue room stay - night of ', TO_CHAR(night_date, 'DD Mon YYYY')),
             1, $2::numeric, $2::numeric, 'system', r.id::text || ':' || night_date::text
      FROM reservations r
