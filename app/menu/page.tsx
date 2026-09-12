@@ -64,6 +64,7 @@ const isValidMenuItem = (item: unknown): item is MenuItem => {
     typeof it.description === "string" &&
     typeof it.price === "number" &&
     typeof it.inStock === "boolean" &&
+    typeof it.isAvailable === "boolean" &&
     ["ghanaian", "continental", "beverages", "desserts", "sides"].includes(
       String(it.category)
     )
@@ -89,6 +90,7 @@ const createEmptyMenuItem = (): MenuItem => {
     price: 0,
     category: "ghanaian",
     inStock: true,
+    isAvailable: true,
     barcode: "",
     image: "",
   };
@@ -485,8 +487,8 @@ function MenuContent() {
     []
   );
 
-  const handleStockChange = useCallback((value: string) => {
-    setEditingItem((prev) => ({ ...prev, inStock: value === "true" }));
+  const handleAvailabilityChange = useCallback((value: string) => {
+    setEditingItem((prev) => ({ ...prev, isAvailable: value === "true" }));
   }, []);
 
   const handleImageChange = useCallback(
@@ -874,6 +876,17 @@ function MenuContent() {
                       </div>
                     </div>
                   )}
+  <div className="grid gap-2">
+    <Label htmlFor="isAvailable">Availability</Label>
+    <Select value={String(editingItem.isAvailable !== false)} onValueChange={handleAvailabilityChange}>
+      <SelectTrigger id="isAvailable"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="true">Available for sale</SelectItem>
+        <SelectItem value="false">Manually unavailable</SelectItem>
+      </SelectContent>
+    </Select>
+    <p className="text-xs text-muted-foreground">Controls whether POS and Hotel Folio can sell this item. Inventory quantity is checked separately.</p>
+  </div>
   <div className="grid gap-2">
   <Label htmlFor="inStock">Stock Status</Label>
                   {editingItem.inventoryMode === "direct" ? (
