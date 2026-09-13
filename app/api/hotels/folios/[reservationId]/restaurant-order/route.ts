@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
+import { publishRealtime } from "@/lib/realtime";
 
 const paramsSchema = z.object({ reservationId: z.string().uuid() });
 const orderSchema = z.object({
+  requestId: z.string().min(8).max(120).optional(),
   items: z.array(z.object({ menuItemId: z.string().uuid(), quantity: z.number().int().positive().max(99) })).min(1),
 });
 
@@ -23,6 +25,18 @@ export async function POST(
     }
 
     const result = await transaction(async (client) => {
+      const requestId = body.data.requestId;
+      if (requestId) {
+        const existing = await client.query(
+          `SELECT ko.id, ko.ordernumber, ko.total, gf.*
+           FROM kitchenorders ko
+           LEFT JOIN guest_folio_items gfi ON gfi.source_id = ko.id
+           LEFT JOIN guest_folios gf ON gf.id = gfi.folio_id
+           WHERE ko.ordernumber = $1 LIMIT 1`,
+          [requestId]
+        );
+        if (existing.rowCount) return { orderId: existing.rows[0].id, orderNumber: existing.rows[0].ordernumber, total: Number(existing.rows[0].total), folio: existing.rows[0], idempotent: true };
+      }
       const menuResult = await client.query(
         `SELECT mi.id, mi.name, mi.price, c.slug AS category_slug,
                 mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
@@ -102,7 +116,7 @@ export async function POST(
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
       const billableTotal = isWaived ? 0 : total;
-      const orderNumber = `FO-${Date.now().toString(36).toUpperCase()}`;
+      const orderNumber = body.data.requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
         name: item.menuItem.name,
@@ -149,6 +163,15 @@ export async function POST(
       if (isWaived) {
         await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) VALUES ($1,$2,$3,'restaurant_order',$4,$5)`, [authorization.id, String(orderId), "guest_folio", total.toFixed(2), `Restaurant order ${orderNumber} waived through VIP authorization`]);
       }
+      const finance = await client.query(`SELECT id FROM transactions WHERE transaction_reference = $1 LIMIT 1`, [orderNumber]);
+      if (!finance.rowCount) {
+        await client.query(
+          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata)
+           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb)`,
+          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived })]
+        );
+      }
+
       const updatedFolio = await client.query(
         `UPDATE guest_folios
          SET food_charges = COALESCE(food_charges, 0) + $1,
@@ -159,10 +182,18 @@ export async function POST(
         [billableTotal.toFixed(2), params.data.reservationId]
       );
 
-      return { orderId, orderNumber, total, folio: updatedFolio.rows[0] };
+      return { orderId, orderNumber, total, folio: updatedFolio.rows[0], idempotent: false };
     });
 
-    return NextResponse.json({ success: true, ...result });
+    if (!result.idempotent) {
+      await Promise.all([
+        publishRealtime("orders.updated", String(result.orderId)),
+        publishRealtime("pos.updated", String(result.orderId)),
+        publishRealtime("inventory.updated", String(result.orderId)),
+        publishRealtime("finance.updated", String(result.orderId)),
+      ]);
+    }
+    return NextResponse.json({ success: true, ...result, receiptUrl: `/receipt?orderNumber=${encodeURIComponent(result.orderNumber)}` });
   } catch (error) {
     console.error("Failed to create restaurant folio order:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create restaurant order" }, { status: 400 });
