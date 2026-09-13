@@ -23,7 +23,7 @@ DO $$ BEGIN CREATE TYPE order_type AS ENUM ('dine-in', 'takeout', 'delivery');
 EXCEPTION
 WHEN duplicate_object THEN null;
 END $$;
-DO $$ BEGIN CREATE TYPE payment_method_enum AS ENUM ('cash', 'card', 'mobile');
+DO $$ BEGIN CREATE TYPE payment_method_enum AS ENUM ('cash', 'card', 'mobile', 'guest-folio');
 EXCEPTION
 WHEN duplicate_object THEN null;
 END $$;

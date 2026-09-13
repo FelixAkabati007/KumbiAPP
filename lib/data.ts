@@ -243,10 +243,51 @@ export async function addSaleData(sale: SalesData): Promise<boolean> {
 
 export async function findSaleByOrderNumber(
   orderNumber: string
-): Promise<SalesData | undefined> {
+  ): Promise<SalesData | undefined> {
   const sales = await getSalesData();
-  return sales.find((s) => s.orderNumber === orderNumber);
-}
+  const matchingSale = sales.find((s) => s.orderNumber === orderNumber);
+  if (matchingSale) return matchingSale;
+
+  try {
+    const orders = await apiFetch<Array<{
+      id?: string;
+      orderNumber?: string;
+      orderType?: string;
+      tableNumber?: string;
+      customerName?: string;
+      paymentMethod?: string;
+      total?: number;
+      createdAt?: string;
+      items?: Array<{ id?: string; name: string; price: number; quantity: number; notes?: string }>;
+    }>>(`/api/orders?orderNumber=${encodeURIComponent(orderNumber)}`);
+    const order = orders.find((candidate) => candidate.orderNumber === orderNumber);
+    if (!order) return undefined;
+
+    const subtotal = (order.items ?? []).reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    return {
+      id: order.id ?? orderNumber,
+      orderId: order.id,
+      orderNumber,
+      date: order.createdAt ?? new Date().toISOString(),
+      total: Number(order.total ?? subtotal),
+      paymentMethod: order.paymentMethod ?? "unknown",
+      items: (order.items ?? []).map((item) => ({
+        id: item.id ?? `${order.id ?? orderNumber}-${item.name}`,
+        name: item.name,
+        price: Number(item.price),
+        quantity: item.quantity,
+        total: Number(item.price) * item.quantity,
+        notes: item.notes,
+      })),
+      orderType: (order.orderType as SalesData["orderType"]) ?? "dine-in",
+      tableNumber: order.tableNumber,
+      customerName: order.customerName,
+    };
+  } catch (error) {
+    if (!isExpectedRequestError(error)) console.error("Error fetching order receipt:", error);
+    return undefined;
+  }
+  }
 
 // Database wrappers (now redundant but kept for interface compatibility if needed)
 export async function getMenuItemsFromDatabase(): Promise<MenuItem[]> {
