@@ -30,7 +30,7 @@ export async function POST(
         const existing = await client.query(
           `SELECT ko.id, ko.ordernumber, ko.total, gf.*
            FROM kitchenorders ko
-           LEFT JOIN guest_folio_items gfi ON gfi.source_id = ko.id
+           LEFT JOIN guest_folio_items gfi ON gfi.source_id::text = ko.id::text
            LEFT JOIN guest_folios gf ON gf.id = gfi.folio_id
            WHERE ko.ordernumber = $1 LIMIT 1`,
           [requestId]
@@ -55,7 +55,7 @@ export async function POST(
       const folioResult = await client.query(
         `SELECT id
          FROM guest_folios
-         WHERE reservation_id = $1
+         WHERE reservation_id::text = $1::text
          FOR UPDATE`,
         [params.data.reservationId]
       );
@@ -112,7 +112,7 @@ export async function POST(
       }
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
-      const authorizationResult = await client.query(`SELECT id, status, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1 AND ca.status = 'active' AND ca.folio_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
+      const authorizationResult = await client.query(`SELECT id, status, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id::text = $1::text AND ca.status = 'active' AND ca.folio_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
       const billableTotal = isWaived ? 0 : total;
@@ -178,7 +178,7 @@ export async function POST(
              total_charges = COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0),
              balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0) - COALESCE(paid_amount, 0)),
              last_updated = NOW()
-         WHERE reservation_id = $2 RETURNING *`,
+         WHERE reservation_id::text = $2::text RETURNING *`,
         [billableTotal.toFixed(2), params.data.reservationId]
       );
 
