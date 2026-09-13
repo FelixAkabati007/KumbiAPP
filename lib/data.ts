@@ -258,7 +258,16 @@ export async function findSaleByOrderNumber(
       paymentMethod?: string;
       total?: number;
       createdAt?: string;
-      items?: Array<{ id?: string; name: string; price: number; quantity: number; notes?: string }>;
+      items?: Array<{
+        id?: string;
+        name: string;
+        price: number;
+        quantity: number;
+        notes?: string;
+        description?: string;
+        category?: MenuItem["category"];
+        inStock?: boolean;
+      }>;
     }>>(`/api/orders?orderNumber=${encodeURIComponent(orderNumber)}`);
     const order = orders.find((candidate) => candidate.orderNumber === orderNumber);
     if (!order) return undefined;
@@ -274,7 +283,10 @@ export async function findSaleByOrderNumber(
       items: (order.items ?? []).map((item) => ({
         id: item.id ?? `${order.id ?? orderNumber}-${item.name}`,
         name: item.name,
+        description: item.description ?? item.name,
         price: Number(item.price),
+        category: item.category ?? "beverages",
+        inStock: item.inStock ?? true,
         quantity: item.quantity,
         total: Number(item.price) * item.quantity,
         notes: item.notes,
