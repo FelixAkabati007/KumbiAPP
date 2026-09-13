@@ -57,7 +57,7 @@ import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { useSettings } from "@/components/settings-provider";
-import { OrderProvider, useOrders } from "@/lib/order-context";
+import { OrderProvider } from "@/lib/order-context";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useRealtime } from "@/components/realtime-provider";
 import {
@@ -80,7 +80,6 @@ function POSContent() {
 
   const { toast } = useToast();
   const { user, logout } = useAuth();
-  const { addOrder } = useOrders();
   const { settings } = useReceiptSettings();
   const { lastEvent } = useRealtime();
   const [activeTab, setActiveTab] = useState("all");
@@ -416,26 +415,39 @@ function POSContent() {
       const success = await processPaymentWithIntegration(paymentData);
 
       if (success) {
+        const completionResponse = await fetch("/api/orders/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderNumber,
+            total: calculateTotal(),
+            orderType,
+            tableNumber,
+            customerName,
+            paymentMethod,
+            items: currentOrder.map((item) => ({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              category: item.category,
+              quantity: item.quantity,
+              notes: item.notes,
+              prepTime: getPrepTimeForItem(item.category),
+            })),
+            estimatedTime: calculateEstimatedTime(currentOrder),
+          }),
+        });
+        if (!completionResponse.ok) {
+          const completionError = await completionResponse.json().catch(() => null);
+          throw new Error(completionError?.error || "Order could not be saved");
+        }
+
         // Remove or comment out playNotificationSound if it causes media errors
         // playNotificationSound();
 
         // Persist sale data if needed (integration handles persistence)
 
-        // Add order to kitchen display
-        addOrder({
-          orderNumber,
-          items: currentOrder.map((item) => ({
-            ...item,
-            status: "pending" as const,
-            prepTime: getPrepTimeForItem(item.category),
-          })),
-          total: calculateTotal(),
-          orderType: orderType as "dine-in" | "takeout" | "delivery",
-          tableNumber,
-          customerName,
-          paymentMethod,
-          estimatedTime: calculateEstimatedTime(currentOrder),
-        });
+        // The server transaction now creates the kitchen order and publishes its realtime event.
 
         // Redirect to receipt page with order data
         // router.push(
