@@ -403,10 +403,14 @@ function CheckInPage() {
     if (!folioGuest || restaurantTotal <= 0 || sendingRestaurantOrder) return;
     setSendingRestaurantOrder(true);
     try {
+      const requestId = `FO-${crypto.randomUUID()}`;
       const response = await fetch(`/api/hotels/folios/${folioGuest.id}/restaurant-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: Object.entries(restaurantCart).map(([menuItemId, quantity]) => ({ menuItemId, quantity })) }),
+        body: JSON.stringify({
+          requestId,
+          items: Object.entries(restaurantCart).map(([menuItemId, quantity]) => ({ menuItemId, quantity })),
+        }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Failed to send restaurant order");
