@@ -168,7 +168,7 @@ export async function POST(
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata)
            VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb)`,
-          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived })]
+          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived })]
         );
       }
 

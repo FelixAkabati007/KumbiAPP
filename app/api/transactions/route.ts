@@ -33,8 +33,8 @@ export async function GET(request: Request) {
 
     const params: (string | number | boolean | null)[] = [];
     let queryText = `
-      SELECT id, transaction_id, amount, currency, status, payment_method,
-             customer_id, items, metadata, created_at, updated_at
+      SELECT id::text, transaction_id::text, amount, currency, status, payment_method,
+             customer_id::text, items, metadata, created_at, updated_at
       FROM transaction_logs`;
     if (source !== "restaurant") {
       queryText = `SELECT id::text, 'HOTEL-' || id::text AS transaction_id, amount, currency,
