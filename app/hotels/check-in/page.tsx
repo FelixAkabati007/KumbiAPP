@@ -95,6 +95,13 @@ interface GuestFolio {
   first_name: string;
   last_name: string;
   room_number: string | null;
+  items?: Array<{
+    id: string;
+    description: string;
+    total_amount: string;
+    performed_by_name?: string | null;
+    performed_by_email?: string | null;
+  }>;
 }
 
 function CheckInPage() {
@@ -861,8 +868,12 @@ function CheckInPage() {
               <Skeleton className="h-6 w-full" />
             </div>
           ) : folio ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
+  <div className="space-y-4">
+  <div className="rounded-lg border border-orange-100 bg-orange-50/40 p-3 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
+  <p className="text-muted-foreground">Account</p>
+  <p className="font-semibold">{folio.items?.find((item) => item.performed_by_name || item.performed_by_email)?.performed_by_name || folio.items?.find((item) => item.performed_by_email)?.performed_by_email || "Unknown account"}</p>
+  </div>
+  <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
                   <p className="font-semibold">GHS {Number(folio.room_charge).toFixed(2)}</p>

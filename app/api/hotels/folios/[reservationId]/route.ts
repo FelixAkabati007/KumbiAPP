@@ -56,8 +56,12 @@ export async function GET(
     }
 
     const items = await query(
-      `SELECT id, category, description, quantity, unit_amount, total_amount, source_type, source_id, created_at
-       FROM guest_folio_items WHERE reservation_id = $1 ORDER BY created_at ASC`,
+      `SELECT i.id, i.category, i.description, i.quantity, i.unit_amount, i.total_amount, i.source_type, i.source_id, i.created_at,
+              i.created_by,
+              u.name AS performed_by_name, u.email AS performed_by_email, u.role AS performed_by_role
+       FROM guest_folio_items i
+       LEFT JOIN users u ON u.id = i.created_by
+       WHERE i.reservation_id = $1 ORDER BY i.created_at ASC`,
       [reservationId]
     );
 
@@ -77,7 +81,7 @@ export async function PATCH(
   context: { params: Promise<{ reservationId: string }> }
 ) {
   try {
-    const { error: authError } = await requirePermission("guestFolio");
+    const { session, error: authError } = await requirePermission("guestFolio");
     if (authError) return authError;
 
     const paramsResult = paramsSchema.safeParse(await context.params);
@@ -107,9 +111,9 @@ export async function PATCH(
 
       await client.query(
         `INSERT INTO guest_folio_items
-          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type)
-         VALUES ($1, $2, $3, $4, 1, $5, $5, 'folio')`,
-        [reservationId, folio.id, chargeType, validationResult.data.description || `${chargeType} charge`, amount]
+          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, created_by)
+         VALUES ($1, $2, $3, $4, 1, $5, $5, 'folio', $6)`,
+        [reservationId, folio.id, chargeType, validationResult.data.description || `${chargeType} charge`, amount, session.id]
       );
 
       const updated = await client.query(
