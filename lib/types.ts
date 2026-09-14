@@ -126,6 +126,12 @@ export interface ReceiptData {
   businessAddress?: string;
   businessPhone?: string;
   businessEmail?: string;
+  performedBy?: {
+    id?: string;
+    name?: string | null;
+    email?: string;
+    role?: string;
+  };
 }
 
 // Placeholder types for thermal printer test

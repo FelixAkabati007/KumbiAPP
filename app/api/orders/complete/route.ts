@@ -70,7 +70,7 @@ export async function POST(req: Request) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
            VALUES (NULL,$1,$2,'GHS',$3,'completed',$4,$5)`,
-          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", kitchenOrderId: orderId, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
+          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", orderNumber, orderType, tableNumber: tableNumber || undefined, customerName: customerName || undefined, customerRefused: !customerName, items, kitchenOrderId: orderId, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
       return { id: orderId, idempotent: false };

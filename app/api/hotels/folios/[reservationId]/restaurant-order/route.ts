@@ -193,7 +193,12 @@ export async function POST(
         publishRealtime("finance.updated", String(result.orderId)),
       ]);
     }
-    return NextResponse.json({ success: true, ...result, receiptUrl: `/receipt?orderNumber=${encodeURIComponent(result.orderNumber)}` });
+    return NextResponse.json({
+    success: true,
+    ...result,
+    performedBy: { id: session.id, name: session.name, email: session.email, role: session.role },
+    receiptUrl: `/receipt?orderNumber=${encodeURIComponent(result.orderNumber)}`,
+  });
   } catch (error) {
     console.error("Failed to create restaurant folio order:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create restaurant order" }, { status: 400 });
