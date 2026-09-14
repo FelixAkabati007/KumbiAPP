@@ -205,6 +205,7 @@ export async function getSalesData(): Promise<SalesData[]> {
       tableNumber: log.metadata?.tableNumber as string | undefined,
       customerName: (log.metadata?.customerName as string | undefined) ?? log.customer_id,
       customerRefused: log.metadata?.customerRefused as boolean | undefined,
+      performedBy: log.metadata?.performedBy as SalesData["performedBy"],
     }));
   } catch (error) {
     console.error("Error fetching sales data:", error);
@@ -256,6 +257,7 @@ export async function findSaleByOrderNumber(
       tableNumber?: string;
       customerName?: string;
       paymentMethod?: string;
+      performedBy?: SalesData["performedBy"];
       total?: number;
       createdAt?: string;
       items?: Array<{
@@ -294,6 +296,7 @@ export async function findSaleByOrderNumber(
       orderType: (order.orderType as SalesData["orderType"]) ?? "dine-in",
       tableNumber: order.tableNumber,
       customerName: order.customerName,
+      performedBy: order.performedBy,
     };
   } catch (error) {
     if (!isExpectedRequestError(error)) console.error("Error fetching order receipt:", error);

@@ -6,6 +6,7 @@ import { hasPermission, isAdmin, type AppSection, type UserRole } from "@/lib/ro
 export type ApiSession = {
   id: string;
   email: string;
+  name?: string | null;
   role: UserRole;
 };
 

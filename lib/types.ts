@@ -56,6 +56,7 @@ export interface SalesData {
   customerName?: string;
   customerRefused?: boolean;
   paymentMethod: string;
+  performedBy?: { id?: string; name?: string | null; email?: string; role?: string };
   type?: "sale" | "refund";
 }
 

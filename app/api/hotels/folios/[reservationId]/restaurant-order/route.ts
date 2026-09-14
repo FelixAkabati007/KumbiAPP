@@ -15,7 +15,7 @@ export async function POST(
   context: { params: Promise<{ reservationId: string }> }
 ) {
   try {
-    const { error: authError } = await requirePermission("guestFolio");
+    const { session, error: authError } = await requirePermission("guestFolio");
     if (authError) return authError;
 
     const params = paramsSchema.safeParse(await context.params);
@@ -131,17 +131,17 @@ export async function POST(
       const orderResult = hasItemsColumn
         ? await client.query(
             `INSERT INTO kitchenorders
-              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items)
-             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb)
+              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items, performed_by)
+             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb, $6)
              RETURNING id, ordernumber`,
-            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems)]
+            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems), session.id]
           )
         : await client.query(
             `INSERT INTO kitchenorders
-              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status)
-             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending')
+              (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
+             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5)
              RETURNING id, ordernumber`,
-            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName]
+            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, session.id]
           );
       const orderId = orderResult.rows[0].id;
 
@@ -166,9 +166,9 @@ export async function POST(
       const finance = await client.query(`SELECT id FROM transactions WHERE transaction_reference = $1 LIMIT 1`, [orderNumber]);
       if (!finance.rowCount) {
         await client.query(
-          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata)
-           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb)`,
-          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived })]
+          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
+           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4)`,
+          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
 

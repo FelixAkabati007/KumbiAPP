@@ -10,7 +10,7 @@ type OrderItem = { id?: string; name: string; price: number; category?: string; 
 
 export async function POST(req: Request) {
   try {
-    const { error } = await requirePermission("pos");
+    const { session, error } = await requirePermission("pos");
     if (error) return error;
     const body = await req.json();
     const { orderNumber, total, orderType = "dine-in", tableNumber, customerName, paymentMethod = "cash", items, priority = "normal", estimatedTime } = body as {
@@ -40,9 +40,9 @@ export async function POST(req: Request) {
       }
 
       const order = await client.query(
-        `INSERT INTO kitchenorders (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending') RETURNING id`,
-        [orderNumber, total, orderType, tableNumber || null, customerName || null, paymentMethod, priority, estimatedTime || null]
+        `INSERT INTO kitchenorders (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING id`,
+        [orderNumber, total, orderType, tableNumber || null, customerName || null, paymentMethod, priority, estimatedTime || null, session.id]
       );
       const orderId = order.rows[0].id;
 
@@ -68,9 +68,9 @@ export async function POST(req: Request) {
       const finance = await client.query("SELECT id FROM transactions WHERE transaction_reference = $1 LIMIT 1", [orderNumber]);
       if (!finance.rowCount) {
         await client.query(
-          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata)
-           VALUES (NULL,$1,$2,'GHS',$3,'completed',$4)`,
-          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", kitchenOrderId: orderId })]
+          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
+           VALUES (NULL,$1,$2,'GHS',$3,'completed',$4,$5)`,
+          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", kitchenOrderId: orderId, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
       return { id: orderId, idempotent: false };
