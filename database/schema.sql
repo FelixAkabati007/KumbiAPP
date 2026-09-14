@@ -144,8 +144,9 @@ CREATE TABLE IF NOT EXISTS transactions (
         currency VARCHAR(10) DEFAULT 'GHS',
         method payment_method_enum NOT NULL,
         status VARCHAR(50) NOT NULL,
-        metadata JSONB,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  metadata JSONB,
+  performed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS refund_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -316,8 +317,9 @@ CREATE TABLE IF NOT EXISTS kitchenorders (
     updatedat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     estimatedtime INT,
     notes TEXT,
-    items JSONB NOT NULL
-);
+  items JSONB NOT NULL,
+  performed_by UUID REFERENCES users(id) ON DELETE SET NULL
+  );
 CREATE TABLE IF NOT EXISTS salesdata (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     date DATE NOT NULL UNIQUE,

@@ -30,6 +30,7 @@ interface ReceiptData {
   paymentMethod: string;
   customerName?: string;
   customerRefused?: boolean;
+  performedBy?: { id?: string; name?: string | null; email?: string; role?: string };
   tableNumber?: string;
   orderType: "dine-in" | "takeout" | "delivery";
 }
@@ -452,6 +453,10 @@ function ReceiptContent() {
                           <span>{foundSale.tableNumber}</span>
                         </div>
                       )}
+                      <div className="flex justify-between">
+                        <span className="font-semibold">Account:</span>
+                        <span>{foundSale.performedBy?.name || foundSale.performedBy?.email || "—"}</span>
+                      </div>
                       {foundSale.customerRefused ? (
                         <div className="flex justify-between">
                           <span className="font-semibold">Customer:</span>

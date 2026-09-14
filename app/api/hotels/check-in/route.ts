@@ -100,14 +100,16 @@ export async function POST(request: NextRequest) {
              'guestName', concat_ws(' ', g.first_name, g.last_name),
              'roomNumber', rm.room_number,
              'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('description', i.description, 'quantity', i.quantity, 'total_amount', i.total_amount) ORDER BY i.created_at) FROM guest_folio_items i WHERE i.reservation_id = r.id), '[]'::jsonb),
-             'total', COALESCE(gf.total_charges, 0)
-           ), NULL
+             'total', COALESCE(gf.total_charges, 0),
+             'performedBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text)
+           ), $2
          FROM reservations r
          JOIN guests g ON g.id = r.guest_id
          JOIN rooms rm ON rm.id = r.room_id
          JOIN guest_folios gf ON gf.reservation_id = r.id
+         JOIN users u ON u.id = $2
          WHERE r.id = $1 RETURNING id`,
-        [reservationId]
+        [reservationId, session.id]
       );
 
       return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number };

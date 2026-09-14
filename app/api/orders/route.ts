@@ -14,6 +14,9 @@ export async function GET() {
     const ordersResult = await query(`
       SELECT
         k.*,
+        u.name AS performed_by_name,
+        u.email AS performed_by_email,
+        u.role AS performed_by_role,
         COALESCE(
           jsonb_agg(
             jsonb_build_object(
@@ -31,6 +34,7 @@ export async function GET() {
           '[]'
         ) as items
       FROM kitchenorders k
+      LEFT JOIN users u ON u.id = k.performed_by
       LEFT JOIN kitchen_orderitems i ON k.id = i.kitchenorderid
       WHERE k.kitchen_closed_at IS NULL
       GROUP BY k.id
@@ -51,7 +55,8 @@ export async function GET() {
       updatedAt: row.updated_at,
       estimatedTime: row.estimatedtime,
       notes: row.notes,
-      chefNotes: row.chefnotes,
+        chefNotes: row.chefnotes,
+        performedBy: row.performed_by ? { id: row.performed_by, name: row.performed_by_name, email: row.performed_by_email, role: row.performed_by_role } : undefined,
       items: row.items,
     }));
 
@@ -67,7 +72,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { error } = await requirePermission("pos");
+    const { session, error } = await requirePermission("pos");
     if (error) return error;
 
     const body = await req.json();
@@ -116,8 +121,8 @@ export async function POST(req: Request) {
 
     const orderResult = await query(
       `INSERT INTO kitchenorders (
-        ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending') RETURNING id`,
+        ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9) RETURNING id`,
       [
         orderNumber,
         total,
@@ -127,6 +132,7 @@ export async function POST(req: Request) {
         paymentMethod,
         priority || "normal",
         estimatedTime,
+        session.id,
       ]
     );
 
