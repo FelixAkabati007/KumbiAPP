@@ -563,6 +563,9 @@ function POSContent() {
           appSettings.account.address || appSettings.businessAddress,
         businessPhone: appSettings.account.phone || appSettings.businessPhone,
         businessEmail: appSettings.account.email || appSettings.businessEmail,
+        performedBy: user
+          ? { id: user.id, name: user.name, email: user.email, role: user.role }
+          : undefined,
       };
 
       const configs = [appSettings.system.thermalPrinter];
@@ -634,6 +637,7 @@ function POSContent() {
           <p><strong>Date:</strong> ${date.toLocaleDateString()}</p>
           <p><strong>Time:</strong> ${date.toLocaleTimeString()}</p>
           <p><strong>Type:</strong> ${orderType.toUpperCase()}</p>
+          ${user ? `<p><strong>Account:</strong> ${user.name || user.email || "Unknown account"}</p>` : `<p><strong>Account:</strong> Unknown account</p>`}
           ${tableNumber ? `<p><strong>Table:</strong> ${tableNumber}</p>` : ""}
           ${
             customerNameRefused
@@ -1359,6 +1363,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                         <span>{tableNumber}</span>
                       </div>
                     )}
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Account:</span>
+                      <span>{user?.name || user?.email || "Unknown account"}</span>
+                    </div>
                     {customerName && (
                       <div className="flex justify-between">
                         <span className="font-semibold">Customer:</span>

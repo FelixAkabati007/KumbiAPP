@@ -8,6 +8,7 @@ type TransactionMetadata = {
   tableNumber?: string;
   customerName?: string;
   customerRefused?: boolean;
+  performedBy?: SalesData["performedBy"];
   [key: string]: unknown;
 };
 
@@ -258,6 +259,7 @@ export async function findSaleByOrderNumber(
       customerName?: string;
       paymentMethod?: string;
       performedBy?: SalesData["performedBy"];
+      metadata?: TransactionMetadata;
       total?: number;
       createdAt?: string;
       items?: Array<{
@@ -296,7 +298,7 @@ export async function findSaleByOrderNumber(
       orderType: (order.orderType as SalesData["orderType"]) ?? "dine-in",
       tableNumber: order.tableNumber,
       customerName: order.customerName,
-      performedBy: order.performedBy,
+      performedBy: order.performedBy ?? order.metadata?.performedBy,
     };
   } catch (error) {
     if (!isExpectedRequestError(error)) console.error("Error fetching order receipt:", error);
