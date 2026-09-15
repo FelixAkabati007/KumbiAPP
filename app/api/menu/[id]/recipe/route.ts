@@ -37,6 +37,18 @@ export async function POST(
 
     const body = await request.json();
     const { inventory_item_id, quantity, unit } = body;
+    const allowedUnitsResult = await query(
+      `SELECT DISTINCT unit FROM inventory_units WHERE unit IS NOT NULL
+       UNION SELECT DISTINCT unit FROM recipe_ingredients WHERE unit IS NOT NULL`,
+      []
+    );
+    const allowedUnits = new Set(allowedUnitsResult.rows.map((row) => row.unit));
+    if (typeof unit !== "string" || !unit.trim() || !allowedUnits.has(unit)) {
+      return NextResponse.json({ error: "Select a valid recipe unit." }, { status: 400 });
+    }
+    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+      return NextResponse.json({ error: "Quantity must be greater than zero." }, { status: 400 });
+    }
 
     await query(
       `INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit)

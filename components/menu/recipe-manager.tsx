@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Trash2, Plus, Loader2 } from "lucide-react";
 import { getInventoryItems } from "@/lib/data";
+import { UnitSelect } from "@/components/ui/unit-select";
 import type { InventoryItem } from "@/lib/types";
 
 interface RecipeIngredient {
@@ -203,7 +204,17 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           />
           <p id="recipe-quantity-help" className="mt-1 text-xs text-muted-foreground">Examples: 1.5 or 1 1/2</p>
         </div>
-        <Button onClick={handleAddIngredient} disabled={isAdding} className="h-9 w-full md:w-auto">
+        <div>
+          <Label htmlFor="recipe-unit">Unit</Label>
+          <UnitSelect
+            value={unit}
+            onChange={(value) => setUnit(typeof value === "string" ? value : value[0] || "")}
+            placeholder="Select recipe unit"
+            className="h-9"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">Choose the unit used in this recipe.</p>
+        </div>
+        <Button onClick={handleAddIngredient} disabled={isAdding || !unit} className="h-9 w-full md:w-auto">
           {isAdding ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : (
