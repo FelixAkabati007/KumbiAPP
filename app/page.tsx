@@ -54,6 +54,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
+import { ChefRecipeCard } from "@/components/dashboard/chef-recipe-card";
 
 const DASHBOARD_CATEGORIES = [
   ["all", "All Categories"],
@@ -850,6 +851,8 @@ function DashboardContent() {
             </Card>
           )}
         </div>
+
+        {!isHousekeeping && user.role === "kitchen" && <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7 mb-4"><ChefRecipeCard /></div>}
 
         {!isHousekeeping && <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="min-w-0 md:col-span-2 lg:col-span-4 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">

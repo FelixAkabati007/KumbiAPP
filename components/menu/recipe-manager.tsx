@@ -58,6 +58,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("units");
   const [ingredientSearch, setIngredientSearch] = useState("");
+  const [steps, setSteps] = useState<Array<{ instruction: string; duration_minutes: string }>>([]);
+  const [isSavingSteps, setIsSavingSteps] = useState(false);
 
   const foodInventoryItems = inventoryItems.filter((item) =>
     ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase())
@@ -74,11 +76,13 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [recipeRes, invItems] = await Promise.all([
+      const [recipeRes, invItems, recipeSteps] = await Promise.all([
         fetch(`/api/menu/${menuItemId}/recipe`).then((res) => res.json()),
         getInventoryItems(),
+        fetch(`/api/menu/${menuItemId}/recipe-steps`).then((res) => res.json()),
       ]);
       setIngredients(recipeRes);
+      setSteps(Array.isArray(recipeSteps) ? recipeSteps.map((step: { instruction: string; duration_minutes?: number | null }) => ({ instruction: step.instruction, duration_minutes: step.duration_minutes?.toString() ?? "" })) : []);
       setInventoryItems(invItems);
     } catch (error) {
       console.error("Failed to load recipe data", error);
@@ -249,6 +253,12 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           )}
         </TableBody>
       </Table>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-3"><div><Label>Cooking method</Label><p className="text-xs text-muted-foreground">Ordered steps shown on the Chef dashboard.</p></div><Button type="button" variant="outline" size="sm" onClick={() => setSteps((current) => [...current, { instruction: "", duration_minutes: "" }])}><Plus className="mr-1 size-4" />Step</Button></div>
+        {steps.map((step, index) => <div key={index} className="flex gap-2"><span className="flex size-9 items-center justify-center rounded-md bg-muted text-sm font-medium">{index + 1}</span><Input value={step.instruction} placeholder="Describe this cooking step" onChange={(event) => setSteps((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, instruction: event.target.value } : item))} /><Input className="w-28" type="number" min="0" placeholder="Minutes" value={step.duration_minutes} onChange={(event) => setSteps((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, duration_minutes: event.target.value } : item))} /><Button type="button" variant="ghost" size="sm" onClick={() => setSteps((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="size-4 text-destructive" /></Button></div>)}
+        <Button type="button" disabled={isSavingSteps} onClick={async () => { setIsSavingSteps(true); try { await fetch(`/api/menu/${menuItemId}/recipe-steps`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps }) }); } finally { setIsSavingSteps(false); } }}>{isSavingSteps ? "Saving..." : "Save cooking method"}</Button>
       </div>
     </div>
   );
