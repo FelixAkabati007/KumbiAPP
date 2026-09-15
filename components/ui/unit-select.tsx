@@ -37,6 +37,7 @@ interface UnitSelectProps {
   disabled?: boolean;
   placeholder?: string;
   error?: string;
+  excludeValues?: string[];
 }
 
 // The unit list is static reference data (rarely, if ever, changes), so cache
@@ -85,6 +86,7 @@ export function UnitSelect({
   disabled = false,
   placeholder,
   error: externalError,
+  excludeValues = [],
 }: UnitSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [categories, setCategories] = React.useState<UnitCategory[]>(
@@ -134,9 +136,20 @@ export function UnitSelect({
     fetchUnits();
   }, [fetchUnits]);
 
+  const visibleCategories = React.useMemo(
+    () => categories
+      .filter((category) => category.category !== "Operational Management Units")
+      .map((category) => ({
+        ...category,
+        units: category.units.filter((unit) => !excludeValues.includes(unit.value)),
+      }))
+      .filter((category) => category.units.length > 0),
+    [categories, excludeValues]
+  );
+
   const allUnits = React.useMemo(
-    () => categories.flatMap((c) => c.units),
-    [categories]
+    () => visibleCategories.flatMap((c) => c.units),
+    [visibleCategories]
   );
 
   const handleSelect = (currentValue: string) => {
@@ -230,23 +243,18 @@ export function UnitSelect({
               {!loading && !fetchError && (
                 <>
                   <CommandEmpty>{t.noUnitFound}</CommandEmpty>
-                  {categories.map((category) => (
-                    <CommandGroup
-                      key={category.category}
-                      heading={category.category}
-                    >
+                  {visibleCategories.map((category) => (
+                    <CommandGroup key={category.category} heading={category.category}>
                       {category.units.map((unit) => (
                         <CommandItem
                           key={unit.value}
-                          value={unit.label} // Search by label
+                          value={`${category.category} ${unit.label} ${unit.value}`}
                           onSelect={() => handleSelect(unit.value)}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              isSelected(unit.value)
-                                ? "opacity-100"
-                                : "opacity-0"
+                              isSelected(unit.value) ? "opacity-100" : "opacity-0"
                             )}
                           />
                           {unit.label}
