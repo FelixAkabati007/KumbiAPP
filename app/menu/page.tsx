@@ -745,9 +745,9 @@ function MenuContent() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[672px] flex-col gap-4 overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:max-h-[90vh] sm:gap-6 sm:p-6">
-            <DialogHeader>
-              <DialogTitle>
+          <DialogContent className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-[90dvh] sm:w-[calc(100vw-2rem)]">
+  <DialogHeader className="shrink-0 border-b px-4 py-4 pr-12 sm:px-6">
+  <DialogTitle>
                 {isNewItem ? "Add New Menu Item" : "Edit Menu Item"}
               </DialogTitle>
               <DialogDescription>
@@ -756,8 +756,8 @@ function MenuContent() {
                   : "Update the menu item details below."}
               </DialogDescription>
             </DialogHeader>
-            <Tabs defaultValue="details" className="min-w-0">
-              <TabsList className="mb-2 grid h-10 w-full grid-cols-2 sm:mb-3">
+  <Tabs defaultValue="details" className="flex min-h-0 min-w-0 flex-1 flex-col">
+  <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-2 sm:mx-6 sm:mt-5">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 {editingItem.inventoryMode !== "direct" && (
                   <TabsTrigger value="recipe" disabled={isNewItem}>
@@ -766,8 +766,8 @@ function MenuContent() {
                 )}
               </TabsList>
 
-              <TabsContent value="details">
-                <div className="grid gap-3 py-2 sm:gap-4 sm:py-4">
+  <TabsContent value="details" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+  <div className="grid gap-3 sm:gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Name</Label>
                     <Input
@@ -955,8 +955,8 @@ function MenuContent() {
                 </DialogFooter>
               </TabsContent>
               {editingItem.inventoryMode !== "direct" && (
-                <TabsContent value="recipe" className="min-w-0">
-                  <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(90vh-12rem)]">
+  <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+  <div className="min-w-0">
                     <RecipeManager menuItemId={editingItem.id} />
                   </div>
                 </TabsContent>
