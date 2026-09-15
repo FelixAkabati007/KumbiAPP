@@ -59,7 +59,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   // New Ingredient State
   const [selectedInvId, setSelectedInvId] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("units");
+  const [unit, setUnit] = useState("");
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [steps, setSteps] = useState<Array<{ instruction: string; duration_minutes: string }>>([]);
   const [isSavingSteps, setIsSavingSteps] = useState(false);
@@ -160,7 +160,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-4 rounded-lg border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(12rem,1fr)_auto] xl:items-end">
+          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(12rem,1fr)_auto] xl:items-end">
             <div className="min-w-0">
               <Label htmlFor="ingredient-search">Ingredient</Label>
               <div className="relative mt-1">
@@ -200,7 +200,8 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           </div>
 
           <div className="overflow-x-auto rounded-md border">
-            <Table>
+            <Table className="min-w-[34rem]">
+
               <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
                 {ingredients.map((ing) => <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}
