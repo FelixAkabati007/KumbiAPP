@@ -22,6 +22,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permission = await query(`SELECT COALESCE(attendance_exceptions_enabled, true) AS enabled FROM attendance_feature_permissions WHERE staff_id = $1`, [session.id]);
+  if (permission.rowCount && permission.rows[0].enabled === false) return NextResponse.json({ error: "Attendance exceptions are disabled for your account" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { id?: string; message?: string } | null;
   if (!body?.id || !body.message?.trim()) return NextResponse.json({ error: "A message is required" }, { status: 400 });
   const result = await query(

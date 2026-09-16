@@ -22,6 +22,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permission = await query(`SELECT COALESCE(planned_absence_enabled, true) AS enabled FROM attendance_feature_permissions WHERE staff_id = $1`, [session.id]);
+  if (permission.rowCount && permission.rows[0].enabled === false) return NextResponse.json({ error: "Planned absence requests are disabled for your account" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { startDate?: string; endDate?: string; reason?: string; replacementStaffId?: string; handoverNotes?: string } | null;
   if (!body?.startDate || !body.endDate || !body.reason?.trim()) return NextResponse.json({ error: "Dates and a reason are required" }, { status: 400 });
   if (body.endDate < body.startDate) return NextResponse.json({ error: "End date cannot be before start date" }, { status: 400 });
