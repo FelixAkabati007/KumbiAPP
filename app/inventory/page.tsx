@@ -500,63 +500,15 @@ function InventoryContent() {
       </header>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search inventory items..."
-              className="pl-8 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Select value={activeTab} onValueChange={setActiveTab}>
-            <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="active">Active Stock</SelectItem>
-              <SelectItem value="inactive">Inactive (Out of Stock)</SelectItem>
-              <SelectItem value="ingredient">Ingredients</SelectItem>
-              <SelectItem value="beverage">Beverages</SelectItem>
-              <SelectItem value="supply">Supplies</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {selectedCategory && (
           <Card className="mb-6 border-orange-200 bg-orange-50/70 shadow-sm dark:border-orange-800 dark:bg-orange-950/20">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base text-orange-900 dark:text-orange-100">
-                Select {selectedCategoryLabel}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Search and select from every {selectedCategory} currently in inventory.
-              </p>
+              <CardTitle className="text-base text-orange-900 dark:text-orange-100">Select {selectedCategoryLabel}</CardTitle>
+              <p className="text-sm text-muted-foreground">Search and select from every {selectedCategory} currently in inventory.</p>
             </CardHeader>
             <CardContent>
               <div className="max-h-56 overflow-y-auto rounded-xl border border-orange-200 bg-background/70 p-2 dark:border-orange-800">
-                {selectedCategoryItems.length > 0 ? (
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {selectedCategoryItems.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleEditItem(item)}
-                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-transparent bg-background px-3 py-2 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 dark:hover:border-orange-700 dark:hover:bg-orange-950/30"
-                      >
-                        <span className="min-w-0 truncate font-medium">{item.name}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="p-4 text-center text-sm text-muted-foreground">
-                    No {selectedCategory} match your search.
-                  </p>
-                )}
+                {selectedCategoryItems.length > 0 ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{selectedCategoryItems.map((item) => <button key={item.id} type="button" onClick={() => handleEditItem(item)} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-transparent bg-background px-3 py-2 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 dark:hover:border-orange-700 dark:hover:bg-orange-950/30"><span className="min-w-0 truncate font-medium">{item.name}</span><span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span></button>)}</div> : <p className="p-4 text-center text-sm text-muted-foreground">No {selectedCategory} match your search.</p>}
               </div>
             </CardContent>
           </Card>
@@ -637,8 +589,35 @@ function InventoryContent() {
             <CardTitle className="text-gray-800 dark:text-gray-200">
               Inventory Items
             </CardTitle>
+            <p className="text-sm text-muted-foreground">Search, filter, and manage current stock.</p>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search inventory items..."
+                  aria-label="Search inventory items"
+                  className="rounded-2xl border-orange-200 bg-white/50 pl-8 dark:border-orange-700 dark:bg-gray-800/50"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="w-full rounded-2xl border-orange-200 bg-white/50 dark:border-orange-700 dark:bg-gray-800/50 sm:w-48">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="active">Active Stock</SelectItem>
+                  <SelectItem value="inactive">Inactive (Out of Stock)</SelectItem>
+                  <SelectItem value="ingredient">Ingredients</SelectItem>
+                  <SelectItem value="beverage">Beverages</SelectItem>
+                  <SelectItem value="supply">Supplies</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
-          <CardContent className="p-0 relative z-10">
+          <CardContent className="relative z-10 p-0">
             <ScrollArea className="h-[calc(100vh-400px)]">
               <div className="p-6 pt-0">
                 <div className="space-y-2">
