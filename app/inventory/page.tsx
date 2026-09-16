@@ -631,39 +631,6 @@ function InventoryContent() {
           </Card>
         </div>
 
-        {restockLogs.length > 0 && (
-          <Card className="mb-6 border-orange-200 bg-white/70 shadow-xl dark:border-orange-700 dark:bg-gray-800/70">
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-lg">
-                <span>Restock History</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">Authorized staff only</Badge>
-                  <Button type="button" variant="outline" size="sm" onClick={handleExportRestockHistory} className="border-orange-200 text-orange-700 dark:border-orange-700 dark:text-orange-300">
-                    <Download className="mr-2 h-4 w-4" /> Excel
-                  </Button>
-                </div>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">Quantity snapshots recorded whenever stock increases.</p>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-72 overflow-y-auto rounded-xl border border-orange-100 dark:border-orange-800">
-                <div className="divide-y divide-orange-100 dark:divide-orange-800">
-                  {restockLogs.map((log) => (
-                    <div key={log.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">{log.details.item?.name || "Inventory item"}</p>
-                        <p className="text-xs text-muted-foreground">{log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"}</p>
-                      </div>
-                      <p className="text-muted-foreground">{log.details.quantityBefore ?? 0} → {log.details.quantityAfter ?? 0} {log.details.unit || "units"}</p>
-                      <time className="text-xs text-muted-foreground" dateTime={log.created_at}>{new Date(log.created_at).toLocaleString()}</time>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Card className="flex-1 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
           <CardHeader className="relative z-10">
@@ -764,6 +731,39 @@ function InventoryContent() {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {restockLogs.length > 0 && (
+          <Card className="mt-6 border-orange-200 bg-white/70 shadow-xl dark:border-orange-700 dark:bg-gray-800/70">
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-lg">
+                <span>Restock History</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Authorized staff only</Badge>
+                  <Button type="button" variant="outline" size="sm" onClick={handleExportRestockHistory} className="border-orange-200 text-orange-700 dark:border-orange-700 dark:text-orange-300">
+                    <Download className="mr-2 h-4 w-4" /> Excel
+                  </Button>
+                </div>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Quantity snapshots recorded whenever stock increases.</p>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-orange-100 dark:border-orange-800">
+                <div className="divide-y divide-orange-100 dark:divide-orange-800">
+                  {restockLogs.map((log) => (
+                    <div key={log.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{log.details.item?.name || "Inventory item"}</p>
+                        <p className="text-xs text-muted-foreground">{log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"}</p>
+                      </div>
+                      <p className="text-muted-foreground">{log.details.quantityBefore ?? 0} → {log.details.quantityAfter ?? 0} {log.details.unit || "units"}</p>
+                      <time className="text-xs text-muted-foreground" dateTime={log.created_at}>{new Date(log.created_at).toLocaleString()}</time>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
