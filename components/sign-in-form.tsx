@@ -68,7 +68,10 @@ export function SignInForm() {
 
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void form.handleSubmit(onSubmit)(event);
+                }}
                 className="space-y-4"
               >
                 <FormField

@@ -150,6 +150,8 @@ export function FeaturePermissionsModal({
                 <button
                   type="button"
                   onClick={() => handleToggle("leave_requests_enabled")}
+                  aria-label="Toggle leave requests"
+                  aria-pressed={permissions.leave_requests_enabled}
                   className={`ml-4 relative inline-flex h-8 w-14 flex-shrink-0 rounded-full transition-colors ${
                     permissions.leave_requests_enabled
                       ? "bg-emerald-600"
@@ -178,6 +180,8 @@ export function FeaturePermissionsModal({
                 <button
                   type="button"
                   onClick={() => handleToggle("planned_absence_enabled")}
+                  aria-label="Toggle planned absences"
+                  aria-pressed={permissions.planned_absence_enabled}
                   className={`ml-4 relative inline-flex h-8 w-14 flex-shrink-0 rounded-full transition-colors ${
                     permissions.planned_absence_enabled
                       ? "bg-emerald-600"
@@ -206,6 +210,8 @@ export function FeaturePermissionsModal({
                 <button
                   type="button"
                   onClick={() => handleToggle("attendance_exceptions_enabled")}
+                  aria-label="Toggle attendance exceptions"
+                  aria-pressed={permissions.attendance_exceptions_enabled}
                   className={`ml-4 relative inline-flex h-8 w-14 flex-shrink-0 rounded-full transition-colors ${
                     permissions.attendance_exceptions_enabled
                       ? "bg-emerald-600"
