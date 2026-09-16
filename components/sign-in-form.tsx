@@ -10,7 +10,6 @@ import { AuthShell, AuthSpinner } from "@/components/auth-shell";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { useLoading } from "@/components/loading-provider";
 import {
