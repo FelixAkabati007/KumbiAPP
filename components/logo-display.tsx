@@ -67,8 +67,9 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
         <Image
           src={logo || "/logo.svg"}
           alt="Company Logo"
-          fill
-          className="pointer-events-none absolute inset-0 h-full w-full object-contain rounded-full"
+          width={size === "sm" ? 32 : size === "md" ? 40 : 64}
+          height={size === "sm" ? 32 : size === "md" ? 40 : 64}
+          className="pointer-events-none h-full w-full object-contain rounded-full"
           sizes={size === "sm" ? "32px" : size === "md" ? "40px" : "64px"}
           onError={() => setIsValidImage(false)}
           onLoad={(e) => {

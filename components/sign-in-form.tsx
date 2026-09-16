@@ -10,7 +10,6 @@ import { AuthShell, AuthSpinner } from "@/components/auth-shell";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { useLoading } from "@/components/loading-provider";
 import {
@@ -41,14 +40,13 @@ export function SignInForm() {
     showLoading("Signing in...");
 
     try {
-      const success = await login(data.email, data.password);
+      const result = await login(data.email, data.password);
 
-      if (success) {
-        // Use window.location.href to force a full reload and ensure cookies are sent
-        // This prevents the "loading forever" issue by bypassing client-side router caching
-        window.location.href = "/";
+      if (result.success) {
+        // Replace the login document so the new auth cookie is read by middleware and server components.
+        window.location.replace("/");
       } else {
-        setError("Invalid email or password. Please try again.");
+        setError(result.error || "Invalid email or password. Please try again.");
       }
     } catch (err) {
       console.error("Sign in error:", err);
@@ -70,7 +68,10 @@ export function SignInForm() {
 
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void form.handleSubmit(onSubmit)(event);
+                }}
                 className="space-y-4"
               >
                 <FormField
