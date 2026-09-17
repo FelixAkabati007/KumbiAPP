@@ -25,15 +25,24 @@ export async function GET(request: Request) {
 
   if (!staffId) {
     const params: string[] = [];
-    const departmentClause = department && department !== "all" ? `AND sp.job_classification = $1` : "";
-    if (departmentClause && department) params.push(department);
+    const departmentClause = department && department !== "all"
+      ? department === "unassigned" ? "AND NULLIF(TRIM(sp.department), '') IS NULL" : "AND COALESCE(NULLIF(TRIM(sp.department), ''), 'unassigned') = $1"
+      : "";
+    if (departmentClause && department !== "unassigned" && department) params.push(department);
     const result = await query(
-      `SELECT u.id AS staff_id, CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name, sp.job_classification AS department,
+      `SELECT u.id AS staff_id,
+              CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name,
+              COALESCE(NULLIF(TRIM(sp.department), ''), 'unassigned') AS department,
+              sp.job_classification,
+              sp.position,
               COALESCE(afp.leave_requests_enabled, true) AS leave_requests_enabled,
               COALESCE(afp.planned_absence_enabled, true) AS planned_absence_enabled,
               COALESCE(afp.attendance_exceptions_enabled, true) AS attendance_exceptions_enabled
-       FROM users u LEFT JOIN staff_profiles sp ON sp.user_id = u.id LEFT JOIN attendance_feature_permissions afp ON afp.staff_id = u.id
-       WHERE u.role = 'staff' AND u.is_active = true ${departmentClause} ORDER BY staff_name`, params);
+       FROM users u
+       JOIN staff_profiles sp ON sp.user_id = u.id
+       LEFT JOIN attendance_feature_permissions afp ON afp.staff_id = u.id
+       WHERE u.is_active = true AND sp.is_active = true AND COALESCE(sp.employment_status, 'active') = 'active' ${departmentClause}
+       ORDER BY staff_name`, params);
     return NextResponse.json({ permissions: result.rows });
   }
 
@@ -67,8 +76,10 @@ export async function PATCH(request: Request) {
   try {
     await client.query("BEGIN");
     const target = useDepartment
-      ? await client.query<{ id: string }>(`SELECT u.id FROM users u LEFT JOIN staff_profiles sp ON sp.user_id = u.id WHERE u.role = 'staff' AND u.is_active = true AND sp.job_classification = $1`, [body.department])
-      : await client.query<{ id: string }>(`SELECT id FROM users WHERE id = ANY($1::uuid[]) AND role = 'staff' AND is_active = true`, [requestedIds]);
+      ? body.department === "unassigned"
+        ? await client.query<{ id: string }>(`SELECT u.id FROM users u JOIN staff_profiles sp ON sp.user_id = u.id WHERE u.is_active = true AND sp.is_active = true AND COALESCE(sp.employment_status, 'active') = 'active' AND NULLIF(TRIM(sp.department), '') IS NULL`, [])
+        : await client.query<{ id: string }>(`SELECT u.id FROM users u JOIN staff_profiles sp ON sp.user_id = u.id WHERE u.is_active = true AND sp.is_active = true AND COALESCE(sp.employment_status, 'active') = 'active' AND COALESCE(NULLIF(TRIM(sp.department), ''), 'unassigned') = $1`, [body.department])
+      : await client.query<{ id: string }>(`SELECT u.id FROM users u JOIN staff_profiles sp ON sp.user_id = u.id WHERE u.id = ANY($1::uuid[]) AND u.is_active = true AND sp.is_active = true AND COALESCE(sp.employment_status, 'active') = 'active'`, [requestedIds]);
     if (!target.rowCount) { await client.query("ROLLBACK"); return NextResponse.json({ error: "No active staff accounts matched the selection" }, { status: 404 }); }
     for (const row of target.rows) {
       const params = [row.id, ...updates.map(([, value]) => value), session.id];
@@ -81,7 +92,7 @@ export async function PATCH(request: Request) {
     }
     await client.query("COMMIT");
     const ids = target.rows.map((row) => row.id);
-    const refreshed = await query(`SELECT u.id AS staff_id, CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name, sp.job_classification AS department, COALESCE(afp.leave_requests_enabled, true) AS leave_requests_enabled, COALESCE(afp.planned_absence_enabled, true) AS planned_absence_enabled, COALESCE(afp.attendance_exceptions_enabled, true) AS attendance_exceptions_enabled FROM users u LEFT JOIN staff_profiles sp ON sp.user_id = u.id LEFT JOIN attendance_feature_permissions afp ON afp.staff_id = u.id WHERE u.id = ANY($1::uuid[]) ORDER BY staff_name`, [ids]);
+    const refreshed = await query(`SELECT u.id AS staff_id, CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name, COALESCE(NULLIF(TRIM(sp.department), ''), 'unassigned') AS department, sp.job_classification, sp.position, COALESCE(afp.leave_requests_enabled, true) AS leave_requests_enabled, COALESCE(afp.planned_absence_enabled, true) AS planned_absence_enabled, COALESCE(afp.attendance_exceptions_enabled, true) AS attendance_exceptions_enabled FROM users u JOIN staff_profiles sp ON sp.user_id = u.id LEFT JOIN attendance_feature_permissions afp ON afp.staff_id = u.id WHERE u.id = ANY($1::uuid[]) AND u.is_active = true AND sp.is_active = true AND COALESCE(sp.employment_status, 'active') = 'active' ORDER BY staff_name`, [ids]);
     return NextResponse.json({ permissions: refreshed.rows, updatedCount: refreshed.rowCount });
   } catch (error) {
     await client.query("ROLLBACK");
