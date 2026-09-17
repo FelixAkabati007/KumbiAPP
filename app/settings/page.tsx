@@ -61,6 +61,7 @@ import { PrinterSettingsForm } from "@/components/settings/printer-settings-form
 import { StaffManagementPanel } from "@/components/settings/staff-management-panel";
 import { HardwareDiagnostics } from "@/components/settings/hardware-diagnostics";
 import { StaffSchedulePanel } from "@/components/settings/staff-schedule-panel";
+import { DataResetPanel } from "@/components/settings/data-reset-panel";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -434,6 +435,7 @@ function SettingsPageContent() {
             <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl">
               <CardHeader><CardTitle className="flex items-center gap-2"><Monitor className="h-5 w-5 text-orange-600" />Operational Features</CardTitle><CardDescription>Managers can control restaurant display surfaces without changing global system settings.</CardDescription></CardHeader>
               <CardContent className="grid gap-4">
+                <DataResetPanel />
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Kitchen Display</Label><p className="text-sm text-muted-foreground">Show the live kitchen production screen.</p></div><Switch checked={featureToggles.kitchen_display} onCheckedChange={(enabled) => updateFeatureToggle("kitchen_display", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Order Board</Label><p className="text-sm text-muted-foreground">Show the active order board for operations.</p></div><Switch checked={featureToggles.order_board} onCheckedChange={(enabled) => updateFeatureToggle("order_board", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-orange-200 p-4"><div><Label>Advanced Housekeeping</Label><p className="text-sm text-muted-foreground">Turn on priorities, assignments, status workflow, and operational detail when your housekeeping team is ready.</p></div><Switch checked={featureToggles.housekeeping_advanced} onCheckedChange={(enabled) => updateFeatureToggle("housekeeping_advanced", enabled).catch(() => toast({ title: "Update failed", description: "The feature setting could not be changed.", variant: "destructive" }))} /></div>
