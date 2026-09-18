@@ -134,6 +134,11 @@ export function PrinterSettingsForm({
 
         {config.enabled && (
           <div className="space-y-6">
+            {config.name === "XP-80T" && config.paperWidth === 80 && (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
+                XP-80T preset active: 80mm receipt layout and ESC/POS formatting are enabled.
+              </div>
+            )}
             {/* Basic Info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
