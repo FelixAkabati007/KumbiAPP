@@ -127,7 +127,7 @@ const defaultSettings: AppSettings = {
     animations: true,
     cashDrawer: {
       enabled: false,
-      port: "COM1",
+      port: "printer-kick",
       baudRate: 9600,
       autoOpen: true,
       requireConfirmation: false,
@@ -156,7 +156,7 @@ const defaultSettings: AppSettings = {
       dataBits: 8,
       stopBits: 1,
       parity: "none",
-      paperWidth: 58,
+      paperWidth: 80,
       printDensity: 8,
       printSpeed: 10,
       autoCut: true,
@@ -168,7 +168,7 @@ const defaultSettings: AppSettings = {
       alignment: "center",
       characterSet: "1252",
       footerText: "",
-      name: "Primary Printer",
+      name: "XP-80T",
     },
     secondaryPrinter: {
       enabled: false,

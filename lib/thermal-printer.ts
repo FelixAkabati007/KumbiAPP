@@ -53,9 +53,14 @@ export class ThermalPrinterService {
     }
 
     try {
-      // For network printers (via API), we can't maintain a persistent connection
-      // state in the same way as Serial. We'll assume connected if enabled for now,
-      // or we could ping the API.
+      if (this.config.interfaceType !== "tcp") {
+        this.status.isConnected = false;
+        this.status.error = "USB and serial printers require a local print bridge such as QZ Tray; the browser cannot verify the installed driver directly.";
+        this.notifyListeners();
+        return false;
+      }
+
+      // Network printers are validated when the print API opens the TCP connection.
       this.status.isConnected = true;
       this.status.error = null;
       this.notifyListeners();
