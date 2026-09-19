@@ -4,14 +4,17 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 describe("hotel folio restaurant payment contract", () => {
-  it("persists the database-supported guest-folio method", async () => {
-    const routePath = path.resolve(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "../../app/api/hotels/folios/[reservationId]/restaurant-order/route.ts",
-    );
-    const source = await readFile(routePath, "utf8");
+  it("persists guest-folio for both kitchen and finance transactions", async () => {
+    const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+    const [routeSource, schemaSource] = await Promise.all([
+      readFile(path.resolve(testDirectory, "../../app/api/hotels/folios/[reservationId]/restaurant-order/route.ts"), "utf8"),
+      readFile(path.resolve(testDirectory, "../../database/schema.sql"), "utf8"),
+    ]);
 
-    expect(source).toContain("'guest-folio', 'completed'");
-    expect(source).not.toContain("'folio-charge'");
+    expect(routeSource).toContain("paymentmethod, priority, estimatedtime");
+    expect(routeSource).toContain("method, status, metadata, performed_by");
+    expect(routeSource.match(/'guest-folio'/g)).toHaveLength(3);
+    expect(routeSource).not.toContain("folio-charge");
+    expect(schemaSource).toContain("'guest-folio'");
   });
 });
