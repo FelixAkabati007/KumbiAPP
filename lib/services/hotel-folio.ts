@@ -43,6 +43,25 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
   );
 
   await client.query(
+    `UPDATE guest_folio_items item
+     SET unit_amount = 0,
+         total_amount = 0,
+         description = CASE WHEN item.description LIKE '% · Complimentary%' THEN item.description ELSE item.description || ' · Complimentary' END
+     WHERE item.reservation_id = $1
+       AND item.source_type = 'restaurant_order'
+       AND EXISTS (
+         SELECT 1 FROM complimentary_authorizations ca
+         WHERE ca.reservation_id = item.reservation_id
+           AND ca.status = 'active'
+           AND ca.valid_from <= NOW()
+           AND ca.valid_until > NOW()
+           AND ca.folio_waived = true
+           AND ca.scope IN ('restaurant', 'both')
+       )`,
+    [reservationId]
+  );
+
+  await client.query(
     `UPDATE guest_folios gf
      SET room_charge = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = gf.id AND category IN ('room', 'room_extension')), 0),
          service_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = gf.id AND category = 'service'), 0),

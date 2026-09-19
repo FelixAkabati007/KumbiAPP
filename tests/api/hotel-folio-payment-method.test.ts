@@ -22,5 +22,11 @@ describe("hotel folio restaurant payment contract", () => {
     expect(routeSource.match(/'guest-folio'/g)).toHaveLength(3);
     expect(routeSource).not.toContain("folio-charge");
     expect(schemaSource).toContain("'guest-folio'");
+
+    const folioServiceSource = await readFile(path.resolve(testDirectory, "../../lib/services/hotel-folio.ts"), "utf8");
+    expect(folioServiceSource).toContain("item.source_type = 'restaurant_order'");
+    expect(folioServiceSource).toContain("ca.valid_from <= NOW()");
+    expect(folioServiceSource).toContain("ca.valid_until > NOW()");
+    expect(folioServiceSource).toContain("total_amount = 0");
   });
 });
