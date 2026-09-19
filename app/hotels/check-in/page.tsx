@@ -72,6 +72,7 @@ interface CheckedInGuest {
   total_charges: string | null;
   paid_amount: string | null;
   balance: string | null;
+  extras_outstanding: string | null;
 }
 
 interface MenuItem {
@@ -827,7 +828,7 @@ function CheckInPage() {
                 <div>
                   <p className="text-muted-foreground">Extras Outstanding</p>
                   <p className="font-semibold">
-                    GHS {Number(checkoutGuest.balance || 0).toFixed(2)}
+GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -844,10 +845,10 @@ function CheckInPage() {
                   placeholder="0.00"
                   aria-describedby="payment-amount-help"
                   inputMode="decimal"
-                  max={checkoutGuest?.balance ? Number(checkoutGuest.balance) : undefined}
+                  max={checkoutGuest?.extras_outstanding ? Number(checkoutGuest.extras_outstanding) : undefined}
                 />
                 <p id="payment-amount-help" className="text-xs text-muted-foreground">
-                  Leave blank or enter 0 when no extra charges are due. Maximum: GHS {Number(checkoutGuest.balance || 0).toFixed(2)}.
+                  Leave blank or enter 0 when no extra charges are due. Maximum: GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}.
                 </p>
               </div>
             </div>
@@ -864,7 +865,7 @@ function CheckInPage() {
             </Button>
             <Button
               onClick={handleCheckOut}
-              disabled={processing || !checkoutGuest || !Number.isFinite(Number(paymentAmount || 0)) || Number(paymentAmount || 0) < 0 || Number(paymentAmount || 0) > Number(checkoutGuest?.balance || 0)}
+              disabled={processing || !checkoutGuest || !Number.isFinite(Number(paymentAmount || 0)) || Number(paymentAmount || 0) < 0 || Number(paymentAmount || 0) > Number(checkoutGuest?.extras_outstanding ?? 0)}
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
               {processing ? "Processing…" : "Confirm Check-Out"}

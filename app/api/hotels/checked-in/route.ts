@@ -24,7 +24,12 @@ export async function GET() {
         rt.name as room_type_name,
         gf.total_charges,
         gf.paid_amount,
-        gf.balance
+        gf.balance,
+        GREATEST(
+          0,
+          COALESCE(gf.service_charges, 0) + COALESCE(gf.food_charges, 0) + COALESCE(gf.other_charges, 0)
+          - GREATEST(0, COALESCE(gf.paid_amount, 0) - COALESCE(gf.room_charge, 0))
+        ) AS extras_outstanding
       FROM reservations r
       JOIN guests g ON r.guest_id = g.id
       JOIN room_types rt ON r.room_type_id = rt.id
