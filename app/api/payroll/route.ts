@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { query } from "@/lib/db"
+import { query, transaction } from "@/lib/db"
 import { requireFinanceAccess } from "@/lib/api-auth"
 
 const profileSchema = z.object({
@@ -31,7 +31,7 @@ const generateSchema = z.object({
 const statusSchema = z.object({
   mode: z.literal("status"),
   id: z.string().uuid(),
-  status: z.enum(["draft", "submitted", "approved", "paid", "rejected"]),
+  status: z.enum(["draft", "submitted", "approved", "processed", "paid", "rejected"]),
 })
 
 export async function GET() {
@@ -66,9 +66,30 @@ export async function POST(request: Request) {
     }
     if (mode === "status") {
       const data = parsed.data as z.infer<typeof statusSchema>
-      const result = await query(`UPDATE payroll_records SET status = $1, updated_at = now() WHERE id = $2 RETURNING *`, [data.status, data.id])
-      if (!result.rows[0]) return NextResponse.json({ error: "Payroll record not found" }, { status: 404 })
-      return NextResponse.json(result.rows[0])
+      const result = await transaction(async (client) => {
+        const currentResult = await client.query(`SELECT id, status, created_by, gross_amount, deductions, net_amount, pay_period_end, staff_profile_id FROM payroll_records WHERE id = $1 FOR UPDATE`, [data.id])
+        const current = currentResult.rows[0]
+        if (!current) return { kind: "missing" as const }
+        const transitions: Record<string, string[]> = {
+          draft: ["submitted"],
+          submitted: ["approved", "rejected"],
+          approved: ["processed"],
+          processed: ["paid"],
+          rejected: ["submitted"],
+          paid: [],
+        }
+        if (!transitions[current.status]?.includes(data.status)) return { kind: "invalid" as const, from: current.status, to: data.status }
+        if ((data.status === "approved" || data.status === "paid") && current.created_by === auth.session.id) return { kind: "self_action" as const }
+        const updated = await client.query(`UPDATE payroll_records SET status = $1, updated_at = now() WHERE id = $2 RETURNING *`, [data.status, data.id])
+        if (data.status === "paid") {
+          await client.query(`INSERT INTO transaction_logs (transaction_id, amount, currency, status, payment_method, customer_id, items, metadata) VALUES ($1, $2, 'GHS', 'paid', 'payroll', $3, $4::jsonb, $5::jsonb) ON CONFLICT DO NOTHING`, [data.id, current.net_amount, current.staff_profile_id, JSON.stringify([{ description: "Payroll net payment", amount: Number(current.net_amount) }]), JSON.stringify({ source: "payroll", payrollRecordId: data.id, grossAmount: current.gross_amount, deductions: current.deductions, payPeriodEnd: current.pay_period_end, paidBy: auth.session.id })])
+        }
+        return updated.rows[0]
+      })
+      if (!result || ("kind" in result && result.kind === "missing")) return NextResponse.json({ error: "Payroll record not found" }, { status: 404 })
+      if ("kind" in result && result.kind === "invalid") return NextResponse.json({ error: `Invalid payroll transition from ${result.from} to ${result.to}` }, { status: 409 })
+      if ("kind" in result && result.kind === "self_action") return NextResponse.json({ error: "The payroll creator cannot approve or pay the same record" }, { status: 403 })
+      return NextResponse.json(result)
     }
     if (mode === "profile") {
       const data = parsed.data as z.infer<typeof profileSchema>
