@@ -62,6 +62,7 @@ export async function POST(
       );
       const folio = folioResult.rows[0];
       if (!folio) throw new Error("Folio not found");
+      const orderNumberForMovement = requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
 
       const folioDetailsResult = await client.query(
         `SELECT r.reservation_number, g.first_name, g.last_name, rm.room_number
@@ -85,6 +86,7 @@ export async function POST(
             [deduction, item.menuItem.direct_inventory_id]
           );
           if (directUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} is out of stock`);
+          await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [item.menuItem.direct_inventory_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Room-service sale: ${item.menuItem.name}`]);
           continue;
         }
 
@@ -101,6 +103,7 @@ export async function POST(
               [deduction, ingredient.inventory_item_id]
             );
             if (ingredientUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} cannot be prepared because an ingredient is out of stock`);
+            await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [ingredient.inventory_item_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Recipe sale: ${item.menuItem.name}`]);
           }
         } else {
           const legacyUpdate = await client.query(
@@ -108,7 +111,8 @@ export async function POST(
              WHERE name = $2 AND quantity >= $1 RETURNING id`,
             [item.quantity, item.menuItem.name]
           );
-          if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
+            if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
+            if (legacyUpdate.rowCount === 1) await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [legacyUpdate.rows[0].id, -item.quantity, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Legacy sale: ${item.menuItem.name}`]);
         }
       }
 
@@ -117,7 +121,7 @@ export async function POST(
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
       const billableTotal = isWaived ? 0 : total;
-      const orderNumber = body.data.requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
+      const orderNumber = orderNumberForMovement;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
         name: item.menuItem.name,
