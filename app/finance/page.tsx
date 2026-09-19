@@ -16,6 +16,7 @@ type Transaction = {
   amount: number | string;
   status: string;
   payment_method?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 };
 
@@ -87,12 +88,15 @@ export default function FinancePage() {
 
   const exportCsv = () => {
     const rows = [
-      ["Transaction", "Amount", "Status", "Payment Method", "Created"],
+      ["Transaction", "Amount", "Status", "Payment Method", "Source", "Event ID", "Quote ID", "Created"],
       ...transactions.map((item) => [
         item.transaction_id ?? "",
         String(item.amount),
         item.status,
         item.payment_method ?? "",
+        String(item.metadata?.source ?? ""),
+        String(item.metadata?.eventId ?? item.metadata?.event_id ?? ""),
+        String(item.metadata?.quoteId ?? item.metadata?.quote_id ?? ""),
         item.created_at,
       ]),
     ];
