@@ -278,6 +278,8 @@ function CheckInPage() {
       const checkInReceipt = { orderNumber: payload?.orderNumber || selectedReservation.reservation_number, guestName: payload?.receipt?.guestName || `${selectedReservation.first_name} ${selectedReservation.last_name}`, roomNumber: payload?.receipt?.roomNumber || payload?.roomNumber || selectedRoomId, items: checkInItems, total: Number(payload?.receipt?.total ?? payload?.totalCharges ?? 0), balance: 0, bookedBy: payload?.receipt?.bookedBy, checkedInBy: payload?.receipt?.checkedInBy, checkedOutBy: payload?.receipt?.checkedOutBy };
       setLatestReceiptId(payload?.receiptId || null);
       setLatestHotelReceipt(checkInReceipt);
+      setSelectedReservation(null);
+      setSelectedRoomId("");
       void printHotelReceipt({ title: "Hotel check-in receipt", ...checkInReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }).catch((error) => toast({ title: "Check-in completed; print unavailable", description: error instanceof Error ? error.message : "Allow pop-ups and try again.", variant: "destructive" }));
       toast({
         title: "Success",
@@ -286,8 +288,6 @@ function CheckInPage() {
 
       window.dispatchEvent(new Event("roomStatusUpdated"));
       window.dispatchEvent(new Event("reservationUpdated"));
-      setSelectedReservation(null);
-      setSelectedRoomId("");
       await Promise.all([fetchReservations(), fetchCheckedInGuests()]);
     } catch (error) {
       console.error("Error checking in guest:", error);
@@ -525,7 +525,7 @@ function CheckInPage() {
               <p className="text-sm text-emerald-800 dark:text-emerald-300">The receipt is saved and can be downloaded if the printer is unavailable.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-  <Button type="button" variant="outline" onClick={() => latestHotelReceipt && void printHotelReceipt({ title: "Hotel check-in receipt", ...latestHotelReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" })}>
+  <Button type="button" variant="outline" onClick={() => { setSelectedReservation(null); setSelectedRoomId(""); if (latestHotelReceipt) void printHotelReceipt({ title: "Hotel check-in receipt", ...latestHotelReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }); }}>
   <Printer className="mr-2 h-4 w-4" /> Print receipt
   </Button>
   <Button type="button" variant="ghost" onClick={() => window.open(`/api/hotels/receipts/${latestReceiptId}`, "_blank", "noopener,noreferrer")}>
