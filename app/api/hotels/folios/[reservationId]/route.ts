@@ -149,6 +149,9 @@ export async function PATCH(
         [reservationId, folio.id, chargeType, validationResult.data.description || `${chargeType} charge`, amount, session.id]
       );
 
+      const chargeReference = `FOLIO-${reservationId}-${crypto.randomUUID()}`;
+      await client.query(`INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by) VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4) ON CONFLICT (transaction_reference) DO NOTHING`, [chargeReference, amount.toFixed(2), JSON.stringify({ source: "hotel-folio-charge", businessUnit: "shared", reservationId, chargeType, description: validationResult.data.description || `${chargeType} charge`, grossAmount: amount, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]);
+
       const updated = await client.query(
         `UPDATE guest_folios
          SET ${column} = COALESCE(${column}, 0) + $1,

@@ -55,8 +55,15 @@ export async function POST(request: NextRequest) {
       const grossSpent = Number(folio.total_charges ?? 0);
       const complimentaryAmount = Number(complimentaryResult.rows[0]?.complimentary_amount || 0);
       const netSpent = Math.max(0, grossSpent - complimentaryAmount);
+      if (paid < outstandingBalance) {
+        throw new Error(`Full payment of ${outstandingBalance.toFixed(2)} is required before checkout`);
+      }
       if (paid > outstandingBalance) {
         throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
+      }
+
+      if (paid > 0) {
+        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = NOW() WHERE reservation_id = $2`, [paid, reservationId]);
       }
 
       const resResult = await client.query(
@@ -75,20 +82,6 @@ export async function POST(request: NextRequest) {
         [checkedOutRoomId]
       );
       if (roomResult.rowCount !== 1) throw new Error("Room was not found");
-
-      // Update guest folio balance if payment is made
-      if (paid > 0) {
-        await client.query(
-          `
-          UPDATE guest_folios
-          SET paid_amount = COALESCE(paid_amount, 0) + $1,
-              balance = GREATEST(0, balance - $1),
-              last_updated = NOW()
-          WHERE reservation_id = $2
-          `,
-          [paid, reservationId]
-        );
-      }
 
       const verified = await client.query(
         `SELECT id, status, room_id, guest_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
@@ -131,7 +124,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error checking out guest:", error);
     const message = error instanceof Error ? error.message : "Failed to check out guest";
-    const status = message.includes("no longer checked in") || message.includes("cannot exceed") ? 409 : 500;
+    const status = message.includes("no longer checked in") || message.includes("cannot exceed") || message.includes("Full payment") ? 409 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
