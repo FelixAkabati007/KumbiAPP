@@ -61,7 +61,7 @@ export async function GET(
               u.name AS performed_by_name, u.email AS performed_by_email, u.role AS performed_by_role
        FROM guest_folio_items i
        LEFT JOIN users u ON u.id = i.created_by
-       WHERE i.reservation_id = $1 ORDER BY i.created_at ASC`,
+       WHERE i.folio_id = (SELECT id FROM guest_folios WHERE reservation_id = $1) ORDER BY i.created_at ASC`,
       [reservationId]
     );
 

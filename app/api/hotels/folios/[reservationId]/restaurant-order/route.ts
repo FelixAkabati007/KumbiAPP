@@ -27,6 +27,7 @@ export async function POST(
     const result = await transaction(async (client) => {
       const requestId = body.data.requestId;
       if (requestId) {
+        await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [requestId]);
         const existing = await client.query(
           `SELECT ko.id, ko.ordernumber, ko.total, gf.*
            FROM kitchenorders ko
@@ -61,6 +62,7 @@ export async function POST(
       );
       const folio = folioResult.rows[0];
       if (!folio) throw new Error("Folio not found");
+      const orderNumberForMovement = requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
 
       const folioDetailsResult = await client.query(
         `SELECT r.reservation_number, g.first_name, g.last_name, rm.room_number
@@ -84,6 +86,7 @@ export async function POST(
             [deduction, item.menuItem.direct_inventory_id]
           );
           if (directUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} is out of stock`);
+          await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [item.menuItem.direct_inventory_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Room-service sale: ${item.menuItem.name}`]);
           continue;
         }
 
@@ -100,6 +103,7 @@ export async function POST(
               [deduction, ingredient.inventory_item_id]
             );
             if (ingredientUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} cannot be prepared because an ingredient is out of stock`);
+            await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [ingredient.inventory_item_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Recipe sale: ${item.menuItem.name}`]);
           }
         } else {
           const legacyUpdate = await client.query(
@@ -107,7 +111,8 @@ export async function POST(
              WHERE name = $2 AND quantity >= $1 RETURNING id`,
             [item.quantity, item.menuItem.name]
           );
-          if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
+            if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
+            if (legacyUpdate.rowCount === 1) await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [legacyUpdate.rows[0].id, -item.quantity, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Legacy sale: ${item.menuItem.name}`]);
         }
       }
 
@@ -116,7 +121,7 @@ export async function POST(
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
       const billableTotal = isWaived ? 0 : total;
-      const orderNumber = body.data.requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
+      const orderNumber = orderNumberForMovement;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
         name: item.menuItem.name,
@@ -161,13 +166,13 @@ export async function POST(
         [params.data.reservationId, folio.id, `Restaurant order ${orderNumber}${isWaived ? " · Complimentary" : ""}`, billableTotal.toFixed(2), orderId]
       );
       if (isWaived) {
-        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) VALUES ($1,$2,$3,'restaurant_order',$4,$5)`, [authorization.id, String(orderId), "guest_folio", total.toFixed(2), `Restaurant order ${orderNumber} waived through VIP authorization`]);
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) VALUES ($1,$2,$3,'restaurant_order',$4,$5)`, [authorization.id, String(orderId), session.id, total.toFixed(2), `Restaurant order ${orderNumber} waived through VIP authorization`]);
       }
       const finance = await client.query(`SELECT id FROM transactions WHERE transaction_reference = $1 LIMIT 1`, [orderNumber]);
       if (!finance.rowCount) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4)`,
+           VALUES (NULL, $1, $2, 'GHS', 'folio-charge', 'completed', $3::jsonb, $4)`,
           [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
@@ -178,8 +183,8 @@ export async function POST(
              total_charges = COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0),
              balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0) - COALESCE(paid_amount, 0)),
              last_updated = NOW()
-         WHERE reservation_id::text = $2::text RETURNING *`,
-        [billableTotal.toFixed(2), params.data.reservationId]
+         WHERE id = $2 RETURNING *`,
+        [billableTotal.toFixed(2), folio.id]
       );
 
       return { orderId, orderNumber, total, folio: updatedFolio.rows[0], idempotent: false };

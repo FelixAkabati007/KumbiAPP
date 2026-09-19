@@ -52,7 +52,10 @@ export async function POST(request: Request) {
   if (normalized.some((item) => item === null)) return NextResponse.json({ error: "Each quote item must have a label, valid quantity, unit price, and pricing unit" }, { status: 400 });
   const validItems = normalized as Array<{ label: string; description: string; pricingUnit: string; quantity: number; unitPrice: number; amount: number }>;
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
-  const total = Math.max(0, Math.round((subtotal - discountAmount + taxAmount) * 100) / 100);
+  if (discountAmount > subtotal) {
+    return NextResponse.json({ error: "Discount cannot exceed the quote subtotal" }, { status: 400 });
+  }
+  const total = Math.round((subtotal - discountAmount + taxAmount) * 100) / 100;
 
   const quote = await transaction(async (client) => {
     const quoteResult = await client.query(
@@ -79,7 +82,29 @@ export async function PATCH(request: Request) {
   const quoteId = String(body.quoteId ?? "").trim();
   const status = String(body.status ?? "");
   if (!quoteId || !allowedStatuses.has(status)) return NextResponse.json({ error: "A valid quote and status are required" }, { status: 400 });
-  const result = await query(`UPDATE event_quotes SET status = $1, approved_by = CASE WHEN $1 = 'approved' THEN $2 ELSE approved_by END, updated_at = now() WHERE id = $3 RETURNING id, status, approved_by, updated_at`, [status, session.id, quoteId]);
-  if (!result.rows[0]) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
-  return NextResponse.json({ quote: result.rows[0] });
+  const quote = await transaction(async (client) => {
+    const currentResult = await client.query(`SELECT id, event_id, status FROM event_quotes WHERE id = $1 FOR UPDATE`, [quoteId]);
+    const current = currentResult.rows[0];
+    if (!current) return null;
+    const transitions: Record<string, string[]> = {
+      draft: ["pending_approval"],
+      pending_approval: ["approved", "rejected"],
+      approved: ["sent", "superseded"],
+      sent: ["accepted", "rejected", "superseded"],
+      accepted: ["superseded"],
+      rejected: [],
+      superseded: [],
+    };
+    if (!transitions[current.status]?.includes(status)) {
+      return { invalidTransition: true, from: current.status, to: status };
+    }
+    if (status === "approved" || status === "accepted") {
+      await client.query(`UPDATE event_quotes SET status = 'superseded', updated_at = now() WHERE event_id = $1 AND id <> $2 AND status IN ('approved', 'sent')`, [current.event_id, quoteId]);
+    }
+    const result = await client.query(`UPDATE event_quotes SET status = $1, approved_by = CASE WHEN $1 = 'approved' THEN $2 ELSE approved_by END, updated_at = now() WHERE id = $3 RETURNING id, event_id, status, approved_by, updated_at`, [status, session.id, quoteId]);
+    return result.rows[0];
+  });
+  if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  if ("invalidTransition" in quote) return NextResponse.json({ error: `Invalid quote transition from ${quote.from} to ${quote.to}` }, { status: 409 });
+  return NextResponse.json({ quote });
 }

@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { z } from "zod";
+
+const reservationSchema = z.object({
+  guestId: z.string().uuid(),
+  roomTypeId: z.string().uuid(),
+  checkInDate: z.coerce.date(),
+  checkOutDate: z.coerce.date(),
+  numberOfGuests: z.coerce.number().int().min(1).max(50).default(1),
+  specialRequests: z.string().max(2000).optional(),
+  source: z.string().max(50).optional(),
+  promoCode: z.string().max(50).optional(),
+  discountPercent: z.coerce.number().min(0).max(100).default(0),
+  createdBy: z.string().uuid().optional(),
+});
 
 // Get all reservations with optional filtering
 export async function GET(request: NextRequest) {
@@ -69,35 +83,21 @@ export async function POST(request: NextRequest) {
     const { error } = await requirePermission("reservations");
     if (error) return error;
 
-    const {
-      guestId,
-      roomTypeId,
-      checkInDate,
-      checkOutDate,
-      numberOfGuests,
-      totalPrice,
-      specialRequests,
-      source,
-      promoCode,
-      discountPercent,
-      createdBy,
-    } = await request.json();
-
-    if (!guestId || !roomTypeId || !checkInDate || !checkOutDate) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    const parsed = reservationSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation details" }, { status: 400 });
     }
-
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    if (!Number.isFinite(checkIn.getTime()) || !Number.isFinite(checkOut.getTime()) || checkOut <= checkIn) {
-      return NextResponse.json(
-        { error: "Check-out must be after check-in" },
-        { status: 400 }
-      );
+    const { guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
+    if (checkOutDate <= checkInDate) {
+      return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
     }
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
+    const rateResult = await query<{ base_price: string }>(`SELECT base_price FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
+    const basePrice = Number(rateResult.rows[0]?.base_price);
+    if (!Number.isFinite(basePrice)) {
+      return NextResponse.json({ error: "Room type is not available" }, { status: 409 });
+    }
+    const totalPrice = Number((basePrice * nights * (1 - discountPercent / 100)).toFixed(2));
 
     // Enforce capacity on the server so concurrent clients cannot book a
     // fully occupied room type by bypassing the client dialog.
