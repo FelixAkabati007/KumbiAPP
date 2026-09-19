@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/components/role-guard";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
-import { PayrollDesk } from "@/components/finance/payroll-desk";
 import { StaffRewardsPanel } from "@/components/finance/staff-rewards-panel";
 
 type Transaction = {
@@ -150,19 +149,6 @@ export default function FinancePage() {
               <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
             </Alert>
           )}
-          <section aria-labelledby="finance-areas-heading" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
-              <CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
-            </Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Payroll &amp; compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/payroll">Open payroll</Link></Button></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader><CardContent className="pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent></Card>
-          </section>
           <section aria-labelledby="pnl-heading" className="space-y-4">
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-foreground">
               <p className="text-sm font-semibold">Finance terms at a glance</p>
@@ -178,11 +164,8 @@ export default function FinancePage() {
             <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
           <section aria-labelledby="people-costs-heading" className="space-y-4">
-            <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Payroll and staff rewards</h2><p className="text-sm text-muted-foreground">Review recurring compensation alongside verified staff performance before approving monetary rewards.</p></div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <PayrollDesk />
-              <StaffRewardsPanel />
-            </div>
+            <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
+            <StaffRewardsPanel />
           </section>
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
