@@ -6,7 +6,7 @@ import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
 // Check-out guest from room
 export async function POST(request: NextRequest) {
   try {
-    const { error } = await requirePermission("checkOut");
+    const { session, error } = await requirePermission("checkOut");
     if (error) return error;
 
     const { reservationId, roomId, balancePaid } = await request.json();
@@ -88,7 +88,16 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
-      return { ...verified.rows[0], folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
+      const checkoutActor = { id: session?.id ?? null, name: session?.name ?? null, email: session?.email ?? null, role: session?.role ?? null };
+      const receiptResult = await client.query(
+        `UPDATE hotel_receipts
+         SET version = version + 1,
+             snapshot = snapshot || jsonb_build_object('checkedOutBy', $2::jsonb, 'checkedOutAt', NOW()::text, 'balance', 0, 'paymentStatus', 'paid')
+         WHERE reservation_id = $1::uuid AND folio_id = $3::uuid
+         RETURNING id, snapshot`,
+        [reservationId, JSON.stringify(checkoutActor), folio.id]
+      );
+      return { ...verified.rows[0], receiptId: receiptResult.rows[0]?.id ?? null, receipt: receiptResult.rows[0]?.snapshot ?? null, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
 
     // Auxiliary records are follow-up work; neither can roll back a successful checkout.

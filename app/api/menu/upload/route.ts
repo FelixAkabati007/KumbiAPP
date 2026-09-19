@@ -8,7 +8,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== "admin" && session.role !== "manager")) {
+    if (!session || !["admin", "manager", "restaurantManager"].includes(session.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

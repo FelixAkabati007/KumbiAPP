@@ -67,10 +67,14 @@ interface Transaction {
   payment_method: string;
   metadata?: {
     orderNumber?: string;
+    receiptNumber?: string;
     orderId?: string;
     orderType?: string;
     tableNumber?: string;
     customerName?: string;
+    guestName?: string;
+    businessUnit?: string;
+    category?: string;
   };
   customer_id?: string;
 }
@@ -127,7 +131,7 @@ function ReportsPage() {
       if (Array.isArray(transactions)) {
         serverSales = transactions.map((tx: Transaction) => ({
           id: tx.id,
-          orderNumber: tx.metadata?.orderNumber || tx.transaction_id,
+          orderNumber: tx.metadata?.receiptNumber || tx.metadata?.orderNumber || tx.transaction_id,
           orderId: tx.metadata?.orderId,
           date: tx.created_at,
           items: Array.isArray(tx.items) ? tx.items : [],
@@ -137,7 +141,7 @@ function ReportsPage() {
               : tx.amount,
           orderType: tx.metadata?.orderType || "dine-in",
           tableNumber: tx.metadata?.tableNumber,
-          customerName: tx.metadata?.customerName || tx.customer_id,
+          customerName: tx.metadata?.guestName || tx.metadata?.customerName || tx.customer_id,
           paymentMethod: tx.payment_method,
         }));
       }
