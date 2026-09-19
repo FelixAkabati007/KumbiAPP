@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 
 const allowedStatuses = new Set(["draft", "pending_approval", "approved", "sent", "accepted", "rejected", "superseded"]);
 
@@ -38,12 +38,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Event, at least one line item, valid amounts, and a deposit percentage are required" }, { status: 400 });
   }
 
+  const eventResult = await query(`SELECT id FROM events WHERE id = $1 AND status <> 'cancelled'`, [eventId]);
+  if (!eventResult.rows[0]) return NextResponse.json({ error: "Event not found or cancelled" }, { status: 404 });
+
   const normalized: Array<{ label: string; description: string; pricingUnit: string; quantity: number; unitPrice: number; amount: number } | null> = items.map((item: Record<string, unknown>) => {
     const quantity = Number(item.quantity ?? 1);
     const unitPrice = money(item.unitPrice ?? 0);
     const label = String(item.label ?? "").trim();
     const pricingUnit = String(item.pricingUnit ?? "fixed");
-    if (!label || unitPrice === null || !Number.isFinite(quantity) || quantity <= 0 || !["fixed", "per_guest", "per_hour", "per_staff"].includes(pricingUnit)) return null;
+    if (!label || unitPrice === null || !Number.isInteger(quantity) || quantity <= 0 || quantity > 100000 || !["fixed", "per_guest", "per_hour", "per_staff"].includes(pricingUnit)) return null;
     return { label, description: String(item.description ?? "").trim(), pricingUnit, quantity, unitPrice, amount: Math.round(quantity * unitPrice * 100) / 100 };
   });
   if (normalized.some((item) => item === null)) return NextResponse.json({ error: "Each quote item must have a label, valid quantity, unit price, and pricing unit" }, { status: 400 });
@@ -51,15 +54,21 @@ export async function POST(request: Request) {
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const total = Math.max(0, Math.round((subtotal - discountAmount + taxAmount) * 100) / 100);
 
-  const quoteResult = await query(
-    `INSERT INTO event_quotes (event_id, status, discount_amount, tax_amount, deposit_percent, subtotal, total, created_by)
-     VALUES ($1, 'draft', $2, $3, $4, $5, $6, $7) RETURNING id, event_id, status, currency, discount_amount, tax_amount, deposit_percent, subtotal, total, created_at`,
-    [eventId, discountAmount, taxAmount, depositPercent, subtotal, total, session.id]
-  );
-  const quote = quoteResult.rows[0];
-  for (const item of validItems) {
-    await query(`INSERT INTO event_quote_items (quote_id, label, description, pricing_unit, quantity, unit_price, amount) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [quote.id, item.label, item.description, item.pricingUnit, item.quantity, item.unitPrice, item.amount]);
-  }
+  const quote = await transaction(async (client) => {
+    const quoteResult = await client.query(
+      `INSERT INTO event_quotes (event_id, status, discount_amount, tax_amount, deposit_percent, subtotal, total, created_by)
+       VALUES ($1, 'draft', $2, $3, $4, $5, $6, $7) RETURNING id, event_id, status, currency, discount_amount, tax_amount, deposit_percent, subtotal, total, created_at`,
+      [eventId, discountAmount, taxAmount, depositPercent, subtotal, total, session.id]
+    );
+    const createdQuote = quoteResult.rows[0];
+    for (const item of validItems) {
+      await client.query(
+        `INSERT INTO event_quote_items (quote_id, label, description, pricing_unit, quantity, unit_price, amount) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [createdQuote.id, item.label, item.description, item.pricingUnit, item.quantity, item.unitPrice, item.amount]
+      );
+    }
+    return createdQuote;
+  });
   return NextResponse.json({ quote: { ...quote, items: validItems } }, { status: 201 });
 }
 
