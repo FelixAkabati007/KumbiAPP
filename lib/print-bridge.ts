@@ -4,7 +4,14 @@ import type { ReceiptData } from "@/lib/types";
 const DEFAULT_PRINTBRIDGE_URL = "http://127.0.0.1:1337";
 
 export async function printWithBridge(receipt: ReceiptData, config: PrinterConfig) {
-  const baseUrl = process.env.PRINTBRIDGE_URL || DEFAULT_PRINTBRIDGE_URL;
+  return printToBridgeUrl(receipt, config, process.env.PRINTBRIDGE_URL || DEFAULT_PRINTBRIDGE_URL);
+}
+
+export async function printWithLocalBridge(receipt: ReceiptData, config: PrinterConfig) {
+  return printToBridgeUrl(receipt, config, DEFAULT_PRINTBRIDGE_URL);
+}
+
+async function printToBridgeUrl(receipt: ReceiptData, config: PrinterConfig, baseUrl: string) {
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/print`, {
     method: "POST",
     headers: { "content-type": "application/json" },
