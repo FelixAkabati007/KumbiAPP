@@ -268,17 +268,19 @@ export function getSettings(_useDefaults = false): AppSettings {
   return defaultSettings;
 }
 
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  // Sync with DB
-  try {
-    await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-  } catch (error) {
-    console.error("Failed to save settings to DB:", error);
+export async function saveSettings(settings: AppSettings): Promise<{ success: true }> {
+  const response = await fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.error || `Failed to save settings (${response.status})`);
   }
+
+  return { success: true };
 }
 
 export function getCurrentLogo(): string {
