@@ -65,7 +65,7 @@ export async function POST(
       const orderNumberForMovement = requestId || `FO-${Date.now().toString(36).toUpperCase()}`;
 
       const folioDetailsResult = await client.query(
-        `SELECT r.reservation_number, g.first_name, g.last_name, rm.room_number
+        `SELECT r.reservation_number, r.status, g.first_name, g.last_name, rm.room_number
          FROM reservations r
          JOIN guests g ON g.id = r.guest_id
          LEFT JOIN rooms rm ON rm.id = r.room_id
@@ -74,6 +74,7 @@ export async function POST(
       );
       const folioDetails = folioDetailsResult.rows[0];
       if (!folioDetails) throw new Error("Reservation not found");
+      if (folioDetails.status !== "checked_in") throw new Error("Restaurant orders are only available while the guest is checked in");
 
       for (const item of selected) {
         const mode = item.menuItem.inventory_mode ?? "recipe";
@@ -117,7 +118,7 @@ export async function POST(
       }
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
-      const authorizationResult = await client.query(`SELECT id, status, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id::text = $1::text AND ca.status = 'active' AND ca.folio_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
+      const authorizationResult = await client.query(`SELECT id, status, valid_from, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id::text = $1::text AND ca.status = 'active' AND ca.valid_from <= NOW() AND ca.valid_until > NOW() AND ca.folio_waived = true AND ca.scope IN ('restaurant', 'both') ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
       const billableTotal = isWaived ? 0 : total;
