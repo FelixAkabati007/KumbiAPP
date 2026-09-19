@@ -22,6 +22,8 @@ import {
   Sparkles,
   Building2,
   Download,
+  Printer,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -53,11 +55,24 @@ import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
+import { getThermalPrinterService } from "@/lib/thermal-printer";
+import type { ReceiptData } from "@/lib/types";
+
+const INVENTORY_PRINT_ROLES = new Set([
+  "admin",
+  "generalmanager",
+  "manager",
+  "restaurantmanager",
+  "chef",
+]);
 
 function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const canMutateExistingInventory = user?.role === "admin";
+  const normalizedRole = (user?.role ?? "").toLowerCase().replace(/[ _-]/g, "");
+  const canPrintInventory = INVENTORY_PRINT_ROLES.has(normalizedRole);
+  const [isPrintingInventory, setIsPrintingInventory] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -183,6 +198,63 @@ function InventoryContent() {
 
     setFilteredItems(filtered);
   }, [searchQuery, activeTab, items]);
+
+  const handlePrintInventory = async () => {
+    if (!canPrintInventory || isPrintingInventory) return;
+
+    const lowStockItems = items.filter(isLowStock);
+    const restockedItems = restockLogs
+      .filter((log) => Number(log.details.quantityAdded ?? 0) > 0)
+      .slice(0, 20);
+
+    if (lowStockItems.length === 0 && restockedItems.length === 0) {
+      toast({ title: "Nothing to print", description: "There are no low-stock or recent restocked items." });
+      return;
+    }
+
+    setIsPrintingInventory(true);
+    try {
+      const response = await fetch("/api/settings");
+      const settings = response.ok ? await response.json() : null;
+      const printerConfig = settings?.system?.thermalPrinter;
+      if (!printerConfig) throw new Error("Thermal printer settings are unavailable.");
+
+      const restockLines = restockedItems.map((log) => ({
+        name: `${log.details.item?.name || "Inventory item"} (restocked +${log.details.quantityAdded ?? 0})`,
+        quantity: Number(log.details.quantityAfter ?? 0),
+        price: 0,
+        total: 0,
+      }));
+      const lowStockIds = new Set(restockedItems.map((log) => log.details.item?.name?.toLowerCase()));
+      const lowStockLines = lowStockItems
+        .filter((item) => !lowStockIds.has(item.name.toLowerCase()))
+        .map((item) => ({
+          name: `${item.name} (RESTOCK)`,
+          quantity: Number(item.quantity) || 0,
+          price: 0,
+          total: 0,
+        }));
+      const receipt: ReceiptData = {
+        orderNumber: `INV-${new Date().toISOString().slice(0, 10)}`,
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        items: [...lowStockLines, ...restockLines],
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        paymentMethod: "Inventory",
+        orderType: "Stock report",
+      };
+
+      const printed = await getThermalPrinterService(printerConfig).printReceipt(receipt);
+      if (!printed) throw new Error("The thermal printer could not complete the job.");
+      toast({ title: "Inventory list printed", description: `${receipt.items.length} stock lines sent to the thermal printer.` });
+    } catch (error) {
+      toast({ title: "Print failed", description: error instanceof Error ? error.message : "Unable to print inventory list.", variant: "destructive" });
+    } finally {
+      setIsPrintingInventory(false);
+    }
+  };
 
   const handleAddItem = () => {
     setEditingItem({
@@ -517,6 +589,22 @@ function InventoryContent() {
               <AlertTriangle className="mr-1 h-3 w-3" />
               {lowStockCount} Low Stock
             </Badge>
+          )}
+          {canPrintInventory && (
+            <Button
+              variant="outline"
+              onClick={handlePrintInventory}
+              disabled={isPrintingInventory}
+              className="rounded-2xl border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-700 dark:text-blue-300 disabled:opacity-50"
+              title="Print low-stock and recent restocked items to thermal printer"
+            >
+              {isPrintingInventory ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
+              {isPrintingInventory ? "Printing..." : "Print"}
+            </Button>
           )}
           <Button
             variant="outline"
