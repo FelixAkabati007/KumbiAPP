@@ -172,7 +172,7 @@ export async function POST(
       if (!finance.rowCount) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           VALUES (NULL, $1, $2, 'GHS', 'folio-charge', 'completed', $3::jsonb, $4)`,
+           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4)`,
           [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
