@@ -259,7 +259,18 @@ function DashboardContent() {
                 <span className="hidden sm:inline">Split POS + Kitchen</span>
               </Button>
             </Link>
-            <Link href="/settings" prefetch={false}>
+            <Link href="/hotel-split-workspace" prefetch={false}>
+  <Button
+  variant="outline"
+  size="sm"
+  aria-label="Open split Reservations and Check-In workspace"
+  className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
+  >
+  <SplitSquareHorizontal className="h-4 w-4" />
+  <span className="hidden sm:inline">Split Hotel Desk</span>
+  </Button>
+  </Link>
+  <Link href="/settings" prefetch={false}>
               <Button
                 variant="outline"
                 size="sm"
