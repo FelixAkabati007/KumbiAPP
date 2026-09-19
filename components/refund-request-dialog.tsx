@@ -103,10 +103,10 @@ export function RefundRequestDialog({
   }, [orderData, initialOrderNumber, user?.role]);
 
   const handleVerifyOrder = async () => {
-    if (!formData.orderNumber && !formData.orderId) {
+    if (!formData.orderNumber) {
       toast({
-        title: "Missing Information",
-        description: "Please enter Order ID or Order Number to verify.",
+        title: "Missing Order Number",
+        description: "Enter the customer-facing order number to verify the payment.",
         variant: "destructive",
       });
       return;
@@ -178,10 +178,6 @@ export function RefundRequestDialog({
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.orderId) {
-      newErrors.orderId = "Order ID is required";
-    }
 
     if (!formData.customerRefused && !formData.customerName) {
       newErrors.customerName = "Customer name is required unless refused";
@@ -397,48 +393,27 @@ export function RefundRequestDialog({
 
           {/* Order Information */}
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="orderId"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Order ID
-                </Label>
-                <Input
-                  id="orderId"
-                  value={formData.orderId}
-                  onChange={(e) => {
-                    setFormData({ ...formData, orderId: e.target.value });
-                    if (!orderData) setIsVerified(false);
-                  }}
-                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                  disabled={isVerified && !!orderData}
-                />
-                {errors.orderId && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {errors.orderId}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="orderNumber"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Order Number
-                </Label>
-                <Input
-                  id="orderNumber"
-                  value={formData.orderNumber}
-                  onChange={(e) => {
-                    setFormData({ ...formData, orderNumber: e.target.value });
-                    if (!orderData) setIsVerified(false);
-                  }}
-                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                  disabled={isVerified && !!orderData}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label
+                htmlFor="orderNumber"
+                className="text-sm text-gray-700 dark:text-gray-300"
+              >
+                Order Number
+              </Label>
+              <Input
+                id="orderNumber"
+                value={formData.orderNumber}
+                onChange={(e) => {
+                  setFormData({ ...formData, orderNumber: e.target.value });
+                  if (!orderData) setIsVerified(false);
+                }}
+                placeholder="e.g. ORD-1042"
+                className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                disabled={isVerified && !!orderData}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Enter the customer-facing order number. The internal payment ID is looked up automatically.
+              </p>
             </div>
 
             {!isVerified && (
@@ -446,9 +421,7 @@ export function RefundRequestDialog({
                 type="button"
                 variant="outline"
                 onClick={handleVerifyOrder}
-                disabled={
-                  isVerifying || (!formData.orderId && !formData.orderNumber)
-                }
+                disabled={isVerifying || !formData.orderNumber.trim()}
                 className="w-full border-orange-200 hover:bg-orange-50 hover:text-orange-900 dark:border-orange-700 dark:hover:bg-orange-900/50 dark:hover:text-orange-100"
               >
                 {isVerifying ? (
