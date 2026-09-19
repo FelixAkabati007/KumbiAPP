@@ -143,6 +143,29 @@ export default function FinancePage() {
               </Button>
             </div>
           </header>
+          <section aria-labelledby="finance-areas-heading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
+            <Card className="flex min-h-[250px] flex-col">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
+              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="#transactions">Open reconciliation</Link></Button></CardContent>
+            </Card>
+            <Card className="flex min-h-[250px] flex-col">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
+              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
+            </Card>
+            <Card className="flex min-h-[250px] flex-col">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Payroll &amp; compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader>
+              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/payroll">Open payroll</Link></Button></CardContent>
+            </Card>
+            <Card className="flex min-h-[250px] flex-col">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader>
+              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent>
+            </Card>
+            <Card className="flex min-h-[250px] flex-col">
+              <CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader>
+              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent>
+            </Card>
+          </section>
           {authority?.actingAuthority && (
             <Alert className="border-border bg-muted/50">
               <AlertTitle>Acting Finance Authority</AlertTitle>
@@ -172,7 +195,7 @@ export default function FinancePage() {
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refund records</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Refund events that can affect cash reconciliation.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p></CardContent></Card>
           </section>
-          <Card>
+          <Card id="transactions">
             <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" aria-hidden="true" /> Recent transactions</CardTitle></CardHeader>
             <CardContent>
               {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3">GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>)}</tbody></table></div>}
