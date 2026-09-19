@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       const financeReference = `HOTEL-CHECKIN-${reservationId}`;
       await client.query(
         `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-         SELECT NULL, $1::text, $2::numeric, 'GHS', 'hotel-check-in', 'completed', $3::jsonb, $4::uuid
+         SELECT NULL, $1::text, $2::numeric, 'GHS', 'guest-folio'::payment_method_enum, 'completed', $3::jsonb, $4::uuid
          WHERE NOT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1::text)`,
         [financeReference, roomCharge.toFixed(2), JSON.stringify({ source: "hotel-check-in", businessUnit: "hotel", reservationId, reservationNumber: resResult.rows[0].reservation_number, roomCharge, grossAmount: roomCharge, waived: roomCharge === 0, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
       );
