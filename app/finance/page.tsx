@@ -32,6 +32,7 @@ type DepartmentResult = {
 type PnlResponse = {
   departments: DepartmentResult[];
   totals: { revenue: number; grossRevenue: number; refundAmount: number; expense: number; profit: number; margin: number };
+  exceptions: Array<{ transactionId?: string; amount: number; status: string; createdAt: string; source?: string | null }>;
 };
 
 const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared: "Shared / Corporate" } as const;
@@ -190,6 +191,7 @@ export default function FinancePage() {
             </div>
             <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Gross revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Refunds</p><p className="text-xl font-semibold">GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
+          {(pnl?.exceptions?.length ?? 0) > 0 && <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><AlertTitle>Finance classification exceptions</AlertTitle><AlertDescription>These postings do not have a recognized business source and are assigned to Shared / Corporate until reviewed. {pnl?.exceptions.length} recent exception(s) are available.</AlertDescription></Alert>}
           <section aria-labelledby="people-costs-heading" className="space-y-4">
             <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
             <StaffRewardsPanel />
