@@ -59,6 +59,7 @@ export async function GET(request: Request) {
           WHEN LOWER(COALESCE(department, '')) LIKE '%event%' THEN 'event'
           WHEN LOWER(COALESCE(department, '')) LIKE '%restaurant%' OR LOWER(COALESCE(department, '')) LIKE '%food%' THEN 'restaurant'
           WHEN LOWER(COALESCE(department, '')) LIKE '%hotel%' OR LOWER(COALESCE(department, '')) LIKE '%room%' THEN 'hotel'
+          WHEN LOWER(COALESCE(department, '')) IN ('operations', 'administration', 'finance', 'shared') THEN 'shared'
           ELSE 'shared'
         END AS department,
           expense_date::timestamptz AS occurred_at,
