@@ -52,7 +52,6 @@ import {
 } from "@/lib/data";
 import type { MenuItem, OrderItem, ReceiptData } from "@/lib/types";
 import { isInventoryAvailable } from "@/lib/inventory-availability";
-import { printReceipt as printReceiptWithPrinter } from "@/lib/thermal-printer";
 import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -445,9 +444,9 @@ function POSContent() {
         // Remove or comment out playNotificationSound if it causes media errors
         // playNotificationSound();
 
-        // Print the completed receipt before clearing the cart. Printing is deliberately
-        // best-effort so a printer outage never rolls back a successful payment.
-        await printReceipt();
+  // Keep payment completion independent from printing, then open the browser
+  // print dialog while the completed receipt data is still available.
+  await openReceiptPrintDialog();
 
         // Persist sale data if needed (integration handles persistence)
 
@@ -515,90 +514,50 @@ function POSContent() {
     }
   };
 
-  // Validate and print receipt using silent API
-  const printReceipt = async () => {
+  const openReceiptPrintDialog = async () => {
     if (isPrinting) return;
-    const hasOrderNumber = !!orderNumber;
-    const hasItems = currentOrder.length > 0;
-
-    if (!hasOrderNumber || !hasItems) {
-      toast({
-        title: "Validation Failed",
-        description: !hasOrderNumber
-          ? "Order number missing"
-          : "No items to print",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!orderNumber || currentOrder.length === 0) return;
 
     setIsPrinting(true);
     try {
-      const subtotal = calculateTotal();
-      const taxRate = appSettings.system?.taxRate || 12.5;
-      const tax = subtotal * (taxRate / 100);
-      const total = subtotal + tax;
-
-      const printData: ReceiptData = {
-        orderNumber,
-        orderId,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        items: currentOrder.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.price * item.quantity,
-          barcode: item.barcode,
-        })),
-        subtotal,
-        tax,
-        total,
-        paymentMethod,
-        customerName: customerNameRefused ? "" : customerName,
-        customerRefused: customerNameRefused,
-        orderType,
-        tableNumber,
-        businessName:
-          appSettings.account.restaurantName ||
-          appSettings.businessName ||
-          "KHH RESTAURANT",
-        businessAddress:
-          appSettings.account.address || appSettings.businessAddress,
-        businessPhone: appSettings.account.phone || appSettings.businessPhone,
-        businessEmail: appSettings.account.email || appSettings.businessEmail,
-        performedBy: user
-          ? { id: user.id, name: user.name, email: user.email, role: user.role }
-          : undefined,
-      };
-
-      const defaultPrinter = appSettings.system.thermalPrinter;
-      if (!defaultPrinter?.enabled) {
-        toast({
-          title: "Receipt not printed",
-          description: "Enable the default thermal printer in Settings → System.",
-          variant: "destructive",
-        });
-        return;
+      const printWindow = window.open("", "kumbiapp-receipt-print", "width=420,height=720");
+      if (!printWindow) {
+        throw new Error("The print dialog was blocked. Allow pop-ups for KumbiAPP and try again.");
       }
 
-      const printed = await printReceiptWithPrinter(printData, defaultPrinter);
-      if (!printed) {
-        throw new Error("The default printer did not complete the print job.");
-      }
-
-      toast({
-        title: "Receipt Printed",
-        description: "Receipt has been sent to the default printer",
+      const receiptHtml = _generateReceiptContent();
+      printWindow.document.write(`<!doctype html><html><head><title>Receipt ${orderNumber}</title><style>
+        @page { size: 80mm auto; margin: 4mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #111; background: #fff; font: 12px/1.4 Arial, sans-serif; }
+        .receipt { width: 72mm; margin: 0 auto; }
+        .header, .footer { text-align: center; }
+        .header h2 { margin: 0 0 4px; font-size: 17px; }
+        .header p, .footer p { margin: 2px 0; }
+        .item { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
+        .total { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; }
+        @media print { body { width: 72mm; } }
+      </style></head><body>${receiptHtml}</body></html>`);
+      printWindow.document.close();
+      printWindow.focus();
+      await new Promise<void>((resolve) => {
+        printWindow.addEventListener("afterprint", () => {
+          printWindow.close();
+          resolve();
+        }, { once: true });
+        window.setTimeout(() => {
+          printWindow.print();
+          window.setTimeout(() => {
+            if (!printWindow.closed) printWindow.close();
+            resolve();
+          }, 1000);
+        }, 150);
       });
     } catch (error) {
-      console.error("Print error:", error);
+      console.error("Print dialog error:", error);
       toast({
-        title: "Payment completed; receipt not printed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Check the default printer in Settings → System and retry printing from the receipt.",
+        title: "Payment completed; print dialog unavailable",
+        description: error instanceof Error ? error.message : "Allow pop-ups and try again.",
         variant: "destructive",
       });
     } finally {
