@@ -13,6 +13,10 @@ describe("hotel folio restaurant payment contract", () => {
 
     expect(routeSource).toContain("paymentmethod, priority, estimatedtime");
     expect(routeSource).toContain("method, status, metadata, performed_by");
+    expect(routeSource).toContain("ca.valid_from <= NOW()");
+    expect(routeSource).toContain("ca.valid_until > NOW()");
+    expect(routeSource).toContain("ca.scope IN ('restaurant', 'both')");
+    expect(routeSource).toContain("valid_from, valid_until, folio_waived");
     expect(routeSource.match(/'guest-folio'/g)).toHaveLength(3);
     expect(routeSource).not.toContain("folio-charge");
     expect(schemaSource).toContain("'guest-folio'");
