@@ -1,5 +1,6 @@
 import { type PrinterConfig } from "./settings";
 import { type ReceiptData } from "./types";
+import { isQzPrinter, printQzReceipt } from "./qz-printer";
 export type { ReceiptData } from "./types";
 
 export type ThermalPrinterConfig = PrinterConfig;
@@ -53,9 +54,16 @@ export class ThermalPrinterService {
     }
 
     try {
+      if (isQzPrinter(this.config)) {
+        this.status.isConnected = false;
+        this.status.error = "QZ Tray connection is required for driver printers.";
+        this.notifyListeners();
+        return false;
+      }
+
       if (this.config.interfaceType !== "tcp") {
         this.status.isConnected = false;
-        this.status.error = "USB and serial printers require a local print bridge such as QZ Tray; the browser cannot verify the installed driver directly.";
+        this.status.error = "USB and serial printers require a local print bridge such as QZ Tray.";
         this.notifyListeners();
         return false;
       }
@@ -94,6 +102,17 @@ export class ThermalPrinterService {
     try {
       this.status.isPrinting = true;
       this.notifyListeners();
+
+      if (isQzPrinter(this.config)) {
+        const configuredName = this.config.name ?? "XP-80T";
+        await printQzReceipt(configuredName.match(/XP-80[CT]/i)?.[0] ?? configuredName, data, this.config.paperWidth ?? 80);
+        this.status.lastPrinted = `Receipt #${data.orderNumber}`;
+        this.status.lastPrintedAt = new Date();
+        this.status.isPrinting = false;
+        this.status.error = null;
+        this.notifyListeners();
+        return true;
+      }
 
       // Use the instance config instead of fetching defaults again
       const configs: PrinterConfig[] = [this.config];
