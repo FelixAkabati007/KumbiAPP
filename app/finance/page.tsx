@@ -130,7 +130,7 @@ export default function FinancePage() {
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Select value={source} onValueChange={setSource}>
                 <SelectTrigger className="w-full sm:w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem><SelectItem value="refund">Refunds</SelectItem></SelectContent>
               </Select>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="w-full sm:w-[170px]" aria-label="Profit and loss department"><SelectValue placeholder="All departments" /></SelectTrigger>

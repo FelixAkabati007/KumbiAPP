@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       params.push(orderNumber);
     }
 
-    if (source === "hotel" || source === "restaurant" || source === "event") {
+    if (source === "hotel" || source === "restaurant" || source === "event" || source === "refund") {
       conditions.push(
         `(LOWER(COALESCE(metadata->>'source', '')) = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
       );
