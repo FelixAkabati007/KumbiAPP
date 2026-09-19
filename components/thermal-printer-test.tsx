@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getThermalPrinterService } from "@/lib/thermal-printer";
 import { getSettings } from "@/lib/settings";
-import { discoverQzPrinters } from "@/lib/qz-printer";
 import {
   testThermalPrinter,
   configureThermalPrinter,
@@ -49,7 +48,6 @@ export function ThermalPrinterTest() {
   const [isLoading, setIsLoading] = useState(false);
   const [settings] = useState(getSettings());
   const [testText, setTestText] = useState("Test print from thermal printer");
-  const [discoveredPrinters, setDiscoveredPrinters] = useState<string[]>([]);
   const [printQueue, setPrintQueue] = useState<PrintJob[]>([]);
   const [diagnostics, setDiagnostics] = useState({
     paperStatus: "unknown",
@@ -134,19 +132,6 @@ export function ThermalPrinterTest() {
         description: "Failed to test thermal printer",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDiscoverPrinters = async () => {
-    setIsLoading(true);
-    try {
-      const printers = await discoverQzPrinters();
-      setDiscoveredPrinters(printers);
-      toast({ title: "QZ Tray connected", description: printers.length ? `${printers.length} local printer(s) found` : "QZ Tray connected but no printers were found" });
-    } catch (error) {
-      toast({ title: "QZ Tray unavailable", description: error instanceof Error ? error.message : "Install, start, and authorize QZ Tray on this POS computer", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -582,14 +567,8 @@ export function ThermalPrinterTest() {
           </div>
         </div>
 
-  {/* Test Controls */}
-  <div className="space-y-2">
-  <Button onClick={handleDiscoverPrinters} disabled={isLoading} variant="outline" className="w-full rounded-2xl">
-    <Printer className="mr-2 h-4 w-4" /> Discover XP-80C / XP-80T via QZ Tray
-  </Button>
-  {discoveredPrinters.length > 0 && <div className="rounded-xl border p-3 text-sm"><p className="font-medium">Local printers found</p><ul className="mt-1 list-disc pl-5">{discoveredPrinters.map((printer) => <li key={printer}>{printer}</li>)}</ul></div>}
-  </div>
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Test Controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-3">
             <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Quick Actions
