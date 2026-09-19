@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
       const roomResult = await client.query(
-        `SELECT id FROM rooms WHERE id = $1 AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
+        `SELECT id, room_number FROM rooms WHERE id = $1 AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
         [roomId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
@@ -112,7 +112,8 @@ export async function POST(request: NextRequest) {
         [reservationId, session.id]
       );
 
-      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number };
+      const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1`, [reservationId]);
+      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number, roomNumber: roomResult.rows[0]?.room_number, roomCharge: Number(folioResult.rows[0]?.room_charge || 0), totalCharges: Number(folioResult.rows[0]?.total_charges || 0), balance: Number(folioResult.rows[0]?.balance || 0) };
 
     });
 
