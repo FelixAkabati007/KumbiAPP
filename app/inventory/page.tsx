@@ -55,8 +55,14 @@ import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
-import { getThermalPrinterService } from "@/lib/thermal-printer";
-import type { ReceiptData } from "@/lib/types";
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+}[character] ?? character));
 
 const INVENTORY_PRINT_ROLES = new Set([
   "admin",
@@ -199,61 +205,44 @@ function InventoryContent() {
     setFilteredItems(filtered);
   }, [searchQuery, activeTab, items]);
 
-  const handlePrintInventory = async () => {
+  const handlePrintInventory = () => {
     if (!canPrintInventory || isPrintingInventory) return;
+
+    const printWindow = window.open("", "inventory-print", "width=480,height=760");
+    if (!printWindow) {
+      toast({ title: "Print dialog blocked", description: "Allow pop-ups for KumbiAPP and try again.", variant: "destructive" });
+      return;
+    }
 
     const lowStockItems = items.filter(isLowStock);
     const restockedItems = restockLogs
       .filter((log) => Number(log.details.quantityAdded ?? 0) > 0)
       .slice(0, 20);
+    const restockedNames = new Set(restockedItems.map((log) => log.details.item?.name?.toLowerCase()));
+    const lines = [
+      ...lowStockItems
+        .filter((item) => !restockedNames.has(item.name.toLowerCase()))
+        .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>RESTOCK</td><td>${Number(item.quantity) || 0} ${escapeHtml(item.unit || "units")}</td></tr>`),
+      ...restockedItems.map((log) => `<tr><td>${escapeHtml(log.details.item?.name || "Inventory item")}</td><td>RESTOCKED +${Number(log.details.quantityAdded) || 0}</td><td>${Number(log.details.quantityAfter) || 0} ${escapeHtml(log.details.unit || "units")}</td></tr>`),
+    ].join("");
+    const generatedAt = new Date().toLocaleString();
 
-    if (lowStockItems.length === 0 && restockedItems.length === 0) {
-      toast({ title: "Nothing to print", description: "There are no low-stock or recent restocked items." });
-      return;
-    }
-
-    setIsPrintingInventory(true);
-    try {
-      const response = await fetch("/api/settings");
-      const settings = response.ok ? await response.json() : null;
-      const printerConfig = settings?.system?.thermalPrinter;
-      if (!printerConfig) throw new Error("Thermal printer settings are unavailable.");
-
-      const restockLines = restockedItems.map((log) => ({
-        name: `${log.details.item?.name || "Inventory item"} (restocked +${log.details.quantityAdded ?? 0})`,
-        quantity: Number(log.details.quantityAfter ?? 0),
-        price: 0,
-        total: 0,
-      }));
-      const lowStockIds = new Set(restockedItems.map((log) => log.details.item?.name?.toLowerCase()));
-      const lowStockLines = lowStockItems
-        .filter((item) => !lowStockIds.has(item.name.toLowerCase()))
-        .map((item) => ({
-          name: `${item.name} (RESTOCK)`,
-          quantity: Number(item.quantity) || 0,
-          price: 0,
-          total: 0,
-        }));
-      const receipt: ReceiptData = {
-        orderNumber: `INV-${new Date().toISOString().slice(0, 10)}`,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        items: [...lowStockLines, ...restockLines],
-        subtotal: 0,
-        tax: 0,
-        total: 0,
-        paymentMethod: "Inventory",
-        orderType: "Stock report",
-      };
-
-      const printed = await getThermalPrinterService(printerConfig).printReceipt(receipt);
-      if (!printed) throw new Error("The thermal printer could not complete the job.");
-      toast({ title: "Inventory list printed", description: `${receipt.items.length} stock lines sent to the thermal printer.` });
-    } catch (error) {
-      toast({ title: "Print failed", description: error instanceof Error ? error.message : "Unable to print inventory list.", variant: "destructive" });
-    } finally {
-      setIsPrintingInventory(false);
-    }
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html><head><title>Inventory Restock List</title><style>
+      @page { size: 80mm auto; margin: 4mm; }
+      * { box-sizing: border-box; } body { margin: 0; color: #111; font: 12px/1.4 Arial, sans-serif; }
+      h1 { margin: 0 0 4px; font-size: 16px; text-align: center; } p { margin: 2px 0 10px; text-align: center; }
+      table { width: 100%; border-collapse: collapse; } th, td { padding: 4px 0; text-align: left; vertical-align: top; border-bottom: 1px dashed #777; }
+      th { font-size: 10px; text-transform: uppercase; } th:last-child, td:last-child { text-align: right; }
+      .empty { padding: 18px 0; text-align: center; } .footer { margin-top: 10px; text-align: center; font-size: 10px; }
+    </style></head><body><h1>Inventory Restock List</h1><p>${escapeHtml(generatedAt)}</p>${lines ? `<table><thead><tr><th>Item</th><th>Status</th><th>Units left</th></tr></thead><tbody>${lines}</tbody></table>` : '<div class="empty">No low-stock or recently restocked items.</div>'}<div class="footer">Kumbisaly Heritage Hotel And Restaurant</div></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+      printWindow.addEventListener("afterprint", () => printWindow.close(), { once: true });
+    }, 150);
+    toast({ title: "Print dialog ready", description: `${lowStockItems.length + restockedItems.length} inventory records prepared.` });
   };
 
   const handleAddItem = () => {
