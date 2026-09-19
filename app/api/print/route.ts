@@ -7,6 +7,7 @@ import {
 import { PrinterConfig } from "@/lib/settings";
 import { ReceiptData } from "@/lib/types";
 import { requireSession } from "@/lib/api-auth";
+import { isLocalBridgePrinter, printWithBridge } from "@/lib/print-bridge";
 
 // Helper to print receipt content
 async function generateReceipt(
@@ -120,6 +121,11 @@ export async function POST(req: Request) {
     const results = await Promise.allSettled(
       configs.map(async (config) => {
         if (!config.enabled) return { status: "skipped", name: config.name };
+
+        if (isLocalBridgePrinter(config)) {
+          await printWithBridge(receipt, config);
+          return { status: "printed", name: config.name, transport: "PrintBridge" };
+        }
 
         // Determine interface and options
         // node-thermal-printer types: interface can be string, but specifically specific strings

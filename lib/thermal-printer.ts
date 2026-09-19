@@ -55,7 +55,7 @@ export class ThermalPrinterService {
     try {
       if (this.config.interfaceType !== "tcp") {
         this.status.isConnected = false;
-        this.status.error = "USB and serial printers require a local print bridge such as QZ Tray; the browser cannot verify the installed driver directly.";
+        this.status.error = "USB and serial printers require the local PrintBridge service; the browser cannot verify the installed driver directly.";
         this.notifyListeners();
         return false;
       }
