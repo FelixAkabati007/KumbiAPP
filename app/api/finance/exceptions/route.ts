@@ -9,6 +9,23 @@ const sourceSchema = z.object({
   reason: z.string().trim().min(10).max(500),
 });
 
+export async function GET(request: Request) {
+  const access = await requireFinanceAccess();
+  if (access.error) return access.error;
+  const params = new URL(request.url).searchParams;
+  const resolver = params.get("resolver")?.trim() || null;
+  const source = params.get("source")?.trim() || null;
+  const from = params.get("from")?.trim() || null;
+  const to = params.get("to")?.trim() || null;
+  try {
+    const result = await query(`SELECT a.entity_id AS transaction_id, a.user_id, COALESCE(u.name, u.email, a.user_id::text) AS resolver, a.details, a.created_at FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id WHERE a.action = 'RESOLVE_FINANCE_CLASSIFICATION' AND ($1::text IS NULL OR a.user_id::text = $1 OR COALESCE(u.name, u.email, '') ILIKE '%' || $1 || '%') AND ($2::text IS NULL OR a.details->>'assignedSource' = $2) AND ($3::timestamptz IS NULL OR a.created_at >= $3::timestamptz) AND ($4::timestamptz IS NULL OR a.created_at < ($4::date + INTERVAL '1 day')) ORDER BY a.created_at DESC LIMIT 100`, [resolver, source, from, to]);
+    return NextResponse.json(result.rows.map((row) => ({ transactionId: row.transaction_id, resolver: row.resolver, assignedSource: row.details?.assignedSource ?? null, originalSource: row.details?.originalSource ?? null, reason: row.details?.reason ?? "", resolvedAt: row.created_at })));
+  } catch (error) {
+    console.error("[v0] Failed to load finance classification history", error);
+    return NextResponse.json({ error: "Failed to load classification history" }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   const access = await requireFinanceAccess();
   if (access.error) return access.error;

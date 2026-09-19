@@ -34,6 +34,7 @@ type PnlResponse = {
   totals: { revenue: number; grossRevenue: number; refundAmount: number; expense: number; profit: number; margin: number };
   exceptions: Array<{ transactionId?: string; amount: number; status: string; createdAt: string; source?: string | null }>;
 };
+type ExceptionHistoryItem = { transactionId: string; resolver: string; assignedSource: string | null; originalSource: string | null; reason: string; resolvedAt: string };
 
 const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared: "Shared / Corporate" } as const;
 
@@ -48,6 +49,21 @@ export default function FinancePage() {
   const [resolvingException, setResolvingException] = useState<string | null>(null);
   const [resolutionSource, setResolutionSource] = useState("shared");
   const [resolutionReason, setResolutionReason] = useState("");
+  const [exceptionHistory, setExceptionHistory] = useState<ExceptionHistoryItem[]>([]);
+  const [historyResolver, setHistoryResolver] = useState("");
+  const [historySource, setHistorySource] = useState("all");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+
+  const loadExceptionHistory = async () => {
+    const params = new URLSearchParams();
+    if (historyResolver.trim()) params.set("resolver", historyResolver.trim());
+    if (historySource !== "all") params.set("source", historySource);
+    if (historyFrom) params.set("from", historyFrom);
+    if (historyTo) params.set("to", historyTo);
+    const response = await fetch(`/api/finance/exceptions?${params}`, { cache: "no-store" });
+    if (response.ok) setExceptionHistory(await response.json());
+  };
 
   useEffect(() => {
     fetch("/api/finance/access", { cache: "no-store" })
@@ -55,6 +71,8 @@ export default function FinancePage() {
       .then((data) => data && setAuthority(data))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => { void loadExceptionHistory(); }, [historyResolver, historySource, historyFrom, historyTo]);
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -206,6 +224,7 @@ export default function FinancePage() {
             <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Gross revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Refunds</p><p className="text-xl font-semibold">GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
           {(pnl?.exceptions?.length ?? 0) > 0 && <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><AlertTitle>Finance classification exceptions</AlertTitle><AlertDescription>These postings are assigned to Shared / Corporate until reviewed. {pnl?.exceptions.length} unresolved exception(s) are available.</AlertDescription><div className="mt-3 grid gap-3">{pnl?.exceptions.map((exception) => <div key={exception.transactionId} className="rounded-md border border-amber-300/70 bg-background p-3 text-foreground"><div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="font-medium">{exception.transactionId}</span><span>GHS {exception.amount.toFixed(2)} · {exception.status}</span></div>{resolvingException === exception.transactionId ? <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]"><Select value={resolutionSource} onValueChange={setResolutionSource}><SelectTrigger aria-label={`Source for ${exception.transactionId}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent></Select><input value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} placeholder="Reason for classification" className="h-10 rounded-md border bg-background px-3 text-sm" minLength={10} /><Button size="sm" onClick={() => void resolveException(exception.transactionId ?? "")} disabled={resolutionReason.trim().length < 10}>Save</Button></div> : <Button variant="outline" size="sm" className="mt-3" onClick={() => setResolvingException(exception.transactionId ?? null)}>Resolve classification</Button>}</div>)}</div></Alert>}
+          <Card aria-labelledby="exception-history-heading"><CardHeader><CardTitle id="exception-history-heading">Classification history</CardTitle><p className="text-sm text-muted-foreground">Audited source assignments, including the original classification and reason.</p></CardHeader><CardContent className="space-y-4"><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><input value={historyResolver} onChange={(event) => setHistoryResolver(event.target.value)} placeholder="Filter by resolver" className="h-10 rounded-md border bg-background px-3 text-sm" /><Select value={historySource} onValueChange={setHistorySource}><SelectTrigger aria-label="Filter assigned source"><SelectValue placeholder="Assigned source" /></SelectTrigger><SelectContent><SelectItem value="all">All assigned sources</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent></Select><input type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="History from date" className="h-10 rounded-md border bg-background px-3 text-sm" /><input type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="History to date" className="h-10 rounded-md border bg-background px-3 text-sm" /></div>{exceptionHistory.length === 0 ? <p className="text-sm text-muted-foreground">No resolved classifications match these filters.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="border-b text-left"><th className="p-2">Transaction</th><th className="p-2">Original</th><th className="p-2">Assigned</th><th className="p-2">Resolver</th><th className="p-2">Reason</th><th className="p-2">Resolved</th></tr></thead><tbody>{exceptionHistory.map((item) => <tr key={`${item.transactionId}-${item.resolvedAt}`} className="border-b last:border-0"><td className="p-2 font-medium">{item.transactionId}</td><td className="p-2 capitalize">{item.originalSource ?? "Unknown"}</td><td className="p-2 capitalize">{item.assignedSource ?? "—"}</td><td className="p-2">{item.resolver}</td><td className="max-w-[240px] truncate p-2" title={item.reason}>{item.reason}</td><td className="p-2">{new Date(item.resolvedAt).toLocaleDateString()}</td></tr>)}</tbody></table></div>}</CardContent></Card>
           <section aria-labelledby="people-costs-heading" className="space-y-4">
             <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
             <StaffRewardsPanel />
