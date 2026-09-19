@@ -35,6 +35,7 @@ import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Ute
 import { RoleGuard } from "@/components/role-guard";
 import { printHotelReceipt } from "@/lib/hotel-receipt-print";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
+import { useSettings } from "@/components/settings-provider";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 import { ComplimentaryAuthorizationsPanel } from "@/components/admin/complimentary-authorizations-panel";
 
@@ -140,6 +141,8 @@ function CheckInPage() {
   const [latestReceiptId, setLatestReceiptId] = useState<string | null>(null);
   const [latestHotelReceipt, setLatestHotelReceipt] = useState<{ orderNumber: string; guestName: string; roomNumber: string; items: Array<{ description: string; quantity: number; totalAmount: number }>; total: number; balance: number } | null>(null);
   const { settings: receiptSettings } = useReceiptSettings();
+  const { settings: appSettings } = useSettings();
+  const hotelReceiptIdentity = { name: appSettings.account.restaurantName || "Hotel", email: appSettings.account.email, phone: appSettings.account.phone, address: appSettings.account.address, logo: appSettings.account.logo };
   const [restaurantMenu, setRestaurantMenu] = useState<MenuItem[]>([]);
   const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
   const [loadingRestaurantMenu, setLoadingRestaurantMenu] = useState(false);
@@ -280,7 +283,7 @@ function CheckInPage() {
       setLatestHotelReceipt(checkInReceipt);
       setSelectedReservation(null);
       setSelectedRoomId("");
-      void printHotelReceipt({ title: "Hotel check-in receipt", ...checkInReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }).catch((error) => toast({ title: "Check-in completed; print unavailable", description: error instanceof Error ? error.message : "Allow pop-ups and try again.", variant: "destructive" }));
+      void printHotelReceipt({ title: "Hotel check-in receipt", ...checkInReceipt, hotel: hotelReceiptIdentity, footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }).catch((error) => toast({ title: "Check-in completed; print unavailable", description: error instanceof Error ? error.message : "Allow pop-ups and try again.", variant: "destructive" }));
       toast({
         title: "Success",
         description: payload?.receiptId ? `Guest checked in. Order ${payload.orderNumber} is ready.` : "Guest checked in successfully",
@@ -513,7 +516,7 @@ function CheckInPage() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Restaurant receipt</DialogTitle><DialogDescription>Order {latestRestaurantOrder?.orderNumber} has been charged to the guest folio.</DialogDescription></DialogHeader>
           <div className="space-y-3 rounded-lg border p-4 text-sm"><div className="flex justify-between"><span>Order</span><span className="font-medium">{latestRestaurantOrder?.orderNumber}</span></div><div className="flex justify-between"><span>Total purchased</span><span className="font-semibold">GHS {Number(latestRestaurantOrder?.total || 0).toFixed(2)}</span></div><div className="border-t pt-3 text-muted-foreground">This amount is recorded in the guest folio and will be included in the checkout balance.</div></div>
-          <DialogFooter><Button type="button" variant="outline" onClick={() => void printHotelReceipt({ title: "Guest folio receipt", orderNumber: latestRestaurantOrder?.orderNumber || "FOLIO", guestName: folioGuest ? `${folioGuest.first_name} ${folioGuest.last_name}` : "Guest", roomNumber: folioGuest?.room_number || undefined, items: [{ description: "Restaurant purchase", quantity: 1, totalAmount: Number(latestRestaurantOrder?.total || 0) }], total: Number(latestRestaurantOrder?.total || 0), accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Charged to guest folio" : "" })}><Printer className="mr-2 h-4 w-4" /> Print receipt</Button><Button type="button" onClick={() => setLatestRestaurantOrder(null)}>Close</Button></DialogFooter>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => void printHotelReceipt({ title: "Guest folio receipt", hotel: hotelReceiptIdentity, orderNumber: latestRestaurantOrder?.orderNumber || "FOLIO", guestName: folioGuest ? `${folioGuest.first_name} ${folioGuest.last_name}` : "Guest", roomNumber: folioGuest?.room_number || undefined, items: [{ description: "Restaurant purchase", quantity: 1, totalAmount: Number(latestRestaurantOrder?.total || 0) }], total: Number(latestRestaurantOrder?.total || 0), footer: receiptSettings.includeFooter ? "Charged to guest folio" : "" })}><Printer className="mr-2 h-4 w-4" /> Print receipt</Button><Button type="button" onClick={() => setLatestRestaurantOrder(null)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -525,7 +528,7 @@ function CheckInPage() {
               <p className="text-sm text-emerald-800 dark:text-emerald-300">The receipt is saved and can be downloaded if the printer is unavailable.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-  <Button type="button" variant="outline" onClick={() => { setSelectedReservation(null); setSelectedRoomId(""); if (latestHotelReceipt) void printHotelReceipt({ title: "Hotel check-in receipt", ...latestHotelReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }); }}>
+  <Button type="button" variant="outline" onClick={() => { setSelectedReservation(null); setSelectedRoomId(""); if (latestHotelReceipt) void printHotelReceipt({ title: "Hotel check-in receipt", ...latestHotelReceipt, hotel: hotelReceiptIdentity, footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }); }}>
   <Printer className="mr-2 h-4 w-4" /> Print receipt
   </Button>
   <Button type="button" variant="ghost" onClick={() => window.open(`/api/hotels/receipts/${latestReceiptId}`, "_blank", "noopener,noreferrer")}>
