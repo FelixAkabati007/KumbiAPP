@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       SELECT id::text, transaction_id::text, amount, currency, status, payment_method,
              customer_id::text, items, metadata, created_at, updated_at
       FROM transaction_logs`;
-    if (source !== "restaurant") {
+    if (!source || source === "all" || source === "hotel") {
       queryText = `SELECT id::text, 'HOTEL-' || id::text AS transaction_id, amount, currency,
         CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status,
         'hotel' AS payment_method, guest_id::text AS customer_id, NULL::jsonb AS items,
@@ -70,9 +70,9 @@ export async function GET(request: Request) {
       params.push(orderNumber);
     }
 
-    if (source === "hotel" || source === "restaurant") {
+    if (source === "hotel" || source === "restaurant" || source === "event") {
       conditions.push(
-        `(metadata->>'source' = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
+        `(LOWER(COALESCE(metadata->>'source', '')) = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
       );
       params.push(source);
     }
