@@ -123,6 +123,7 @@ function MenuContent() {
   // Loading and error states
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inventoryOptions, setInventoryOptions] = useState<Array<{ id: string; name: string; category?: string; quantity: string; unit: string }>>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
@@ -296,6 +297,26 @@ function MenuContent() {
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }, [editingItem]);
+
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/menu/upload", { method: "POST", body: formData });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to upload image");
+      setEditingItem((current) => ({ ...current, image: data.url }));
+      toast({ title: "Image uploaded", description: "The image will be saved with this menu item." });
+    } catch (uploadError) {
+      toast({ title: "Image upload failed", description: uploadError instanceof Error ? uploadError.message : "Please try another image.", variant: "destructive" });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [toast]);
 
   const handleSaveItem = useCallback(async () => {
     console.debug("💾 [MenuPage] Saving item", {
@@ -923,13 +944,19 @@ function MenuContent() {
   )}
   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="image">Image URL (Optional)</Label>
-                    <Input
-                      id="image"
-                      value={editingItem.image || ""}
-                      onChange={handleImageChange}
-                      placeholder="https://example.com/image.jpg"
-                    />
+                    <Label htmlFor="image-upload">Menu item image</Label>
+                    <div className="grid gap-3 rounded-lg border border-dashed border-orange-300 bg-orange-50/50 p-3 dark:border-orange-700 dark:bg-orange-950/20 sm:grid-cols-[8rem_1fr] sm:items-center">
+                      <div className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-md border bg-background">
+                        {editingItem.image ? <Image src={editingItem.image} alt={`${editingItem.name || "Menu item"} preview`} fill unoptimized className="object-cover" /> : <ImageIcon className="h-8 w-8 text-muted-foreground" />}
+                      </div>
+                      <div className="grid gap-2">
+                        <Input id="image-upload" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} disabled={isUploadingImage} className="cursor-pointer" />
+                        <p className="text-xs text-muted-foreground">Upload JPG, PNG, or WebP up to 5MB. Images are stored securely and displayed on POS and menu cards.</p>
+                        {isUploadingImage && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Uploading image…</p>}
+                      </div>
+                    </div>
+                    <Label htmlFor="image">Or use an image URL</Label>
+                    <Input id="image" value={editingItem.image || ""} onChange={handleImageChange} placeholder="https://example.com/image.jpg" />
                   </div>
                 </div>
                 <DialogFooter>
