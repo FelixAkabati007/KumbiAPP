@@ -44,12 +44,18 @@ export async function POST(request: NextRequest) {
       // prevents a late validation failure from rolling back the mutation
       // while the client has already shown a success message.
       const folioResult = await client.query(
-        `SELECT id, total_charges, paid_amount, balance FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+        `SELECT id, total_charges, paid_amount, balance,
+                GREATEST(
+                  0,
+                  COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0)
+                  - GREATEST(0, COALESCE(paid_amount, 0) - COALESCE(room_charge, 0))
+                ) AS extras_outstanding
+         FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
         [reservationId]
       );
       if (folioResult.rowCount !== 1) throw new Error("Guest folio not found");
       const folio = folioResult.rows[0];
-      const outstandingBalance = Number(folio.balance ?? 0);
+      const outstandingBalance = Number(folio.extras_outstanding ?? 0);
       const folioItems = await client.query(`SELECT category, description, quantity, unit_amount, total_amount FROM guest_folio_items WHERE folio_id = $1 ORDER BY created_at ASC`, [folio.id]);
       const complimentaryResult = await client.query(`SELECT COALESCE(SUM(u.amount_used), 0) AS complimentary_amount FROM complimentary_authorization_usage u JOIN complimentary_authorizations a ON a.id = u.authorization_id WHERE a.reservation_id = $1`, [reservationId]);
       const grossSpent = Number(folio.total_charges ?? 0);
