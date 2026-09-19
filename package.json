@@ -85,6 +85,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "utf-8-validate": "^6.0.6",
+    "uuid": "^14.0.2",
     "vaul": "^0.9.6",
     "ws": "^8.18.3",
     "xlsx": "^0.18.5",

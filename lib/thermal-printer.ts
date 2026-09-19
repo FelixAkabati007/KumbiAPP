@@ -1,5 +1,6 @@
 import { type PrinterConfig } from "./settings";
 import { type ReceiptData } from "./types";
+import { isLocalBridgePrinter, printWithLocalBridge } from "./print-bridge";
 export type { ReceiptData } from "./types";
 
 export type ThermalPrinterConfig = PrinterConfig;
@@ -55,7 +56,7 @@ export class ThermalPrinterService {
     try {
       if (this.config.interfaceType !== "tcp") {
         this.status.isConnected = false;
-        this.status.error = "USB and serial printers require a local print bridge such as QZ Tray; the browser cannot verify the installed driver directly.";
+        this.status.error = "USB and serial printers require the local PrintBridge service; the browser cannot verify the installed driver directly.";
         this.notifyListeners();
         return false;
       }
@@ -95,22 +96,20 @@ export class ThermalPrinterService {
       this.status.isPrinting = true;
       this.notifyListeners();
 
-      // Use the instance config instead of fetching defaults again
-      const configs: PrinterConfig[] = [this.config];
-
-      // Send to API
-      const response = await fetch("/api/print", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receipt: data, configs }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || "Print failed");
+      if (isLocalBridgePrinter(this.config) && typeof window !== "undefined") {
+        await printWithLocalBridge(data, this.config);
+      } else {
+        const response = await fetch("/api/print", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receipt: data, configs: [this.config] }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || err.message || "Print failed");
+        }
+        await response.json();
       }
-
-      await response.json();
 
       // Even if some failed (status 207), we might consider it a "success" for the UI
       // but warn about errors. For now, if API returns success (or 207 with success=true implied or partial),

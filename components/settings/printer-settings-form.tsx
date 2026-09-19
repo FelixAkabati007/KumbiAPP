@@ -80,7 +80,7 @@ export function PrinterSettingsForm({
       const failed = result?.results?.filter((item: { status?: string }) => item.status === "failed") ?? [];
       if (failed.length > 0) {
         const detail = failed.map((item: { name?: string; error?: string }) => `${item.name || "Printer"}: ${item.error || "connection failed"}`).join("; ");
-        throw new Error(`${detail}. For USB/serial Xprinter devices, use the browser/OS print dialog or a local print bridge.`);
+        throw new Error(`${detail}. For USB/serial Xprinter devices, install and run PrintBridge on the same POS computer.`);
       }
 
       toast({
@@ -110,7 +110,7 @@ export function PrinterSettingsForm({
           {description}
         </CardDescription>
         <div className="mx-6 mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-5 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-          <strong>Universal ESC/POS support:</strong> Xprinter and compatible thermal printers work through a network address on TCP port 9100. USB and COM/serial printers require an installed OS driver or local print bridge; a browser cannot directly access every inserted device.
+          <strong>Universal ESC/POS support:</strong> Xprinter and compatible thermal printers work through a network address on TCP port 9100. USB and COM/serial printers use the configured local PrintBridge service at 127.0.0.1:1337; the service must be installed and running on each POS computer.
         </div>
       </CardHeader>
       <CardContent className="space-y-6 p-6 relative z-10">
