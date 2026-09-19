@@ -140,7 +140,7 @@ function CheckInPage() {
   const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
   const [loadingRestaurantMenu, setLoadingRestaurantMenu] = useState(false);
   const [sendingRestaurantOrder, setSendingRestaurantOrder] = useState(false);
-  const [latestRestaurantOrder, setLatestRestaurantOrder] = useState<{ orderNumber: string; total: number } | null>(null);
+  const [latestRestaurantOrder, setLatestRestaurantOrder] = useState<{ orderNumber: string; total: number; printRequested?: boolean } | null>(null);
 
   const fetchReservations = async () => {
     try {
@@ -422,12 +422,12 @@ function CheckInPage() {
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Failed to send restaurant order");
       setFolio(payload.folio);
-      setLatestRestaurantOrder({ orderNumber: payload.orderNumber, total: payload.total });
+      setLatestRestaurantOrder({ orderNumber: payload.orderNumber, total: payload.total, printRequested: print });
       setRestaurantCart({});
       await fetchCheckedInGuests();
       window.dispatchEvent(new Event("ordersUpdated"));
       toast({ title: "Order sent to restaurant", description: `${payload.orderNumber} was charged to the guest folio.` });
-      if (print) window.open(`/receipt?orderNumber=${encodeURIComponent(payload.orderNumber)}`, "_blank", "noopener,noreferrer");
+      if (print) setTimeout(() => window.print(), 250);
     } catch (error) {
       toast({ title: "Restaurant order failed", description: error instanceof Error ? error.message : "Could not create restaurant order", variant: "destructive" });
     } finally {
@@ -497,6 +497,14 @@ function CheckInPage() {
         </div>
         <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
       </div>
+
+      <Dialog open={Boolean(latestRestaurantOrder?.printRequested)} onOpenChange={(open) => { if (!open) setLatestRestaurantOrder(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Restaurant receipt</DialogTitle><DialogDescription>Order {latestRestaurantOrder?.orderNumber} has been charged to the guest folio.</DialogDescription></DialogHeader>
+          <div className="space-y-3 rounded-lg border p-4 text-sm"><div className="flex justify-between"><span>Order</span><span className="font-medium">{latestRestaurantOrder?.orderNumber}</span></div><div className="flex justify-between"><span>Total purchased</span><span className="font-semibold">GHS {Number(latestRestaurantOrder?.total || 0).toFixed(2)}</span></div><div className="border-t pt-3 text-muted-foreground">This amount is recorded in the guest folio and will be included in the checkout balance.</div></div>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print receipt</Button><Button type="button" onClick={() => setLatestRestaurantOrder(null)}>Close</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {latestReceiptId && (
         <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20">
