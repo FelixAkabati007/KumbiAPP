@@ -174,8 +174,13 @@ function SettingsPageContent() {
   );
 
   useEffect(() => {
-    setMounted(true);
+  setMounted(true);
   }, []);
+
+  useEffect(() => {
+  const nextTab = tabParam === "account" ? "account" : tabParam === "staff" && canManageStaff ? "staff" : tabParam === "operations" && canManageOperationalSettings ? "operations" : "appearance";
+  setActiveTab(nextTab);
+  }, [tabParam, canManageOperationalSettings, canManageStaff]);
 
   // Load settings on component mount
   useEffect(() => {
@@ -300,22 +305,26 @@ function SettingsPageContent() {
   };
 
   // Reset to defaults
-  const handleResetSettings = () => {
-    if (
-      confirm("This resets Appearance, Notifications, Account, System, Security, and operational preferences. Continue?")
-    ) {
-      const defaultSettings = getSettings(true);
-      setSettingsState(defaultSettings);
-      saveSettings(defaultSettings);
-
-      // Notify mounted consumers of the reset business name and settings.
-      window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: defaultSettings }));
-
-      toast({
-        title: "Settings Reset",
-        description: "All settings have been reset to default values",
-      });
-    }
+  const handleResetSettings = async () => {
+  if (
+  confirm("This resets Appearance, Notifications, Account, System, Security, and operational preferences. Continue?")
+  ) {
+  const defaultSettings = getSettings(true);
+  setSaveState("saving");
+  try {
+  await saveSettings(defaultSettings);
+  setSettingsState(defaultSettings);
+  setSaveState("saved");
+  window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: defaultSettings }));
+  toast({
+  title: "Settings Reset",
+  description: "All settings have been reset to default values",
+  });
+  } catch {
+  setSaveState("error");
+  toast({ title: "Reset failed", description: "Your settings were not reset. Try again.", variant: "destructive" });
+  }
+  }
   };
 
   return (

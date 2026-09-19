@@ -53,7 +53,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         system: { ...prev.system, ...newSettings.system },
         security: { ...prev.security, ...newSettings.security },
       };
-      saveSettings(updated);
+      void saveSettings(updated).catch((error) => {
+        console.error("[v0] Settings provider failed to persist changes:", error);
+      });
       return updated;
     });
   }, []);
