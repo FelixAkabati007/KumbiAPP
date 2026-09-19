@@ -271,8 +271,11 @@ function CheckInPage() {
         throw new Error(payload?.error || "Failed to check in guest");
       }
 
-      const checkInItems = [{ description: "Room accommodation", quantity: 1, totalAmount: Number(payload?.roomCharge || 0) }];
-      const checkInReceipt = { orderNumber: payload?.orderNumber || selectedReservation.reservation_number, guestName: `${selectedReservation.first_name} ${selectedReservation.last_name}`, roomNumber: payload?.roomNumber || selectedRoomId, items: checkInItems, total: Number(payload?.totalCharges ?? checkInItems[0].totalAmount), balance: Number(payload?.balance ?? checkInItems[0].totalAmount) };
+      const persistedItems = Array.isArray(payload?.receipt?.items) ? payload.receipt.items : [];
+      const checkInItems = persistedItems.length > 0
+        ? persistedItems.map((item: { description?: string; quantity?: number; total_amount?: number; totalAmount?: number }) => ({ description: item.description || "Hotel charge", quantity: Number(item.quantity || 1), totalAmount: Number(item.total_amount ?? item.totalAmount ?? 0) }))
+        : [{ description: "Room accommodation", quantity: 1, totalAmount: Number(payload?.roomCharge || 0) }];
+      const checkInReceipt = { orderNumber: payload?.orderNumber || selectedReservation.reservation_number, guestName: payload?.receipt?.guestName || `${selectedReservation.first_name} ${selectedReservation.last_name}`, roomNumber: payload?.receipt?.roomNumber || payload?.roomNumber || selectedRoomId, items: checkInItems, total: Number(payload?.receipt?.total ?? payload?.totalCharges ?? 0), balance: Number(payload?.balance ?? payload?.totalCharges ?? 0) };
       setLatestReceiptId(payload?.receiptId || null);
       setLatestHotelReceipt(checkInReceipt);
       void printHotelReceipt({ title: "Hotel check-in receipt", ...checkInReceipt, accountName: receiptSettings.headerText || "Hotel reception", footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }).catch((error) => toast({ title: "Check-in completed; print unavailable", description: error instanceof Error ? error.message : "Allow pop-ups and try again.", variant: "destructive" }));

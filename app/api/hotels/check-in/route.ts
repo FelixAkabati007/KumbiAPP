@@ -108,12 +108,21 @@ export async function POST(request: NextRequest) {
          JOIN rooms rm ON rm.id = r.room_id
          JOIN guest_folios gf ON gf.reservation_id = r.id
          JOIN users u ON u.id = $2
-         WHERE r.id = $1 RETURNING id`,
+         WHERE r.id = $1 RETURNING id, snapshot`,
         [reservationId, session.id]
       );
 
       const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1`, [reservationId]);
-      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number, roomNumber: roomResult.rows[0]?.room_number, roomCharge: Number(folioResult.rows[0]?.room_charge || 0), totalCharges: Number(folioResult.rows[0]?.total_charges || 0), balance: Number(folioResult.rows[0]?.balance || 0) };
+      const folio = folioResult.rows[0];
+      const roomCharge = Number(folio?.room_charge || 0);
+      const financeReference = `HOTEL-CHECKIN-${reservationId}`;
+      await client.query(
+        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
+         SELECT NULL, $1, $2, 'GHS', 'hotel-check-in', 'completed', $3::jsonb, $4
+         WHERE NOT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1)`,
+        [financeReference, roomCharge.toFixed(2), JSON.stringify({ source: "hotel-check-in", businessUnit: "hotel", reservationId, reservationNumber: resResult.rows[0].reservation_number, roomCharge, grossAmount: roomCharge, waived: roomCharge === 0, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
+      );
+      return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, receipt: receiptResult.rows[0]?.snapshot ?? null, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number, roomNumber: roomResult.rows[0]?.room_number, roomCharge, totalCharges: Number(folio?.total_charges || 0), balance: Number(folio?.balance || 0) };
 
     });
 

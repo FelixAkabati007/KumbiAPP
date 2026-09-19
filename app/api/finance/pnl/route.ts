@@ -61,6 +61,21 @@ export async function GET(request: Request) {
           AND LOWER(COALESCE(metadata->>'source', 'hotel')) = 'hotel'
         UNION ALL
         SELECT CASE
+          WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('hotel', 'room', 'accommodation') THEN 'hotel'
+          WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
+          WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('event', 'events', 'event_organization') THEN 'event'
+          ELSE 'shared'
+        END AS department,
+          created_at AS occurred_at,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN -ABS(amount::numeric) ELSE ABS(amount::numeric) END AS revenue,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN ABS(amount::numeric) ELSE 0::numeric END AS refund_amount,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN 0::numeric ELSE ABS(amount::numeric) END AS gross_revenue,
+          0::numeric AS expense
+        FROM transactions
+        WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded','reversed','cancelled')
+          AND amount <> 0
+        UNION ALL
+        SELECT CASE
           WHEN LOWER(COALESCE(department, '')) LIKE '%event%' THEN 'event'
           WHEN LOWER(COALESCE(department, '')) LIKE '%restaurant%' OR LOWER(COALESCE(department, '')) LIKE '%food%' THEN 'restaurant'
           WHEN LOWER(COALESCE(department, '')) LIKE '%hotel%' OR LOWER(COALESCE(department, '')) LIKE '%room%' THEN 'hotel'
