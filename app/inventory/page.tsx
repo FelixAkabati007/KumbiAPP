@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { UnitSelect } from "@/components/ui/unit-select";
 import {
   ArrowLeft,
@@ -51,9 +52,12 @@ import type { InventoryItem } from "@/lib/types";
 import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
+import { useAuth } from "@/components/auth-provider";
 
 function InventoryContent() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canMutateExistingInventory = user?.role === "admin";
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -61,6 +65,12 @@ function InventoryContent() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isNewItem, setIsNewItem] = useState(false);
+  const [varianceItem, setVarianceItem] = useState<InventoryItem | null>(null);
+  const [varianceReason, setVarianceReason] = useState("expired");
+  const [varianceQuantity, setVarianceQuantity] = useState("");
+  const [varianceExplanation, setVarianceExplanation] = useState("");
+  const [varianceEvidence, setVarianceEvidence] = useState<File | null>(null);
+  const [isSubmittingVariance, setIsSubmittingVariance] = useState(false);
   const [summary, setSummary] = useState({
     totalItems: 0,
     lowStockItems: 0,
@@ -68,7 +78,7 @@ function InventoryContent() {
     categories: {} as { [key: string]: number },
   });
   const [hotelActivityCount, setHotelActivityCount] = useState(0);
-  const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string }; created_at: string }>>([]);
+  const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { actor?: { email?: string; role?: string }; item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string }; created_at: string }>>([]);
   const [nameSuggestions, setNameSuggestions] = useState<InventoryItem[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
@@ -339,6 +349,34 @@ function InventoryContent() {
         description: "Failed to save item",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleSubmitVariance = async () => {
+    if (!varianceItem || !varianceQuantity || !varianceExplanation.trim() || !varianceEvidence) {
+      toast({ title: "Evidence required", description: "Select a quantity, reason, explanation, and photo.", variant: "destructive" });
+      return;
+    }
+    setIsSubmittingVariance(true);
+    try {
+      const form = new FormData();
+      form.append("inventoryItemId", varianceItem.id);
+      form.append("quantity", varianceQuantity);
+      form.append("reason", varianceReason);
+      form.append("explanation", varianceExplanation.trim());
+      form.append("evidence", varianceEvidence);
+      const response = await fetch("/api/inventory/variance", { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to submit report");
+      toast({ title: "Variance submitted", description: "A manager must review the stock issue before any adjustment is applied." });
+      setVarianceItem(null);
+      setVarianceQuantity("");
+      setVarianceExplanation("");
+      setVarianceEvidence(null);
+    } catch (error) {
+      toast({ title: "Submission failed", description: error instanceof Error ? error.message : "Unable to submit report", variant: "destructive" });
+    } finally {
+      setIsSubmittingVariance(false);
     }
   };
 
@@ -677,11 +715,14 @@ function InventoryContent() {
                             ₵{Number.parseFloat(item.cost).toFixed(2)}
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditItem(item)}
+  <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">
+  <AlertTriangle className="h-4 w-4" />
+  </Button>
+  {canMutateExistingInventory && <div className="flex gap-2">
+  <Button
+  variant="ghost"
+  size="icon"
+  onClick={() => handleEditItem(item)}
                             className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
                           >
                             <Edit className="h-4 w-4" />
@@ -693,11 +734,11 @@ function InventoryContent() {
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                           >
                             <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+  </Button>
+  </div>}
+  </div>
+  </div>
+  ))}
 
                   {filteredItems.length === 0 && (
                     <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -732,7 +773,7 @@ function InventoryContent() {
                     <div key={log.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{log.details.item?.name || "Inventory item"}</p>
-                        <p className="text-xs text-muted-foreground">{log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"}</p>
+                        <p className="text-xs text-muted-foreground">{log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"} · Added by {log.details.actor?.email || "Recorded account"}</p>
                       </div>
                       <p className="text-muted-foreground">{log.details.quantityBefore ?? 0} → {log.details.quantityAfter ?? 0} {log.details.unit || "units"}</p>
                       <time className="text-xs text-muted-foreground" dateTime={log.created_at}>{new Date(log.created_at).toLocaleString()}</time>
@@ -743,6 +784,19 @@ function InventoryContent() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={Boolean(varianceItem)} onOpenChange={(open) => !open && setVarianceItem(null)}>
+          <DialogContent className="max-w-lg rounded-3xl">
+            <DialogHeader><DialogTitle>Report Stock Issue</DialogTitle><DialogDescription>{varianceItem?.name} will remain unchanged until a manager reviews this report.</DialogDescription></DialogHeader>
+            <div className="grid gap-4 py-3">
+              <div className="grid gap-2"><Label>Issue type</Label><Select value={varianceReason} onValueChange={setVarianceReason}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="expired">Expired</SelectItem><SelectItem value="empty_or_short_delivery">Empty or short delivery</SelectItem><SelectItem value="damaged">Damaged</SelectItem><SelectItem value="spoiled">Spoiled</SelectItem><SelectItem value="missing">Missing</SelectItem><SelectItem value="wastage">Production wastage</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select></div>
+              <div className="grid gap-2"><Label htmlFor="variance-quantity">Affected quantity</Label><Input id="variance-quantity" type="number" min="0.01" step="0.01" value={varianceQuantity} onChange={(event) => setVarianceQuantity(event.target.value)} /></div>
+              <div className="grid gap-2"><Label htmlFor="variance-explanation">Explanation</Label><Textarea id="variance-explanation" value={varianceExplanation} onChange={(event) => setVarianceExplanation(event.target.value)} placeholder="Explain what happened and where the item is physically located." /></div>
+              <div className="grid gap-2"><Label htmlFor="variance-evidence">Photo evidence</Label><Input id="variance-evidence" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setVarianceEvidence(event.target.files?.[0] ?? null)} /><p className="text-xs text-muted-foreground">Required. Maximum 5MB. Evidence is stored privately for management review.</p></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setVarianceItem(null)}>Cancel</Button><Button onClick={handleSubmitVariance} disabled={isSubmittingVariance}>{isSubmittingVariance ? "Submitting..." : "Submit for review"}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
