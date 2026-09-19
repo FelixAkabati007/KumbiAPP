@@ -52,6 +52,7 @@ import {
 } from "@/lib/data";
 import type { MenuItem, OrderItem, ReceiptData } from "@/lib/types";
 import { isInventoryAvailable } from "@/lib/inventory-availability";
+import { printReceipt as printReceiptWithPrinter } from "@/lib/thermal-printer";
 import Image from "next/image";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
@@ -581,22 +582,14 @@ function POSContent() {
         return;
       }
 
-      const configs = [defaultPrinter];
-
-      const response = await fetch("/api/print", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receipt: printData, configs }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || "Print failed");
+      const printed = await printReceiptWithPrinter(printData, defaultPrinter);
+      if (!printed) {
+        throw new Error("The default printer did not complete the print job.");
       }
 
       toast({
         title: "Receipt Printed",
-        description: "Receipt has been sent to the printer",
+        description: "Receipt has been sent to the default printer",
       });
     } catch (error) {
       console.error("Print error:", error);
