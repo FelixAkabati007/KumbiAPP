@@ -38,6 +38,39 @@ export async function GET(
     }
     const { reservationId } = paramsResult.data;
 
+    await query(
+      `
+      INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
+      SELECT r.id,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM complimentary_authorizations ca
+          WHERE ca.reservation_id = r.id
+            AND ca.status = 'active'
+            AND ca.valid_until > NOW()
+            AND ca.room_waived = true
+        ) THEN 0 ELSE COALESCE(rt.base_price, 0) END,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM complimentary_authorizations ca
+          WHERE ca.reservation_id = r.id
+            AND ca.status = 'active'
+            AND ca.valid_until > NOW()
+            AND ca.room_waived = true
+        ) THEN 0 ELSE COALESCE(rt.base_price, 0) END,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM complimentary_authorizations ca
+          WHERE ca.reservation_id = r.id
+            AND ca.status = 'active'
+            AND ca.valid_until > NOW()
+            AND ca.room_waived = true
+        ) THEN 0 ELSE COALESCE(rt.base_price, 0) END
+      FROM reservations r
+      JOIN room_types rt ON rt.id = r.room_type_id
+      WHERE r.id = $1
+        AND NOT EXISTS (SELECT 1 FROM guest_folios existing WHERE existing.reservation_id = r.id)
+      `,
+      [reservationId],
+    );
+
     const syncResult = await transaction((client) => syncOverdueRoomCharges(client, reservationId));
     const result = await query(
       `

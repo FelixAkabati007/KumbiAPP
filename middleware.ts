@@ -62,7 +62,7 @@ const apiPermissions: Record<string, string[]> = {
   "/api/hotels/check-in": ["admin", "manager", "hotelManager", "frontDesk"],
   "/api/hotels/check-out": ["admin", "manager", "hotelManager", "frontDesk"],
   "/api/hotels/checked-in": ["admin", "manager", "hotelManager", "frontDesk"],
-  "/api/hotels/folios": ["admin", "manager", "frontDesk"],
+  "/api/hotels/folios": ["admin", "manager", "hotelManager", "frontDesk"],
   "/api/hotels/guests": ["admin", "manager", "frontDesk"],
   "/api/hotels/housekeeping": ["admin", "manager", "frontDesk", "housekeeping"],
   "/api/hotels/maintenance": ["admin", "manager", "operationsManager", "frontDesk", "housekeeping"],
