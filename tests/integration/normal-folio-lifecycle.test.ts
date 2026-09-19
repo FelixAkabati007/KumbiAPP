@@ -44,7 +44,7 @@ describe.skipIf(!runLifecycleAudit)("normal guest folio lifecycle integration", 
         `SELECT COUNT(*)::int AS count, COALESCE(SUM(amount), 0) AS total
          FROM transactions
          WHERE metadata->>'reservationId' = $1
-           AND metadata->>'businessUnit' = 'shared'
+           AND COALESCE(metadata->>'businessUnit', 'shared') = 'shared'
            AND metadata->>'source' = 'hotel-folio-restaurant'
            AND status = 'completed'`,
         [reservationId],
