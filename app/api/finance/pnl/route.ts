@@ -5,9 +5,10 @@ import { requireFinanceAccess } from "@/lib/api-auth";
 type Department = "hotel" | "restaurant" | "event" | "shared";
 
 const departmentSql = `CASE
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('refund', 'unknown', '') THEN 'shared'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
   WHEN transaction_id LIKE 'HOTEL-%' THEN 'hotel'
   ELSE 'restaurant'
 END`;
