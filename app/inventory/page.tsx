@@ -70,6 +70,7 @@ const INVENTORY_PRINT_ROLES = new Set([
   "manager",
   "restaurantmanager",
   "chef",
+  "kitchen",
 ]);
 
 function InventoryContent() {
