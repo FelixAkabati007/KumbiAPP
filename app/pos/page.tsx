@@ -534,6 +534,16 @@ function POSContent() {
         .header, .footer { text-align: center; }
         .header h2 { margin: 0 0 4px; font-size: 17px; }
         .header p, .footer p { margin: 2px 0; }
+        .header img { display: block; width: 42px; height: 42px; object-fit: contain; margin: 0 auto 6px; }
+        .meta p { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
+        .meta strong { white-space: nowrap; }
+        .items-head, .item { display: grid; grid-template-columns: minmax(0, 1fr) 24px 54px 60px; gap: 4px; align-items: baseline; }
+        .items-head { font-weight: 700; border-bottom: 1px solid #111; padding-bottom: 3px; }
+        .items-head span:not(:first-child), .item span:not(:first-child) { text-align: right; }
+        .item { margin: 4px 0; }
+        .item .name { overflow-wrap: anywhere; }
+        .item .price, .item .line-total { white-space: nowrap; }
+        .receipt hr { border: 0; border-top: 1px solid #111; margin: 8px 0; }
         .item { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
         .total { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; }
         @media print { body { width: 72mm; } }
@@ -587,37 +597,36 @@ function POSContent() {
     return `
       <div class="receipt">
         <div class="header">
+          ${settings?.includeLogo !== false ? `<img src="${appSettings.account.logo || "/logo.svg"}" alt="Company logo">` : ""}
           <h2>${businessName}</h2>
           <p>${businessAddress}</p>
           <p>Tel: ${businessPhone}</p>
+          <p>${appSettings.account.email || appSettings.businessEmail || "info.kumbisalyheritagehotel@gmail.com"}</p>
         </div>
         
-        <div>
-          <p><strong>Order #:</strong> ${orderNumber}</p>
-          ${orderId ? `<p><strong>Order ID:</strong> ${orderId}</p>` : ""}
-          <p><strong>Date:</strong> ${date.toLocaleDateString()}</p>
-          <p><strong>Time:</strong> ${date.toLocaleTimeString()}</p>
-          <p><strong>Type:</strong> ${orderType.toUpperCase()}</p>
-          ${user ? `<p><strong>Account:</strong> ${user.name || user.email || "Unknown account"}</p>` : `<p><strong>Account:</strong> Unknown account</p>`}
-          ${tableNumber ? `<p><strong>Table:</strong> ${tableNumber}</p>` : ""}
-          ${
-            customerNameRefused
-              ? `<p><strong>Customer:</strong> Refused</p>`
-              : customerName
-                ? `<p><strong>Customer:</strong> ${customerName}</p>`
-                : ""
-          }
+        <div class="meta">
+          <p><strong>Order #:</strong><span>${orderNumber || "N/A"}</span></p>
+          ${orderId ? `<p><strong>Order ID:</strong><span>${orderId}</span></p>` : ""}
+          <p><strong>Date:</strong><span>${date.toLocaleDateString()}</span></p>
+          <p><strong>Time:</strong><span>${date.toLocaleTimeString()}</span></p>
+          <p><strong>Type:</strong><span>${orderType.toUpperCase()}</span></p>
+          ${tableNumber ? `<p><strong>Table:</strong><span>${tableNumber}</span></p>` : ""}
+          <p><strong>Account:</strong><span>${user?.name || user?.email || "Unknown account"}</span></p>
+          ${customerNameRefused ? `<p><strong>Customer:</strong><span>Refused</span></p>` : customerName ? `<p><strong>Customer:</strong><span>${customerName}</span></p>` : ""}
         </div>
         
-  <hr style="border: 1px solid hsl(var(--border)); margin: 20px 0;">
+        <hr>
         
+        <div class="items-head"><span>ITEM</span><span>QTY</span><span>PRICE</span><span>TOTAL</span></div>
         <div>
           ${currentOrder
             .map(
               (item) => `
             <div class="item">
-              <span>${item.name} x${item.quantity}</span>
-              <span>₵${(item.price * item.quantity).toFixed(2)}</span>
+              <span class="name">${item.name}</span>
+              <span>${item.quantity}</span>
+              <span class="price">₵${item.price.toFixed(2)}</span>
+              <span class="line-total">₵${(item.price * item.quantity).toFixed(2)}</span>
             </div>
           `
             )
@@ -625,18 +634,10 @@ function POSContent() {
         </div>
         
         <div class="total">
-          <div class="item">
-            <span>Subtotal:</span>
-            <span>₵${subtotal.toFixed(2)}</span>
-          </div>
-          <div class="item">
-            <span>Tax (12.5%):</span>
-            <span>₵${tax.toFixed(2)}</span>
-          </div>
-          <div class="item">
-            <span>TOTAL:</span>
-            <span>₵${total.toFixed(2)}</span>
-          </div>
+          <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
+          <div class="item"><span>Tax (12.5%):</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
+          <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
+          <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
         
         <div class="footer">
