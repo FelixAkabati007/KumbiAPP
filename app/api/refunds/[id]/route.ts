@@ -175,6 +175,12 @@ export async function PUT(
         );
 
         const row = res.rows[0];
+        const originalTransaction = targetTransactionId
+          ? await client.query(`SELECT metadata FROM transaction_logs WHERE transaction_id = $1 LIMIT 1`, [targetTransactionId])
+          : { rows: [] as Array<{ metadata?: Record<string, unknown> }> };
+        const originalMetadata = originalTransaction.rows[0]?.metadata ?? {};
+        const originalSource = typeof originalMetadata.source === "string" ? originalMetadata.source : null;
+        const originalDepartment = typeof originalMetadata.businessUnit === "string" ? originalMetadata.businessUnit : null;
         await client.query(
           `
             INSERT INTO transaction_logs (transaction_id, amount, currency, status, payment_method, customer_id, items, metadata, created_at)
@@ -185,7 +191,7 @@ export async function PUT(
             `REFUND-${row.id}`,
             Number(row.refundamount),
             refundMethod,
-            JSON.stringify({ source: 'refund', refundId: row.id, orderId: row.orderid, originalTransactionId: targetTransactionId, reason: row.reason }),
+            JSON.stringify({ source: 'refund', refundId: row.id, orderId: row.orderid, originalTransactionId: targetTransactionId, originalSource, originalDepartment, reason: row.reason }),
           ],
         );
         await client.query(

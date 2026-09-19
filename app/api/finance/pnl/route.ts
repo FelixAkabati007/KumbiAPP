@@ -5,11 +5,12 @@ import { requireFinanceAccess } from "@/lib/api-auth";
 type Department = "hotel" | "restaurant" | "event" | "shared";
 
 const departmentSql = `CASE
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
-  WHEN LOWER(COALESCE(metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('refund', 'unknown', '') THEN 'shared'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
   WHEN transaction_id LIKE 'HOTEL-%' THEN 'hotel'
-  ELSE 'restaurant'
+  ELSE 'shared'
 END`;
 
 export async function GET(request: Request) {
@@ -101,6 +102,7 @@ export async function GET(request: Request) {
     );
 
     const payrollBasis = await query(`SELECT COALESCE(SUM(CASE WHEN status IN ('approved','processed','paid') THEN gross_amount ELSE 0 END), 0) AS accrual_expense, COALESCE(SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END), 0) AS cash_paid, COALESCE(SUM(CASE WHEN status = 'paid' THEN deductions ELSE 0 END), 0) AS deductions_payable FROM payroll_records WHERE ($1::date IS NULL OR pay_period_end >= $1::date) AND ($2::date IS NULL OR pay_period_end <= $2::date)`, [startDate, endDate])
+    const exceptionResult = await query(`SELECT transaction_id, amount, status, created_at, metadata FROM transaction_logs WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded') AND COALESCE(metadata->>'classificationResolvedAt', '') = '' AND COALESCE(metadata->>'source', '') NOT IN ('hotel','restaurant','event','events','event_organization','refund','shared') AND COALESCE(metadata->>'originalSource', '') NOT IN ('hotel','restaurant','event','events','event_organization') ORDER BY created_at DESC LIMIT 25`);
     const rows = result.rows.map((row) => ({
       department: row.department as Department,
       revenue: Number(row.revenue || 0),
@@ -113,7 +115,7 @@ export async function GET(request: Request) {
     const departments: Department[] = ["hotel", "restaurant", "event", "shared"];
     const byDepartment = departments.map((department) => rows.find((row) => row.department === department) ?? { department, revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0, margin: 0 });
     const totals = byDepartment.reduce((summary, row) => ({ revenue: summary.revenue + row.revenue, refundAmount: summary.refundAmount + row.refundAmount, grossRevenue: summary.grossRevenue + row.grossRevenue, expense: summary.expense + row.expense, profit: summary.profit + row.profit }), { revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0 });
-    return NextResponse.json({ departments: byDepartment, totals: { ...totals, margin: totals.revenue ? Number(((totals.profit / totals.revenue) * 100).toFixed(2)) : 0 }, payroll: { accrualExpense: Number(payrollBasis.rows[0]?.accrual_expense || 0), cashPaid: Number(payrollBasis.rows[0]?.cash_paid || 0), deductionsPayable: Number(payrollBasis.rows[0]?.deductions_payable || 0) }, accountingBasis: { accrual: "Approved, processed, and paid gross payroll", cash: "Net payroll payments posted as paid" }, actingAuthority: Boolean(auth.actingAuthority) });
+    return NextResponse.json({ departments: byDepartment, totals: { ...totals, margin: totals.revenue ? Number(((totals.profit / totals.revenue) * 100).toFixed(2)) : 0 }, payroll: { accrualExpense: Number(payrollBasis.rows[0]?.accrual_expense || 0), cashPaid: Number(payrollBasis.rows[0]?.cash_paid || 0), deductionsPayable: Number(payrollBasis.rows[0]?.deductions_payable || 0) }, accountingBasis: { accrual: "Approved, processed, and paid gross payroll", cash: "Net payroll payments posted as paid" }, exceptions: exceptionResult.rows.map((row) => ({ transactionId: row.transaction_id, amount: Number(row.amount || 0), status: row.status, createdAt: row.created_at, source: row.metadata?.source ?? null })), actingAuthority: Boolean(auth.actingAuthority) });
   } catch (error) {
     console.error("Failed to build finance P&L:", error);
     return NextResponse.json({ error: "Failed to build finance report" }, { status: 500 });
