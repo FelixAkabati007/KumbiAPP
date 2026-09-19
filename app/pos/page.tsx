@@ -445,6 +445,10 @@ function POSContent() {
         // Remove or comment out playNotificationSound if it causes media errors
         // playNotificationSound();
 
+        // Print the completed receipt before clearing the cart. Printing is deliberately
+        // best-effort so a printer outage never rolls back a successful payment.
+        await printReceipt();
+
         // Persist sale data if needed (integration handles persistence)
 
         // The server transaction now creates the kitchen order and publishes its realtime event.
@@ -568,10 +572,17 @@ function POSContent() {
           : undefined,
       };
 
-      const configs = [appSettings.system.thermalPrinter];
-      if (appSettings.system.secondaryPrinter?.enabled) {
-        configs.push(appSettings.system.secondaryPrinter);
+      const defaultPrinter = appSettings.system.thermalPrinter;
+      if (!defaultPrinter?.enabled) {
+        toast({
+          title: "Receipt not printed",
+          description: "Enable the default thermal printer in Settings → System.",
+          variant: "destructive",
+        });
+        return;
       }
+
+      const configs = [defaultPrinter];
 
       const response = await fetch("/api/print", {
         method: "POST",
@@ -590,13 +601,12 @@ function POSContent() {
       });
     } catch (error) {
       console.error("Print error:", error);
-      paymentConfirmation.trigger(false, "Unsuccessful");
-      if (typeof window !== "undefined") {
-        window.print();
-      }
       toast({
-        title: "Printer unavailable",
-        description: "The receipt was opened with the browser print dialog instead.",
+        title: "Payment completed; receipt not printed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Check the default printer in Settings → System and retry printing from the receipt.",
         variant: "destructive",
       });
     } finally {
