@@ -25,7 +25,6 @@ import {
   Minus,
   PhoneIcon as MobilePhone,
   Plus,
-  Printer,
   QrCode,
   Save,
   Search,
@@ -1447,20 +1446,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 </div>
               </Card>
 
-              {/* Receipt Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button
-                  onClick={printReceipt}
-                  disabled={currentOrder.length === 0 || isPrinting}
-                  className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-500/20 animate-pulse"></div>
-                  <Printer className="mr-2 h-4 w-4 relative z-10" />
-                  <span className="relative z-10">
-                    {isPrinting ? "Printing..." : "Print Receipt"}
-                  </span>
-                </Button>
-              </div>
+
             </div>
           </div>
         </div>
