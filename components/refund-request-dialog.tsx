@@ -54,6 +54,7 @@ export function RefundRequestDialog({
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [transactionMatches, setTransactionMatches] = useState<Array<{ transaction_id?: string; amount: number | string; payment_method?: string; metadata?: Record<string, string>; created_at?: string }>>([]);
   const [isVerified, setIsVerified] = useState(!!orderData);
   const [settings] = useState(getSettings());
 
@@ -102,11 +103,48 @@ export function RefundRequestDialog({
     }
   }, [orderData, initialOrderNumber, user?.role]);
 
+  const applyTransaction = (txn: (typeof transactionMatches)[number]) => {
+    const metadata = txn.metadata || {};
+    const amount = typeof txn.amount === "string" ? parseFloat(txn.amount) : txn.amount;
+    setFormData((prev) => ({
+      ...prev,
+      orderId: metadata.orderId || txn.transaction_id || prev.orderId,
+      orderNumber: metadata.orderNumber || prev.orderNumber,
+      customerName: metadata.customerName || metadata.customer_name || "Guest",
+      customerRefused: metadata.customerRefused === "true",
+      originalAmount: amount,
+      refundAmount: amount,
+      paymentMethod: txn.payment_method || prev.paymentMethod,
+    }));
+    setTransactionMatches([]);
+    setIsVerified(true);
+  };
+
+  const handleSearchTransactions = async () => {
+    if (!formData.orderNumber.trim()) return;
+    setIsVerifying(true);
+    setErrors({});
+    try {
+      const params = new URLSearchParams({ orderNumber: formData.orderNumber.trim(), limit: "10" });
+      const res = await fetch(`/api/transactions?${params.toString()}`);
+      if (!res.ok) throw new Error("Could not search transactions");
+      const transactions = await res.json();
+      if (!Array.isArray(transactions) || transactions.length === 0) throw new Error("No matching payments found");
+      setTransactionMatches(transactions);
+      if (transactions.length === 1) applyTransaction(transactions[0]);
+    } catch (error) {
+      setTransactionMatches([]);
+      toast({ title: "No payment found", description: error instanceof Error ? error.message : "Could not find a matching payment", variant: "destructive" });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleVerifyOrder = async () => {
-    if (!formData.orderNumber && !formData.orderId) {
+    if (!formData.orderNumber) {
       toast({
-        title: "Missing Information",
-        description: "Please enter Order ID or Order Number to verify.",
+        title: "Missing Order Number",
+        description: "Enter the customer-facing order number to verify the payment.",
         variant: "destructive",
       });
       return;
@@ -132,9 +170,9 @@ export function RefundRequestDialog({
         );
       }
 
-      // Use the first match
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const txn: any = transactions[0];
+      // The picker may return multiple payments for one customer-facing order number.
+      // Verification remains available for the legacy single-match path.
+      const txn = transactions[0];
       const metadata = txn.metadata || {};
 
       // Parse amount
@@ -178,10 +216,6 @@ export function RefundRequestDialog({
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.orderId) {
-      newErrors.orderId = "Order ID is required";
-    }
 
     if (!formData.customerRefused && !formData.customerName) {
       newErrors.customerName = "Customer name is required unless refused";
@@ -397,58 +431,35 @@ export function RefundRequestDialog({
 
           {/* Order Information */}
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="orderId"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Order ID
-                </Label>
-                <Input
-                  id="orderId"
-                  value={formData.orderId}
-                  onChange={(e) => {
-                    setFormData({ ...formData, orderId: e.target.value });
-                    if (!orderData) setIsVerified(false);
-                  }}
-                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                  disabled={isVerified && !!orderData}
-                />
-                {errors.orderId && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {errors.orderId}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="orderNumber"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Order Number
-                </Label>
-                <Input
-                  id="orderNumber"
-                  value={formData.orderNumber}
-                  onChange={(e) => {
-                    setFormData({ ...formData, orderNumber: e.target.value });
-                    if (!orderData) setIsVerified(false);
-                  }}
-                  className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                  disabled={isVerified && !!orderData}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label
+                htmlFor="orderNumber"
+                className="text-sm text-gray-700 dark:text-gray-300"
+              >
+                Order Number
+              </Label>
+              <Input
+                id="orderNumber"
+                value={formData.orderNumber}
+                onChange={(e) => {
+                  setFormData({ ...formData, orderNumber: e.target.value });
+                  if (!orderData) setIsVerified(false);
+                }}
+                placeholder="e.g. ORD-1042"
+                className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                disabled={isVerified && !!orderData}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Enter the customer-facing order number. The internal payment ID is looked up automatically.
+              </p>
             </div>
 
             {!isVerified && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleVerifyOrder}
-                disabled={
-                  isVerifying || (!formData.orderId && !formData.orderNumber)
-                }
+                onClick={handleSearchTransactions}
+                disabled={isVerifying || !formData.orderNumber.trim()}
                 className="w-full border-orange-200 hover:bg-orange-50 hover:text-orange-900 dark:border-orange-700 dark:hover:bg-orange-900/50 dark:hover:text-orange-100"
               >
                 {isVerifying ? (
@@ -460,6 +471,29 @@ export function RefundRequestDialog({
                   "Verify Order Details"
                 )}
               </Button>
+            )}
+            {transactionMatches.length > 0 && !isVerified && (
+              <div className="grid gap-2" role="list" aria-label="Matching payments">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Select the payment to refund</p>
+                {transactionMatches.map((txn) => {
+                  const metadata = txn.metadata || {};
+                  const amount = typeof txn.amount === "string" ? parseFloat(txn.amount) : txn.amount;
+                  return (
+                    <button
+                      key={txn.transaction_id}
+                      type="button"
+                      onClick={() => applyTransaction(txn)}
+                      className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50/60 px-3 py-2 text-left hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/30 dark:hover:bg-orange-950/60"
+                    >
+                      <span className="grid gap-0.5">
+                        <span className="text-sm font-medium">{metadata.orderNumber || formData.orderNumber}</span>
+                        <span className="text-xs text-gray-500">{metadata.customerName || metadata.customer_name || "Guest"} · {txn.payment_method || "Payment"}</span>
+                      </span>
+                      <span className="text-sm font-semibold">₵{amount.toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 

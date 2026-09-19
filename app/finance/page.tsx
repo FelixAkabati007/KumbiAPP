@@ -22,6 +22,8 @@ type Transaction = {
 type DepartmentResult = {
   department: "hotel" | "restaurant" | "event" | "shared";
   revenue: number;
+  grossRevenue: number;
+  refundAmount: number;
   expense: number;
   profit: number;
   margin: number;
@@ -29,7 +31,7 @@ type DepartmentResult = {
 
 type PnlResponse = {
   departments: DepartmentResult[];
-  totals: { revenue: number; expense: number; profit: number; margin: number };
+  totals: { revenue: number; grossRevenue: number; refundAmount: number; expense: number; profit: number; margin: number };
 };
 
 const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared: "Shared / Corporate" } as const;
@@ -78,10 +80,12 @@ export default function FinancePage() {
 
   const totals = useMemo(() => {
     const completed = transactions.filter((item) => ["completed", "succeeded", "success"].includes(item.status.toLowerCase()));
+    const refunded = transactions.filter((item) => item.status.toLowerCase() === "refunded");
     return {
       gross: completed.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      refundValue: refunded.reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0),
       count: completed.length,
-      refunds: transactions.filter((item) => item.status === "refunded").length,
+      refunds: refunded.length,
     };
   }, [transactions]);
 
@@ -184,7 +188,7 @@ export default function FinancePage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(pnl?.departments ?? []).map((item) => <Card key={item.department} className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">{departmentLabels[item.department]}</CardTitle><p className="text-xs text-muted-foreground">{item.margin.toFixed(1)}% margin</p></CardHeader><CardContent className="space-y-2"><p className="text-2xl font-bold">GHS {item.profit.toFixed(2)}</p><div className="flex justify-between text-xs text-muted-foreground"><span>Revenue GHS {item.revenue.toFixed(2)}</span><span>Costs GHS {item.expense.toFixed(2)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full ${item.profit >= 0 ? "bg-primary" : "bg-destructive"}`} style={{ width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%` }} /></div></CardContent></Card>)}
             </div>
-            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Gross revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Refunds</p><p className="text-xl font-semibold">GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
           <section aria-labelledby="people-costs-heading" className="space-y-4">
             <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
@@ -193,12 +197,12 @@ export default function FinancePage() {
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refund records</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Refund events that can affect cash reconciliation.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refunds issued</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Count and value of refund postings in the current register.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p><p className="text-xs text-muted-foreground">GHS {totals.refundValue.toFixed(2)} reversed</p></CardContent></Card>
           </section>
           <Card id="transactions">
             <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" aria-hidden="true" /> Recent transactions</CardTitle></CardHeader>
             <CardContent>
-              {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3">GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>)}</tbody></table></div>}
+              {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Source</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => { const metadata = item.metadata ?? {}; const itemSource = typeof metadata.source === "string" ? metadata.source : "unclassified"; const isRefund = item.status.toLowerCase() === "refunded" || itemSource === "refund"; return <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3 capitalize">{isRefund ? "Refund" : itemSource.replaceAll("_", " ")}</td><td className={`p-3 ${isRefund ? "text-destructive" : ""}`}>GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>; })}</tbody></table></div>}
             </CardContent>
           </Card>
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4" aria-hidden="true" /> Finance access is limited to authorized roles.</div>

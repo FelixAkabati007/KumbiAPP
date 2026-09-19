@@ -177,6 +177,19 @@ export async function PUT(
         const row = res.rows[0];
         await client.query(
           `
+            INSERT INTO transaction_logs (transaction_id, amount, currency, status, payment_method, customer_id, items, metadata, created_at)
+            VALUES ($1, $2, 'GHS', 'refunded', $3, NULL, NULL, $4::jsonb, NOW())
+            ON CONFLICT (transaction_id) DO NOTHING
+          `,
+          [
+            `REFUND-${row.id}`,
+            Number(row.refundamount),
+            refundMethod,
+            JSON.stringify({ source: 'refund', refundId: row.id, orderId: row.orderid, originalTransactionId: targetTransactionId, reason: row.reason }),
+          ],
+        );
+        await client.query(
+          `
             INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)
             VALUES ($1, $2, $3, $4, $5, $6)
           `,
