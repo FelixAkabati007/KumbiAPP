@@ -102,7 +102,7 @@ export async function GET(request: Request) {
     );
 
     const payrollBasis = await query(`SELECT COALESCE(SUM(CASE WHEN status IN ('approved','processed','paid') THEN gross_amount ELSE 0 END), 0) AS accrual_expense, COALESCE(SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END), 0) AS cash_paid, COALESCE(SUM(CASE WHEN status = 'paid' THEN deductions ELSE 0 END), 0) AS deductions_payable FROM payroll_records WHERE ($1::date IS NULL OR pay_period_end >= $1::date) AND ($2::date IS NULL OR pay_period_end <= $2::date)`, [startDate, endDate])
-    const exceptionResult = await query(`SELECT transaction_id, amount, status, created_at, metadata FROM transaction_logs WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded') AND COALESCE(metadata->>'source', '') NOT IN ('hotel','restaurant','event','events','event_organization','refund') AND COALESCE(metadata->>'originalSource', '') NOT IN ('hotel','restaurant','event','events','event_organization') ORDER BY created_at DESC LIMIT 25`);
+    const exceptionResult = await query(`SELECT transaction_id, amount, status, created_at, metadata FROM transaction_logs WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded') AND COALESCE(metadata->>'classificationResolvedAt', '') = '' AND COALESCE(metadata->>'source', '') NOT IN ('hotel','restaurant','event','events','event_organization','refund','shared') AND COALESCE(metadata->>'originalSource', '') NOT IN ('hotel','restaurant','event','events','event_organization') ORDER BY created_at DESC LIMIT 25`);
     const rows = result.rows.map((row) => ({
       department: row.department as Department,
       revenue: Number(row.revenue || 0),

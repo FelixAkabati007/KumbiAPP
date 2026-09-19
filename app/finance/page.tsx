@@ -44,7 +44,10 @@ export default function FinancePage() {
   const [department, setDepartment] = useState("all");
   const [loading, setLoading] = useState(true);
   const [pnlLoading, setPnlLoading] = useState(true);
-  const [authority, setAuthority] = useState<{ actingAuthority: boolean; authorityLabel: string } | null>(null);
+  const [authority, setAuthority] = useState<{ actingAuthority: boolean; authorityLabel: string; role?: string } | null>(null);
+  const [resolvingException, setResolvingException] = useState<string | null>(null);
+  const [resolutionSource, setResolutionSource] = useState("shared");
+  const [resolutionReason, setResolutionReason] = useState("");
 
   useEffect(() => {
     fetch("/api/finance/access", { cache: "no-store" })
@@ -89,6 +92,17 @@ export default function FinancePage() {
       refunds: refunded.length,
     };
   }, [transactions]);
+
+  const resolveException = async (transactionId: string) => {
+    if (resolutionReason.trim().length < 10) return;
+    const response = await fetch("/api/finance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId, source: resolutionSource, reason: resolutionReason.trim() }) });
+    if (response.ok) {
+      setResolvingException(null);
+      setResolutionReason("");
+      const refreshed = await fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" });
+      if (refreshed.ok) setPnl(await refreshed.json());
+    }
+  };
 
   const exportCsv = () => {
     const rows = [
@@ -191,7 +205,7 @@ export default function FinancePage() {
             </div>
             <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Gross revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Refunds</p><p className="text-xl font-semibold">GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
           </section>
-          {(pnl?.exceptions?.length ?? 0) > 0 && <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><AlertTitle>Finance classification exceptions</AlertTitle><AlertDescription>These postings do not have a recognized business source and are assigned to Shared / Corporate until reviewed. {pnl?.exceptions.length} recent exception(s) are available.</AlertDescription></Alert>}
+          {(pnl?.exceptions?.length ?? 0) > 0 && <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><AlertTitle>Finance classification exceptions</AlertTitle><AlertDescription>These postings are assigned to Shared / Corporate until reviewed. {pnl?.exceptions.length} unresolved exception(s) are available.</AlertDescription><div className="mt-3 grid gap-3">{pnl?.exceptions.map((exception) => <div key={exception.transactionId} className="rounded-md border border-amber-300/70 bg-background p-3 text-foreground"><div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="font-medium">{exception.transactionId}</span><span>GHS {exception.amount.toFixed(2)} · {exception.status}</span></div>{resolvingException === exception.transactionId ? <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]"><Select value={resolutionSource} onValueChange={setResolutionSource}><SelectTrigger aria-label={`Source for ${exception.transactionId}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent></Select><input value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} placeholder="Reason for classification" className="h-10 rounded-md border bg-background px-3 text-sm" minLength={10} /><Button size="sm" onClick={() => void resolveException(exception.transactionId ?? "")} disabled={resolutionReason.trim().length < 10}>Save</Button></div> : <Button variant="outline" size="sm" className="mt-3" onClick={() => setResolvingException(exception.transactionId ?? null)}>Resolve classification</Button>}</div>)}</div></Alert>}
           <section aria-labelledby="people-costs-heading" className="space-y-4">
             <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
             <StaffRewardsPanel />
