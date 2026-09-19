@@ -248,7 +248,8 @@ function DashboardContent() {
   Welcome, {user.name}
   </span>
   </div>
-            <Link href="/split-workspace" prefetch={false}>
+            {access.pos && access.kitchen && (
+  <Link href="/split-workspace" prefetch={false}>
               <Button
                 variant="outline"
                 size="sm"
@@ -258,8 +259,10 @@ function DashboardContent() {
                 <SplitSquareHorizontal className="h-4 w-4" />
                 <span className="hidden sm:inline">Split POS + Kitchen</span>
               </Button>
-            </Link>
-            <Link href="/hotel-split-workspace" prefetch={false}>
+  </Link>
+  )}
+  {access.reservations && access.checkIn && (
+  <Link href="/hotel-split-workspace" prefetch={false}>
   <Button
   variant="outline"
   size="sm"
@@ -270,16 +273,21 @@ function DashboardContent() {
   <span className="hidden sm:inline">Split Hotel Desk</span>
   </Button>
   </Link>
+  )}
+  {access.menu && access.inventory && (
+  <Link href="/menu-inventory-split-workspace" prefetch={false}>
+    <Button variant="outline" size="sm" aria-label="Open split Menu Management and Inventory workspace" className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50">
+      <SplitSquareHorizontal className="h-4 w-4" />
+      <span className="hidden sm:inline">Split Menu + Inventory</span>
+    </Button>
+  </Link>
+  )}
   <Link href="/settings" prefetch={false}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </Link>
-            <TooltipProvider>
+    <Button variant="outline" size="sm" className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent">
+      <Settings className="h-4 w-4" />
+    </Button>
+  </Link>
+  <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
