@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
       const roomResult = await client.query(
-        `SELECT id, room_number FROM rooms WHERE id = $1 AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
+        `SELECT id, room_number FROM rooms WHERE id = $1::uuid AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
         [roomId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
 
       const resResult = await client.query(
-        `UPDATE reservations SET status = 'checked_in', room_id = $1, updated_at = NOW()
-         WHERE id = $2 AND status IN ('confirmed', 'pending') RETURNING *`,
+        `UPDATE reservations SET status = 'checked_in', room_id = $1::uuid, updated_at = NOW()
+         WHERE id = $2::uuid AND status IN ('confirmed', 'pending') RETURNING *`,
         [roomId, reservationId]
       );
 
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
 
       // Update room status to occupied
       const updatedRoomResult = await client.query(
-        `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1), updated_at = NOW()
-         WHERE id = $2 AND status IN ('available', 'dirty', 'cleaning')`,
+        `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1::uuid), updated_at = NOW()
+         WHERE id = $2::uuid AND status IN ('available', 'dirty', 'cleaning')`,
         [reservationId, roomId]
       );
       if (updatedRoomResult.rowCount === 0) {
@@ -46,17 +46,17 @@ export async function POST(request: NextRequest) {
       }
 
       // VIP authorizations waive the guest-facing room charge while preserving the stay event.
-      const vipAuthorization = await client.query(`SELECT id, room_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1 AND ca.status = 'active' AND ca.valid_until > now() AND ca.room_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [reservationId]);
+      const vipAuthorization = await client.query(`SELECT id, room_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1::uuid AND ca.status = 'active' AND ca.valid_until > now() AND ca.room_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [reservationId]);
       const vipRoom = vipAuthorization.rows[0];
       const roomChargeExpression = vipRoom ? "0" : "rt.base_price";
       await client.query(
         `
         INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
-        SELECT $1, ${roomChargeExpression}, ${roomChargeExpression}, ${roomChargeExpression}
-        FROM reservations r
-        JOIN room_types rt ON rt.id = r.room_type_id
-        WHERE r.id = $1
-          AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1)
+        SELECT $1::uuid, ${roomChargeExpression}, ${roomChargeExpression}, ${roomChargeExpression}
+         FROM reservations r
+         JOIN room_types rt ON rt.id = r.room_type_id
+         WHERE r.id = $1::uuid
+           AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1::uuid)
         `,
         [reservationId]
       );
@@ -74,22 +74,22 @@ export async function POST(request: NextRequest) {
       );
 
       if (vipRoom) {
-        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1, $2, $3, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2`, [vipRoom.id, reservationId, String(session?.id || "system")]);
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1, $2, $3, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2`, [vipRoom.id, reservationId, session?.id || null]);
       }
 
       await client.query(
         `INSERT INTO reservation_room_changes
           (reservation_id, previous_room_type_id, new_room_type_id, previous_room_id, new_room_id, rate_difference, adjustment_type, reason, approval_status, changed_by)
-         SELECT r.id, r.room_type_id, rm.room_type_id, NULL, rm.id, 0, 'same_price', $3, 'not_required', $4
+         SELECT r.id, r.room_type_id, rm.room_type_id, NULL, rm.id, 0, 'same_price', $3::text, 'not_required', $4::uuid
          FROM reservations r
-         JOIN rooms rm ON rm.id = $2
-         WHERE r.id = $1`,
+         JOIN rooms rm ON rm.id = $2::uuid
+         WHERE r.id = $1::uuid`,
         [reservationId, roomId, "Room assigned during check-in", session?.id || null]
       );
 
       await client.query(
         `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-         VALUES ('checked_in', 'reservation', $1, $1, $2, $3, 0, $4, $5)`,
+         VALUES ('checked_in', 'reservation', $1::uuid, $1::uuid, $2::uuid, $3::uuid, 0, $4::text, $5::jsonb)`,
         [String(reservationId), String(resResult.rows[0].guest_id), String(roomId), `Guest checked into room ${roomId}`, JSON.stringify({ source: "hotel", roomId, approvalStatus: "not_required" })]
       );
 
@@ -102,24 +102,24 @@ export async function POST(request: NextRequest) {
              'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('description', i.description, 'quantity', i.quantity, 'total_amount', i.total_amount) ORDER BY i.created_at) FROM guest_folio_items i WHERE i.reservation_id = r.id), '[]'::jsonb),
              'total', COALESCE(gf.total_charges, 0),
              'performedBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text)
-           ), $2
+           ), $2::uuid
          FROM reservations r
          JOIN guests g ON g.id = r.guest_id
          JOIN rooms rm ON rm.id = r.room_id
          JOIN guest_folios gf ON gf.reservation_id = r.id
-         JOIN users u ON u.id = $2
-         WHERE r.id = $1 RETURNING id, snapshot`,
+         JOIN users u ON u.id = $2::uuid
+         WHERE r.id = $1::uuid RETURNING id, snapshot`,
         [reservationId, session.id]
       );
 
-      const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1`, [reservationId]);
+      const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1::uuid`, [reservationId]);
       const folio = folioResult.rows[0];
       const roomCharge = Number(folio?.room_charge || 0);
       const financeReference = `HOTEL-CHECKIN-${reservationId}`;
       await client.query(
         `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-         SELECT NULL, $1, $2, 'GHS', 'hotel-check-in', 'completed', $3::jsonb, $4
-         WHERE NOT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1)`,
+         SELECT NULL, $1::text, $2::numeric, 'GHS', 'hotel-check-in', 'completed', $3::jsonb, $4::uuid
+         WHERE NOT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1::text)`,
         [financeReference, roomCharge.toFixed(2), JSON.stringify({ source: "hotel-check-in", businessUnit: "hotel", reservationId, reservationNumber: resResult.rows[0].reservation_number, roomCharge, grossAmount: roomCharge, waived: roomCharge === 0, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
       );
       return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, receipt: receiptResult.rows[0]?.snapshot ?? null, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number, roomNumber: roomResult.rows[0]?.room_number, roomCharge, totalCharges: Number(folio?.total_charges || 0), balance: Number(folio?.balance || 0) };
