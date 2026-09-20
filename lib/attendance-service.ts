@@ -37,6 +37,31 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     }
 
     if (!record?.check_in_at || record.check_out_at) throw new Error("CHECK_IN_REQUIRED");
+
+    const schedule = await client.query(
+      `SELECT COALESCE(s.end_time, CASE
+         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) IN ('reception', 'front desk', 'frontdesk') THEN '19:00'::time
+         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) = 'chef' THEN '20:30'::time
+         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) = 'housekeeping' THEN '19:00'::time
+         ELSE '18:00'::time
+       END) AS end_time
+       FROM staff_profiles sp
+       LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = CURRENT_DATE AND a.status <> 'cancelled'
+       LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
+       WHERE sp.user_id = $1 OR sp.id = $1
+       ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [session.id],
+    );
+    const scheduledEnd = schedule.rows[0]?.end_time;
+    if (scheduledEnd) {
+      const timeCheck = await client.query(
+        `SELECT CURRENT_TIME >= $1::time AS allowed`,
+        [scheduledEnd],
+      );
+      if (!timeCheck.rows[0]?.allowed) throw new Error("CHECKOUT_TOO_EARLY");
+    }
+
     const updated = await client.query(
       `UPDATE attendance_records
        SET check_out_at = now(), status = 'checked_out', updated_at = now()

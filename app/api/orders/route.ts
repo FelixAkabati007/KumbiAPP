@@ -38,6 +38,7 @@ export async function GET() {
       LEFT JOIN users u ON u.id = k.performed_by
       LEFT JOIN kitchen_orderitems i ON k.id = i.kitchenorderid
       WHERE k.kitchen_closed_at IS NULL
+        AND k.created_at >= CURRENT_DATE
       GROUP BY k.id, u.name, u.email, u.role
       ORDER BY k.created_at DESC
     `);
