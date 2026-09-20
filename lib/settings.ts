@@ -22,6 +22,17 @@ export interface PrinterConfig {
   name?: string;
 }
 
+export interface TaxConfiguration {
+  enabled: boolean;
+  appliesToPos: boolean;
+  appliesToRooms: boolean;
+  graEVatRate: number;
+  vatRate: number;
+  nhilRate: number;
+  getFundRate: number;
+  covidLevyRate: number;
+}
+
 export interface AppSettings {
   theme: string;
   notifications: {
@@ -47,6 +58,7 @@ export interface AppSettings {
     autoBackup: boolean;
     receiptPrinter: string;
     taxRate: number;
+    taxConfiguration: TaxConfiguration;
     currency: string;
     language: string;
     compactMode?: boolean;
@@ -121,6 +133,16 @@ const defaultSettings: AppSettings = {
     autoBackup: true,
     receiptPrinter: "Thermal Printer",
     taxRate: 12.5,
+    taxConfiguration: {
+      enabled: true,
+      appliesToPos: true,
+      appliesToRooms: true,
+      graEVatRate: 0,
+      vatRate: 12.5,
+      nhilRate: 2.5,
+      getFundRate: 2.5,
+      covidLevyRate: 1,
+    },
     currency: "GHS",
     language: "en",
     compactMode: false,

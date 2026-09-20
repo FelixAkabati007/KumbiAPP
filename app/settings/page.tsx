@@ -91,6 +91,7 @@ function SettingsPageContent() {
       autoBackup: true,
       receiptPrinter: "Thermal Printer",
       taxRate: 12.5,
+      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, graEVatRate: 0, vatRate: 12.5, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 1 },
       currency: "GHS",
       language: "en",
       cashDrawer: {
@@ -1056,6 +1057,28 @@ function SettingsPageContent() {
                       className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
                       disabled={!isAdmin}
                     />
+                  </div>
+                  <div className="rounded-2xl border border-orange-200 p-4 dark:border-orange-700">
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                      <div>
+                        <Label>GRA E-VAT / statutory levies</Label>
+                        <p className="text-sm text-muted-foreground">One authoritative configuration used by restaurant POS and room billing.</p>
+                      </div>
+                      <Switch checked={settings.system.taxConfiguration?.enabled ?? true} onCheckedChange={(enabled) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, enabled })} disabled={!isAdmin} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {([["graEVatRate", "GRA E-VAT (%)"], ["vatRate", "VAT (%)"], ["nhilRate", "NHIL (%)"], ["getFundRate", "GETFund (%)"], ["covidLevyRate", "COVID-19 levy (%)"]] as const).map(([key, label]) => (
+                        <div className="grid gap-2" key={key}>
+                          <Label htmlFor={key}>{label}</Label>
+                          <Input id={key} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[key] ?? 0} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: Number.parseFloat(e.target.value) || 0 })} disabled={!isAdmin} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {([["appliesToPos", "Apply to restaurant POS"], ["appliesToRooms", "Apply to room billing"]] as const).map(([key, label]) => (
+                        <label className="flex items-center justify-between rounded-xl border p-3 text-sm" key={key}><span>{label}</span><Switch checked={settings.system.taxConfiguration?.[key] ?? true} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: checked })} disabled={!isAdmin} /></label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </CardContent>

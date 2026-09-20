@@ -14,7 +14,7 @@ export type UserRole =
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
-  { value: "staff", label: "Staff", description: "Use the job classification to identify assigned duties." },
+  { value: "staff", label: "Staff", description: "Operational staff access; duties are defined by the access profile." },
   { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
   { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
   { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
@@ -51,6 +51,8 @@ export type StaffClassification =
   | "housekeeping"
   | "security"
   | "labour"
+  | "operations"
+  | "accountsFinance"
   | "other";
 
 export const staffClassificationOptions: { value: StaffClassification; label: string; department: "Hotel" | "Restaurant" | "Operations"; description: string }[] = [
@@ -60,7 +62,9 @@ export const staffClassificationOptions: { value: StaffClassification; label: st
   { value: "chef", label: "Chef", department: "Restaurant", description: "Prepare and complete kitchen orders." },
   { value: "housekeeping", label: "Housekeeping", department: "Hotel", description: "Manage room-cleaning tasks and housekeeping status." },
   { value: "security", label: "Security", department: "Operations", description: "Security and site coverage." },
-  { value: "labour", label: "Labour", department: "Operations", description: "General labour and operational support." },
+  { value: "labour", label: "Labourer", department: "Operations", description: "General labour and operational support." },
+  { value: "operations", label: "Operations", department: "Operations", description: "Cross-department operational coordination." },
+  { value: "accountsFinance", label: "Accounts/Finance", department: "Operations", description: "Payments, accounting, payroll, and statutory reporting." },
   { value: "other", label: "Other", department: "Operations", description: "A configurable operational classification." },
 ];
 
@@ -71,7 +75,9 @@ const classificationLabels: Record<StaffClassification, string> = {
   chef: "Chef",
   housekeeping: "Housekeeping",
   security: "Security",
-  labour: "Labour",
+  labour: "Labourer",
+  operations: "Operations",
+  accountsFinance: "Accounts/Finance",
   other: "Other",
 };
 
@@ -83,7 +89,9 @@ export function normalizeStaffClassification(value?: string | null): StaffClassi
   if (normalized === "chef" || normalized === "kitchen") return "chef";
   if (normalized === "housekeeping") return "housekeeping";
   if (normalized === "security") return "security";
-  if (normalized === "labour" || normalized === "labor") return "labour";
+  if (normalized === "labour" || normalized === "labor" || normalized === "labourer") return "labour";
+  if (normalized === "operations" || normalized === "operations_manager") return "operations";
+  if (["accounts_finance", "accounts", "finance"].includes(normalized ?? "")) return "accountsFinance";
   return "other";
 }
 
@@ -122,13 +130,14 @@ export type AppSection =
   | "eventPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
-export type OperationalScope = "hotel" | "restaurant" | "general" | "events";
+export type OperationalScope = "hotel" | "restaurant" | "general" | "events" | "staff";
 
 export const operationalScopeOptions: { value: OperationalScope; label: string; description: string }[] = [
   { value: "general", label: "All operations", description: "Cross-department access within the assigned authority." },
   { value: "hotel", label: "Hotel", description: "Rooms, reservations, reception, housekeeping, and hotel reporting." },
   { value: "restaurant", label: "Restaurant", description: "POS, orders, kitchen, menu, inventory, and restaurant reporting." },
   { value: "events", label: "Events", description: "Event planning and event pricing without finance or guest-management access." },
+  { value: "staff", label: "Staff", description: "Assigned staff duties and day-to-day operational work." },
 ];
 
 export type RoleCapability = Record<CrudAction, boolean>;
@@ -140,8 +149,8 @@ export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
   restaurantManager: ["restaurant", "events"],
   operationsManager: ["general", "events"],
   finance: ["general"],
-  staff: ["restaurant"],
-  kitchen: ["restaurant"],
+  staff: ["staff", "restaurant"],
+  kitchen: ["staff", "restaurant"],
   frontDesk: ["hotel"],
   housekeeping: ["hotel"],
 };
@@ -154,6 +163,8 @@ export const classificationRoleHints: Record<StaffClassification, UserRole[]> = 
   housekeeping: ["housekeeping", "hotelManager", "manager", "admin"],
   security: ["operationsManager", "manager", "admin"],
   labour: ["operationsManager", "manager", "admin"],
+  operations: ["operationsManager", "manager", "admin"],
+  accountsFinance: ["finance", "manager", "admin"],
   other: ["staff", "manager", "admin"],
 };
 

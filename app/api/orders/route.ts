@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
+import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,13 +120,16 @@ export async function POST(req: Request) {
       }
     }
 
+    const subtotal = Array.isArray(items) ? items.reduce((sum: number, item: { price?: number; quantity?: number }) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) : Number(total || 0);
+    const taxes = calculateTaxes(subtotal, await getTaxConfiguration(), "pos");
+    const billableTotal = roundMoney(taxes.total);
     const orderResult = await query(
       `INSERT INTO kitchenorders (
         ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9) RETURNING id`,
       [
         orderNumber,
-        total,
+        billableTotal,
         orderType,
         tableNumber,
         customerName,
