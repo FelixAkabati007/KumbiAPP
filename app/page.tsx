@@ -100,6 +100,8 @@ function DashboardContent() {
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
+  const [attendanceRecord, setAttendanceRecord] = useState<{ verification_status?: string; check_in_at?: string | null; check_out_at?: string | null } | null>(null);
+  const [attendanceLoaded, setAttendanceLoaded] = useState(false);
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -143,6 +145,23 @@ function DashboardContent() {
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void fetch("/api/attendance", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { record?: typeof attendanceRecord } | null) => {
+        if (!cancelled) {
+          setAttendanceRecord(data?.record ?? null);
+          setAttendanceLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAttendanceLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Load receipt stats from Neon
   const { stats: receiptStats } = useReceiptStats();
@@ -208,6 +227,8 @@ function DashboardContent() {
     ({} as Record<AppSection, boolean>);
   const roleDashboard = roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
+  const isAttendanceExempt = user.role === "admin" || user.role === "manager";
+  const attendanceOnly = attendanceLoaded && !isAttendanceExempt && attendanceRecord?.verification_status !== "verified";
   const categorySectionMap: Record<(typeof DASHBOARD_CATEGORIES)[number][0], AppSection[]> = {
     all: [],
     hotel: ["rooms", "reservations", "checkIn", "checkOut", "housekeeping", "guestFolio"],
@@ -244,10 +265,11 @@ function DashboardContent() {
             </div>
           </div>
 <div className="flex min-w-0 basis-full flex-wrap items-center justify-start gap-2 sm:basis-auto sm:justify-end sm:gap-3">
-  <div className="hidden items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 dark:border-orange-700 dark:bg-orange-900/30 sm:flex">
-  <span className="max-w-40 truncate text-sm font-medium text-orange-700 dark:text-orange-300">
-  Welcome, {user.name}
+  <div className="flex min-w-0 max-w-full flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
+  <span className="max-w-[min(48vw,28rem)] whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
+    Welcome, {user.name}
   </span>
+  <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
             {access.pos && access.kitchen && (
   <Link href="/split-workspace" prefetch={false}>
@@ -358,12 +380,12 @@ function DashboardContent() {
         </div>
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
-        <style>{`[data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
-        <div data-dashboard-category-filter={activeDashboardCategory} className="dashboard-category-grid responsive-grid">
+        <style>{`[data-attendance-only="true"] > *:not([data-attendance-card="true"]) { display: none !important; } [data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
+        <div data-dashboard-category-filter={activeDashboardCategory} data-attendance-only={attendanceOnly ? "true" : "false"} className="dashboard-category-grid responsive-grid">
           <div data-dashboard-category="all" className="min-w-0">
             <AnnouncementCard />
           </div>
-          <Card data-dashboard-category="all" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+          <Card data-dashboard-category="all" data-attendance-card="true" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
               <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Staff Attendance Register</CardTitle>
@@ -371,7 +393,7 @@ function DashboardContent() {
             </CardHeader>
             <CardContent className="relative z-10">
               <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Attendance</div>
-              <p className="text-sm leading-6 text-muted-foreground">Check in, check out, and view the status of today&apos;s attendance record.</p>
+              <p className="text-sm leading-6 text-muted-foreground">Check in before your scheduled start, check out at or after your scheduled end, and wait for a manager approval before opening other workspaces.</p>
               <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
             </CardContent>
           </Card>
@@ -883,7 +905,7 @@ function DashboardContent() {
                 Welcome to {settings.account.restaurantName || "your business"}
               </CardTitle>
               <CardDescription className="text-orange-600 dark:text-orange-400">
-                Your complete restaurant management solution
+                A single operating view for service, kitchen flow, and business performance
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2 relative z-10">
@@ -897,7 +919,7 @@ function DashboardContent() {
                       Point of Sale System
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Process orders and manage transactions
+                      Capture orders, payments, and service hand-offs
                     </p>
                   </div>
                 </div>
@@ -910,7 +932,7 @@ function DashboardContent() {
                       Kitchen Management
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Real-time order tracking and preparation
+                      Track preparation status and keep service moving
                     </p>
                   </div>
                 </div>
@@ -923,7 +945,7 @@ function DashboardContent() {
                       Analytics & Reports
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Comprehensive business insights
+                      Reconcile sales, payments, and operating performance
                     </p>
                   </div>
                 </div>
@@ -938,7 +960,7 @@ function DashboardContent() {
                   Quick Actions
                 </CardTitle>
                 <CardDescription className="text-orange-600 dark:text-orange-400">
-                  Frequently used features
+                  Role-aware shortcuts for today&apos;s service operations
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative z-10">
