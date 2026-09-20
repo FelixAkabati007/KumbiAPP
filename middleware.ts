@@ -54,8 +54,8 @@ const apiPermissions: Record<string, string[]> = {
   "/api/expenses": ["admin", "manager", "finance"],
   "/api/payroll": ["admin", "manager", "finance"],
   "/api/transactions": ["admin", "manager", "finance"],
-  // Release metadata is read-only and available to every authenticated role so
-  // the dashboard update control cannot fail for hospitality or operations staff.
+  // Release metadata is read-only and available to every authenticated role.
+  "/api/release": ["admin", "manager", "restaurantManager", "staff", "kitchen", "finance", "frontDesk", "hotelManager", "housekeeping", "operationsManager"],
   "/api/system": ["admin", "manager", "restaurantManager", "staff", "kitchen", "finance", "frontDesk", "hotelManager", "housekeeping", "operationsManager"],
   // Hospitality module API routes
   "/api/hotels/rooms": ["admin", "manager", "hotelManager", "frontDesk", "housekeeping"],
