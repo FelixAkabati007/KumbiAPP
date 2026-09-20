@@ -815,9 +815,9 @@ function CheckInPage() {
           {checkoutGuest && (
             <div className="space-y-4">
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-                <p className="font-semibold">Early checkout is allowed</p>
-                <p className="mt-1 text-blue-800">
-                  The guest may check out any time after check-in. Accommodation payment is non-refundable. Collect only outstanding extras such as services, damage, or replacement charges.
+<p className="font-semibold">Minimum short-stay period: 2 hours</p>
+  <p className="mt-1 text-blue-800">
+  A short-stay guest cannot check out before two hours have elapsed. Longer stays require the applicable room rate or an approved room-change/extension transaction before checkout.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">

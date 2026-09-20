@@ -55,6 +55,7 @@ import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
+import { MOCK_INVENTORY_ITEMS } from "@/lib/mock-catalog";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -141,15 +142,16 @@ function InventoryContent() {
   useEffect(() => {
     async function load() {
       const loadedItems = await getInventoryItems();
-      setItems(loadedItems);
+      const displayItems = loadedItems.length > 0 ? loadedItems : MOCK_INVENTORY_ITEMS;
+      setItems(displayItems);
       setSummary({
-        totalItems: loadedItems.length,
-        lowStockItems: loadedItems.filter(
+        totalItems: displayItems.length,
+        lowStockItems: displayItems.filter(
           (item: InventoryItem) =>
             Number.parseFloat(item.quantity) <=
             Number.parseFloat(item.reorderLevel)
         ).length,
-        totalValue: loadedItems.reduce(
+        totalValue: displayItems.reduce(
           (total: number, item: InventoryItem) =>
             total + Number.parseFloat(item.cost),
           0
