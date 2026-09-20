@@ -21,29 +21,48 @@ export async function GET(request: Request) {
       ? Math.min(Math.max(requestedLimit, 1), 1000)
       : 1000;
 
-    if (source === "hotel") {
-      const hotelParams: (string | number)[] = [];
-      const hotelConditions: string[] = [];
-      if (startDate) { hotelConditions.push(`occurred_at >= $${hotelParams.length + 1}`); hotelParams.push(startDate); }
-      if (endDate) { hotelConditions.push(`occurred_at < ($${hotelParams.length + 1}::date + INTERVAL '1 day')`); hotelParams.push(endDate); }
-      const hotelWhere = hotelConditions.length ? ` WHERE ${hotelConditions.join(" AND ")}` : "";
-      const hotelResult = await query(`SELECT id::text, 'HOTEL-' || id::text AS transaction_id, amount, currency, CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status, 'hotel' AS payment_method, guest_id::text AS customer_id, NULL::jsonb AS items, jsonb_build_object('source','hotel','eventType',event_type,'entityType',entity_type,'entityId',entity_id,'description',description,'reservationId',reservation_id,'roomId',room_id) AS metadata, occurred_at AS created_at, created_at AS updated_at FROM hotel_activity_ledger${hotelWhere} ORDER BY occurred_at DESC LIMIT $${hotelParams.length + 1}`, [...hotelParams, limit]);
-      return NextResponse.json(hotelResult.rows);
-    }
-
     const params: (string | number | boolean | null)[] = [];
     let queryText = `
-      SELECT id::text, transaction_id::text, amount, currency, status, payment_method,
-             customer_id::text, items, metadata, created_at, updated_at
-      FROM transaction_logs`;
-    if (!source || source === "all" || source === "hotel") {
-      queryText = `SELECT id::text, 'HOTEL-' || id::text AS transaction_id, amount, currency,
-        CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status,
-        'hotel' AS payment_method, guest_id::text AS customer_id, NULL::jsonb AS items,
-        jsonb_build_object('source','hotel','eventType',event_type,'entityType',entity_type,'entityId',entity_id,'description',description,'reservationId',reservation_id,'roomId',room_id) AS metadata,
-        occurred_at AS created_at, created_at AS updated_at FROM hotel_activity_ledger
-        UNION ALL ${queryText}`;
-    }
+      WITH unified_transactions AS (
+        SELECT id::text AS id, transaction_id::text AS transaction_id,
+               amount, currency, status, payment_method,
+               customer_id::text AS customer_id, items,
+               COALESCE(metadata, '{}'::jsonb) AS metadata,
+               created_at, created_at AS updated_at
+        FROM transaction_logs
+
+        UNION ALL
+
+        SELECT id::text AS id, transaction_reference::text AS transaction_id,
+               amount, currency, status, method::text AS payment_method,
+               NULL::text AS customer_id, NULL::jsonb AS items,
+               jsonb_build_object(
+                 'source', 'hotel',
+                 'orderId', order_id,
+                 'performedBy', performed_by
+               ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
+               created_at, created_at AS updated_at
+        FROM transactions
+
+        UNION ALL
+
+        SELECT id::text AS id, 'HOTEL-' || id::text AS transaction_id,
+               amount, currency,
+               CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status,
+               'hotel' AS payment_method, guest_id::text AS customer_id,
+               NULL::jsonb AS items,
+               jsonb_build_object(
+                 'source', 'hotel', 'eventType', event_type,
+                 'entityType', entity_type, 'entityId', entity_id,
+                 'description', description, 'reservationId', reservation_id,
+                 'roomId', room_id
+               ) AS metadata,
+               occurred_at AS created_at, created_at AS updated_at
+        FROM hotel_activity_ledger
+      )
+      SELECT id, transaction_id, amount, currency, status, payment_method,
+             customer_id, items, metadata, created_at, updated_at
+      FROM unified_transactions`;
     const conditions: string[] = [];
 
     if (startDate) {
