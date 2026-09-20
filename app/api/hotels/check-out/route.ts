@@ -29,13 +29,17 @@ export async function POST(request: NextRequest) {
     const result = await transaction(async (client) => {
       // Serialize this reservation transition and lock the exact row first.
       const lockedReservation = await client.query(
-        `SELECT id, room_id, guest_id, status FROM reservations WHERE id = $1 FOR UPDATE`,
+        `SELECT id, room_id, guest_id, status, checked_in_at, check_in_date FROM reservations WHERE id = $1 FOR UPDATE`,
         [reservationId]
       );
       const currentReservation = lockedReservation.rows[0];
       if (!currentReservation) throw new Error("Reservation not found");
       if (currentReservation.status !== "checked_in") {
         throw new Error(`Reservation is ${currentReservation.status}; only checked-in guests can check out`);
+      }
+      const checkedInAt = currentReservation.checked_in_at ? new Date(currentReservation.checked_in_at).getTime() : Number.NaN;
+      if (Number.isFinite(checkedInAt) && Date.now() - checkedInAt < 2 * 60 * 60 * 1000) {
+        throw new Error("SHORT_STAY_MINIMUM_NOT_REACHED");
       }
 
       await syncOverdueRoomCharges(client, reservationId);
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error checking out guest:", error);
     const message = error instanceof Error ? error.message : "Failed to check out guest";
-    const status = message.includes("no longer checked in") || message.includes("cannot exceed") || message.includes("Full payment") ? 409 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const status = message.includes("no longer checked in") || message.includes("cannot exceed") || message.includes("Full payment") || message === "SHORT_STAY_MINIMUM_NOT_REACHED" ? 409 : 500;
+    return NextResponse.json({ error: message === "SHORT_STAY_MINIMUM_NOT_REACHED" ? "Checkout is available after the two-hour minimum short-stay period" : message }, { status });
   }
 }

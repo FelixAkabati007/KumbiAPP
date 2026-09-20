@@ -273,10 +273,11 @@ function ReceiptContent() {
       });
     } catch (error) {
       console.error("Print error:", error);
+      // Match the restaurant and hotel default: keep printing usable when the local printer API is unavailable.
+      window.print();
       toast({
-        title: "Print Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
+        title: "Browser print opened",
+        description: "The local printer service was unavailable, so the receipt was sent to the browser print dialog.",
       });
     }
   };
