@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
              'total', COALESCE(gf.total_charges, 0),
              'bookedBy', jsonb_build_object('id', rb.id::text, 'name', rb.name, 'email', rb.email, 'role', rb.role::text),
              'checkedInBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text),
+             'checkedInAt', NOW()::text,
              'performedBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text)
            ), $2::uuid
          FROM reservations r

@@ -87,7 +87,13 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation details" }, { status: 400 });
     }
-    const { guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
+    const { guestId, roomTypeId, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
+    let { checkInDate, checkOutDate } = parsed.data;
+    const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
+    const roomTypeName = roomTypeNameResult.rows[0]?.name?.trim().toLowerCase();
+    if (roomTypeName === "short time" || roomTypeName === "short stay") {
+      checkOutDate = new Date(checkInDate.getTime() + 2 * 60 * 60 * 1000);
+    }
     if (checkOutDate <= checkInDate) {
       return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
     }

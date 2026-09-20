@@ -423,7 +423,7 @@ function ReservationsPage() {
                   <option value="">Select Room Type</option>
                   {roomTypes.map((rt) => (
                     <option key={rt.id} value={rt.id}>
-                      {rt.name} - GHS {Number(rt.base_price).toFixed(0)}
+                      {(rt.name.trim().toLowerCase() === "short time" ? "Short stay" : rt.name)} - GHS {Number(rt.base_price).toFixed(0)}
                     </option>
                   ))}
                 </select>
