@@ -18,7 +18,6 @@ export async function GET() {
       build,
       branch: process.env.VERCEL_GIT_COMMIT_REF || "local",
       deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
-      commitUrl: process.env.VERCEL_GIT_COMMIT_SHA ? `https://github.com/${process.env.VERCEL_GIT_REPO_OWNER || "FelixAkabati007"}/${process.env.VERCEL_GIT_REPO_SLUG || "KumbiAPP"}/commit/${process.env.VERCEL_GIT_COMMIT_SHA}` : null,
       changes: releaseChanges,
       source: process.env.VERCEL_GIT_COMMIT_SHA ? "Vercel deployment metadata" : "local runtime metadata",
     },
