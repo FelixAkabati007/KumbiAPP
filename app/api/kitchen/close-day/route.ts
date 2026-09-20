@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
+import { propertyDayExpression } from "@/lib/operational-day";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function POST() {
       `UPDATE public.kitchenorders
        SET kitchen_closed_at = NOW(), kitchen_closed_by = $1, updated_at = NOW()
        WHERE kitchen_closed_at IS NULL
-         AND created_at < CURRENT_DATE
+         AND created_at < ${propertyDayExpression()}
        RETURNING id`,
       [session.id],
     );
@@ -40,7 +41,7 @@ export async function GET() {
   if (error) return error;
 
   const result = await query(
-    `SELECT COUNT(*)::int AS active_orders FROM public.kitchenorders WHERE kitchen_closed_at IS NULL AND created_at >= CURRENT_DATE`,
+    `SELECT COUNT(*)::int AS active_orders FROM public.kitchenorders WHERE kitchen_closed_at IS NULL AND created_at >= ${propertyDayExpression()}`,
   );
 
   return NextResponse.json({ activeOrders: result.rows[0]?.active_orders ?? 0, role: session.role });

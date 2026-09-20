@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
+import { propertyDayExpression } from "@/lib/operational-day";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function GET() {
       LEFT JOIN users u ON u.id = k.performed_by
       LEFT JOIN kitchen_orderitems i ON k.id = i.kitchenorderid
       WHERE k.kitchen_closed_at IS NULL
-        AND k.created_at >= CURRENT_DATE
+        AND k.created_at >= ${propertyDayExpression()}
       GROUP BY k.id, u.name, u.email, u.role
       ORDER BY k.created_at DESC
     `);

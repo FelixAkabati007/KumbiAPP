@@ -1,5 +1,6 @@
 import { transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
+import { propertyDayExpression } from "@/lib/operational-day";
 
 export type AttendanceAction = "check_in" | "check_out";
 
@@ -8,7 +9,7 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
        FROM attendance_records
-       WHERE staff_id = $1 AND created_at::date = CURRENT_DATE
+       WHERE staff_id = $1 AND created_at::date = ${propertyDayExpression()}
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
       [session.id],
     );
@@ -46,7 +47,7 @@ export async function registerAttendance(session: ApiSession, action: Attendance
          ELSE '18:00'::time
        END) AS end_time
        FROM staff_profiles sp
-       LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = CURRENT_DATE AND a.status <> 'cancelled'
+       LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression()} AND a.status <> 'cancelled'
        LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
        WHERE sp.user_id = $1 OR sp.id = $1
        ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
