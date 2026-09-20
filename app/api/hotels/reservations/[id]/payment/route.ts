@@ -31,8 +31,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (existing.rowCount === 0) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           VALUES ($1::uuid, $2, $3, 'GHS', $4::payment_method_enum, 'completed', $5::jsonb, $6::uuid)`,
-          [reservationId, reference, amount.toFixed(2), method, JSON.stringify({ source: "hotel-pre-check-in", reservationId, reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: session.id }), session.id],
+           VALUES (NULL, $1, $2, 'GHS', $3::payment_method_enum, 'completed', $4::jsonb, $5::uuid)`,
+          [reference, amount.toFixed(2), method, JSON.stringify({ source: "hotel-pre-check-in", reservationId, reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: session.id }), session.id],
         );
       } else {
         await client.query(
