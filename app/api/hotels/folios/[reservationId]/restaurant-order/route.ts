@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
 import { publishRealtime } from "@/lib/realtime";
+import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 
 const paramsSchema = z.object({ reservationId: z.string().uuid() });
 const orderSchema = z.object({
@@ -118,10 +119,12 @@ export async function POST(
       }
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);
+      const taxes = calculateTaxes(total, await getTaxConfiguration(), "rooms");
+      const taxedTotal = roundMoney(taxes.total);
       const authorizationResult = await client.query(`SELECT id, status, valid_from, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id::text = $1::text AND ca.status = 'active' AND ca.valid_from <= NOW() AND ca.valid_until > NOW() AND ca.folio_waived = true AND ca.scope IN ('restaurant', 'both') ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
       const authorization = authorizationResult.rows[0];
-      const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= total);
-      const billableTotal = isWaived ? 0 : total;
+      const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= taxedTotal);
+      const billableTotal = isWaived ? 0 : taxedTotal;
       const orderNumber = orderNumberForMovement;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
@@ -140,14 +143,14 @@ export async function POST(
               (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items, performed_by)
              VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb, $6)
              RETURNING id, ordernumber`,
-            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems), session.id]
+            [orderNumber, taxedTotal.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems), session.id]
           )
         : await client.query(
             `INSERT INTO kitchenorders
               (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
              VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5)
              RETURNING id, ordernumber`,
-            [orderNumber, total.toFixed(2), folioDetails.room_number, customerName, session.id]
+            [orderNumber, taxedTotal.toFixed(2), folioDetails.room_number, customerName, session.id]
           );
       const orderId = orderResult.rows[0].id;
 
