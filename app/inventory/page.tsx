@@ -182,6 +182,16 @@ function InventoryContent() {
       ? "Beverages"
       : "Supplies";
 
+  const getStockGroupLabel = (category: string | undefined, name: string | undefined) => {
+    const value = `${category ?? ""} ${name ?? ""}`.toLowerCase();
+    if (/(beverage|drink|beer|wine|spirit|juice|soda|coffee|tea|ice|syrup|mixer)/.test(value)) return "3. Beverage Stock (Bar & Restaurant)";
+    if (/(supply|disposable|napkin|menu|soap|sanit|foil|parchment|cling|container|dish|cleaner)/.test(value)) return "4. Restaurant Non-Food & Operations";
+    return "2. Restaurant Food Stock";
+  };
+  const getStockGroup = (item: InventoryItem) => getStockGroupLabel(item.category, item.name);
+
+  const groupedInventoryItems = [...filteredItems].sort((a, b) => getStockGroup(a).localeCompare(getStockGroup(b)) || a.name.localeCompare(b.name));
+
   // Filter items based on search query and active tab
   useEffect(() => {
     let filtered = items;
@@ -737,9 +747,18 @@ function InventoryContent() {
             <ScrollArea className="h-[calc(100vh-400px)]">
               <div className="p-6 pt-0">
                 <div className="space-y-2">
-                  {filteredItems.map((item) => (
+                  {groupedInventoryItems.map((item, index) => {
+                    const stockGroup = getStockGroup(item);
+                    const previousGroup = index > 0 ? getStockGroup(groupedInventoryItems[index - 1]) : null;
+                    return (
+                      <div key={item.id}>
+                        {stockGroup !== previousGroup && (
+                          <div className="mt-5 border-b border-orange-200 pb-2 text-sm font-bold text-orange-800 first:mt-0 dark:border-orange-800 dark:text-orange-300">
+                            {stockGroup}
+                          </div>
+                        )}
                     <div
-                      key={item.id}
+                      key={`${item.id}-row`}
                       className={`flex min-w-0 items-center justify-between gap-2 rounded-xl border bg-white/50 p-2.5 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:gap-3 sm:p-3 ${
                         isLowStock(item)
                           ? "border-red-400 dark:border-red-600 animate-pulse"
@@ -814,11 +833,13 @@ function InventoryContent() {
                             <Trash className="h-4 w-4" />
   </Button>
   </div>}
-  </div>
-  </div>
-  ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
 
-                  {filteredItems.length === 0 && (
+                  {groupedInventoryItems.length === 0 && (
                     <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                       <Package className="h-12 w-12 mx-auto mb-4 opacity-20" />
                       <p>No inventory items found</p>
@@ -851,7 +872,7 @@ function InventoryContent() {
                     <div key={log.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{log.details.item?.name || "Inventory item"}</p>
-                        <p className="text-xs text-muted-foreground">{log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"} · Added by {log.details.actor?.email || "Recorded account"}</p>
+                        <p className="text-xs text-muted-foreground">{getStockGroupLabel(log.details.item?.category, log.details.item?.name)} · {log.details.item?.category || "Inventory"} · {log.details.supplier || "No supplier recorded"} · Added by {log.details.actor?.email || "Recorded account"}</p>
                       </div>
                       <p className="text-muted-foreground">{log.details.quantityBefore ?? 0} → {log.details.quantityAfter ?? 0} {log.details.unit || "units"}</p>
                       <time className="text-xs text-muted-foreground" dateTime={log.created_at}>{new Date(log.created_at).toLocaleString()}</time>
