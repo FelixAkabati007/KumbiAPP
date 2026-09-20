@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
@@ -79,6 +79,8 @@ export async function POST(req: Request) {
     if (error) return error;
 
     const body = await req.json();
+    const idempotencyKey = req.headers.get("idempotency-key")?.trim() || (typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "");
+    if (idempotencyKey.length > 160) return NextResponse.json({ error: "Invalid idempotency key" }, { status: 400 });
     // Simple implementation for creating an order
     const {
       orderNumber,
@@ -125,43 +127,39 @@ export async function POST(req: Request) {
     const subtotal = Array.isArray(items) ? items.reduce((sum: number, item: { price?: number; quantity?: number }) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) : Number(total || 0);
     const taxes = calculateTaxes(subtotal, await getTaxConfiguration(), "pos");
     const billableTotal = roundMoney(taxes.total);
-    const orderResult = await query(
-      `INSERT INTO kitchenorders (
-        ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9) RETURNING id`,
-      [
-        orderNumber,
-        billableTotal,
-        orderType,
-        tableNumber,
-        customerName,
-        paymentMethod,
-        priority || "normal",
-        estimatedTime,
-        session.id,
-      ]
-    );
+    const orderId = await transaction(async (client) => {
+      if (idempotencyKey) {
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [idempotencyKey]);
+        const existing = await client.query(
+          `SELECT order_id FROM order_idempotency_keys WHERE idempotency_key = $1 AND actor_id = $2`,
+          [idempotencyKey, session.id],
+        );
+        if (existing.rows[0]?.order_id) return existing.rows[0].order_id;
+      }
 
-    const orderId = orderResult.rows[0].id;
+      const orderResult = await client.query(
+        `INSERT INTO kitchenorders (
+          ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9) RETURNING id`,
+        [orderNumber, billableTotal, orderType, tableNumber, customerName, paymentMethod, priority || "normal", estimatedTime, session.id]
+      );
+      const createdOrderId = orderResult.rows[0].id;
 
-    if (items && items.length > 0) {
-      for (const item of items) {
-        await query(
-          `INSERT INTO kitchen_orderitems (
-            kitchenorderid, name, price, category, quantity, status, preptime, notes
-          ) VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)`,
-          [
-            orderId,
-            item.name,
-            item.price,
-            item.category,
-            item.quantity,
-            item.prepTime,
-            item.notes,
-          ]
+      for (const item of items ?? []) {
+        await client.query(
+          `INSERT INTO kitchen_orderitems (kitchenorderid, name, price, category, quantity, status, preptime, notes)
+           VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)`,
+          [createdOrderId, item.name, item.price, item.category, item.quantity, item.prepTime, item.notes]
         );
       }
-    }
+      if (idempotencyKey) {
+        await client.query(
+          `INSERT INTO order_idempotency_keys (idempotency_key, actor_id, order_id) VALUES ($1, $2, $3)`,
+          [idempotencyKey, session.id, createdOrderId],
+        );
+      }
+      return createdOrderId;
+    });
 
     await publishRealtime("orders.updated", String(orderId));
     await publishRealtime("pos.updated", String(orderId));
