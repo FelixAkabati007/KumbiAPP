@@ -19,6 +19,15 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
+      const paymentResult = await client.query(
+        `SELECT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1 AND status = 'completed') AS paid,
+                EXISTS (SELECT 1 FROM complimentary_authorizations WHERE reservation_id = $2::uuid AND status = 'active' AND valid_from <= now() AND valid_until > now() AND room_waived = true) AS is_vip`,
+        [`HOTEL-PRECHECKIN-${reservationId}`, reservationId],
+      );
+      if (!paymentResult.rows[0]?.paid && !paymentResult.rows[0]?.is_vip) {
+        throw new Error("PAYMENT_REQUIRED_BEFORE_CHECKIN");
+      }
+
       const roomResult = await client.query(
         `SELECT id, room_number FROM rooms WHERE id = $1::uuid AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
         [roomId]
@@ -119,13 +128,6 @@ export async function POST(request: NextRequest) {
       const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1::uuid`, [reservationId]);
       const folio = folioResult.rows[0];
       const roomCharge = Number(folio?.room_charge || 0);
-      const financeReference = `HOTEL-CHECKIN-${reservationId}`;
-      await client.query(
-        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-         SELECT NULL, $1::text, $2::numeric, 'GHS', 'guest-folio'::payment_method_enum, 'completed', $3::jsonb, $4::uuid
-         WHERE NOT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1::text)`,
-        [financeReference, roomCharge.toFixed(2), JSON.stringify({ source: "hotel-check-in", businessUnit: "hotel", reservationId, reservationNumber: resResult.rows[0].reservation_number, roomCharge, grossAmount: roomCharge, waived: roomCharge === 0, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
-      );
       return { ...resResult.rows[0], receiptId: receiptResult.rows[0]?.id, receipt: receiptResult.rows[0]?.snapshot ?? null, orderId: String(reservationId), orderNumber: resResult.rows[0].reservation_number, roomNumber: roomResult.rows[0]?.room_number, roomCharge, totalCharges: Number(folio?.total_charges || 0), balance: Number(folio?.balance || 0) };
 
     });
@@ -133,9 +135,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Error checking in guest:", error);
+    const message = error instanceof Error ? error.message : "Failed to check in guest";
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to check in guest" },
-      { status: 500 }
+      { error: message === "PAYMENT_REQUIRED_BEFORE_CHECKIN" ? "Record the guest's accommodation payment before clicking Check In. Approved VIP room waivers may proceed without payment." : message },
+      { status: message === "PAYMENT_REQUIRED_BEFORE_CHECKIN" ? 409 : 500 }
     );
   }
 }

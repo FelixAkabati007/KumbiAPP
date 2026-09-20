@@ -248,6 +248,19 @@ function CheckInPage() {
     }
   };
 
+  const handlePreCheckInPayment = async () => {
+    if (!selectedReservation || processing) return;
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/hotels/reservations/${selectedReservation.id}/payment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "cash" }) });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Unable to record payment");
+      toast({ title: "Payment recorded", description: `GHS ${Number(payload.amount || 0).toFixed(2)} is settled before check-in.` });
+    } catch (error) {
+      toast({ title: "Payment failed", description: error instanceof Error ? error.message : "Unable to record payment", variant: "destructive" });
+    } finally { setProcessing(false); }
+  };
+
   const handleCheckIn = async () => {
     if (processing) return;
     if (!selectedReservation || !selectedRoomId) {
@@ -793,6 +806,9 @@ function CheckInPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedReservation(null)} className="rounded-lg">
               Cancel
+            </Button>
+            <Button variant="secondary" onClick={handlePreCheckInPayment} disabled={processing || !selectedRoomId} className="rounded-2xl">
+              Record payment
             </Button>
             <Button onClick={handleCheckIn} disabled={processing || !selectedRoomId} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50">
               {processing ? "Processing…" : "Confirm Check-In"}
