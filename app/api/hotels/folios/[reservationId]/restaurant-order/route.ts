@@ -44,7 +44,7 @@ export async function POST(
                 mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
          FROM menu_items mi
          LEFT JOIN categories c ON c.id = mi.category_id
-         WHERE mi.id = ANY($1::uuid[]) AND mi.is_available = TRUE`,
+         WHERE mi.id = ANY($1::uuid[]) AND (mi.availability_mode = 'automatic' OR mi.is_available = TRUE)`,
         [body.data.items.map((item) => item.menuItemId)]
       );
       const menuById = new Map(menuResult.rows.map((item) => [item.id, item]));

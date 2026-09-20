@@ -38,11 +38,13 @@ export async function GET() {
       direct_units_per_sale: string;
       direct_inventory_quantity: string | null;
       direct_inventory_category: string | null;
+      legacy_inventory_quantity: string | null;
     }>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available, mi.availability_mode,
              mi.image_url, c.slug AS category_slug, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale,
              di.quantity::text AS direct_inventory_quantity, di.category AS direct_inventory_category,
+             legacy_i.quantity::text AS legacy_inventory_quantity,
              COUNT(ri.id)::text AS recipe_count,
              ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients
       FROM menu_items mi
@@ -50,7 +52,8 @@ export async function GET() {
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
       LEFT JOIN inventory i ON i.id = ri.inventory_item_id
       LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category
+      LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
+      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity
       ORDER BY mi.created_at DESC
       `
     );
@@ -67,8 +70,8 @@ export async function GET() {
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
       directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
-      inStock: r.inventory_mode === "direct" ? (r.availability_mode === "automatic" || r.is_available) && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale) : r.recipe_count !== "0" && r.unavailable_ingredients?.length === 0 && (r.availability_mode === "automatic" || r.is_available),
-      stockStatus: r.inventory_mode === "direct" ? (r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available") : r.recipe_count === "0" ? "recipe_required" : r.unavailable_ingredients?.length ? "out_of_stock" : r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : "available",
+      inStock: r.inventory_mode === "direct" ? (r.availability_mode === "automatic" || r.is_available) && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale) : (r.recipe_count !== "0" ? r.unavailable_ingredients?.length === 0 : Number(r.legacy_inventory_quantity ?? 0) >= 1) && (r.availability_mode === "automatic" || r.is_available),
+      stockStatus: r.inventory_mode === "direct" ? (r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available") : r.recipe_count === "0" ? (Number(r.legacy_inventory_quantity ?? 0) >= 1 ? "available" : "recipe_required") : r.unavailable_ingredients?.length ? "out_of_stock" : r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : "available",
       stockShortages: r.unavailable_ingredients ?? [],
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as

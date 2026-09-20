@@ -23,11 +23,11 @@ export function AppUpdateMenu() {
   const checkForUpdates = useCallback(async () => {
     setState("checking");
     try {
-      const response = await fetch("/api/system/version", { cache: "no-store" });
-      if (!response.ok) throw new Error("Unable to check the application version.");
+      const response = await fetch(`/api/system/version?t=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
+      if (!response.ok) throw new Error(`Version endpoint returned ${response.status}`);
       const latest = await response.json() as { version?: string; build?: string };
       const current = document.documentElement.dataset.appBuild;
-      const isAvailable = Boolean(current && latest.build && current !== latest.build);
+      const isAvailable = Boolean(current && latest.build && current !== latest.build && latest.build !== "development");
       setState(isAvailable ? "available" : "current");
       setCheckedAt(new Date().toLocaleTimeString());
 
