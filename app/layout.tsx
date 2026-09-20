@@ -16,6 +16,9 @@ import { LoadingProvider } from "@/components/loading-provider";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { RouteRuntime } from "@/components/route-runtime";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import packageJson from "../package.json";
+
+const appBuild = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || packageJson.version;
 
 // Defensive check for broken localStorage in SSR environment
 if (
@@ -69,7 +72,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" translate="no" suppressHydrationWarning className="bg-background">
+    <html lang="en" translate="no" suppressHydrationWarning className="bg-background" data-app-build={appBuild}>
       <head>
         <link rel="icon" href="/favicon.ico" type="image/png" sizes="64x64" />
         <link rel="apple-touch-icon" href="/favicon.ico" sizes="180x180" />
