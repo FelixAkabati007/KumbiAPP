@@ -14,18 +14,21 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 type UpdateState = "idle" | "checking" | "current" | "available";
+type ReleaseInfo = { version?: string; build?: string; branch?: string; deploymentId?: string | null; commitUrl?: string | null; changes?: string[]; source?: string };
 
 export function AppUpdateMenu() {
   const { toast } = useToast();
   const [state, setState] = useState<UpdateState>("idle");
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [release, setRelease] = useState<ReleaseInfo | null>(null);
 
   const checkForUpdates = useCallback(async () => {
     setState("checking");
     try {
       const response = await fetch(`/api/system/version?t=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
       if (!response.ok) throw new Error(`Version endpoint returned ${response.status}`);
-      const latest = await response.json() as { version?: string; build?: string };
+      const latest = await response.json() as ReleaseInfo;
+      setRelease(latest);
       const current = document.documentElement.dataset.appBuild;
       const isAvailable = Boolean(current && latest.build && current !== latest.build && latest.build !== "development");
       setState(isAvailable ? "available" : "current");
@@ -77,6 +80,16 @@ export function AppUpdateMenu() {
             {state === "checking" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : state === "current" ? <Check className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             {state === "checking" ? "Checking for updates…" : "Check for updates"}
           </DropdownMenuItem>
+        )}
+        {release && (
+          <div className="space-y-2 px-2 py-2 text-xs text-muted-foreground">
+            <div className="font-medium text-foreground">{state === "available" ? "New changes available" : "Current release"}</div>
+            <div>Version {release.version || "unknown"} · build {release.build?.slice(0, 12) || "unknown"}</div>
+            <div>Branch: {release.branch || "unknown"}</div>
+            <div>Source: {release.source || "deployment metadata"}</div>
+            {release.commitUrl && <a className="text-orange-700 underline underline-offset-2 dark:text-orange-300" href={release.commitUrl} target="_blank" rel="noreferrer">View exact commit</a>}
+            {release.changes && release.changes.length > 0 && <ul className="list-disc space-y-1 pl-4">{release.changes.map((change) => <li key={change}>{change}</li>)}</ul>}
+          </div>
         )}
         {checkedAt && <p className="px-2 py-1 text-xs text-muted-foreground">Last checked {checkedAt}</p>}
       </DropdownMenuContent>
