@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
 import { z } from "zod";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 const expenseSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -56,6 +57,18 @@ export async function PATCH(request: Request) {
     if (!updated.rowCount) return null;
     await client.query(`INSERT INTO public.expense_approvals (expense_id, action, actor_id, note) VALUES ($1,$2,$3,$4)`, [id, status, auth.session.id, String(body?.note || "").slice(0, 1000) || null]);
     if (status === "paid") {
+      await recordFinancialLedgerEntry(client, {
+        eventKey: `expense-paid-${id}`,
+        amount: Number(expense.amount),
+        currency: expense.currency,
+        direction: "debit",
+        status: "paid",
+        source: "expense",
+        paymentMethod: expense.payment_method,
+        entityType: "expense",
+        entityId: id,
+        metadata: { title: expense.title, category: expense.category, department: expense.department, paidBy: auth.session.id },
+      });
       await client.query(`INSERT INTO public.transaction_logs (transaction_id, amount, currency, status, payment_method, customer_id, items, metadata) SELECT $1, amount, currency, 'paid', payment_method, requested_by::text, jsonb_build_array(jsonb_build_object('title', title, 'category', category)), jsonb_build_object('source', 'expense', 'expenseId', id, 'department', department, 'paidBy', $2) FROM public.expenses WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM public.transaction_logs WHERE transaction_id = $1 AND metadata->>'source' = 'expense')`, [id, auth.session.id]);
     }
     return updated.rows[0];

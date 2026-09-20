@@ -10,6 +10,28 @@ export async function GET() {
     // Enable UUID extension
     await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
+    // Canonical financial ledger: every money movement is written here once.
+    await query(`
+      CREATE TABLE IF NOT EXISTS canonical_financial_ledger (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        event_key VARCHAR(255) NOT NULL UNIQUE,
+        amount NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
+        currency VARCHAR(10) NOT NULL DEFAULT 'GHS',
+        direction VARCHAR(10) NOT NULL CHECK (direction IN ('credit','debit')),
+        status VARCHAR(50) NOT NULL,
+        source VARCHAR(80) NOT NULL,
+        payment_method VARCHAR(80),
+        entity_type VARCHAR(80),
+        entity_id VARCHAR(255),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        occurred_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_occurred_at ON canonical_financial_ledger(occurred_at);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_source ON canonical_financial_ledger(source);`);
+
     // 1. Transaction Logs Table
     await query(`
       CREATE TABLE IF NOT EXISTS transaction_logs (

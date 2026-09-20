@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -40,6 +41,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           [reference],
         );
       }
+      await recordFinancialLedgerEntry(client, {
+        eventKey: reference,
+        amount,
+        direction: "credit",
+        status: "completed",
+        source: "hotel-pre-checkin",
+        paymentMethod: method,
+        entityType: "reservation",
+        entityId: reservationId,
+        metadata: { reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: session.id },
+      });
       return { reservationId, reference, amount, isVip: booking.is_vip };
     });
     return NextResponse.json({ ...result, status: "paid_before_checkin" }, { status: 200 });
