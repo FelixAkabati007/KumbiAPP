@@ -25,7 +25,7 @@ export function AppUpdateMenu() {
   const checkForUpdates = useCallback(async () => {
     setState("checking");
     try {
-      const response = await fetch(`/api/system/version?t=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
+      const response = await fetch(`/api/release?t=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
       if (!response.ok) throw new Error(`Version endpoint returned ${response.status}`);
       const latest = await response.json() as ReleaseInfo;
       setRelease(latest);

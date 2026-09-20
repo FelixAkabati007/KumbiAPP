@@ -54,7 +54,9 @@ const apiPermissions: Record<string, string[]> = {
   "/api/expenses": ["admin", "manager", "finance"],
   "/api/payroll": ["admin", "manager", "finance"],
   "/api/transactions": ["admin", "manager", "finance"],
-  "/api/system": ["admin", "manager", "staff", "kitchen"],
+  // Release metadata is read-only and available to every authenticated role.
+  "/api/release": ["admin", "manager", "restaurantManager", "staff", "kitchen", "finance", "frontDesk", "hotelManager", "housekeeping", "operationsManager"],
+  "/api/system": ["admin", "manager", "restaurantManager", "staff", "kitchen", "finance", "frontDesk", "hotelManager", "housekeeping", "operationsManager"],
   // Hospitality module API routes
   "/api/hotels/rooms": ["admin", "manager", "hotelManager", "frontDesk", "housekeeping"],
   "/api/hotels/room-types": ["admin", "manager", "hotelManager", "frontDesk"],
