@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   } catch (cause) {
     if (cause instanceof Error && cause.message === "ALREADY_CHECKED_IN") return NextResponse.json({ error: "You are already checked in" }, { status: 409 });
     if (cause instanceof Error && cause.message === "CHECK_IN_REQUIRED") return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
+    if (cause instanceof Error && cause.message === "CHECKOUT_TOO_EARLY") return NextResponse.json({ error: "Checkout is available at your scheduled end time or later" }, { status: 409 });
     if (cause instanceof Error && cause.message === "ALREADY_CHECKED_OUT") return NextResponse.json({ error: "Attendance is already checked out" }, { status: 409 });
     console.error("[attendance] register action failed", cause);
     return NextResponse.json({ error: "Unable to update register" }, { status: 500 });
