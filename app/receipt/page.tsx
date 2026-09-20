@@ -211,75 +211,15 @@ function ReceiptContent() {
       return;
     }
 
-    // Silent print via API
-    try {
-      if (!foundSale) throw new Error("No sale data found");
-
-      const printData = {
-        orderNumber: foundSale.orderNumber,
-        date: new Date(foundSale.date).toLocaleDateString(),
-        time: new Date(foundSale.date).toLocaleTimeString(),
-        items: foundSale.items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.price * item.quantity,
-          barcode: item.barcode,
-        })),
-        subtotal: foundSale.items.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0,
-        ),
-        tax:
-          foundSale.items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0,
-          ) * 0.125, // approx tax
-        total: foundSale.total,
-        paymentMethod: foundSale.paymentMethod,
-        customerName: foundSale.customerName,
-        customerRefused: foundSale.customerRefused,
-        orderType: foundSale.orderType,
-        tableNumber: foundSale.tableNumber,
-        orderId: foundSale.orderId,
-        businessName: receiptSettings.headerText,
-        businessAddress: receiptSettings.businessAddress,
-        businessPhone: receiptSettings.businessPhone,
-        businessEmail: receiptSettings.businessEmail,
-      };
-
-      // Recalculate tax/subtotal more accurately if available or rely on calculated
-      // The API expects specific ReceiptData format.
-
-      const configs = [appSettings.system.thermalPrinter];
-      if (appSettings.system.secondaryPrinter?.enabled) {
-        configs.push(appSettings.system.secondaryPrinter);
-      }
-
-      const response = await fetch("/api/print", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receipt: printData, configs }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || "Print failed");
-      }
-
-      toast({
-        title: "Receipt Printed",
-        description: "Receipt sent to printer successfully",
-      });
-    } catch (error) {
-      console.error("Print error:", error);
-      // Match the restaurant and hotel default: keep printing usable when the local printer API is unavailable.
+      // The receipt generator uses the browser dialog as the default, matching POS and hotel manual printing.
       window.print();
       toast({
-        title: "Browser print opened",
-        description: "The local printer service was unavailable, so the receipt was sent to the browser print dialog.",
+        title: "Print dialog opened",
+        description: "Choose your printer or save the receipt as a PDF.",
       });
-    }
+      return;
+
+
   };
 
   return (
