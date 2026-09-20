@@ -195,7 +195,7 @@ export function validateStaffAccessProfile({
   const errors: string[] = [];
 
   if (!normalizedRole) errors.push("Select a valid role.");
-  if (normalizedScope && !["hotel", "restaurant", "general", "events"].includes(normalizedScope)) {
+  if (normalizedScope && !["hotel", "restaurant", "general", "events", "staff"].includes(normalizedScope)) {
     errors.push("Select a valid operational scope.");
   }
   if (normalizedRole && normalizedScope && !roleOperationalScopes[normalizedRole].includes(normalizedScope)) {
