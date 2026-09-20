@@ -297,8 +297,10 @@ function CheckInPage() {
       setLatestHotelReceipt(checkInReceipt);
       setSelectedReservation(null);
       setSelectedRoomId("");
-      void printHotelReceipt({ title: "Hotel check-in receipt", ...checkInReceipt, hotel: hotelReceiptIdentity, footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }).catch((error) => toast({ title: "Check-in completed; print unavailable", description: error instanceof Error ? error.message : "Allow pop-ups and try again.", variant: "destructive" }));
-      toast({
+  // Do not open a popup after the async check-in request. Browsers block that popup
+  // because it is no longer directly tied to the user's click. The receipt card below
+  // provides a direct user-initiated Print receipt action that can open the dialog.
+  toast({
         title: "Success",
         description: payload?.receiptId ? `Guest checked in. Order ${payload.orderNumber} is ready.` : "Guest checked in successfully",
       });
