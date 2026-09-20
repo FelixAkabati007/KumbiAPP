@@ -55,6 +55,7 @@ import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { ChefRecipeCard } from "@/components/dashboard/chef-recipe-card";
+import { AppUpdateMenu } from "@/components/app-update-menu";
 
 const DASHBOARD_CATEGORIES = [
   ["all", "All Categories"],
@@ -287,6 +288,7 @@ function DashboardContent() {
       <Settings className="h-4 w-4" />
     </Button>
   </Link>
+  <AppUpdateMenu />
   <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
