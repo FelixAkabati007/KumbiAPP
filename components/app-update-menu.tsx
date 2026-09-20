@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 type UpdateState = "idle" | "checking" | "current" | "available";
-type ReleaseInfo = { version?: string; build?: string; branch?: string; deploymentId?: string | null; commitUrl?: string | null; changes?: string[]; source?: string };
+type ReleaseInfo = { version?: string; build?: string; branch?: string; deploymentId?: string | null; changes?: string[]; source?: string };
 
 export function AppUpdateMenu() {
   const { toast } = useToast();
@@ -87,7 +87,6 @@ export function AppUpdateMenu() {
             <div>Version {release.version || "unknown"} · build {release.build?.slice(0, 12) || "unknown"}</div>
             <div>Branch: {release.branch || "unknown"}</div>
             <div>Source: {release.source || "deployment metadata"}</div>
-            {release.commitUrl && <a className="text-orange-700 underline underline-offset-2 dark:text-orange-300" href={release.commitUrl} target="_blank" rel="noreferrer">View exact commit</a>}
             {release.changes && release.changes.length > 0 && <ul className="list-disc space-y-1 pl-4">{release.changes.map((change) => <li key={change}>{change}</li>)}</ul>}
           </div>
         )}

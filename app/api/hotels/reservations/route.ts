@@ -91,8 +91,12 @@ export async function GET(request: NextRequest) {
     let { checkInDate, checkOutDate } = parsed.data;
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const roomTypeName = roomTypeNameResult.rows[0]?.name?.trim().toLowerCase();
-    if (roomTypeName === "short time" || roomTypeName === "short stay") {
-      checkOutDate = new Date(checkInDate.getTime() + 2 * 60 * 60 * 1000);
+    const isShortStay = roomTypeName === "short time" || roomTypeName === "short stay";
+    if (isShortStay) {
+      const requestedDuration = checkOutDate.getTime() - checkInDate.getTime();
+      if (requestedDuration !== 2 * 60 * 60 * 1000 || checkInDate.toDateString() !== checkOutDate.toDateString()) {
+        return NextResponse.json({ error: "Short time bookings are limited to the same day and exactly two hours. Book a normal overnight room for longer stays." }, { status: 400 });
+      }
     }
     if (checkOutDate <= checkInDate) {
       return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
