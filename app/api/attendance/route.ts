@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
+import { registerAttendance } from "@/lib/attendance-service";
 
 export const dynamic = "force-dynamic";
 
@@ -30,40 +31,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action === "check_out" ? "check_out" : "check_in";
-    const latest = await query(
-      `SELECT id, check_in_at, check_out_at FROM attendance_records WHERE staff_id = $1 AND created_at::date = CURRENT_DATE ORDER BY created_at DESC LIMIT 1`,
-      [session.id]
-    );
-    const current = latest.rows[0];
-    if (action === "check_in") {
-      if (current?.check_in_at && !current?.check_out_at) return NextResponse.json({ error: "You are already checked in" }, { status: 409 });
-      const inserted = await query(
-        `INSERT INTO attendance_records (staff_id, check_in_at, status, verification_status, notes) VALUES ($1, now(), 'pending_verification', 'pending', $2) RETURNING *`,
-        [session.id, typeof body.notes === "string" ? body.notes.slice(0, 500) : null]
-      );
-      await query(
-        `INSERT INTO notifications (recipient_user_id, title, message, type)
-         SELECT id, $1, $2, 'attendance_check_in' FROM users
-         WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
-        ["Attendance check-in awaiting confirmation", `${session.email} checked in at ${new Date().toLocaleTimeString()}. Please confirm their presence.`, session.id],
-      );
-      await publishRealtime("attendance.updated", session.id);
-      return NextResponse.json({ record: inserted.rows[0], nextAction: "check_out", message: "Check-in successful" }, { status: 201 });
-    }
-    if (!current?.check_in_at || current.check_out_at) return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
-    const updated = await query(
-      `UPDATE attendance_records SET check_out_at = now(), status = 'checked_out', updated_at = now() WHERE id = $1 RETURNING *`,
-      [current.id]
-    );
-    await query(
-      `INSERT INTO notifications (recipient_user_id, title, message, type)
-       SELECT id, $1, $2, 'attendance_check_out' FROM users
-       WHERE role IN ('manager', 'operationsManager', 'admin') AND id <> $3 AND is_active = true`,
-      ["Attendance check-out recorded", `${session.email} checked out at ${new Date().toLocaleTimeString()}.`, session.id],
-    );
+    const result = await registerAttendance(session, action, typeof body.notes === "string" ? body.notes : undefined);
     await publishRealtime("attendance.updated", session.id);
-    return NextResponse.json({ record: updated.rows[0], nextAction: "complete", message: "Check-out successful" });
+    return NextResponse.json({ ...result, message: action === "check_in" ? "Check-in successful" : "Check-out successful" }, { status: action === "check_in" ? 201 : 200 });
   } catch (cause) {
+    if (cause instanceof Error && cause.message === "ALREADY_CHECKED_IN") return NextResponse.json({ error: "You are already checked in" }, { status: 409 });
+    if (cause instanceof Error && cause.message === "CHECK_IN_REQUIRED") return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
+    if (cause instanceof Error && cause.message === "ALREADY_CHECKED_OUT") return NextResponse.json({ error: "Attendance is already checked out" }, { status: 409 });
     console.error("[attendance] register action failed", cause);
     return NextResponse.json({ error: "Unable to update register" }, { status: 500 });
   }
