@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, transaction } from "@/lib/db";
+import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
 
@@ -107,34 +107,14 @@ export async function POST(request: NextRequest) {
          RETURNING id, snapshot`,
         [reservationId, JSON.stringify(checkoutActor), folio.id]
       );
+      await client.query(
+        `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
+         VALUES ('hotel.checked_out', 'reservation', $1, $2, $3::jsonb)
+         ON CONFLICT (idempotency_key) DO NOTHING`,
+        [reservationId, `hotel-checkout:${reservationId}`, JSON.stringify({ reservationId, guestId: verified.rows[0].guest_id, roomId: checkedOutRoomId, paid, housekeeping: true, ledger: true })],
+      );
       return { ...verified.rows[0], receiptId: receiptResult.rows[0]?.id ?? null, receipt: receiptResult.rows[0]?.snapshot ?? null, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
-
-    // Auxiliary records are follow-up work; neither can roll back a successful checkout.
-    try {
-      await query(
-        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
-         VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6)`,
-        [String(reservationId), String(reservationId), String(result.guest_id ?? ""), String(result.room_id), paid, `Guest checked out of room ${result.room_id}`, JSON.stringify({ source: "hotel", balancePaid: paid })]
-      );
-    } catch (ledgerError) {
-      console.error("Checkout activity ledger follow-up failed:", ledgerError);
-    }
-
-    try {
-      await query(
-        `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
-         SELECT $1, 'cleaning', 'pending', 'normal'
-         WHERE NOT EXISTS (
-           SELECT 1 FROM housekeeping_tasks
-           WHERE room_id = $1 AND task_type = 'cleaning'
-             AND status IN ('pending', 'in_progress')
-         )`,
-        [result.room_id]
-      );
-    } catch (housekeepingError) {
-      console.error("Checkout housekeeping follow-up failed:", housekeepingError);
-    }
 
     return NextResponse.json(
       { ...result, persisted: true, status: "checked_out" },

@@ -22,8 +22,24 @@ export async function POST() {
     const results = [];
     for (const event of claimed.rows) {
       try {
-        await client.query(
-          `INSERT INTO operational_reconciliation (aggregate_type, aggregate_id, source_table, source_id, status, details)
+    if (event.event_type === "hotel.checked_out") {
+      const payload = event.payload as { roomId: string; reservationId: string; guestId: string; paid: number };
+      await client.query(
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
+         VALUES ('checked_out', 'reservation', $1, $1, $2, $3, $4, $5, $6::jsonb)
+         ON CONFLICT DO NOTHING`,
+        [payload.reservationId, payload.guestId, payload.roomId, payload.paid, `Guest checked out of room ${payload.roomId}`, JSON.stringify({ source: "hotel", balancePaid: payload.paid })],
+      );
+      await client.query(
+        `INSERT INTO housekeeping_tasks (room_id, task_type, status, priority)
+         SELECT $1, 'cleaning', 'pending', 'normal'
+         WHERE NOT EXISTS (SELECT 1 FROM housekeeping_tasks WHERE room_id = $1 AND task_type = 'cleaning' AND status IN ('pending', 'in_progress'))`,
+        [payload.roomId],
+      );
+    }
+
+    await client.query(
+      `INSERT INTO operational_reconciliation (aggregate_type, aggregate_id, source_table, source_id, status, details)
            VALUES ($1, $2, 'operational_outbox', $3, 'observed', $4::jsonb)
            ON CONFLICT (aggregate_type, aggregate_id, source_table, source_id)
            DO UPDATE SET status = 'observed', details = EXCLUDED.details, checked_at = now()`,

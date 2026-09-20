@@ -78,9 +78,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Create a new reservation
-export async function POST(request: NextRequest) {
+  export async function POST(request: NextRequest) {
   try {
-    const { error } = await requirePermission("reservations");
+  const { session, error } = await requirePermission("reservations");
     if (error) return error;
 
     const parsed = reservationSchema.safeParse(await request.json());
@@ -129,14 +129,14 @@ export async function POST(request: NextRequest) {
 
     const result = await transaction(async (client) => {
       await client.query(`SELECT pg_advisory_xact_lock(hashtext('kumbiapp-reservation-number'))`);
-      const reservationNumberResult = await client.query(`SELECT 'RES' || TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || LPAD((COUNT(*) + 1)::text, 5, '0') AS number FROM reservations WHERE created_at::date = CURRENT_DATE`);
+      const reservationNumberResult = await client.query(`SELECT 'RES' || TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || LPAD((COUNT(*) + 1)::text, 5, '0') AS number FROM reservations WHERE created_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Accra')::date`);
       const reservationNumber = reservationNumberResult.rows[0]?.number;
       if (!reservationNumber) throw new Error("Unable to generate reservation number");
 
       const inserted = await client.query(
         `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'confirmed') RETURNING *`,
-        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, createdBy || null]
+        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, session.id]
       );
 
       await client.query(
