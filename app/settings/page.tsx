@@ -90,7 +90,7 @@ function SettingsPageContent() {
     system: {
       autoBackup: true,
       receiptPrinter: "Thermal Printer",
-      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, appliesToEvents: true, graEVatRate: 0, vatRate: 12.5, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 1 },
+      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, appliesToEvents: true, graEVatRate: 0, vatRate: 15, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 0 },
       currency: "GHS",
       language: "en",
       cashDrawer: {
@@ -1037,7 +1037,7 @@ function SettingsPageContent() {
                     <div className="mb-4 flex items-start justify-between gap-4">
                       <div>
                         <Label>GRA E-VAT / statutory levies</Label>
-                        <p className="text-sm text-muted-foreground">One authoritative configuration used by restaurant POS and room billing.</p>
+                        <p className="text-sm text-muted-foreground">One authoritative configuration used by Restaurant POS, Hotel room billing, and Event receipts. Current Ghana VAT reform defaults apply from January 1, 2026.</p>
                       </div>
                       <Switch checked={settings.system.taxConfiguration?.enabled ?? true} onCheckedChange={(enabled) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, enabled })} disabled={!isAdmin} />
                     </div>
@@ -1050,7 +1050,7 @@ function SettingsPageContent() {
                       <p className="text-xs text-muted-foreground">Receipt lines show each levy separately using this display method. Tax calculations remain rate-based.</p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {([["graEVatRate", "GRA E-VAT (%)"], ["vatRate", "VAT (%)"], ["nhilRate", "NHIL (%)"], ["getFundRate", "GETFund (%)"], ["covidLevyRate", "COVID-19 levy (%)"]] as const).map(([key, label]) => (
+                      {([["graEVatRate", "GRA E-VAT (%)"], ["vatRate", "VAT (%)"], ["nhilRate", "NHIL (%)"], ["getFundRate", "GETFund (%)"], ["covidLevyRate", "COVID-19 levy (%) — abolished"]] as const).map(([key, label]) => (
                         <div className="grid gap-2" key={key}>
                           <Label htmlFor={key}>{label}</Label>
                           <Input id={key} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[key] ?? 0} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: Number.parseFloat(e.target.value) || 0 })} disabled={!isAdmin} />
