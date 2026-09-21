@@ -54,6 +54,10 @@ export async function POST(request: NextRequest) {
         throw new Error("Room is no longer available");
       }
 
+      // Finance payment records use the database enum value accepted by the folio flow.
+      // Keep this contract explicit here because check-in receipts are reconciled as guest-folio activity.
+      const financePaymentMethod = "'guest-folio'::payment_method_enum";
+
       // VIP authorizations waive the guest-facing room charge while preserving the stay event.
       const vipAuthorization = await client.query(`SELECT id, room_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1::uuid AND ca.status = 'active' AND ca.valid_until > now() AND ca.room_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [reservationId]);
       const vipRoom = vipAuthorization.rows[0];
