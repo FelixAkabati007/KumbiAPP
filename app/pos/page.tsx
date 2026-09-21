@@ -65,6 +65,7 @@ import {
 } from "@/lib/integration-service";
 import { hasPermission, UserRole } from "@/lib/roles";
 import { calculateTaxes } from "@/lib/tax";
+import { levyRowsHtml } from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
 import {
   PaymentCompletionConfirmation,
@@ -643,7 +644,7 @@ function POSContent() {
         <div class="total">
           <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
           <div class="item"><span>GRA E-VAT / statutory levies:</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
-  ${Object.entries(levyResult.breakdown).map(([label, amount]) => `<div class="item detail"><span>${label === "graEVat" ? "GRA E-VAT" : label === "getFund" ? "GETFund" : label === "nhil" ? "NHIL" : label === "covidLevy" ? "COVID-19 levy" : "VAT"}:</span><span></span><span></span><span>₵${Number(amount).toFixed(2)}</span></div>`).join("")}
+  ${levyRowsHtml(levyResult.breakdown)}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>

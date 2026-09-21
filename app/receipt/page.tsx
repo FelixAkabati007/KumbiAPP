@@ -17,6 +17,8 @@ import { findSaleByOrderNumber } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 import { useReceiptStats } from "@/hooks/use-receipt-stats";
 import { useAuth } from "@/components/auth-provider";
+import { calculateTaxes } from "@/lib/tax";
+import { levyRows } from "@/lib/levy-presentation";
 
 interface ReceiptData {
   orderNumber: string;
@@ -461,6 +463,7 @@ function ReceiptContent() {
                         <span>GRA E-VAT / statutory levies:</span>
                         <span>₵{Number(foundSale.tax ?? 0).toFixed(2)}</span>
                       </div>
+                      {levyRows(calculateTaxes(foundSale.items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0), appSettings.system.taxConfiguration, "pos").breakdown).map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
                       <div className="flex justify-between font-semibold">
                         <span>Total:</span>
                         <span>₵{foundSale.total.toFixed(2)}</span>
