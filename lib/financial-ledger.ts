@@ -1,4 +1,4 @@
-import type { PoolClient } from "@neondatabase/serverless";
+import type { DatabaseClient } from "@/lib/db";
 
 export type FinancialLedgerEntry = {
   eventKey: string;
@@ -14,7 +14,7 @@ export type FinancialLedgerEntry = {
   occurredAt?: string | Date;
 };
 
-export async function recordFinancialLedgerEntry(client: PoolClient, entry: FinancialLedgerEntry) {
+export async function recordFinancialLedgerEntry(client: DatabaseClient, entry: FinancialLedgerEntry) {
   await client.query(
     `INSERT INTO canonical_financial_ledger
       (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, metadata, occurred_at)

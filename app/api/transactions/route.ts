@@ -59,6 +59,18 @@ export async function GET(request: Request) {
                ) AS metadata,
                occurred_at AS created_at, created_at AS updated_at
         FROM hotel_activity_ledger
+
+        UNION ALL
+
+        SELECT id::text AS id, event_key AS transaction_id,
+               amount, currency, status, payment_method,
+               NULL::text AS customer_id, NULL::jsonb AS items,
+               jsonb_build_object(
+                 'source', source, 'entityType', entity_type,
+                 'entityId', entity_id
+               ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
+               occurred_at AS created_at, updated_at
+        FROM canonical_financial_ledger
       )
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at

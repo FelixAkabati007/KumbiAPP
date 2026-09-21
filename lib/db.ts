@@ -180,6 +180,8 @@ export async function getClient(): Promise<PoolClient> {
  *
  * @param callback Function to execute within the transaction
  */
+export type DatabaseClient = PoolClient;
+
 export async function transaction<T>(
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
