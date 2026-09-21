@@ -12,7 +12,6 @@ export async function GET() {
       EXISTS (SELECT 1 FROM event_quotes q WHERE q.event_id = e.id AND q.status IN ('approved', 'accepted')) AS quote_approved,
       EXISTS (SELECT 1 FROM canonical_financial_ledger l WHERE l.entity_type = 'event' AND l.entity_id = e.id::text AND l.status = 'posted') AS finance_posted
     FROM events e
-    WHERE status <> 'cancelled'
     ORDER BY starts_at ASC
   `);
 
@@ -42,4 +41,43 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.json({ event: result.rows[0] }, { status: 201 });
+}
+
+const allowedTransitions: Record<string, string[]> = {
+  planning: ["confirmed", "cancelled"],
+  confirmed: ["in_progress", "cancelled"],
+  in_progress: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+};
+
+export async function PATCH(request: Request) {
+  const { session, error } = await requirePermission("events");
+  if (error) return error;
+
+  const body = await request.json();
+  const eventId = String(body.eventId ?? "").trim();
+  const nextStatus = String(body.status ?? "").trim();
+  if (!eventId || !Object.prototype.hasOwnProperty.call(allowedTransitions, nextStatus)) {
+    return NextResponse.json({ error: "A valid event and status are required" }, { status: 400 });
+  }
+
+  const current = await query("SELECT id, status, starts_at FROM events WHERE id = $1", [eventId]);
+  const event = current.rows[0];
+  if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  if (!allowedTransitions[event.status]?.includes(nextStatus)) {
+    return NextResponse.json({ error: `Cannot move an event from ${event.status} to ${nextStatus}` }, { status: 409 });
+  }
+  if (nextStatus === "completed" && new Date(event.starts_at) > new Date()) {
+    return NextResponse.json({ error: "An event can only be completed after its scheduled start" }, { status: 400 });
+  }
+  if (nextStatus === "in_progress" && new Date(event.starts_at) > new Date()) {
+    return NextResponse.json({ error: "An event cannot be in progress before its scheduled start" }, { status: 400 });
+  }
+
+  const updated = await query(
+    "UPDATE events SET status = $1 WHERE id = $2 RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes, receipt_id",
+    [nextStatus, eventId]
+  );
+  return NextResponse.json({ event: updated.rows[0], changedBy: session.id });
 }
