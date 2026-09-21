@@ -55,9 +55,17 @@ export async function printHotelReceipt(receipt: HotelReceiptData) {
   printWindow.document.open();
   printWindow.document.write(markup);
   printWindow.document.close();
-  printWindow.focus();
   await new Promise<void>((resolve) => {
+    const print = () => {
+      printWindow.focus();
+      printWindow.print();
+      window.setTimeout(() => { if (!printWindow.closed) printWindow.close(); resolve(); }, 1000);
+    };
     printWindow.addEventListener("afterprint", () => { printWindow.close(); resolve(); }, { once: true });
-    window.setTimeout(() => { printWindow.print(); window.setTimeout(() => { if (!printWindow.closed) printWindow.close(); resolve(); }, 1000); }, 150);
+    if (printWindow.document.readyState === "complete") {
+      window.setTimeout(print, 150);
+    } else {
+      printWindow.addEventListener("load", () => window.setTimeout(print, 150), { once: true });
+    }
   });
 }

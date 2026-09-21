@@ -90,8 +90,7 @@ function SettingsPageContent() {
     system: {
       autoBackup: true,
       receiptPrinter: "Thermal Printer",
-      taxRate: 12.5,
-      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, graEVatRate: 0, vatRate: 12.5, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 1 },
+      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, appliesToEvents: true, graEVatRate: 0, vatRate: 12.5, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 1 },
       currency: "GHS",
       language: "en",
       cashDrawer: {
@@ -1033,31 +1032,7 @@ function SettingsPageContent() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label
-                      htmlFor="taxRate"
-                      className="text-sm sm:text-base text-gray-700 dark:text-gray-300"
-                    >
-                      Tax Rate (%)
-                    </Label>
-                    <Input
-                      id="taxRate"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={settings.system.taxRate}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "system",
-                          "taxRate",
-                          Number.parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                      disabled={!isAdmin}
-                    />
-                  </div>
+
                   <div className="rounded-2xl border border-orange-200 p-4 dark:border-orange-700">
                     <div className="mb-4 flex items-start justify-between gap-4">
                       <div>
@@ -1075,7 +1050,7 @@ function SettingsPageContent() {
                       ))}
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {([["appliesToPos", "Apply to restaurant POS"], ["appliesToRooms", "Apply to room billing"]] as const).map(([key, label]) => (
+                      {([["appliesToPos", "Apply to restaurant POS"], ["appliesToRooms", "Apply to room billing"], ["appliesToEvents", "Apply to event receipts"]] as const).map(([key, label]) => (
                         <label className="flex items-center justify-between rounded-xl border p-3 text-sm" key={key}><span>{label}</span><Switch checked={settings.system.taxConfiguration?.[key] ?? true} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: checked })} disabled={!isAdmin} /></label>
                       ))}
                     </div>

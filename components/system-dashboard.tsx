@@ -454,10 +454,10 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-yellow-500" />
                     <div>
-                      <p className="text-sm font-medium">Tax Rate</p>
-                      <p className="text-xs text-muted-foreground">
-                        {settings.system.taxRate}%
-                      </p>
+<p className="text-sm font-medium">GRA E-VAT / levies</p>
+  <p className="text-xs text-muted-foreground">
+  {settings.system.taxConfiguration?.enabled ? "Enabled" : "Disabled"}
+  </p>
                     </div>
                   </div>
                 </CardContent>

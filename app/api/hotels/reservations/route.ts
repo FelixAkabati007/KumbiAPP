@@ -92,16 +92,13 @@ export async function GET(request: NextRequest) {
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const roomTypeName = roomTypeNameResult.rows[0]?.name?.trim().toLowerCase();
     const isShortStay = roomTypeName === "short time" || roomTypeName === "short stay";
-    if (isShortStay) {
-      const requestedDuration = checkOutDate.getTime() - checkInDate.getTime();
-      if (requestedDuration !== 2 * 60 * 60 * 1000 || checkInDate.toDateString() !== checkOutDate.toDateString()) {
-        return NextResponse.json({ error: "Short time bookings are limited to the same day and exactly two hours. Book a normal overnight room for longer stays." }, { status: 400 });
-      }
+    if (isShortStay && checkInDate.toDateString() !== checkOutDate.toDateString()) {
+      return NextResponse.json({ error: "Short time bookings must use the same check-in and check-out date." }, { status: 400 });
     }
-    if (checkOutDate <= checkInDate) {
+    if (!isShortStay && checkOutDate <= checkInDate) {
       return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
     }
-    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
+    const nights = isShortStay ? 1 : Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
     const rateResult = await query<{ base_price: string }>(`SELECT base_price FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const basePrice = Number(rateResult.rows[0]?.base_price);
     if (!Number.isFinite(basePrice)) {
