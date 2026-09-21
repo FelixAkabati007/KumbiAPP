@@ -27,6 +27,7 @@ import {
   Shield,
   Sparkles,
   QrCode,
+  Trash2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -90,7 +91,7 @@ function SettingsPageContent() {
     system: {
       autoBackup: true,
       receiptPrinter: "Thermal Printer",
-      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, appliesToEvents: true, graEVatRate: 0, vatRate: 15, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 0 },
+      taxConfiguration: { enabled: true, appliesToPos: true, appliesToRooms: true, appliesToEvents: true, graEVatRate: 0, vatRate: 15, nhilRate: 2.5, getFundRate: 2.5, covidLevyRate: 0, graEVatEnabled: true, vatEnabled: true, nhilEnabled: true, getFundEnabled: true, covidLevyEnabled: false, levyDisplayMode: "amount" },
       currency: "GHS",
       language: "en",
       cashDrawer: {
@@ -1050,12 +1051,22 @@ function SettingsPageContent() {
                       <p className="text-xs text-muted-foreground">Receipt lines show each levy separately using this display method. Tax calculations remain rate-based.</p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {([["graEVatRate", "GRA E-VAT (%)"], ["vatRate", "VAT (%)"], ["nhilRate", "NHIL (%)"], ["getFundRate", "GETFund (%)"], ["covidLevyRate", "COVID-19 levy (%) — abolished"]] as const).map(([key, label]) => (
-                        <div className="grid gap-2" key={key}>
-                          <Label htmlFor={key}>{label}</Label>
-                          <Input id={key} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[key] ?? 0} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: Number.parseFloat(e.target.value) || 0 })} disabled={!isAdmin} />
-                        </div>
-                      ))}
+                      {([["graEVatRate", "graEVatEnabled", "GRA E-VAT (%)"], ["vatRate", "vatEnabled", "VAT (%)"], ["nhilRate", "nhilEnabled", "NHIL (%)"], ["getFundRate", "getFundEnabled", "GETFund (%)"], ["covidLevyRate", "covidLevyEnabled", "COVID-19 levy (%) — abolished"]] as const).map(([rateKey, enabledKey, label]) => {
+                        const enabled = settings.system.taxConfiguration?.[enabledKey] !== false;
+                        return (
+                          <div className="rounded-xl border p-3" key={rateKey}>
+                            <div className="flex items-center justify-between gap-3">
+                              <Label htmlFor={rateKey}>{label}</Label>
+                              <Switch checked={enabled} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: checked })} disabled={!isAdmin} aria-label={`${label} enabled`} />
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Input id={rateKey} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[rateKey] ?? 0} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [rateKey]: Number.parseFloat(e.target.value) || 0 })} disabled={!isAdmin || !enabled} />
+                              {isAdmin && enabled && <Button type="button" variant="outline" size="icon" onClick={() => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: false })} aria-label={`Remove ${label}`} title={`Remove ${label}`}><Trash2 className="h-4 w-4" /></Button>}
+                            </div>
+                            {!enabled && <p className="mt-1 text-xs text-muted-foreground">Removed from future calculations and receipts.</p>}
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {([["appliesToPos", "Apply to restaurant POS"], ["appliesToRooms", "Apply to room billing"], ["appliesToEvents", "Apply to event receipts"]] as const).map(([key, label]) => (

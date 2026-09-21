@@ -32,6 +32,11 @@ export interface TaxConfiguration {
   nhilRate: number;
   getFundRate: number;
   covidLevyRate: number;
+  graEVatEnabled?: boolean;
+  vatEnabled?: boolean;
+  nhilEnabled?: boolean;
+  getFundEnabled?: boolean;
+  covidLevyEnabled?: boolean;
   levyDisplayMode?: "amount" | "percentage";
 }
 
@@ -139,10 +144,15 @@ const defaultSettings: AppSettings = {
     appliesToRooms: true,
     appliesToEvents: true,
     graEVatRate: 0,
-      vatRate: 12.5,
+      vatRate: 15,
       nhilRate: 2.5,
       getFundRate: 2.5,
-    covidLevyRate: 1,
+    covidLevyRate: 0,
+    graEVatEnabled: true,
+    vatEnabled: true,
+    nhilEnabled: true,
+    getFundEnabled: true,
+    covidLevyEnabled: false,
     levyDisplayMode: "amount",
   },
     currency: "GHS",

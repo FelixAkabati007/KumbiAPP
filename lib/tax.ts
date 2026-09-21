@@ -29,11 +29,11 @@ export function calculateTaxes(subtotal: number, config: TaxConfiguration, modul
   const applies = config.enabled && (module === "pos" ? config.appliesToPos : module === "rooms" ? config.appliesToRooms : config.appliesToEvents);
   if (!applies || subtotal <= 0) return { subtotal, tax: 0, total: subtotal, breakdown: {} };
   const breakdown = {
-    graEVat: subtotal * (Number(config.graEVatRate) / 100),
-    vat: subtotal * (Number(config.vatRate) / 100),
-    nhil: subtotal * (Number(config.nhilRate) / 100),
-    getFund: subtotal * (Number(config.getFundRate) / 100),
-    covidLevy: subtotal * (Number(config.covidLevyRate) / 100),
+    graEVat: config.graEVatEnabled === false ? 0 : subtotal * (Number(config.graEVatRate) / 100),
+    vat: config.vatEnabled === false ? 0 : subtotal * (Number(config.vatRate) / 100),
+    nhil: config.nhilEnabled === false ? 0 : subtotal * (Number(config.nhilRate) / 100),
+    getFund: config.getFundEnabled === false ? 0 : subtotal * (Number(config.getFundRate) / 100),
+    covidLevy: config.covidLevyEnabled === false ? 0 : subtotal * (Number(config.covidLevyRate) / 100),
   };
   const tax = Object.values(breakdown).reduce((sum, amount) => sum + amount, 0);
   return { subtotal, tax, total: subtotal + tax, breakdown };
