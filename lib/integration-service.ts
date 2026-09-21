@@ -8,6 +8,7 @@ import { addSaleData } from "./data";
 import { transactionLogger } from "./services/transaction-logger";
 import type { OrderItem, MenuItem } from "./types";
 import type { AppSettings } from "./settings";
+import { calculateTaxes } from "./tax";
 
 export interface SystemStatus {
   cashDrawer: {
@@ -339,7 +340,7 @@ class IntegrationService {
             barcode: item.barcode,
           })),
           subtotal: paymentData.amount,
-          tax: paymentData.amount * (this.settings.system.taxRate / 100),
+          tax: calculateTaxes(paymentData.amount, this.settings.system.taxConfiguration, "pos").tax,
           total: paymentData.amount,
           paymentMethod: paymentData.method,
           customerName: paymentData.customerRefused

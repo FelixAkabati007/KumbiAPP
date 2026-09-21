@@ -26,6 +26,7 @@ export interface TaxConfiguration {
   enabled: boolean;
   appliesToPos: boolean;
   appliesToRooms: boolean;
+  appliesToEvents: boolean;
   graEVatRate: number;
   vatRate: number;
   nhilRate: number;
@@ -57,7 +58,6 @@ export interface AppSettings {
   system: {
     autoBackup: boolean;
     receiptPrinter: string;
-    taxRate: number;
     taxConfiguration: TaxConfiguration;
     currency: string;
     language: string;
@@ -131,13 +131,13 @@ const defaultSettings: AppSettings = {
   businessEmail: "info.kumbisalyheritagehotel@gmail.com",
   system: {
     autoBackup: true,
-    receiptPrinter: "Thermal Printer",
-    taxRate: 12.5,
-    taxConfiguration: {
+  receiptPrinter: "Thermal Printer",
+  taxConfiguration: {
       enabled: true,
       appliesToPos: true,
-      appliesToRooms: true,
-      graEVatRate: 0,
+    appliesToRooms: true,
+    appliesToEvents: true,
+    graEVatRate: 0,
       vatRate: 12.5,
       nhilRate: 2.5,
       getFundRate: 2.5,

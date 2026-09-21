@@ -5,6 +5,7 @@ export const defaultTaxConfiguration: TaxConfiguration = {
   enabled: true,
   appliesToPos: true,
   appliesToRooms: true,
+  appliesToEvents: true,
   graEVatRate: 0,
   vatRate: 12.5,
   nhilRate: 2.5,
@@ -18,8 +19,8 @@ export async function getTaxConfiguration(): Promise<TaxConfiguration> {
   return { ...defaultTaxConfiguration, ...(configured || {}) };
 }
 
-export function calculateTaxes(subtotal: number, config: TaxConfiguration, module: "pos" | "rooms") {
-  const applies = config.enabled && (module === "pos" ? config.appliesToPos : config.appliesToRooms);
+export function calculateTaxes(subtotal: number, config: TaxConfiguration, module: "pos" | "rooms" | "events") {
+  const applies = config.enabled && (module === "pos" ? config.appliesToPos : module === "rooms" ? config.appliesToRooms : config.appliesToEvents);
   if (!applies || subtotal <= 0) return { subtotal, tax: 0, total: subtotal, breakdown: {} };
   const breakdown = {
     graEVat: subtotal * (Number(config.graEVatRate) / 100),

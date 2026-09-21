@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       const receipt = await client.query(`INSERT INTO hotel_receipts (order_id, order_number, receipt_type, snapshot, created_by) VALUES ($1, $2, 'event_booking', $3::jsonb, $4) RETURNING id`, [event.id, `EVENT-${event.id.slice(0, 8).toUpperCase()}`, JSON.stringify({ event, quote, securedBy: { id: session.id, name: session.name, email: session.email, role: session.role }, securedAt: new Date().toISOString() }), session.id]);
       await client.query(`UPDATE events SET status = 'confirmed', secured_at = now(), secured_by = $1, receipt_id = $2, updated_at = now() WHERE id = $3`, [session.id, receipt.rows[0].id, eventId]);
       await client.query(`UPDATE event_quotes SET status = 'accepted', updated_at = now() WHERE id = $1`, [quoteId]);
+      await client.query(`INSERT INTO canonical_financial_ledger (event_key, entity_type, entity_id, source, direction, amount, currency, status, occurred_at, metadata) VALUES ($1, 'event', $2, 'event_booking', 'credit', $3, $4, 'posted', now(), $5) ON CONFLICT (event_key) DO NOTHING`, [`event-booking:${event.id}:${quote.id}`, event.id, Number(quote.total) || 0, quote.currency || 'GHS', JSON.stringify({ eventId: event.id, quoteId: quote.id, receiptId: receipt.rows[0].id })]);
       return { event, quote, receiptId: receipt.rows[0].id };
     });
     return NextResponse.json({ ok: true, ...result }, { status: 201 });

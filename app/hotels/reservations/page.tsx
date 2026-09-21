@@ -115,16 +115,15 @@ function ReservationsPage() {
     const checkOut = new Date(formData.checkOutDate);
   const selectedRoomType = roomTypes.find((roomType) => roomType.id === formData.roomTypeId);
   const isShortStay = /short time|short stay/i.test(selectedRoomType?.name || "");
-  const durationHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
-  if (isShortStay && (durationHours !== 2 || checkIn.toDateString() !== checkOut.toDateString())) {
+  if (isShortStay && checkIn.toDateString() !== checkOut.toDateString()) {
   toast({
   title: "Short stay booking rule",
-  description: "Short time is only bookable for exactly two hours on the same day. Choose a normal room type for an overnight or longer stay.",
+  description: "Short time bookings must use the same check-in and check-out date. The default short-stay duration remains two hours.",
   variant: "destructive",
   });
   return;
   }
-  if (checkOut <= checkIn) {
+  if (!isShortStay && checkOut <= checkIn) {
   toast({
         title: "Error",
         description: "Check-out date must be after check-in date",
