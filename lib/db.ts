@@ -13,7 +13,11 @@ declare global {
 }
 
 // Configuration for the database connection
-const connectionString = process.env.DATABASE_URL || process.env.DB_URL;
+const connectionString =
+  process.env.DATABASE_URL ||
+  process.env.DB_URL ||
+  process.env.KUMRESH_DB_DATABASE_URL ||
+  process.env.KUMRESH_DB_POSTGRES_URL;
 const poolMax = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 8 : 20));
 const idleTimeoutMillis = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000);
 const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000);
