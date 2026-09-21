@@ -643,8 +643,8 @@ function POSContent() {
         
         <div class="total">
           <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
-          <div class="item"><span>GRA E-VAT / statutory levies:</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
-  ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal)}
+          <div class="levy-header">GRA E-VAT / statutory levies:</div>
+          ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
