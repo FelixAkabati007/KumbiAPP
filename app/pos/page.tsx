@@ -548,7 +548,7 @@ function POSContent() {
         .receipt hr { border: 0; border-top: 1px solid #111; margin: 8px 0; }
         .item { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
         .total { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; }
-        @media print { body { width: 72mm; } }
+        @media print { body { width: var(--receipt-width, 72mm); margin: 3mm auto; font-size: 11px; } .receipt { width: 100%; max-width: none; padding: 3mm; } body { width: 72mm; } }
       </style></head><body>${receiptHtml}</body></html>`);
       printWindow.document.close();
       await new Promise<void>((resolve) => {
@@ -644,7 +644,7 @@ function POSContent() {
         <div class="total">
           <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
           <div class="item"><span>GRA E-VAT / statutory levies:</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
-  ${levyRowsHtml(levyResult.breakdown)}
+  ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal)}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
