@@ -1,6 +1,7 @@
 import EventDetailWorkspace from "@/components/events/event-detail-workspace";
 
-export default async function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function EventDetailPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ print?: string }> }) {
   const { eventId } = await params;
-  return <EventDetailWorkspace eventId={eventId} />;
+  const { print } = await searchParams;
+  return <EventDetailWorkspace eventId={eventId} autoPrint={print === "mock"} />;
 }
