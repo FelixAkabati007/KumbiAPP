@@ -33,7 +33,7 @@ function escapeHtml(value: string) {
 }
 
 export async function printHotelReceipt(receipt: HotelReceiptData) {
-  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=420,height=720");
+  const printWindow = window.open("", "kumbiapp-hotel-receipt-print", "width=420,height=720");
   if (!printWindow) {
     // Popup blockers reject windows opened after an async check-in request. The
     // browser print command itself is not a popup and remains available.
