@@ -69,7 +69,7 @@ function ReceiptContent() {
     orderType: "dine-in",
   });
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
-  const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel">(
+  const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel" | "event">(
     user?.role === "frontDesk" ? "hotel" : "restaurant",
   );
   const [hotelActivity, setHotelActivity] = useState<{
@@ -137,8 +137,16 @@ function ReceiptContent() {
   // Search handler
   const handleSearch = async () => {
     setSearchTouched(true);
-    if (receiptSource === "hotel") {
-      const response = await fetch(
+  if (receiptSource === "event") {
+  const response = await fetch(`/api/transactions?orderNumber=${encodeURIComponent(searchOrderNumber.trim())}&source=event&limit=1`);
+  const rows = response.ok ? await response.json() : [];
+  const row = Array.isArray(rows) ? rows[0] : null;
+  setFoundSale(row ? { id: row.id, orderNumber: row.metadata?.orderNumber ?? row.transaction_id, orderId: row.metadata?.eventId, date: row.created_at, items: [], subtotal: Number(row.amount) || 0, tax: 0, total: Number(row.amount) || 0, orderType: "event booking", customerName: row.metadata?.clientName, paymentMethod: row.payment_method ?? "event booking", performedBy: row.metadata?.performedBy } : null);
+  setHotelActivity(null);
+  return;
+  }
+  if (receiptSource === "hotel") {
+  const response = await fetch(
         `/api/hotel-activity?reservationId=${encodeURIComponent(searchOrderNumber.trim())}&limit=1`,
       );
       const events = response.ok ? await response.json() : [];
@@ -273,7 +281,7 @@ function ReceiptContent() {
   disabled={user?.role === "frontDesk"}
   onChange={(event) => {
                     setReceiptSource(
-                      event.target.value as "restaurant" | "hotel",
+                      event.target.value as "restaurant" | "hotel" | "event",
                     );
                     setFoundSale(null);
                     setHotelActivity(null);
@@ -282,13 +290,16 @@ function ReceiptContent() {
                   aria-label="Receipt source"
                 >
                   <option value="restaurant">Restaurant order</option>
-                  <option value="hotel">Hotel reservation</option>
-                </select>
+  <option value="hotel">Hotel reservation</option>
+  <option value="event">Event booking</option>
+  </select>
                 <Input
                   placeholder={
                     receiptSource === "hotel"
   ? "Enter reservation ID or booking number"
-  : "Enter Order Number (e.g. ORD-20240101-0001)"
+  : receiptSource === "event"
+    ? "Enter event receipt number (e.g. EVENT-...)"
+    : "Enter Order Number (e.g. ORD-20240101-0001)"
                   }
                   value={searchOrderNumber}
                   onChange={(e) => setSearchOrderNumber(e.target.value)}
@@ -495,9 +506,11 @@ function ReceiptContent() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-300 dark:text-gray-600">
                   <span className="text-lg">
-                    {receiptSource === "hotel"
-                      ? "Search for a hotel payment receipt by reservation ID or booking number."
-                      : "Search for a restaurant receipt by order number."}
+  {receiptSource === "hotel"
+  ? "Search for a hotel payment receipt by reservation ID or booking number."
+  : receiptSource === "event"
+    ? "Search for an event booking receipt by event receipt number."
+    : "Search for a restaurant receipt by order number."}
                   </span>
                 </div>
               )}

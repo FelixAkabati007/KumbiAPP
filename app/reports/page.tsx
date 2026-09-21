@@ -465,7 +465,7 @@ function ReportsPage() {
             </div>
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
   <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
-  <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem></SelectContent>
+  <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem><SelectItem value="event">Event Organization</SelectItem></SelectContent>
   </Select>
   <Select value={dateFilter} onValueChange={setDateFilter}>
               <SelectTrigger className="w-full sm:w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
