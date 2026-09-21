@@ -50,6 +50,8 @@ export interface SalesData {
   orderId?: string;
   date: string;
   items: OrderItem[];
+  subtotal?: number;
+  tax?: number;
   total: number;
   orderType: string;
   tableNumber?: string;

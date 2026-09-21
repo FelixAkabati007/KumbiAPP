@@ -458,6 +458,10 @@ function ReceiptContent() {
                         {/* Changed type to any */}
                       </div>
                       <div className="flex justify-between">
+                        <span>GRA E-VAT / statutory levies:</span>
+                        <span>₵{Number(foundSale.tax ?? 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold">
                         <span>Total:</span>
                         <span>₵{foundSale.total.toFixed(2)}</span>
                       </div>

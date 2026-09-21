@@ -64,6 +64,7 @@ import {
   processBarcodeWithIntegration,
 } from "@/lib/integration-service";
 import { hasPermission, UserRole } from "@/lib/roles";
+import { calculateTaxes } from "@/lib/tax";
 import { RoleGuard } from "@/components/role-guard";
 import {
   PaymentCompletionConfirmation,
@@ -549,19 +550,24 @@ function POSContent() {
         @media print { body { width: 72mm; } }
       </style></head><body>${receiptHtml}</body></html>`);
       printWindow.document.close();
-      printWindow.focus();
       await new Promise<void>((resolve) => {
-        printWindow.addEventListener("afterprint", () => {
-          printWindow.close();
-          resolve();
-        }, { once: true });
-        window.setTimeout(() => {
+        const print = () => {
+          printWindow.focus();
           printWindow.print();
           window.setTimeout(() => {
             if (!printWindow.closed) printWindow.close();
             resolve();
           }, 1000);
-        }, 150);
+        };
+        printWindow.addEventListener("afterprint", () => {
+          printWindow.close();
+          resolve();
+        }, { once: true });
+        if (printWindow.document.readyState === "complete") {
+          window.setTimeout(print, 150);
+        } else {
+          printWindow.addEventListener("load", () => window.setTimeout(print, 150), { once: true });
+        }
       });
     } catch (error) {
       console.error("Print dialog error:", error);
@@ -580,8 +586,9 @@ function POSContent() {
   const _generateReceiptContent = () => {
     const date = new Date();
     const subtotal = calculateTotal();
-    const tax = subtotal * 0.125;
-    const total = subtotal + tax;
+    const levyResult = calculateTaxes(subtotal, appSettings.system.taxConfiguration, "pos");
+    const tax = levyResult.tax;
+    const total = levyResult.total;
 
     const businessName =
       appSettings.account.restaurantName ||
@@ -635,7 +642,7 @@ function POSContent() {
         
         <div class="total">
           <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
-          <div class="item"><span>Tax (12.5%):</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
+          <div class="item"><span>GRA E-VAT / statutory levies:</span><span></span><span></span><span>₵${tax.toFixed(2)}</span></div>
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
@@ -1378,12 +1385,12 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       <span>₵{calculateTotal().toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Tax (12.5%):</span>
-                      <span>₵{(calculateTotal() * 0.125).toFixed(2)}</span>
+<span>GRA E-VAT / statutory levies:</span>
+  <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
                       <span>TOTAL:</span>
-                      <span>₵{(calculateTotal() * 1.125).toFixed(2)}</span>
+                      <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").total.toFixed(2)}</span>
                     </div>
                   </div>
 
