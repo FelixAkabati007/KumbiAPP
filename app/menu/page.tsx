@@ -623,7 +623,7 @@ function MenuContent() {
         </div>
 
         {/* Menu Items Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
           {filteredItems.map((item) => (
             <Card
               key={item.id}
@@ -639,7 +639,7 @@ function MenuContent() {
 
                       if (allowedImageHosts.has(host)) {
                         return (
-                          <div className="w-full h-48 relative">
+                          <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted sm:aspect-[5/3] sm:rounded-t-3xl">
                             <Image
                               src={item.image}
                               alt={item.name}
@@ -662,7 +662,7 @@ function MenuContent() {
 
                     // Fallback for non-whitelisted hosts: use next/image with `unoptimized` to avoid domain validation
                     return (
-                      <div className="w-full h-48 relative">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted sm:aspect-[5/3] sm:rounded-t-3xl">
                         <Image
                           src={item.image}
                           alt={item.name}

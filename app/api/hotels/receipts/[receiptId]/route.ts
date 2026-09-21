@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { calculateTaxes, getTaxConfiguration } from "@/lib/tax";
+import { levyRowsHtml } from "@/lib/levy-presentation";
 
 function escapeHtml(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -36,8 +37,7 @@ export async function GET(_request: Request, context: { params: Promise<{ receip
     const hotel = { name: profile.restaurant_name || "Hotel", email: profile.email || "", phone: profile.phone || "", address: profile.address || "", logo: profile.logo || "" };
     const snapshot = receipt.snapshot || {};
     const levyResult = snapshot.subtotal != null ? calculateTaxes(Number(snapshot.subtotal), await getTaxConfiguration(), receipt.receipt_type === "event_booking" ? "events" : "rooms") : { breakdown: {} };
-    const breakdownLabels: Record<string, string> = { graEVat: "GRA E-VAT", vat: "VAT", nhil: "NHIL", getFund: "GETFund", covidLevy: "COVID-19 levy" };
-    const levyRows = Object.entries(levyResult.breakdown).map(([key, amount]) => `<div>${breakdownLabels[key] || key}: GHS ${Number(amount).toFixed(2)}</div>`).join("");
+    const levyRows = levyRowsHtml(levyResult.breakdown, "GHS ");
     const items = Array.isArray(snapshot.items) ? snapshot.items : [];
     const itemRows = items.map((item) => `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>GHS ${Number(item.total_amount || 0).toFixed(2)}</td></tr>`).join("");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hotel Receipt ${escapeHtml(receipt.order_number)}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:32px auto;color:#202020}h1{font-size:22px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{text-align:left;border-bottom:1px solid #ddd;padding:10px 4px}td:last-child,th:last-child{text-align:right}.meta{line-height:1.7}.total{text-align:right;font-size:18px;font-weight:700;margin-top:20px}</style></head><body>${hotel.logo ? `<img src="${escapeHtml(hotel.logo)}" alt="${escapeHtml(hotel.name)} logo" style="max-width:220px;max-height:90px;object-fit:contain">` : ""}<h1>${escapeHtml(hotel.name)}</h1><div class="meta">${escapeHtml(hotel.address)}<br>${escapeHtml(hotel.phone)}<br>${escapeHtml(hotel.email)}<br><strong>Hotel Receipt</strong><br>Order number: ${escapeHtml(receipt.order_number)}<br>Order ID: ${escapeHtml(receipt.order_id)}<br>Guest: ${escapeHtml(snapshot.guestName)}<br>Room: ${escapeHtml(snapshot.roomNumber)}<br>Booked by: ${escapeHtml(snapshot.bookedBy?.name || snapshot.bookedBy?.email || "—")}${snapshot.bookedBy?.role ? ` (${escapeHtml(snapshot.bookedBy.role)})` : ""}<br>Checked in by: ${escapeHtml(snapshot.checkedInBy?.name || snapshot.checkedInBy?.email || "—")}<br>Checked out by: ${escapeHtml(snapshot.checkedOutBy?.name || snapshot.checkedOutBy?.email || "—")}<br>Receipt version: ${escapeHtml(receipt.version)}<br>Date: ${escapeHtml(new Date(receipt.created_at).toLocaleString())}</div><table><thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${itemRows}</tbody></table><div class="totals"><div>Subtotal: GHS ${Number(snapshot.subtotal || 0).toFixed(2)}</div><div>${escapeHtml(snapshot.levyLabel || "GRA E-VAT / statutory levies")}: GHS ${Number(snapshot.tax || 0).toFixed(2)}</div>${levyRows}<div class="total">Total: GHS ${Number(snapshot.total || 0).toFixed(2)}</div></div><p>Keep this receipt for your hotel records.</p></body></html>`;
