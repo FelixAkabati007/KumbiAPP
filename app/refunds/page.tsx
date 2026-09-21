@@ -317,6 +317,7 @@ function RefundsPageContent() {
             <option value="all">All activity</option>
             <option value="hotel">Hotel activity</option>
             <option value="restaurant">Restaurant refunds</option>
+            <option value="event">Event bookings</option>
           </select>
         </div>
         <RefundStats stats={stats} />
