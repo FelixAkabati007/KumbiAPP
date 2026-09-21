@@ -32,6 +32,7 @@ export interface TaxConfiguration {
   nhilRate: number;
   getFundRate: number;
   covidLevyRate: number;
+  levyDisplayMode?: "amount" | "percentage";
 }
 
 export interface AppSettings {
@@ -141,8 +142,9 @@ const defaultSettings: AppSettings = {
       vatRate: 12.5,
       nhilRate: 2.5,
       getFundRate: 2.5,
-      covidLevyRate: 1,
-    },
+    covidLevyRate: 1,
+    levyDisplayMode: "amount",
+  },
     currency: "GHS",
     language: "en",
     compactMode: false,

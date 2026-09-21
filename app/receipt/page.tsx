@@ -463,7 +463,7 @@ function ReceiptContent() {
                         <span>GRA E-VAT / statutory levies:</span>
                         <span>₵{Number(foundSale.tax ?? 0).toFixed(2)}</span>
                       </div>
-                      {levyRows(calculateTaxes(foundSale.items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0), appSettings.system.taxConfiguration, "pos").breakdown).map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
+                      {levyRows(calculateTaxes(foundSale.items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0), appSettings.system.taxConfiguration, "pos").breakdown, appSettings.system.taxConfiguration, foundSale.subtotal).map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
                       <div className="flex justify-between font-semibold">
                         <span>Total:</span>
                         <span>₵{foundSale.total.toFixed(2)}</span>

@@ -1041,6 +1041,14 @@ function SettingsPageContent() {
                       </div>
                       <Switch checked={settings.system.taxConfiguration?.enabled ?? true} onCheckedChange={(enabled) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, enabled })} disabled={!isAdmin} />
                     </div>
+                    <div className="mb-4 grid gap-2 sm:max-w-sm">
+                      <Label htmlFor="levyDisplayMode">Receipt levy display</Label>
+                      <Select value={settings.system.taxConfiguration?.levyDisplayMode ?? "amount"} onValueChange={(value) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, levyDisplayMode: value as "amount" | "percentage" })} disabled={!isAdmin}>
+                        <SelectTrigger id="levyDisplayMode"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="amount">GHS amount</SelectItem><SelectItem value="percentage">Percentage</SelectItem></SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Receipt lines show each levy separately using this display method. Tax calculations remain rate-based.</p>
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       {([["graEVatRate", "GRA E-VAT (%)"], ["vatRate", "VAT (%)"], ["nhilRate", "NHIL (%)"], ["getFundRate", "GETFund (%)"], ["covidLevyRate", "COVID-19 levy (%)"]] as const).map(([key, label]) => (
                         <div className="grid gap-2" key={key}>
