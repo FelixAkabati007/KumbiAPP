@@ -34,7 +34,12 @@ function escapeHtml(value: string) {
 
 export async function printHotelReceipt(receipt: HotelReceiptData) {
   const printWindow = window.open("", "_blank", "noopener,noreferrer,width=420,height=720");
-  if (!printWindow) throw new Error("The print dialog was blocked. Allow pop-ups for KumbiAPP and try again.");
+  if (!printWindow) {
+    // Popup blockers reject windows opened after an async check-in request. The
+    // browser print command itself is not a popup and remains available.
+    window.print();
+    return;
+  }
   const date = receipt.date || new Date();
   const items = (receipt.items.length ? receipt.items : [{ description: "Guest folio charge", quantity: 1, totalAmount: receipt.total }]).map((item) => `<div class="item"><span>${escapeHtml(item.description)}</span><span>${item.quantity}</span><strong>GHS ${item.totalAmount.toFixed(2)}</strong></div>`).join("");
   const markup = `<!doctype html><html><head><title>${escapeHtml(receipt.title)} ${escapeHtml(receipt.orderNumber)}</title><style>
