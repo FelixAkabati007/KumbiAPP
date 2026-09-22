@@ -128,8 +128,18 @@ export async function GET() {
       );
     `);
 
-    // Add indexes
-    await query(
+  await query(`
+    CREATE TABLE IF NOT EXISTS deleted_staff_accounts (
+      email VARCHAR(255) PRIMARY KEY,
+      deleted_user_id UUID,
+      deleted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      deleted_by UUID
+    );
+  `);
+
+  // Add indexes
+  await query(
+
       `CREATE INDEX IF NOT EXISTS idx_transaction_logs_created_at ON transaction_logs(created_at);`
     );
     await query(
