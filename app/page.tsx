@@ -102,6 +102,21 @@ function DashboardContent() {
   const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
   const [attendanceRecord, setAttendanceRecord] = useState<{ verification_status?: string; check_in_at?: string | null; check_out_at?: string | null } | null>(null);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const accraTime = new Intl.DateTimeFormat("en-GH", {
+    timeZone: "Africa/Accra",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(currentTime);
+  const [clockTime, clockPeriod] = accraTime.split(" ");
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -370,12 +385,19 @@ function DashboardContent() {
               </div>
             )}
             <Link href={roleDashboard.primaryHref} className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>
-            <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
-              <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-{getRoleDisplayName(user.role)} Access
-              </span>
-            </div>
+  <div className="flex flex-wrap items-center justify-end gap-2">
+  <div className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40" aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}>
+  <Clock3 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+  <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">{clockTime}</span>
+  <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{clockPeriod}</span>
+  </div>
+  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
+  <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+  <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
+  {getRoleDisplayName(user.role)} Access
+  </span>
+  </div>
+  </div>
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
