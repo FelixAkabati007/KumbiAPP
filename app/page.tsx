@@ -264,7 +264,7 @@ function DashboardContent() {
   const roleDashboard = roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
   const isAttendanceExempt = user.role === "admin" || user.role === "manager";
-  const attendanceOnly = attendanceLoaded && !isAttendanceExempt && attendanceRecord?.verification_status !== "verified";
+  const attendanceDenied = attendanceLoaded && !isAttendanceExempt && ["rejected", "denied"].includes(String(attendanceRecord?.verification_status ?? "").toLowerCase());
   const categorySectionMap: Record<(typeof DASHBOARD_CATEGORIES)[number][0], AppSection[]> = {
     all: [],
     hotel: ["rooms", "reservations", "checkIn", "checkOut", "housekeeping", "guestFolio"],
@@ -396,8 +396,8 @@ function DashboardContent() {
             <p className="important-description mt-3 max-w-2xl text-sm">{roleDashboard.focus}</p>
           </div>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
-            {canSwitchDashboardCategories && (
-              <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
+  {!attendanceDenied && canSwitchDashboardCategories && (
+  <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
                 {availableDashboardCategories.map(([category, label]) => (
                   <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
                     {label}
@@ -405,7 +405,7 @@ function DashboardContent() {
                 ))}
               </div>
             )}
-            <Link href={roleDashboard.primaryHref} className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>
+            {!attendanceDenied && <Link href={roleDashboard.primaryHref} className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>}
   <div className="flex flex-wrap items-center justify-end gap-2">
   <div className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40" aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}>
   <Clock3 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
@@ -424,7 +424,7 @@ function DashboardContent() {
         <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
 
         <style>{`[data-attendance-only="true"] > *:not([data-attendance-card="true"]) { display: none !important; } [data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
-        <div data-dashboard-category-filter={activeDashboardCategory} data-attendance-only={attendanceOnly ? "true" : "false"} className="dashboard-category-grid responsive-grid">
+        <div data-dashboard-category-filter={activeDashboardCategory} data-attendance-only={attendanceDenied ? "true" : "false"} className="dashboard-category-grid responsive-grid">
           <div data-dashboard-category="all" className="min-w-0">
             <AnnouncementCard />
           </div>
