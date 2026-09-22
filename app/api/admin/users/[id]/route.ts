@@ -114,9 +114,24 @@ export async function DELETE(
     }
 
     const result = await query(
-      "DELETE FROM users WHERE id = $1 RETURNING id, email",
+      "SELECT id, email FROM users WHERE id = $1",
       [id]
     );
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Keep a permanent tombstone before removing the user so the deleted
+    // business email can never authenticate again if recreated later.
+    await query(
+      `INSERT INTO deleted_staff_accounts (email, deleted_user_id, deleted_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO NOTHING`,
+      [result.rows[0].email, result.rows[0].id, session.id]
+    );
+
+    await query("DELETE FROM users WHERE id = $1", [id]);
 
     if (result.rowCount === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

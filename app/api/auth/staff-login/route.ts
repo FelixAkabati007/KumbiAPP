@@ -29,6 +29,31 @@ export async function POST(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
+    // Deleted staff accounts are permanently blocked, even if someone recreates
+    // the same email address or staff profile later.
+    const deletedAccountResult = await query(
+      `SELECT email FROM deleted_staff_accounts WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email]
+    );
+
+    if (deletedAccountResult.rows.length > 0) {
+      await createAuditLog({
+        actionType: "login",
+        actorId: "deleted-account",
+        actorName: email,
+        actorRole: "unknown",
+        status: "failed",
+        errorMessage: "Deleted staff account is permanently blocked",
+        ipAddress,
+        deviceFingerprint,
+      }).catch(console.error);
+
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
     // Find staff by business email
     const staffResult = await query(
       `SELECT sp.id, sp.user_id, sp.password_hash, sp.employment_status,

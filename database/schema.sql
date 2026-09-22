@@ -41,18 +41,26 @@ EXCEPTION
 WHEN duplicate_object THEN null;
 END $$;
 -- 1. Users & Auth
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    role user_role DEFAULT 'staff',
-    password_hash VARCHAR(255),
-    email_verified BOOLEAN DEFAULT FALSE NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    last_login TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+  CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  role user_role DEFAULT 'staff',
+  password_hash VARCHAR(255),
+  email_verified BOOLEAN DEFAULT FALSE NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  last_login TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS deleted_staff_accounts (
+  email VARCHAR(255) PRIMARY KEY,
+  deleted_user_id UUID,
+  deleted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_by UUID
+  );
+
 -- 2. Product Management
 CREATE TABLE IF NOT EXISTS categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
