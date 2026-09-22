@@ -1051,7 +1051,7 @@ function SettingsPageContent() {
                       <p className="text-xs text-muted-foreground">Receipt lines show each levy separately using this display method. Tax calculations remain rate-based.</p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {([["graEVatRate", "graEVatEnabled", "GRA E-VAT (%)"], ["vatRate", "vatEnabled", "VAT (%)"], ["nhilRate", "nhilEnabled", "NHIL (%)"], ["getFundRate", "getFundEnabled", "GETFund (%)"], ["covidLevyRate", "covidLevyEnabled", "COVID-19 levy (%) — abolished"]] as const).map(([rateKey, enabledKey, label]) => {
+                      {([["graEVatRate", "graEVatEnabled", "GRA E-VAT invoice channel (not a tax)"], ["vatRate", "vatEnabled", "VAT (%)"], ["nhilRate", "nhilEnabled", "NHIL (%)"], ["getFundRate", "getFundEnabled", "GETFund (%)"], ["covidLevyRate", "covidLevyEnabled", "COVID-19 levy (%) — abolished"]] as const).map(([rateKey, enabledKey, label]) => {
                         const enabled = settings.system.taxConfiguration?.[enabledKey] !== false;
                         return (
                           <div className="rounded-xl border p-3" key={rateKey}>

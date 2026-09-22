@@ -1,7 +1,7 @@
 import type { TaxConfiguration } from "@/lib/settings";
 
 export const STATUTORY_LEVY_LABELS = [
-  ["graEVat", "GRA E-VAT", "graEVatRate"],
+  ["graEVat", "GRA E-VAT (invoice channel)", "graEVatRate"],
   ["vat", "VAT", "vatRate"],
   ["nhil", "NHIL", "nhilRate"],
   ["getFund", "GETFund", "getFundRate"],
