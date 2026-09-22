@@ -10,6 +10,12 @@ describe("hotel checkout balance contract", () => {
     expect(source).not.toContain("SELECT id, room_id, guest_id, status, checked_in_at, check_in_date FROM reservations");
   });
 
+  it("preserves the two-hour short-stay checkout rule", async () => {
+    const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app/api/hotels/check-out/route.ts"), "utf8");
+    expect(source).toContain("Date.now() - checkedInAt < 2 * 60 * 60 * 1000");
+    expect(source).toContain("SHORT_STAY_MINIMUM_NOT_REACHED");
+  });
+
   it("requires the truthful outstanding balance before checkout", async () => {
     const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app/api/hotels/check-out/route.ts"), "utf8");
     expect(source).toContain("if (paid < outstandingBalance)");
