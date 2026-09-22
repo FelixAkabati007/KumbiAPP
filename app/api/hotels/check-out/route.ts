@@ -29,7 +29,17 @@ export async function POST(request: NextRequest) {
     const result = await transaction(async (client) => {
       // Serialize this reservation transition and lock the exact row first.
       const lockedReservation = await client.query(
-        `SELECT id, room_id, guest_id, status, checked_in_at, check_in_date FROM reservations WHERE id = $1 FOR UPDATE`,
+        `SELECT r.id, r.room_id, r.guest_id, r.status, r.check_in_date,
+              (
+                SELECT h.snapshot->>'checkedInAt'
+                FROM hotel_receipts h
+                WHERE h.reservation_id = r.id AND h.receipt_type = 'check_in'
+                ORDER BY h.created_at DESC
+                LIMIT 1
+              ) AS checked_in_at
+         FROM reservations r
+         WHERE r.id = $1
+         FOR UPDATE`,
         [reservationId]
       );
       const currentReservation = lockedReservation.rows[0];

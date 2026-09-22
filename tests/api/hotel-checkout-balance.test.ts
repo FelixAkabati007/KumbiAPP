@@ -4,6 +4,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 describe("hotel checkout balance contract", () => {
+  it("uses the persisted check-in receipt timestamp instead of a missing reservation column", async () => {
+    const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app/api/hotels/check-out/route.ts"), "utf8");
+    expect(source).toContain("h.snapshot->>'checkedInAt'");
+    expect(source).not.toContain("SELECT id, room_id, guest_id, status, checked_in_at, check_in_date FROM reservations");
+  });
+
   it("requires the truthful outstanding balance before checkout", async () => {
     const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app/api/hotels/check-out/route.ts"), "utf8");
     expect(source).toContain("if (paid < outstandingBalance)");
