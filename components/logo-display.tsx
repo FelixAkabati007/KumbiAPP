@@ -21,10 +21,9 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
     setIsValidImage(true);
 
     // Bust aggressive browser favicon caches whenever Admin updates branding.
-    const faviconUrl = `/favicon.ico?v=${encodeURIComponent(currentLogo || "default")}`;
     document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
       const element = link as HTMLLinkElement;
-      if (element.href.includes("favicon.ico")) element.href = faviconUrl;
+      element.href = currentLogo ? `${currentLogo}${currentLogo.includes("?") ? "&" : "?"}v=${encodeURIComponent(currentLogo)}` : "/logo.svg";
     });
   }, []);
 
