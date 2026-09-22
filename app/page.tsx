@@ -105,8 +105,29 @@ function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => window.clearInterval(timer);
+    let tickTimer: number | undefined;
+    let syncTimer: number | undefined;
+    let cancelled = false;
+
+    const syncTime = async () => {
+      try {
+        const response = await fetch("https://aisenseapi.com/services/v1/datetime/+0000", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Time API returned ${response.status}`);
+        const payload = (await response.json()) as { datetime?: string };
+        if (payload.datetime && !cancelled) setCurrentTime(new Date(payload.datetime));
+      } catch {
+        // Keep the last trusted API value while the public service is unavailable.
+      }
+    };
+
+    void syncTime();
+    tickTimer = window.setInterval(() => setCurrentTime((value) => new Date(value.getTime() + 1000)), 1000);
+    syncTimer = window.setInterval(syncTime, 30_000);
+    return () => {
+      cancelled = true;
+      if (tickTimer) window.clearInterval(tickTimer);
+      if (syncTimer) window.clearInterval(syncTimer);
+    };
   }, []);
 
   const accraTime = new Intl.DateTimeFormat("en-GH", {
