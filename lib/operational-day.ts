@@ -1,9 +1,7 @@
-const DEFAULT_PROPERTY_TIMEZONE = "Africa/Accra";
+import { getPropertyTimeZone } from "@/lib/property-time";
 
-export function getPropertyTimeZone() {
-  const configured = process.env.KUMBI_PROPERTY_TIMEZONE?.trim();
-  return configured || DEFAULT_PROPERTY_TIMEZONE;
-}
+export { getPropertyTimeZone };
+
 
 export function propertyDayExpression(column = "now()") {
   const timezone = getPropertyTimeZone().replace(/[^A-Za-z0-9_+\-/]/g, "");
