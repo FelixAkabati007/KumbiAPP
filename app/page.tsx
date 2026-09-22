@@ -111,10 +111,10 @@ function DashboardContent() {
 
     const syncTime = async () => {
       try {
-        const response = await fetch("https://aisenseapi.com/services/v1/datetime/+0000", { cache: "no-store" });
+        const response = await fetch("/api/system/time", { cache: "no-store" });
         if (!response.ok) throw new Error(`Time API returned ${response.status}`);
-        const payload = (await response.json()) as { datetime?: string };
-        if (payload.datetime && !cancelled) setCurrentTime(new Date(payload.datetime));
+        const payload = (await response.json()) as { iso?: string };
+        if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
       } catch {
         // Keep the last trusted API value while the public service is unavailable.
       }
