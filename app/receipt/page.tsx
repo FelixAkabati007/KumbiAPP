@@ -470,7 +470,7 @@ function ReceiptContent() {
                         </span>{" "}
                         {/* Changed type to any */}
                       </div>
-                      <div className="font-semibold">GRA E-VAT / statutory levies:</div>
+                      <div className="font-semibold">Statutory taxes and levies:</div><div className="text-xs text-muted-foreground">GRA E-VAT is the invoice channel; it is not added as a separate tax.</div>
                       {levyRows(calculateTaxes(foundSale.items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0), appSettings.system.taxConfiguration, "pos").breakdown, appSettings.system.taxConfiguration, foundSale.subtotal, "GHS ").map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
                       <div className="flex justify-between font-semibold">
                         <span>Total:</span>
