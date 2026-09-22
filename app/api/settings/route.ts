@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     // Only admin can update global settings
-    if (!session || session.role !== "admin") {
+    if (!session || !["admin", "manager"].includes(session.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -93,6 +93,16 @@ export async function POST(req: Request) {
     }
 
     const data = result.data;
+    if (session.role === "manager") {
+      const allowedAccount = data.account
+        ? { restaurantName: data.account.restaurantName, ownerName: data.account.ownerName, phone: data.account.phone, address: data.account.address, logo: data.account.logo }
+        : undefined;
+      const allowedSettings = { notifications: data.notifications, account: allowedAccount };
+      Object.keys(data).forEach((key) => {
+        if (!(key in allowedSettings)) delete (data as Record<string, unknown>)[key];
+      });
+      if (allowedAccount) data.account = allowedAccount;
+    }
 
     // Extract account data
     const account = data.account;

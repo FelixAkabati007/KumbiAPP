@@ -49,7 +49,6 @@ import {
   type PrinterConfig,
 } from "@/lib/settings";
 import { LogoDisplay } from "@/components/logo-display";
-import FaviconUploader from "@/components/favicon-uploader";
 import Image from "next/image";
 import { useAuth } from "@/components/auth-provider";
 import { AccountDashboard } from "@/components/user-account/account-dashboard";
@@ -162,6 +161,7 @@ function SettingsPageContent() {
   const isManager = user?.role === "manager";
   const canManageStaff = isAdmin || isManager;
   const canManageOperationalSettings = isAdmin || isManager;
+  const canSaveSettings = isAdmin || isManager;
   const [featureToggles, setFeatureToggles] = useState({ kitchen_display: true, order_board: true, housekeeping_advanced: false });
 
   const updateFeatureToggle = async (key: "kitchen_display" | "order_board" | "housekeeping_advanced", enabled: boolean) => {
@@ -353,6 +353,7 @@ function SettingsPageContent() {
           <Button
             variant="outline"
             onClick={handleResetSettings}
+            disabled={!isAdmin}
             className="hidden sm:flex bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
           >
             Reset to Defaults
@@ -360,8 +361,8 @@ function SettingsPageContent() {
           <Button
             onClick={handleSaveSettings}
             size="sm"
+            disabled={!canSaveSettings || saveState === "saving"}
             className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg relative overflow-hidden"
-            disabled={!isAdmin}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 animate-pulse"></div>
             <Sparkles className="mr-0 sm:mr-2 h-4 w-4 relative z-10" />
@@ -794,18 +795,7 @@ function SettingsPageContent() {
               </CardContent>
             </Card>
 
-            {/* Favicon Settings */}
-            <FaviconUploader
-              onFaviconUpdate={() => {
-                toast({
-                  title: "Favicon Updated",
-                  description:
-                    "Your website favicon has been successfully updated and is now live.",
-                  variant: "default",
-                });
-              }}
-              className="mt-6"
-            />
+  <p className="mt-6 text-sm text-muted-foreground">The application favicon follows the restaurant logo automatically. Update the logo above and save settings to update both.</p>
           </TabsContent>
 
           {/* Notifications Settings */}
