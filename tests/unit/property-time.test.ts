@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addHotelBookingWindow, isHotelWindowOverdue } from "@/lib/property-time";
+import { addHotelBookingWindow, isHotelWindowOverdue, getPropertyTimeZone } from "@/lib/property-time";
 
-describe("Accra hotel booking windows", () => {
+  describe("Accra hotel booking windows", () => {
+  it("uses Accra as the shared application timezone", () => {
+    expect(getPropertyTimeZone()).toBe("Africa/Accra");
+  });
+
   it.each([
     ["midnight", "2026-05-10T00:00:00.000Z", "2026-05-11T00:00:00.000Z"],
     ["daylight", "2026-05-10T10:00:00.000Z", "2026-05-11T10:00:00.000Z"],

@@ -23,6 +23,23 @@ export function formatPropertyDateTime(value: Date | string) {
   }).format(value instanceof Date ? value : new Date(value));
 }
 
-export function propertyNowIso() {
-  return new Date().toISOString();
+const AISENSE_TIME_ENDPOINT = "https://aisenseapi.com/services/v1/datetime/+0000";
+
+export async function getAuthoritativeNow() {
+  try {
+    const response = await fetch(AISENSE_TIME_ENDPOINT, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`Time API returned ${response.status}`);
+    const payload = (await response.json()) as { datetime?: string };
+    const value = payload.datetime ? new Date(payload.datetime) : null;
+    if (value && !Number.isNaN(value.getTime())) return value;
+  } catch {
+    // Fall back to the runtime clock when the public service is unavailable.
+  }
+  return new Date();
 }
+
+export async function propertyNowIso() {
+  return (await getAuthoritativeNow()).toISOString();
+}
+
+export { AISENSE_TIME_ENDPOINT };
