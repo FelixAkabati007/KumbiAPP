@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 
 // Get all housekeeping tasks
@@ -68,11 +68,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const roomResult = await query(`SELECT status FROM rooms WHERE id = $1 AND is_active = true`, [roomId]);
-    if (roomResult.rows[0]?.status !== "dirty") {
-      return NextResponse.json({ error: "Cleaning tasks can only be created for dirty rooms" }, { status: 409 });
-    }
-
     if (assignedTo) {
       const staffResult = await query(`SELECT id FROM users WHERE id = $1 AND role = 'housekeeping' AND is_active = true`, [assignedTo]);
       if (staffResult.rowCount !== 1) {
@@ -80,16 +75,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await query(
-      `
-      INSERT INTO housekeeping_tasks (room_id, task_type, priority, assigned_to, notes)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-      `,
-      [roomId, taskType, priority || "normal", assignedTo || null, notes || null]
-    );
+    const task = await transaction(async (client) => {
+      const roomResult = await client.query(
+        `SELECT id, status FROM rooms WHERE id = $1 AND is_active = true FOR UPDATE`,
+        [roomId],
+      );
+      if (roomResult.rows[0]?.status !== "dirty") {
+        throw new Error(roomResult.rows[0] ? "Cleaning tasks can only be created for dirty rooms" : "Room not found");
+      }
 
-    const task = result.rows[0];
+      const activeTaskResult = await client.query(
+        `SELECT id FROM housekeeping_tasks WHERE room_id = $1 AND task_type = 'cleaning' AND status IN ('pending', 'in_progress') LIMIT 1`,
+        [roomId],
+      );
+      if (activeTaskResult.rowCount) {
+        throw new Error("This room already has an active cleaning task");
+      }
+
+      await client.query(
+        `UPDATE rooms SET status = 'cleaning', updated_at = NOW() WHERE id = $1`,
+        [roomId],
+      );
+
+      const result = await client.query(
+        `INSERT INTO housekeeping_tasks (room_id, task_type, priority, assigned_to, notes)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [roomId, taskType, priority || "normal", assignedTo || null, notes || null],
+      );
+      return result.rows[0];
+    });
     await query(
       `INSERT INTO notifications (recipient_user_id, title, message, type)
        SELECT id, $1, $2, $3 FROM users
@@ -105,9 +120,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error("Error creating housekeeping task:", error);
-    return NextResponse.json(
-      { error: "Failed to create housekeeping task" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Failed to create housekeeping task";
+    const status = message.includes("already has an active") || message.includes("only be created") ? 409 : message === "Room not found" ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
