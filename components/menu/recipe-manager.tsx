@@ -107,7 +107,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
 
     setIsAdding(true);
     try {
-      await fetch(`/api/menu/${menuItemId}/recipe`, {
+      const response = await fetch(`/api/menu/${menuItemId}/recipe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,12 +116,18 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           unit,
         }),
       });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to save recipe ingredient");
+      }
       await loadData();
-      // Reset form
       setSelectedInvId("");
+      setIngredientSearch("");
       setQuantity("");
+      setUnit("");
     } catch (error) {
       console.error("Failed to add ingredient", error);
+      window.alert(error instanceof Error ? error.message : "Failed to save recipe ingredient");
     } finally {
       setIsAdding(false);
     }
