@@ -95,6 +95,18 @@ export async function PUT(
     if (inventoryMode === "direct" && !directInventoryId) {
       return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
     }
+    if (inventoryMode === "direct") {
+      const inventoryResult = await query(
+        "SELECT id FROM inventory WHERE id = $1",
+        [directInventoryId]
+      );
+      if (inventoryResult.rowCount !== 1) {
+        return NextResponse.json({ error: "Selected supply item was not found" }, { status: 400 });
+      }
+      if (directUnitsPerSale !== undefined && (!Number.isFinite(Number(directUnitsPerSale)) || Number(directUnitsPerSale) <= 0)) {
+        return NextResponse.json({ error: "Supply units per sale must be greater than zero" }, { status: 400 });
+      }
+    }
 
     // Validate category and get ID
     let categoryId = null;
@@ -150,11 +162,16 @@ export async function PUT(
       fields.push(`inventory_mode = $${idx++}`);
       values.push(inventoryMode);
     }
-    if (directInventoryId !== undefined) {
+    if (inventoryMode === "recipe") {
+      fields.push(`direct_inventory_id = $${idx++}`);
+      values.push(null);
+    } else if (directInventoryId !== undefined) {
       fields.push(`direct_inventory_id = $${idx++}`);
       values.push(directInventoryId);
     }
-    if (directUnitsPerSale !== undefined) {
+    if (inventoryMode === "recipe") {
+      fields.push(`direct_units_per_sale = 1`);
+    } else if (directUnitsPerSale !== undefined) {
       fields.push(`direct_units_per_sale = $${idx++}`);
       values.push(directUnitsPerSale);
     }
