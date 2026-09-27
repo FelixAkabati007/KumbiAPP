@@ -94,6 +94,9 @@
     --status-warning-foreground: 0 0% 10%;
     --status-danger-foreground: 0 0% 98%;
     --brand-primary-foreground: 0 0% 100%;
+    --button-gradient-start: 24 100% 54%;
+    --button-gradient-end: 43 96% 50%;
+    --button-shadow: 24 100% 35%;
     /* complementary brand/link/highlight/neutral tokens */
     --brand-secondary: 39 92% 50%;
     --brand-tertiary: 34 98% 52%;
