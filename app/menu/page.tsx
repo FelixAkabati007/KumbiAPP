@@ -966,7 +966,7 @@ function MenuContent() {
                 <div className="grid gap-4 rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
                   <div>
                     <h3 className="font-semibold">Supply connection</h3>
-                    <p className="text-sm text-muted-foreground">Link a stock item for direct deduction when this menu item is sold.</p>
+                    <p className="text-sm text-muted-foreground">Link one stock item for direct deduction when this menu item is sold. Use Recipe for prepared dishes with multiple ingredients.</p>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="directInventorySearch">Inventory item</Label>
@@ -984,7 +984,7 @@ function MenuContent() {
                   <div className="grid gap-2">
                     <Label htmlFor="directUnitsPerSale">Supply units per sale</Label>
                     <Input id="directUnitsPerSale" type="number" min="0.01" step="0.01" value={editingItem.directUnitsPerSale ?? 1} onChange={(event) => setEditingItem((current) => ({ ...current, directUnitsPerSale: Number(event.target.value) || 1 }))} />
-                    <p className="text-xs text-muted-foreground">Select Direct stock in Details to enable automatic supply deduction.</p>
+                    <p className="text-xs text-muted-foreground">Choose Direct stock in Details to enable this link. Prepared items should use the Recipe tab instead; the two tracking modes cannot be combined.</p>
                   </div>
                 </div>
               </TabsContent>
