@@ -56,6 +56,13 @@ export async function PATCH(
     const values: (string | null)[] = [];
 
     if (status) {
+      const allowedStatuses = new Set(["available", "occupied", "dirty", "cleaning", "maintenance", "out_of_order"]);
+      if (!allowedStatuses.has(status)) {
+        return NextResponse.json({ error: "Invalid room status" }, { status: 400 });
+      }
+      if (status === "occupied" && currentGuestId === undefined) {
+        return NextResponse.json({ error: "Occupied rooms require an active guest assignment" }, { status: 409 });
+      }
       values.push(status);
       sql += `, status = $${values.length}`;
     }

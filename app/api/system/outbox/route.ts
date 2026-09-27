@@ -36,6 +36,16 @@ export async function POST() {
          WHERE NOT EXISTS (SELECT 1 FROM housekeeping_tasks WHERE room_id = $1 AND task_type = 'cleaning' AND status IN ('pending', 'in_progress'))`,
         [payload.roomId],
       );
+      await client.query(
+        `UPDATE rooms SET status = 'cleaning', updated_at = NOW()
+         WHERE id = $1 AND is_active = true AND status = 'dirty'
+           AND NOT EXISTS (
+             SELECT 1 FROM reservations
+             WHERE room_id = rooms.id AND status = 'checked_in'
+           )`,
+        [payload.roomId],
+      );
+
     }
 
     await client.query(

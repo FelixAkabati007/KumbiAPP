@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       }
 
       const roomResult = await client.query(
-        `SELECT id, room_number FROM rooms WHERE id = $1::uuid AND is_active = true AND status IN ('available', 'dirty', 'cleaning') FOR UPDATE`,
+        `SELECT id, room_number FROM rooms WHERE id = $1::uuid AND is_active = true AND status = 'available' FOR UPDATE`,
         [roomId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
