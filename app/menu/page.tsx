@@ -145,7 +145,7 @@ function MenuContent() {
   });
 
   useEffect(() => {
-    if (editingItem.inventoryMode !== "direct") return;
+    if (!isDialogOpen) return;
     let active = true;
     setInventoryLoading(true);
     fetch("/api/inventory")
@@ -154,7 +154,7 @@ function MenuContent() {
       .catch(() => { if (active) setInventoryOptions([]); })
       .finally(() => { if (active) setInventoryLoading(false); });
     return () => { active = false; };
-  }, [editingItem.inventoryMode]);
+  }, [isDialogOpen]);
 
   // Load menu items from storage on mount
   useEffect(() => {
@@ -778,8 +778,9 @@ function MenuContent() {
               </DialogDescription>
             </DialogHeader>
   <Tabs defaultValue="details" className="flex min-h-0 min-w-0 flex-1 flex-col">
-  <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-2 sm:mx-6 sm:mt-5">
+  <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-3 sm:mx-6 sm:mt-5">
                 <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="supply">Supply</TabsTrigger>
                 {editingItem.inventoryMode !== "direct" && (
                   <TabsTrigger value="recipe" disabled={isNewItem}>
                     Recipe
@@ -881,27 +882,7 @@ function MenuContent() {
                     </Select>
                     <p className="text-xs text-muted-foreground">Use direct stock for bottled beverages and supplies. No ingredient quantities are required.</p>
                   </div>
-                  {editingItem.inventoryMode === "direct" && (
-                    <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label htmlFor="directInventorySearch">Inventory item</Label>
-                        <Input id="directInventorySearch" value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search beverages or supplies" />
-                        <div className="max-h-44 overflow-y-auto rounded-md border bg-background" role="listbox" aria-label="Inventory items">
-                          {inventoryLoading ? <p className="px-3 py-2 text-sm text-muted-foreground">Loading inventory items…</p> : filteredInventoryOptions.length ? filteredInventoryOptions.map((item) => (
-                            <button type="button" key={item.id} role="option" aria-selected={editingItem.directInventoryId === item.id} onClick={() => { setEditingItem((current) => ({ ...current, directInventoryId: item.id })); setInventorySearch(item.name); }} className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted ${editingItem.directInventoryId === item.id ? "bg-primary/10" : ""}`}>
-                              <span className="min-w-0"><span className="block truncate font-medium">{item.name}</span><span className="block text-xs text-muted-foreground">{item.category ?? "Inventory"}</span></span>
-                              <span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span>
-                            </button>
-                          )) : <p className="px-3 py-2 text-sm text-muted-foreground">No beverage or supply inventory found.</p>}
-                        </div>
-                        {editingItem.directInventoryId && <p className="text-xs text-primary">Selected inventory item is linked for direct deduction.</p>}
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="directUnitsPerSale">Stock units per sale</Label>
-                        <Input id="directUnitsPerSale" type="number" min="0.01" step="0.01" value={editingItem.directUnitsPerSale ?? 1} onChange={(event) => setEditingItem((current) => ({ ...current, directUnitsPerSale: Number(event.target.value) || 1 }))} />
-                      </div>
-                    </div>
-                  )}
+
     <div className="grid gap-2">
     <Label htmlFor="availabilityMode">Availability policy</Label>
     <Select value={editingItem.availabilityMode ?? "manual"} onValueChange={(value) => setEditingItem((prev) => ({ ...prev, availabilityMode: value as "manual" | "automatic" }))}>
@@ -980,6 +961,32 @@ function MenuContent() {
                         : "Save Changes"}
                   </Button>
                 </DialogFooter>
+              </TabsContent>
+              <TabsContent value="supply" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+                <div className="grid gap-4 rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+                  <div>
+                    <h3 className="font-semibold">Supply connection</h3>
+                    <p className="text-sm text-muted-foreground">Link a stock item for direct deduction when this menu item is sold.</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="directInventorySearch">Inventory item</Label>
+                    <Input id="directInventorySearch" value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search beverages or supplies" />
+                    <div className="max-h-52 overflow-y-auto rounded-md border bg-background" role="listbox" aria-label="Supply inventory items">
+                      {inventoryLoading ? <p className="px-3 py-2 text-sm text-muted-foreground">Loading supply items…</p> : filteredInventoryOptions.length ? filteredInventoryOptions.map((item) => (
+                        <button type="button" key={item.id} role="option" aria-selected={editingItem.directInventoryId === item.id} onClick={() => { setEditingItem((current) => ({ ...current, inventoryMode: "direct", directInventoryId: item.id })); setInventorySearch(item.name); }} className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted ${editingItem.directInventoryId === item.id ? "bg-primary/10" : ""}`}>
+                          <span className="min-w-0"><span className="block truncate font-medium">{item.name}</span><span className="block text-xs text-muted-foreground">{item.category ?? "Supply"}</span></span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span>
+                        </button>
+                      )) : <p className="px-3 py-2 text-sm text-muted-foreground">No beverage or supply inventory found.</p>}
+                    </div>
+                    {editingItem.directInventoryId && <p className="text-xs text-primary">Supply linked for direct deduction.</p>}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="directUnitsPerSale">Supply units per sale</Label>
+                    <Input id="directUnitsPerSale" type="number" min="0.01" step="0.01" value={editingItem.directUnitsPerSale ?? 1} onChange={(event) => setEditingItem((current) => ({ ...current, directUnitsPerSale: Number(event.target.value) || 1 }))} />
+                    <p className="text-xs text-muted-foreground">Select Direct stock in Details to enable automatic supply deduction.</p>
+                  </div>
+                </div>
               </TabsContent>
               {editingItem.inventoryMode !== "direct" && (
   <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
