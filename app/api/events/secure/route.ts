@@ -22,7 +22,8 @@ export async function POST(request: Request) {
       if (event.secured_at) throw new Error("EVENT_ALREADY_SECURED");
       const configuredLevies = calculateTaxes(Number(quote.subtotal) || 0, await getTaxConfiguration(), "events");
   const orderNumber = `EVENT-${event.id.slice(0, 8).toUpperCase()}`;
-      const snapshot = { event, quote, subtotal: Number(quote.subtotal) || 0, tax: Number(quote.tax_amount) || 0, total: Number(quote.total) || 0, levyLabel: 'GRA E-VAT / statutory levies', levyBreakdown: configuredLevies.breakdown, securedBy: { id: session.id, name: session.name, email: session.email, role: session.role }, securedAt: new Date().toISOString() };
+      const bookingAccount = { id: session.id, name: session.name, email: session.email, role: session.role };
+      const snapshot = { event, quote, bookedBy: bookingAccount, bookingAccount, subtotal: Number(quote.subtotal) || 0, tax: Number(quote.tax_amount) || 0, total: Number(quote.total) || 0, levyLabel: 'GRA E-VAT / statutory levies', levyBreakdown: configuredLevies.breakdown, securedBy: bookingAccount, securedAt: new Date().toISOString() };
       // Event bookings do not have a hotel reservation, so the event UUID is the stable reservation reference for the receipt record.
       const receipt = await client.query(`INSERT INTO hotel_receipts (reservation_id, order_id, order_number, receipt_type, snapshot, created_by) VALUES ($1, $2, $3, 'event_booking', $4::jsonb, $5) RETURNING id`, [event.id, event.id, orderNumber, JSON.stringify(snapshot), session.id]);
       await client.query(`UPDATE events SET status = 'confirmed', secured_at = now(), secured_by = $1, receipt_id = $2, finance_status = 'posted', total_invoiced = $3, balance_due = $3, updated_at = now() WHERE id = $4`, [session.id, receipt.rows[0].id, Number(quote.total) || 0, eventId]);
