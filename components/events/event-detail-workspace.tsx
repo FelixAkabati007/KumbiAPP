@@ -43,7 +43,7 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
     <nav className="flex gap-2 overflow-x-auto border-b border-border pb-2" aria-label="Event workspace sections">{tabs.map(({ id, label, icon: Icon }) => <Button key={id} variant={tab === id ? "secondary" : "ghost"} className="shrink-0" onClick={() => setTab(id)}><Icon data-icon="inline-start" />{label}</Button>)}</nav>
     <Card><CardHeader><CardTitle>{tabs.find((item) => item.id === tab)?.label}</CardTitle></CardHeader><CardContent className="space-y-4">
       {tab === "overview" && <><p className="text-sm leading-6 text-muted-foreground">Keep client, schedule, venue, guest requirements, and the next operational action visible here.</p><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Client contact</p><p className="mt-1 text-sm text-muted-foreground">{event.client_name}</p></div><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Coordinator</p><p className="mt-1 text-sm text-muted-foreground">Unassigned</p></div></div><div className="grid gap-4 md:grid-cols-2"><Card className="border-primary/30 bg-primary/5"><CardHeader><CardTitle>Pricing desk</CardTitle><p className="text-sm text-muted-foreground">Build and review the quote for this event.</p></CardHeader><CardContent><Button asChild><Link href={`/events?eventId=${event.id}#pricing`}>Open pricing desk</Link></Button></CardContent></Card><Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30"><CardHeader><CardTitle>Secure venue and services</CardTitle><p className="text-sm text-muted-foreground">Secure an approved quote and post the receipt.</p></CardHeader><CardContent><Button asChild><Link href={`/events?eventId=${event.id}#secure`}>Open secure booking</Link></Button></CardContent></Card></div></>}
-      {tab === "quote" && <><p className="text-sm text-muted-foreground">Create, approve, and lock quote versions before confirmation.</p><Button asChild><Link href="/events">Open pricing desk</Link></Button></>}
+      {tab === "quote" && <QuoteApprovalPanel eventId={event.id} />}
       {tab === "payments" && <><p className="text-sm text-muted-foreground">Payment tracking is separated from event status so confirmed events can be unpaid or partially paid.</p><div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">No payments recorded yet.</div></>}
       {tab === "finance" && <EventFinanceTab eventId={event.id} />}
       {tab === "operations" && <><p className="text-sm text-muted-foreground">Track setup, catering, staffing, equipment, and teardown tasks.</p><Button variant="outline">Add operational task</Button></>}
@@ -52,6 +52,25 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
       {tab === "activity" && <><p className="text-sm text-muted-foreground">Every status, quote, payment, print, and cancellation action should be recorded.</p><div className="rounded-2xl border border-border p-4 text-sm">Event created · Activity history will appear here as actions are recorded.</div></>}
     </CardContent></Card>
   </div></main>;
+}
+
+type Quote = { id: string; status: string; subtotal: number; tax_amount: number; total: number; currency?: string; created_at: string; items: Array<{ label: string; quantity: number; amount: number }> };
+
+function QuoteApprovalPanel({ eventId }: { eventId: string }) {
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = () => fetch(`/api/events/quotes?eventId=${eventId}`, { cache: "no-store" }).then((response) => response.json()).then((data) => setQuotes(data.quotes ?? [])).finally(() => setLoading(false));
+  useEffect(() => { void load(); }, [eventId]);
+  const transition = async (quoteId: string, status: string) => {
+    setBusy(quoteId);
+    await fetch("/api/events/quotes", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ quoteId, status }) });
+    await load();
+    setBusy(null);
+  };
+  if (loading) return <p className="text-sm text-muted-foreground">Loading quote versions…</p>;
+  if (!quotes.length) return <div className="grid gap-4"><p className="text-sm text-muted-foreground">No quote versions exist for this event.</p><Button asChild><Link href={`/events?eventId=${eventId}#pricing`}>Create draft quote</Link></Button></div>;
+  return <div className="grid gap-4"><div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm leading-6"><p className="font-semibold">Approval control</p><p className="text-muted-foreground">Approved quotes are locked. Changes must be made as a new quote version; only the current approved version can secure the event.</p></div>{quotes.map((quote) => { const locked = ["approved", "sent", "accepted", "superseded"].includes(quote.status); return <div key={quote.id} className="rounded-2xl border border-border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">Quote {quote.id.slice(0, 8).toUpperCase()}</p><p className="text-sm text-muted-foreground">Created {new Date(quote.created_at).toLocaleString()} · {quote.items.length} line item{quote.items.length === 1 ? "" : "s"}</p></div><Badge variant={quote.status === "approved" ? "default" : "secondary"}>{quote.status.replace("_", " ")}</Badge></div><div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-lg font-semibold">{Number(quote.total).toFixed(2)} {quote.currency ?? "GHS"}</p><div className="flex flex-wrap gap-2">{quote.status === "draft" && <Button size="sm" onClick={() => transition(quote.id, "pending_approval")} disabled={busy === quote.id}>Submit for approval</Button>}{quote.status === "pending_approval" && <Button size="sm" onClick={() => transition(quote.id, "approved")} disabled={busy === quote.id}>Approve quote</Button>}{quote.status === "approved" && <Button size="sm" asChild><Link href={`/events?eventId=${eventId}#secure`}>Secure this quote</Link></Button>}{locked && <span className="self-center text-xs text-muted-foreground">Locked version</span>}</div></div></div>;})}</div>;
 }
 
 function EventFinanceTab({ eventId }: { eventId: string }) {
