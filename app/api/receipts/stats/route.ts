@@ -11,25 +11,23 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Role check: Admin, Manager, Staff should be able to see receipt stats
-    // Middleware already allows staff, but let's be safe.
-    const allowedRoles = ["admin", "manager", "staff"];
+    // Receipt statistics are operationally useful to front desk as well as management.
+    const allowedRoles = ["admin", "manager", "staff", "frontDesk"];
     if (!allowedRoles.includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch stats
-    // We count orders that are 'paid' or 'completed' to be safe, usually 'paid' implies a receipt.
-    // Assuming 'payment_status' = 'paid' is the key.
-
+    // A receipt is counted from a successful, non-refund transaction.
+    // Providers use several equivalent success labels, so normalize status before filtering.
     const sql = `
         SELECT
-          COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) as today,
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_DATE)) as week,
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month,
-          COUNT(*) as total
+          COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int AS today,
+          COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_DATE))::int AS week,
+          COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE))::int AS month,
+          COUNT(*)::int AS total
         FROM transaction_logs
-        WHERE status = 'success'
+        WHERE LOWER(TRIM(status)) IN ('success', 'successful', 'completed', 'succeeded', 'paid')
+          AND LOWER(TRIM(COALESCE(metadata->>'type', 'payment'))) NOT IN ('refund', 'refunded', 'reversal', 'reversed')
       `;
 
     const result = await query(sql);
