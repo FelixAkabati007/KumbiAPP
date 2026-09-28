@@ -68,11 +68,12 @@ export function useReceiptStats() {
     }
   }, [fetchStats, user]);
 
-  // Refetch when version changes
+  // Refetch when version changes and keep the dashboard current when another terminal creates a receipt.
   useEffect(() => {
-    if (ordersVersion && user) {
-      fetchStats();
-    }
+    if (!user) return;
+    if (ordersVersion) fetchStats();
+    const timer = window.setInterval(fetchStats, 15000);
+    return () => window.clearInterval(timer);
   }, [ordersVersion, fetchStats, user]);
 
   return { stats, loading, error, refetch: fetchStats };
