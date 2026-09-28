@@ -77,8 +77,13 @@ export async function PATCH(request: Request) {
   }
 
   const updated = await query(
-    "UPDATE events SET status = $1 WHERE id = $2 RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes, receipt_id",
+    "UPDATE events SET status = $1, updated_at = now() WHERE id = $2 RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes, receipt_id",
     [nextStatus, eventId]
+  );
+  await query(
+    `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, amount, currency, description, metadata, occurred_at, created_by)
+     VALUES ('status_updated', 'event', $1, 0, 'GHS', $2, $3::jsonb, now(), $4)`,
+    [eventId, `Event status changed to ${nextStatus}`, JSON.stringify({ from: event.status, to: nextStatus, source: "event_workspace" }), session.id],
   );
   return NextResponse.json({ event: updated.rows[0], changedBy: session.id });
 }
