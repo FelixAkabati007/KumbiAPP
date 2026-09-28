@@ -1,45 +1,36 @@
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/api-auth";
 import { query } from "@/lib/db";
-import { requireSession } from "@/lib/api-auth";
-import { publishRealtime } from "@/lib/realtime";
-import { registerAttendance } from "@/lib/attendance-service";
 
-export const dynamic = "force-dynamic";
-
-export async function GET() {
-  const { session, error } = await requireSession();
+export async function GET(request: Request) {
+  const { error } = await requirePermission("events");
   if (error) return error;
-  try {
-    const result = await query(
-      `SELECT id, check_in_at, check_out_at, status, verification_status, verified_at, late_minutes, early_checkout_minutes, notes
-       FROM attendance_records WHERE staff_id = $1 AND check_in_at::date = CURRENT_DATE ORDER BY check_in_at DESC LIMIT 1`,
-      [session.id]
-    );
-    const record = result.rows[0] ?? null;
-    const nextAction = record?.check_in_at && !record?.check_out_at ? "check_out" : record?.check_out_at ? "complete" : "check_in";
-    return NextResponse.json({ record, nextAction });
-  } catch (cause) {
-    console.error("[attendance] status failed", cause);
-    return NextResponse.json({ error: "Unable to load register status" }, { status: 500 });
-  }
+  const eventId = new URL(request.url).searchParams.get("eventId");
+  const result = await query(
+    `SELECT id, user_id, event_id, clock_in, clock_out, gps_in_lat, gps_in_long, gps_out_lat, gps_out_long, is_out_of_bounds, status, approved_by, approved_at, notes, created_at
+     FROM attendance_logs WHERE ($1::uuid IS NULL OR event_id = $1::uuid) ORDER BY created_at DESC`,
+    [eventId || null],
+  );
+  return NextResponse.json({ attendance: result.rows });
 }
 
 export async function POST(request: Request) {
-  const { session, error } = await requireSession();
+  const { session, error } = await requirePermission("events");
   if (error) return error;
-  if (session.role === "admin") return NextResponse.json({ error: "Administrators review staff attendance instead of registering their own attendance" }, { status: 403 });
-  try {
-    const body = await request.json().catch(() => ({}));
-    const action = body.action === "check_out" ? "check_out" : "check_in";
-    const result = await registerAttendance(session, action, typeof body.notes === "string" ? body.notes : undefined);
-    await publishRealtime("attendance.updated", session.id);
-    return NextResponse.json({ ...result, message: action === "check_in" ? "Check-in successful" : "Check-out successful" }, { status: action === "check_in" ? 201 : 200 });
-  } catch (cause) {
-    if (cause instanceof Error && cause.message === "ALREADY_CHECKED_IN") return NextResponse.json({ error: "You are already checked in" }, { status: 409 });
-    if (cause instanceof Error && cause.message === "CHECK_IN_REQUIRED") return NextResponse.json({ error: "Check in before checking out" }, { status: 409 });
-    if (cause instanceof Error && cause.message === "CHECKOUT_TOO_EARLY") return NextResponse.json({ error: "Checkout is available at your scheduled end time or later" }, { status: 409 });
-    if (cause instanceof Error && cause.message === "ALREADY_CHECKED_OUT") return NextResponse.json({ error: "Attendance is already checked out" }, { status: 409 });
-    console.error("[attendance] register action failed", cause);
-    return NextResponse.json({ error: "Unable to update register" }, { status: 500 });
+  const body = await request.json();
+  const eventId = body.eventId ? String(body.eventId) : null;
+  const action = body.action === "clock_out" ? "clock_out" : "clock_in";
+  const latitude = body.latitude == null ? null : Number(body.latitude);
+  const longitude = body.longitude == null ? null : Number(body.longitude);
+  if ((latitude !== null && !Number.isFinite(latitude)) || (longitude !== null && !Number.isFinite(longitude))) {
+    return NextResponse.json({ error: "Invalid GPS coordinates" }, { status: 400 });
   }
+  const result = await query(
+    action === "clock_in"
+      ? `INSERT INTO attendance_logs (user_id, event_id, clock_in, gps_in_lat, gps_in_long, is_out_of_bounds, status, notes) VALUES ($1, $2, NOW(), $3, $4, $5, 'pending', $6) RETURNING *`
+      : `UPDATE attendance_logs SET clock_out = NOW(), gps_out_lat = $2, gps_out_long = $3, updated_at = NOW() WHERE id = $1 AND user_id = $4 AND clock_out IS NULL RETURNING *`,
+    action === "clock_in" ? [session.id, eventId, latitude, longitude, Boolean(body.isOutOfBounds), String(body.notes ?? "").trim() || null] : [String(body.attendanceId ?? ""), latitude, longitude, session.id],
+  );
+  if (!result.rows[0]) return NextResponse.json({ error: "Attendance record not found or already closed" }, { status: 404 });
+  return NextResponse.json({ attendance: result.rows[0] }, { status: action === "clock_in" ? 201 : 200 });
 }

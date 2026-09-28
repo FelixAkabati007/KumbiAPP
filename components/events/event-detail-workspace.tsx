@@ -6,16 +6,19 @@ import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, FileText, IndianR
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AttendanceWorkspace } from "@/components/events/attendance-workspace";
 
 type EventRecord = { id: string; name: string; client_name: string; venue: string; starts_at: string; ends_at?: string | null; guest_count: number; status: string; payment_status?: string; receipt_id?: string | null; quote_approved?: boolean; finance_posted?: boolean };
-type Tab = "overview" | "quote" | "payments" | "operations" | "documents" | "activity";
+type Tab = "overview" | "quote" | "payments" | "finance" | "operations" | "attendance" | "documents" | "activity";
 
 const labels: Record<string, string> = { planning: "Planning", confirmed: "Confirmed", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" };
 const tabs: { id: Tab; label: string; icon: typeof CalendarDays }[] = [
   { id: "overview", label: "Overview", icon: CalendarDays },
   { id: "quote", label: "Quote", icon: FileText },
   { id: "payments", label: "Payments", icon: IndianRupee },
+  { id: "finance", label: "Finance", icon: IndianRupee },
   { id: "operations", label: "Operations", icon: ClipboardList },
+  { id: "attendance", label: "Attendance", icon: Users },
   { id: "documents", label: "Documents", icon: FileText },
   { id: "activity", label: "Activity", icon: CheckCircle2 },
 ];
@@ -42,11 +45,29 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
       {tab === "overview" && <><p className="text-sm leading-6 text-muted-foreground">Keep client, schedule, venue, guest requirements, and the next operational action visible here.</p><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Client contact</p><p className="mt-1 text-sm text-muted-foreground">{event.client_name}</p></div><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Coordinator</p><p className="mt-1 text-sm text-muted-foreground">Unassigned</p></div></div></>}
       {tab === "quote" && <><p className="text-sm text-muted-foreground">Create, approve, and lock quote versions before confirmation.</p><Button asChild><Link href="/events">Open pricing desk</Link></Button></>}
       {tab === "payments" && <><p className="text-sm text-muted-foreground">Payment tracking is separated from event status so confirmed events can be unpaid or partially paid.</p><div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">No payments recorded yet.</div></>}
+      {tab === "finance" && <EventFinanceTab eventId={event.id} />}
       {tab === "operations" && <><p className="text-sm text-muted-foreground">Track setup, catering, staffing, equipment, and teardown tasks.</p><Button variant="outline">Add operational task</Button></>}
+      {tab === "attendance" && <AttendanceWorkspace eventId={event.id} />}
       {tab === "documents" && <><p className="text-sm text-muted-foreground">Shared document templates should produce quotes, confirmations, invoices, and receipts.</p><div className="flex flex-wrap gap-2"><Button variant="outline">Booking confirmation</Button><Button variant="outline">Invoice</Button><Button variant="outline">Receipt</Button></div></>}
       {tab === "activity" && <><p className="text-sm text-muted-foreground">Every status, quote, payment, print, and cancellation action should be recorded.</p><div className="rounded-2xl border border-border p-4 text-sm">Event created · Activity history will appear here as actions are recorded.</div></>}
     </CardContent></Card>
   </div></main>;
+}
+
+function EventFinanceTab({ eventId }: { eventId: string }) {
+  const [entries, setEntries] = useState<Array<{ id: string; amount: string; direction: string; status: string; occurred_at: string; payment_method?: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/events/${eventId}/finance`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setEntries(data.entries ?? []))
+      .finally(() => setLoading(false));
+  }, [eventId]);
+
+  if (loading) return <p className="text-sm text-muted-foreground">Loading finance entries…</p>;
+  if (!entries.length) return <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">No event ledger entries have been posted.</div>;
+  return <div className="grid gap-3">{entries.map((entry) => <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border p-4"><div><p className="font-medium">{entry.direction === "debit" ? "Debit" : "Credit"}</p><p className="text-sm text-muted-foreground">{new Date(entry.occurred_at).toLocaleString()} · {entry.status}</p></div><p className="font-semibold">{entry.amount} GHS</p></div>)}</div>;
 }
 
 export default EventDetailWorkspace;
