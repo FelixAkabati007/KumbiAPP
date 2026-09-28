@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Toast,
@@ -11,7 +12,16 @@ import {
 } from "@/components/ui/toast";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, dismiss } = useToast();
+
+  useEffect(() => {
+    if (toasts.length === 0) return;
+
+    const dismissOnPointerDown = () => dismiss();
+    document.addEventListener("pointerdown", dismissOnPointerDown, { once: true });
+
+    return () => document.removeEventListener("pointerdown", dismissOnPointerDown);
+  }, [dismiss, toasts.length]);
 
   return (
     <ToastProvider>
