@@ -134,7 +134,7 @@ function MenuContent() {
     return inventoryOptions.filter((item) => {
       const preferred = ["beverage", "beverages", "supply", "supplies"].includes(String(item.category ?? "").toLowerCase());
       const matches = !search || `${item.name} ${item.category ?? ""}`.toLowerCase().includes(search);
-      return matches && (preferred || !search);
+      return matches && preferred;
     });
   }, [inventoryOptions, inventorySearch]);
 
