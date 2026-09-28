@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       const event = eventResult.rows[0];
       const quote = quoteResult.rows[0];
       if (!event || !quote) throw new Error("EVENT_OR_QUOTE_NOT_FOUND");
-      if (!['approved', 'accepted'].includes(quote.status)) throw new Error("QUOTE_NOT_ACCEPTED");
+      if (quote.status !== "approved") throw new Error("QUOTE_NOT_ACCEPTED");
       if (event.secured_at) throw new Error("EVENT_ALREADY_SECURED");
       const configuredLevies = calculateTaxes(Number(quote.subtotal) || 0, await getTaxConfiguration(), "events");
   const receipt = await client.query(`INSERT INTO hotel_receipts (order_id, order_number, receipt_type, snapshot, created_by) VALUES ($1, $2, 'event_booking', $3::jsonb, $4) RETURNING id`, [event.id, `EVENT-${event.id.slice(0, 8).toUpperCase()}`, JSON.stringify({ event, quote, subtotal: Number(quote.subtotal) || 0, tax: Number(quote.tax_amount) || 0, total: Number(quote.total) || 0, levyLabel: 'GRA E-VAT / statutory levies', levyBreakdown: configuredLevies.breakdown, securedBy: { id: session.id, name: session.name, email: session.email, role: session.role }, securedAt: new Date().toISOString() }), session.id]);
