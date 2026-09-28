@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 const fallback = () => NextResponse.redirect(new URL("/favicon.svg", "http://localhost"));
 
@@ -31,7 +31,7 @@ export async function GET() {
     return new NextResponse(new Uint8Array(output), {
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "no-cache, must-revalidate",
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=86400",
         ETag: `W/\"${output.length}-${result.rows[0]?.logo?.length || 0}\"`,
       },
     });
