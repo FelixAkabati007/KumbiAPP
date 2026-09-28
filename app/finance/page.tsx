@@ -89,15 +89,22 @@ export default function FinancePage() {
 
   useEffect(() => {
     void loadTransactions();
+    const timer = window.setInterval(() => { void loadTransactions(); }, 15000);
+    return () => window.clearInterval(timer);
   }, [source]);
 
   useEffect(() => {
-    setPnlLoading(true);
-    fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => data && setPnl(data))
-      .catch(() => undefined)
-      .finally(() => setPnlLoading(false));
+    const loadPnl = () => {
+      setPnlLoading(true);
+      fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => data && setPnl(data))
+        .catch(() => undefined)
+        .finally(() => setPnlLoading(false));
+    };
+    loadPnl();
+    const timer = window.setInterval(loadPnl, 15000);
+    return () => window.clearInterval(timer);
   }, [department]);
 
   const totals = useMemo(() => {
