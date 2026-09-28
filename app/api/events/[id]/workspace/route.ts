@@ -13,7 +13,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     query(`SELECT id, event_type, entity_type, description, metadata, occurred_at, created_by FROM hotel_activity_ledger WHERE entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_type, description, metadata, occurred_at, created_by FROM hotel_activity_ledger WHERE entity_type = 'event_task' AND entity_id::text = $1 ORDER BY occurred_at ASC LIMIT 100`, [id]),
   ]);
-  return NextResponse.json({ receipts: receipts.rows, payments: payments.rows, ledger: ledger.rows, activity: activity.rows, tasks: tasks.rows });
+  const receiptPayments = receipts.rows.map((receipt) => {
+    const snapshot = receipt.snapshot && typeof receipt.snapshot === "object" ? receipt.snapshot : {};
+    return {
+      id: `receipt-${receipt.id}`,
+      receipt_id: receipt.id,
+      transaction_id: receipt.order_number,
+      amount: Number(snapshot.total ?? 0),
+      currency: snapshot.currency ?? "GHS",
+      status: "recorded",
+      payment_method: snapshot.paymentMethod ?? "receipt",
+      created_at: receipt.created_at,
+      source: "receipt",
+    };
+  });
+  const transactionPayments = payments.rows.map((payment) => ({ ...payment, source: "transaction" as const }));
+  const matchedPayments: Array<Record<string, unknown>> = [...transactionPayments, ...receiptPayments];
+  const uniquePayments = matchedPayments.filter((payment, index, all) => all.findIndex((candidate) => candidate.id === payment.id || (candidate.amount === payment.amount && candidate.created_at === payment.created_at)) === index);
+  return NextResponse.json({ receipts: receipts.rows, payments: uniquePayments, ledger: ledger.rows, activity: activity.rows, tasks: tasks.rows });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
