@@ -25,6 +25,7 @@ interface RecipeIngredient {
   quantity: number;
   unit: string;
   inventory_name: string;
+  inventory_category?: string | null;
 }
 
 interface RecipeManagerProps {
@@ -61,12 +62,16 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [ingredientSearch, setIngredientSearch] = useState("");
+  const [supplySearch, setSupplySearch] = useState("");
+  const [selectedSupplyId, setSelectedSupplyId] = useState("");
+  const [supplyQuantity, setSupplyQuantity] = useState("");
+  const [supplyUnit, setSupplyUnit] = useState("");
   const [steps, setSteps] = useState<Array<{ instruction: string; duration_minutes: string }>>([]);
   const [isSavingSteps, setIsSavingSteps] = useState(false);
 
-  const foodInventoryItems = inventoryItems.filter((item) =>
-    ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase())
-  );
+  const foodInventoryItems = inventoryItems.filter((item) => ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase()));
+  const supplyInventoryItems = inventoryItems.filter((item) => ["supply", "packaging", "disposable", "equipment", "non-food"].includes((item.category ?? "").toLowerCase()));
+  const filteredSupplyItems = supplyInventoryItems.filter((item) => `${item.name} ${item.unit} ${item.category ?? ""} ${item.sku ?? ""}`.toLowerCase().includes(supplySearch.trim().toLowerCase()));
 
   const filteredInventoryItems = foodInventoryItems.filter((item) => {
     const query = ingredientSearch.trim().toLowerCase();
@@ -131,6 +136,22 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
     } finally {
       setIsAdding(false);
     }
+  };
+
+  const handleAddSupply = async () => {
+    const parsedQuantity = parseRecipeQuantity(supplyQuantity);
+    if (!selectedSupplyId || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !supplyUnit) {
+      window.alert("Select a supply and enter a valid quantity and unit.");
+      return;
+    }
+    setIsAdding(true);
+    try {
+      const response = await fetch(`/api/menu/${menuItemId}/recipe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inventory_item_id: selectedSupplyId, quantity: parsedQuantity, unit: supplyUnit }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Failed to save supply");
+      await loadData();
+      setSelectedSupplyId(""); setSupplySearch(""); setSupplyQuantity(""); setSupplyUnit("");
+    } catch (error) { window.alert(error instanceof Error ? error.message : "Failed to save supply"); } finally { setIsAdding(false); }
   };
 
   const handleRemoveIngredient = async (invItemId: string) => {
@@ -215,6 +236,19 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="gap-1 pb-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><CardTitle className="text-base">Meal supplies</CardTitle><CardDescription>Add take-away containers, disposable bowls, napkins, or other supplies consumed with this meal.</CardDescription></div><Badge variant="secondary">{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).length} supplies</Badge></div></CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(12rem,1fr)_auto] xl:items-end">
+            <div className="min-w-0"><Label htmlFor="supply-search">Supply</Label><div className="relative mt-1"><Input id="supply-search" value={selectedSupplyId ? inventoryItems.find((item) => item.id === selectedSupplyId)?.name || supplySearch : supplySearch} onChange={(event) => { setSelectedSupplyId(""); setSupplySearch(event.target.value); }} placeholder="Search bowls, containers, napkins..." />{supplySearch.trim() && !selectedSupplyId && <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md">{filteredSupplyItems.length ? filteredSupplyItems.map((item) => <button key={item.id} type="button" className="flex w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent" onMouseDown={(event) => event.preventDefault()} onClick={() => { setSelectedSupplyId(item.id); setSupplySearch(""); setSupplyUnit(item.unit); }}><span className="truncate">{item.name}</span></button>) : <p className="px-3 py-3 text-center text-sm text-muted-foreground">No matching supplies found.</p>}</div>}</div><p className="mt-1 text-xs text-muted-foreground">{supplyInventoryItems.length} supplies available</p></div>
+            <div><Label htmlFor="supply-quantity">Quantity</Label><Input id="supply-quantity" className="mt-1" value={supplyQuantity} onChange={(event) => setSupplyQuantity(event.target.value)} placeholder="1" /></div>
+            <div><Label htmlFor="supply-unit">Unit</Label><UnitSelect value={supplyUnit} onChange={(value) => setSupplyUnit(typeof value === "string" ? value : value[0] || "")} placeholder="Select unit" className="mt-1" /></div>
+            <Button onClick={handleAddSupply} disabled={isAdding || !selectedSupplyId || !supplyUnit}><Plus className="size-4" data-icon="inline-start" />Add supply</Button>
+          </div>
+          <div className="overflow-x-auto rounded-md border"><Table className="min-w-[34rem]"><TableHeader><TableRow><TableHead>Supply</TableHead><TableHead>Quantity</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.inventory_name}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${item.inventory_name}`} onClick={() => handleRemoveIngredient(item.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).length === 0 && <TableRow><TableCell colSpan={4} className="h-16 text-center text-muted-foreground">No supplies linked to this meal yet.</TableCell></TableRow>}</TableBody></Table></div>
         </CardContent>
       </Card>
 

@@ -12,7 +12,7 @@ export async function GET(
     if (error) return error;
 
     const result = await query(
-      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name 
+      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name, i.category as inventory_category
        FROM recipe_ingredients r
        JOIN inventory i ON r.inventory_item_id = i.id
        WHERE r.menu_item_id = $1`,
