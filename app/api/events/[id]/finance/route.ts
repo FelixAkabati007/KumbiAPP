@@ -7,9 +7,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (error) return error;
   const { id } = await params;
   const result = await query(
-    `SELECT id, amount, direction, status, occurred_at, payment_method, metadata
+    `SELECT id, event_key, amount, direction, currency, status, source, occurred_at, payment_method, entity_type, entity_id, metadata
      FROM canonical_financial_ledger
-     WHERE entity_type = 'event' AND entity_id = $1
+     WHERE entity_type = 'event' AND entity_id::text = $1
      ORDER BY occurred_at DESC`,
     [id],
   );

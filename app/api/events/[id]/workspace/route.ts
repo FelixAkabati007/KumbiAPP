@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const [receipts, payments, ledger, activity, tasks] = await Promise.all([
     query(`SELECT id, order_number, receipt_type, snapshot, created_at FROM hotel_receipts WHERE order_id = $1 OR reservation_id = $1 ORDER BY created_at DESC`, [id]),
     query(`SELECT id::text, amount, currency, status, payment_method, metadata, created_at FROM transaction_logs WHERE metadata->>'eventId' = $1 OR metadata->>'event_id' = $1 ORDER BY created_at DESC LIMIT 100`, [id]),
-    query(`SELECT id, amount, direction, currency, status, occurred_at, payment_method, metadata FROM canonical_financial_ledger WHERE entity_type = 'event' AND entity_id = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
+    query(`SELECT id, event_key, amount, direction, currency, status, source, occurred_at, payment_method, entity_type, entity_id, metadata FROM canonical_financial_ledger WHERE entity_type = 'event' AND entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_type, entity_type, description, metadata, occurred_at, created_by FROM hotel_activity_ledger WHERE entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_type, description, metadata, occurred_at, created_by FROM hotel_activity_ledger WHERE entity_type = 'event_task' AND entity_id::text = $1 ORDER BY occurred_at ASC LIMIT 100`, [id]),
   ]);
