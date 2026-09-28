@@ -66,8 +66,8 @@ export async function GET(request: Request) {
                amount, currency, status, payment_method,
                NULL::text AS customer_id, NULL::jsonb AS items,
                jsonb_build_object(
-                 'source', source, 'entityType', entity_type,
-                 'entityId', entity_id
+                 'source', CASE WHEN entity_type = 'event' THEN 'event' ELSE source END, 'ledgerSource', source, 'entityType', entity_type,
+                 'entityId', entity_id, 'eventId', CASE WHEN entity_type = 'event' THEN entity_id ELSE NULL END
                ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
                occurred_at AS created_at, updated_at
         FROM canonical_financial_ledger
