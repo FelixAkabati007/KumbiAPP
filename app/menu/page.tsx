@@ -125,36 +125,11 @@ function MenuContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inventoryOptions, setInventoryOptions] = useState<Array<{ id: string; name: string; category?: string; quantity: string; unit: string }>>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventorySearch, setInventorySearch] = useState("");
-
-  const filteredInventoryOptions = useMemo(() => {
-    const search = inventorySearch.trim().toLowerCase();
-    return inventoryOptions.filter((item) => {
-      const preferred = ["beverage", "beverages", "supply", "supplies"].includes(String(item.category ?? "").toLowerCase());
-      const matches = !search || `${item.name} ${item.category ?? ""}`.toLowerCase().includes(search);
-      return matches && preferred;
-    });
-  }, [inventoryOptions, inventorySearch]);
-
   console.debug("👤 [MenuPage] Current user:", {
     id: user?.id ?? null,
     role: user?.role ?? null,
     authLoading: Boolean(authLoading),
   });
-
-  useEffect(() => {
-    if (!isDialogOpen) return;
-    let active = true;
-    setInventoryLoading(true);
-    fetch("/api/inventory")
-      .then((response) => response.ok ? response.json() : [])
-      .then((data) => { if (active) setInventoryOptions(Array.isArray(data) ? data : []); })
-      .catch(() => { if (active) setInventoryOptions([]); })
-      .finally(() => { if (active) setInventoryLoading(false); });
-    return () => { active = false; };
-  }, [isDialogOpen]);
 
   // Load menu items from storage on mount
   useEffect(() => {
@@ -778,10 +753,9 @@ function MenuContent() {
               </DialogDescription>
             </DialogHeader>
   <Tabs defaultValue="details" className="flex min-h-0 min-w-0 flex-1 flex-col">
-  <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-3 sm:mx-6 sm:mt-5">
+  <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-2 sm:mx-6 sm:mt-5">
                 <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="supply">Supply</TabsTrigger>
-                {editingItem.inventoryMode !== "direct" && (
+{editingItem.inventoryMode !== "direct" && (
                   <TabsTrigger value="recipe" disabled={isNewItem}>
                     Recipe
                   </TabsTrigger>
@@ -961,32 +935,6 @@ function MenuContent() {
                         : "Save Changes"}
                   </Button>
                 </DialogFooter>
-              </TabsContent>
-              <TabsContent value="supply" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
-                <div className="grid gap-4 rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
-                  <div>
-                    <h3 className="font-semibold">Supply connection</h3>
-                    <p className="text-sm text-muted-foreground">Link one stock item for direct deduction when this menu item is sold. Use Recipe for prepared dishes with multiple ingredients.</p>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="directInventorySearch">Inventory item</Label>
-                    <Input id="directInventorySearch" value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search beverages or supplies" />
-                    <div className="max-h-52 overflow-y-auto rounded-md border bg-background" role="listbox" aria-label="Supply inventory items">
-                      {inventoryLoading ? <p className="px-3 py-2 text-sm text-muted-foreground">Loading supply items…</p> : filteredInventoryOptions.length ? filteredInventoryOptions.map((item) => (
-                        <button type="button" key={item.id} role="option" aria-selected={editingItem.directInventoryId === item.id} onClick={() => { setEditingItem((current) => ({ ...current, inventoryMode: "direct", directInventoryId: item.id })); setInventorySearch(item.name); }} className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted ${editingItem.directInventoryId === item.id ? "bg-primary/10" : ""}`}>
-                          <span className="min-w-0"><span className="block truncate font-medium">{item.name}</span><span className="block text-xs text-muted-foreground">{item.category ?? "Supply"}</span></span>
-                          <span className="shrink-0 text-xs text-muted-foreground">{item.quantity} {item.unit}</span>
-                        </button>
-                      )) : <p className="px-3 py-2 text-sm text-muted-foreground">No beverage or supply inventory found.</p>}
-                    </div>
-                    {editingItem.directInventoryId && <p className="text-xs text-primary">Supply linked for direct deduction.</p>}
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="directUnitsPerSale">Supply units per sale</Label>
-                    <Input id="directUnitsPerSale" type="number" min="0.01" step="0.01" value={editingItem.directUnitsPerSale ?? 1} onChange={(event) => setEditingItem((current) => ({ ...current, directUnitsPerSale: Number(event.target.value) || 1 }))} />
-                    <p className="text-xs text-muted-foreground">Choose Direct stock in Details to enable this link. Prepared items should use the Recipe tab instead; the two tracking modes cannot be combined.</p>
-                  </div>
-                </div>
               </TabsContent>
               {editingItem.inventoryMode !== "direct" && (
   <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
