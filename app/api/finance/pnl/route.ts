@@ -43,6 +43,7 @@ export async function GET(request: Request) {
         FROM transaction_logs
         WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded')
           AND ${departmentSql} <> 'hotel'
+          AND NOT (metadata->>'eventId' IS NOT NULL OR metadata->>'event_id' IS NOT NULL)
         UNION ALL
         SELECT 'hotel' AS department,
           occurred_at,
@@ -74,6 +75,15 @@ export async function GET(request: Request) {
         FROM transactions
         WHERE LOWER(status) IN ('completed','succeeded','success','paid','refunded','reversed','cancelled')
           AND amount <> 0
+        UNION ALL
+        SELECT 'event' AS department,
+          occurred_at,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN -ABS(amount::numeric) ELSE ABS(amount::numeric) END AS revenue,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN ABS(amount::numeric) ELSE 0::numeric END AS refund_amount,
+          CASE WHEN LOWER(status) IN ('refunded', 'reversed', 'cancelled') THEN 0::numeric ELSE ABS(amount::numeric) END AS gross_revenue,
+          0::numeric AS expense
+        FROM canonical_financial_ledger
+        WHERE entity_type = 'event' AND LOWER(status) IN ('posted', 'completed', 'paid', 'refunded', 'reversed', 'cancelled')
         UNION ALL
         SELECT CASE
           WHEN LOWER(COALESCE(department, '')) LIKE '%event%' THEN 'event'
