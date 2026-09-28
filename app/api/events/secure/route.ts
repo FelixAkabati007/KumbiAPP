@@ -21,8 +21,11 @@ export async function POST(request: Request) {
       if (quote.status !== "approved") throw new Error("QUOTE_NOT_ACCEPTED");
       if (event.secured_at) throw new Error("EVENT_ALREADY_SECURED");
       const configuredLevies = calculateTaxes(Number(quote.subtotal) || 0, await getTaxConfiguration(), "events");
-  const receipt = await client.query(`INSERT INTO hotel_receipts (order_id, order_number, receipt_type, snapshot, created_by) VALUES ($1, $2, 'event_booking', $3::jsonb, $4) RETURNING id`, [event.id, `EVENT-${event.id.slice(0, 8).toUpperCase()}`, JSON.stringify({ event, quote, subtotal: Number(quote.subtotal) || 0, tax: Number(quote.tax_amount) || 0, total: Number(quote.total) || 0, levyLabel: 'GRA E-VAT / statutory levies', levyBreakdown: configuredLevies.breakdown, securedBy: { id: session.id, name: session.name, email: session.email, role: session.role }, securedAt: new Date().toISOString() }), session.id]);
-      await client.query(`UPDATE events SET status = 'confirmed', secured_at = now(), secured_by = $1, receipt_id = $2, updated_at = now() WHERE id = $3`, [session.id, receipt.rows[0].id, eventId]);
+  const orderNumber = `EVENT-${event.id.slice(0, 8).toUpperCase()}`;
+      const snapshot = { event, quote, subtotal: Number(quote.subtotal) || 0, tax: Number(quote.tax_amount) || 0, total: Number(quote.total) || 0, levyLabel: 'GRA E-VAT / statutory levies', levyBreakdown: configuredLevies.breakdown, securedBy: { id: session.id, name: session.name, email: session.email, role: session.role }, securedAt: new Date().toISOString() };
+      // Event bookings do not have a hotel reservation, so the event UUID is the stable reservation reference for the receipt record.
+      const receipt = await client.query(`INSERT INTO hotel_receipts (reservation_id, order_id, order_number, receipt_type, snapshot, created_by) VALUES ($1, $2, $3, 'event_booking', $4::jsonb, $5) RETURNING id`, [event.id, event.id, orderNumber, JSON.stringify(snapshot), session.id]);
+      await client.query(`UPDATE events SET status = 'confirmed', secured_at = now(), secured_by = $1, receipt_id = $2, finance_status = 'posted', total_invoiced = $3, balance_due = $3, updated_at = now() WHERE id = $4`, [session.id, receipt.rows[0].id, Number(quote.total) || 0, eventId]);
       await client.query(`UPDATE event_quotes SET status = 'accepted', updated_at = now() WHERE id = $1`, [quoteId]);
       await client.query(`INSERT INTO canonical_financial_ledger (event_key, entity_type, entity_id, source, direction, amount, currency, status, occurred_at, metadata) VALUES ($1, 'event', $2, 'event_booking', 'credit', $3, $4, 'posted', now(), $5) ON CONFLICT (event_key) DO NOTHING`, [`event-booking:${event.id}:${quote.id}`, event.id, Number(quote.total) || 0, quote.currency || 'GHS', JSON.stringify({ source: 'event', orderNumber: `EVENT-${event.id.slice(0, 8).toUpperCase()}`, eventId: event.id, quoteId: quote.id, receiptId: receipt.rows[0].id, clientName: event.client_name })]);
       return { event, quote, receiptId: receipt.rows[0].id };
@@ -31,6 +34,6 @@ export async function POST(request: Request) {
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Unable to secure event";
     const status = ["EVENT_OR_QUOTE_NOT_FOUND", "QUOTE_NOT_ACCEPTED", "EVENT_ALREADY_SECURED"].includes(message) ? 409 : 500;
-    return NextResponse.json({ error: message === "QUOTE_NOT_ACCEPTED" ? "Only an approved or accepted quote can secure the event" : message }, { status });
+    return NextResponse.json({ error: message === "QUOTE_NOT_ACCEPTED" ? "Only an approved quote can secure the event" : message }, { status });
   }
 }
