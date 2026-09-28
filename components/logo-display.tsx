@@ -11,20 +11,35 @@ interface LogoDisplayProps {
 }
 
 export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
-  const [logo, setLogo] = useState<string>("");
+  const [logo, setLogo] = useState<string>("/logo.svg");
   const [isValidImage, setIsValidImage] = useState(true);
 
   const loadLogo = useCallback(async () => {
-    const settings = await fetchSettings();
-    const currentLogo = settings.account?.logo || "";
-    setLogo(currentLogo);
-    setIsValidImage(true);
+    try {
+      const settings = await Promise.race([
+        fetchSettings(),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
+      ]);
+      const currentLogo = settings?.account?.logo || "";
+      if (currentLogo) {
+        await new Promise<void>((resolve) => {
+          const image = new window.Image();
+          const finish = () => resolve();
+          image.onload = finish;
+          image.onerror = finish;
+          image.src = currentLogo;
+        });
+        setLogo(currentLogo);
+        setIsValidImage(true);
+      }
 
-    // Bust aggressive browser favicon caches whenever Admin updates branding.
-    document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
-      const element = link as HTMLLinkElement;
-      element.href = currentLogo ? `${currentLogo}${currentLogo.includes("?") ? "&" : "?"}v=${encodeURIComponent(currentLogo)}` : "/logo.svg";
-    });
+      // Keep the browser icon on the same server-backed route as the logo.
+      document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
+        (link as HTMLLinkElement).href = `/favicon.ico?v=${Date.now()}`;
+      });
+    } catch (error) {
+      console.error("[v0] Logo loading failed; keeping fallback logo", error);
+    }
   }, []);
 
   useEffect(() => {
