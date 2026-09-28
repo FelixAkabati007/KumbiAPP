@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   try {
     const result = await transaction(async (client) => {
-      const eventResult = await client.query(`SELECT id, name, client_name, venue, starts_at, ends_at, guest_count, status FROM events WHERE id = $1 FOR UPDATE`, [eventId]);
-      const quoteResult = await client.query(`SELECT q.id, q.status, q.total, q.currency, COALESCE(json_agg(json_build_object('description', i.label, 'quantity', i.quantity, 'total_amount', i.amount) ORDER BY i.created_at) FILTER (WHERE i.id IS NOT NULL), '[]') AS items FROM event_quotes q LEFT JOIN event_quote_items i ON i.quote_id = q.id WHERE q.id = $1 AND q.event_id = $2 GROUP BY q.id`, [quoteId, eventId]);
+      const eventResult = await client.query(`SELECT id, name, client_name, venue, starts_at, ends_at, guest_count, status, secured_at FROM events WHERE id = $1 FOR UPDATE`, [eventId]);
+      const quoteResult = await client.query(`SELECT q.id, q.status, q.subtotal, q.tax_amount, q.total, q.currency, COALESCE(json_agg(json_build_object('description', i.label, 'quantity', i.quantity, 'total_amount', i.amount) ORDER BY i.created_at) FILTER (WHERE i.id IS NOT NULL), '[]') AS items FROM event_quotes q LEFT JOIN event_quote_items i ON i.quote_id = q.id WHERE q.id = $1 AND q.event_id = $2 GROUP BY q.id`, [quoteId, eventId]);
       const event = eventResult.rows[0];
       const quote = quoteResult.rows[0];
       if (!event || !quote) throw new Error("EVENT_OR_QUOTE_NOT_FOUND");
