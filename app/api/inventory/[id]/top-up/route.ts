@@ -7,7 +7,7 @@ import { updateSystemState } from "@/lib/system-sync";
 
 const MAX_TOP_UP = 1_000_000_000;
 
-function parsePositiveQuantity(value: unknown) {
+export function parsePositiveQuantity(value: unknown) {
   if (typeof value !== "number" && typeof value !== "string") return null;
   const text = String(value).trim();
   if (!text || !/^(?:\d+\.?\d*|\.\d+)$/.test(text)) return null;
