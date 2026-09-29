@@ -139,14 +139,20 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
   };
 
   const handleAddSupply = async () => {
-    const parsedQuantity = parseRecipeQuantity(supplyQuantity);
-    if (!selectedSupplyId || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !supplyUnit) {
+    const normalizedSearch = supplySearch.trim().toLowerCase();
+    const resolvedSupply = selectedSupplyId
+      ? inventoryItems.find((item) => item.id === selectedSupplyId)
+      : supplyInventoryItems.find((item) => item.name.trim().toLowerCase() === normalizedSearch || item.sku?.trim().toLowerCase() === normalizedSearch);
+    const resolvedSupplyId = resolvedSupply?.id ?? selectedSupplyId;
+    const resolvedUnit = supplyUnit || resolvedSupply?.unit || "unit";
+    const parsedQuantity = parseRecipeQuantity(supplyQuantity || "1");
+    if (!resolvedSupplyId || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !resolvedUnit) {
       window.alert("Select a supply and enter a valid quantity and unit.");
       return;
     }
     setIsAdding(true);
     try {
-      const response = await fetch(`/api/menu/${menuItemId}/recipe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inventory_item_id: selectedSupplyId, quantity: parsedQuantity, unit: supplyUnit }) });
+      const response = await fetch(`/api/menu/${menuItemId}/recipe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inventory_item_id: resolvedSupplyId, quantity: parsedQuantity, unit: resolvedUnit }) });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || "Failed to save supply");
       await loadData();
