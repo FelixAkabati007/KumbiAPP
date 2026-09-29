@@ -59,6 +59,7 @@ export async function GET(request: Request) {
                ) AS metadata,
                occurred_at AS created_at, created_at AS updated_at
         FROM hotel_activity_ledger
+        WHERE COALESCE(amount, 0) <> 0
 
         UNION ALL
 
@@ -71,6 +72,7 @@ export async function GET(request: Request) {
                ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
                occurred_at AS created_at, updated_at
         FROM canonical_financial_ledger
+        WHERE COALESCE(amount, 0) <> 0
       )
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at
