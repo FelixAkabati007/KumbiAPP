@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation details" }, { status: 400 });
     }
     const { guestId, roomTypeId, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
-    let { checkInDate, checkOutDate } = parsed.data;
+    const { checkInDate, checkOutDate } = parsed.data;
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const roomTypeName = roomTypeNameResult.rows[0]?.name?.trim().toLowerCase();
     const isShortStay = roomTypeName === "short time" || roomTypeName === "short stay";

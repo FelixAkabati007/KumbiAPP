@@ -4,16 +4,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
-
-const MAX_TOP_UP = 1_000_000_000;
-
-export function parsePositiveQuantity(value: unknown) {
-  if (typeof value !== "number" && typeof value !== "string") return null;
-  const text = String(value).trim();
-  if (!text || !/^(?:\d+\.?\d*|\.\d+)$/.test(text)) return null;
-  const quantity = Number(text);
-  return Number.isFinite(quantity) && quantity > 0 && quantity <= MAX_TOP_UP ? quantity : null;
-}
+import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
