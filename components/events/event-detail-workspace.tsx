@@ -6,7 +6,7 @@ import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, FileText, IndianR
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EventActivity, EventDocuments, EventFinance, EventOperations, EventPayments } from "@/components/events/event-workspace-panels";
+import { EventActivity, EventDocuments, EventFinance, EventOperations, EventPayments, type WorkspaceData } from "@/components/events/event-workspace-panels";
 
 type EventRecord = { id: string; name: string; client_name: string; venue: string; starts_at: string; ends_at?: string | null; guest_count: number; status: string; payment_status?: string; receipt_id?: string | null; quote_approved?: boolean; finance_posted?: boolean };
 type Tab = "overview" | "quote" | "payments" | "finance" | "operations" | "documents" | "activity";
@@ -26,7 +26,7 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
-  const [workspaceData, setWorkspaceData] = useState<any>({ receipts: [], payments: [], ledger: [], activity: [], tasks: [] });
+  const [workspaceData, setWorkspaceData] = useState<WorkspaceData>({ receipts: [], payments: [], ledger: [], activity: [], tasks: [] });
 
   useEffect(() => {
     fetch("/api/events", { cache: "no-store" }).then((response) => response.json()).then((data) => setEvent((data.events ?? []).find((item: EventRecord) => item.id === eventId) ?? null)).finally(() => setLoading(false));

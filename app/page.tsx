@@ -105,8 +105,7 @@ function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   useEffect(() => {
-    let tickTimer: number | undefined;
-    let syncTimer: number | undefined;
+
     let cancelled = false;
 
     const syncTime = async () => {
@@ -121,12 +120,12 @@ function DashboardContent() {
     };
 
     void syncTime();
-    tickTimer = window.setInterval(() => setCurrentTime((value) => new Date(value.getTime() + 1000)), 1000);
-    syncTimer = window.setInterval(syncTime, 30_000);
+    const tickTimer = window.setInterval(() => setCurrentTime((value) => new Date(value.getTime() + 1000)), 1000);
+    const syncTimer = window.setInterval(syncTime, 30_000);
     return () => {
       cancelled = true;
-      if (tickTimer) window.clearInterval(tickTimer);
-      if (syncTimer) window.clearInterval(syncTimer);
+      window.clearInterval(tickTimer);
+      window.clearInterval(syncTimer);
     };
   }, []);
 

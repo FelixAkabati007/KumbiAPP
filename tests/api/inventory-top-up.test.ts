@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePositiveQuantity } from "@/app/api/inventory/[id]/top-up/route";
+import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 
 describe("inventory top-up validation", () => {
   it("accepts positive integer, decimal, and string quantities", () => {
