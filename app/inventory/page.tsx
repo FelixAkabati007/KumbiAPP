@@ -94,6 +94,10 @@ function InventoryContent() {
   const [varianceExplanation, setVarianceExplanation] = useState("");
   const [varianceEvidence, setVarianceEvidence] = useState<File | null>(null);
   const [isSubmittingVariance, setIsSubmittingVariance] = useState(false);
+  const [topUpItem, setTopUpItem] = useState<InventoryItem | null>(null);
+  const [topUpQuantity, setTopUpQuantity] = useState("");
+  const [topUpReason, setTopUpReason] = useState("");
+  const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
   const [summary, setSummary] = useState({
     totalItems: 0,
     lowStockItems: 0,
@@ -555,18 +559,31 @@ function InventoryContent() {
   };
 
   const isLowStock = (item: InventoryItem) => {
-    return (
-      Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)
-    );
+  return Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)
+  };
+
+  const handleTopUp = async () => {
+    if (!topUpItem) return;
+    const quantity = Number(topUpQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast({ title: "Invalid quantity", description: "Enter a positive top-up quantity.", variant: "destructive" });
+      return;
+    }
+    setIsSubmittingTopUp(true);
+    try {
+      const response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ quantityAdded: quantity, reason: topUpReason }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Unable to top up stock");
+      const updated = result.item;
+      setItems((current) => current.map((item) => item.id === topUpItem.id ? { ...item, quantity: String(updated.quantity), lastUpdated: new Date().toISOString() } : item));
+      toast({ title: "Stock topped up", description: `${topUpItem.name} is now at ${updated.quantity} ${topUpItem.unit}.` });
+      setTopUpItem(null); setTopUpQuantity(""); setTopUpReason("");
+    } catch (error) {
+      toast({ title: "Top-up failed", description: error instanceof Error ? error.message : "Unable to top up stock.", variant: "destructive" });
+    } finally { setIsSubmittingTopUp(false); }
   };
 
   const lowStockCount = items.filter(isLowStock).length;
-
-  useEffect(() => {
-    if (lowStockCount > 0) {
-      playNotificationSound();
-    }
-  }, [lowStockCount]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
@@ -817,6 +834,7 @@ function InventoryContent() {
   <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">
   <AlertTriangle className="h-4 w-4" />
   </Button>
+  {canMutateExistingInventory && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
   {canMutateExistingInventory && <div className="flex gap-2">
   <Button
   variant="ghost"
@@ -1103,6 +1121,19 @@ function InventoryContent() {
                 {isNewItem ? "Add Item" : "Save Changes"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); } }}>
+          <DialogContent className="max-w-md rounded-3xl border-emerald-200 dark:border-emerald-800">
+            <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="rounded-2xl bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30"><span className="text-muted-foreground">Current balance</span><p className="text-xl font-semibold">{topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</p></div>
+              <div className="grid gap-2"><Label htmlFor="top-up-quantity">Quantity to add</Label><Input id="top-up-quantity" type="number" min="0.001" step="any" value={topUpQuantity} onChange={(event) => setTopUpQuantity(event.target.value)} placeholder="Enter a positive quantity" autoFocus /></div>
+              <div className="grid gap-2"><Label htmlFor="top-up-reason">Reason (optional)</Label><Input id="top-up-reason" value={topUpReason} onChange={(event) => setTopUpReason(event.target.value)} placeholder="Purchase, delivery, adjustment..." maxLength={500} /></div>
+              <p className="text-sm text-muted-foreground">New balance: <strong>{topUpQuantity && Number(topUpQuantity) > 0 ? (Number(topUpItem?.quantity ?? 0) + Number(topUpQuantity)).toLocaleString() : topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</strong></p>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>Top up stock</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
