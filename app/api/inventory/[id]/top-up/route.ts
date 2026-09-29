@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const body = await req.json().catch(() => ({}));
     const quantityAdded = parsePositiveQuantity(body.quantityAdded);
     if (quantityAdded === null) return NextResponse.json({ error: "Top-up quantity must be a positive number", code: "INVALID_QUANTITY" }, { status: 400 });
-    const idempotencyKey = String(body.idempotencyKey || crypto.randomUUID()).trim();
+    const idempotencyKey = String(body.idempotencyKey || req.headers.get("Idempotency-Key") || crypto.randomUUID()).trim();
     if (!idempotencyKey || idempotencyKey.length > 120) return NextResponse.json({ error: "Invalid idempotency key", code: "INVALID_IDEMPOTENCY_KEY" }, { status: 400 });
 
     const result = await transaction(async (client) => {
