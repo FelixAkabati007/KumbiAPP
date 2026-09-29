@@ -778,11 +778,9 @@ function MenuContent() {
   <Tabs defaultValue="details" className="flex min-h-0 min-w-0 flex-1 flex-col">
   <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-2 sm:mx-6 sm:mt-5">
                 <TabsTrigger value="details">Details</TabsTrigger>
-{editingItem.inventoryMode !== "direct" && (
-                  <TabsTrigger value="recipe" disabled={isNewItem}>
-                    Recipe
-                  </TabsTrigger>
-                )}
+<TabsTrigger value="recipe" disabled={isNewItem}>
+                  Recipe & Supplies
+                </TabsTrigger>
               </TabsList>
 
   <TabsContent value="details" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
@@ -968,13 +966,11 @@ function MenuContent() {
                   </Button>
                 </DialogFooter>
               </TabsContent>
-              {editingItem.inventoryMode !== "direct" && (
-  <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+<TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
   <div className="min-w-0">
-                    <RecipeManager menuItemId={editingItem.id} />
-                  </div>
-                </TabsContent>
-              )}
+    <RecipeManager menuItemId={editingItem.id} />
+  </div>
+</TabsContent>
             </Tabs>
           </DialogContent>
         </Dialog>
