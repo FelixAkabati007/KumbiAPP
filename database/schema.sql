@@ -108,6 +108,35 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     UNIQUE(menu_item_id, inventory_item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_menu_item ON recipe_ingredients(menu_item_id);
+
+-- Immutable inventory top-up ledger. Inventory balance updates and ledger inserts
+-- are performed together by the authenticated top-up transaction.
+CREATE TABLE IF NOT EXISTS inventory_top_up_audit (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    inventory_item_id UUID NOT NULL REFERENCES inventory(id) ON DELETE RESTRICT,
+    quantity_before DECIMAL(14, 3) NOT NULL CHECK (quantity_before >= 0),
+    quantity_added DECIMAL(14, 3) NOT NULL CHECK (quantity_added > 0),
+    quantity_after DECIMAL(14, 3) NOT NULL CHECK (quantity_after = quantity_before + quantity_added),
+    performed_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    performed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    idempotency_key VARCHAR(120) NOT NULL UNIQUE,
+    source VARCHAR(50) NOT NULL DEFAULT 'manual_top_up',
+    request_metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_top_up_audit_item_time
+    ON inventory_top_up_audit(inventory_item_id, performed_at DESC);
+
+CREATE OR REPLACE FUNCTION prevent_inventory_top_up_audit_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'inventory_top_up_audit is append-only';
+END;
+$$;
+DROP TRIGGER IF EXISTS inventory_top_up_audit_immutable ON inventory_top_up_audit;
+CREATE TRIGGER inventory_top_up_audit_immutable
+    BEFORE UPDATE OR DELETE ON inventory_top_up_audit
+    FOR EACH ROW EXECUTE FUNCTION prevent_inventory_top_up_audit_mutation();
+
 -- 3. Order Management
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

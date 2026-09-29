@@ -94,6 +94,13 @@ function InventoryContent() {
   const [varianceExplanation, setVarianceExplanation] = useState("");
   const [varianceEvidence, setVarianceEvidence] = useState<File | null>(null);
   const [isSubmittingVariance, setIsSubmittingVariance] = useState(false);
+  const [topUpItem, setTopUpItem] = useState<InventoryItem | null>(null);
+  const [topUpQuantity, setTopUpQuantity] = useState("");
+  const [topUpReason, setTopUpReason] = useState("");
+  const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
+  const [topUpHistoryItem, setTopUpHistoryItem] = useState<InventoryItem | null>(null);
+  const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by_email?: string | null; request_metadata?: { reason?: string | null } }>>([]);
+  const [isLoadingTopUpHistory, setIsLoadingTopUpHistory] = useState(false);
   const [summary, setSummary] = useState({
     totalItems: 0,
     lowStockItems: 0,
@@ -555,18 +562,44 @@ function InventoryContent() {
   };
 
   const isLowStock = (item: InventoryItem) => {
-    return (
-      Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)
-    );
+  return Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)
+  };
+
+  const openTopUpHistory = async (item: InventoryItem) => {
+    setTopUpHistoryItem(item);
+    setIsLoadingTopUpHistory(true);
+    try {
+      const response = await fetch(`/api/inventory/${item.id}/top-up?limit=100`);
+      if (!response.ok) throw new Error("Unable to load top-up history");
+      setTopUpHistory(await response.json());
+    } catch (error) {
+      setTopUpHistory([]);
+      toast({ title: "History unavailable", description: error instanceof Error ? error.message : "Unable to load top-up history.", variant: "destructive" });
+    } finally { setIsLoadingTopUpHistory(false); }
+  };
+
+  const handleTopUp = async () => {
+    if (!topUpItem) return;
+    const quantity = Number(topUpQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast({ title: "Invalid quantity", description: "Enter a positive top-up quantity.", variant: "destructive" });
+      return;
+    }
+    setIsSubmittingTopUp(true);
+    try {
+      const response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ quantityAdded: quantity, reason: topUpReason }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Unable to top up stock");
+      const updated = result.item;
+      setItems((current) => current.map((item) => item.id === topUpItem.id ? { ...item, quantity: String(updated.quantity), lastUpdated: new Date().toISOString() } : item));
+      toast({ title: "Stock topped up", description: `${topUpItem.name} is now at ${updated.quantity} ${topUpItem.unit}.` });
+      setTopUpItem(null); setTopUpQuantity(""); setTopUpReason("");
+    } catch (error) {
+      toast({ title: "Top-up failed", description: error instanceof Error ? error.message : "Unable to top up stock.", variant: "destructive" });
+    } finally { setIsSubmittingTopUp(false); }
   };
 
   const lowStockCount = items.filter(isLowStock).length;
-
-  useEffect(() => {
-    if (lowStockCount > 0) {
-      playNotificationSound();
-    }
-  }, [lowStockCount]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
@@ -817,6 +850,8 @@ function InventoryContent() {
   <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">
   <AlertTriangle className="h-4 w-4" />
   </Button>
+  {canMutateExistingInventory && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
+  <Button variant="ghost" size="icon" title="View top-up history" aria-label={`View top-up history for ${item.name}`} onClick={() => openTopUpHistory(item)} className="h-8 w-8 text-slate-600 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><TrendingDown className="h-4 w-4 rotate-180" /></Button>
   {canMutateExistingInventory && <div className="flex gap-2">
   <Button
   variant="ghost"
@@ -1103,6 +1138,28 @@ function InventoryContent() {
                 {isNewItem ? "Add Item" : "Save Changes"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(topUpHistoryItem)} onOpenChange={(open) => { if (!open) { setTopUpHistoryItem(null); setTopUpHistory([]); } }}>
+          <DialogContent className="max-w-3xl rounded-3xl">
+            <DialogHeader><DialogTitle>Top-up history</DialogTitle><DialogDescription>Immutable stock replenishment records for {topUpHistoryItem?.name ?? "this item"}. Timestamps are shown in UTC.</DialogDescription></DialogHeader>
+            <div className="max-h-[55vh] overflow-y-auto rounded-2xl border">
+              {isLoadingTopUpHistory ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading history...</div> : topUpHistory.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No top-ups recorded yet.</p> : <div className="divide-y">{topUpHistory.map((entry) => <div key={entry.id} className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="font-medium">{entry.quantity_before} + {entry.quantity_added} = {entry.quantity_after} {topUpHistoryItem?.unit}</p><p className="text-muted-foreground">{entry.request_metadata?.reason || "Manual stock top-up"}</p></div><div className="text-left text-xs text-muted-foreground sm:text-right"><p>{new Date(entry.performed_at).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p><p>{entry.performed_by_email || "Authenticated user"}</p></div></div>)}</div>}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); } }}>
+          <DialogContent className="max-w-md rounded-3xl border-emerald-200 dark:border-emerald-800">
+            <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="rounded-2xl bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30"><span className="text-muted-foreground">Current balance</span><p className="text-xl font-semibold">{topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</p></div>
+              <div className="grid gap-2"><Label htmlFor="top-up-quantity">Quantity to add</Label><Input id="top-up-quantity" type="number" min="0.001" step="any" value={topUpQuantity} onChange={(event) => setTopUpQuantity(event.target.value)} placeholder="Enter a positive quantity" autoFocus /></div>
+              <div className="grid gap-2"><Label htmlFor="top-up-reason">Reason (optional)</Label><Input id="top-up-reason" value={topUpReason} onChange={(event) => setTopUpReason(event.target.value)} placeholder="Purchase, delivery, adjustment..." maxLength={500} /></div>
+              <p className="text-sm text-muted-foreground">New balance: <strong>{topUpQuantity && Number(topUpQuantity) > 0 ? (Number(topUpItem?.quantity ?? 0) + Number(topUpQuantity)).toLocaleString() : topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</strong></p>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>Top up stock</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </main>

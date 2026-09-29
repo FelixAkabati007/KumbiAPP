@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for lib/system-sync.ts</title>
+    <title>Code coverage report for system-sync.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../prettify.css" />
-    <link rel="stylesheet" href="../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <link rel="stylesheet" href="prettify.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../sort-arrow-sprite.png);
+            background-image: url(sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">lib</a> system-sync.ts</h1>
+        <h1><a href="index.html">All files</a> system-sync.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45.16% </span>
+                <span class="strong">3.22% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/31</span>
+                <span class='fraction'>1/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>0/0</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45.16% </span>
+                <span class="strong">3.22% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>14/31</span>
+                <span class='fraction'>1/31</span>
             </div>
         
             
@@ -128,27 +128,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -181,27 +181,27 @@ export interface SystemState {
  * Updates the synchronization state for a given key.
  * Triggers a version change which clients can detect.
  */
-export async function updateSystemState(key: string): Promise&lt;void&gt; {
-  try {
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function updateSystemState(key: string): Promise&lt;void&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  try {</span>
     // Ensure the key exists first (though we seeded them, safe to upsert)
-    await query(
-      `INSERT INTO system_state (key, last_updated, version)
+<span class="cstat-no" title="statement not covered" >    await query(</span>
+<span class="cstat-no" title="statement not covered" >      `INSERT INTO system_state (key, last_updated, version)</span>
        VALUES ($1, NOW(), uuid_generate_v4())
        ON CONFLICT (key) 
        DO UPDATE SET last_updated = NOW(), version = uuid_generate_v4()`,
-      [key]
-    );
+<span class="cstat-no" title="statement not covered" >      [key]</span>
+<span class="cstat-no" title="statement not covered" >    );</span>
 &nbsp;
     // Always update 'global' key when any specific key updates
-    if (key !== "global") {
-      await query(
-        `UPDATE system_state SET last_updated = NOW(), version = uuid_generate_v4() WHERE key = 'global'`
-      );
-    }
-<span class="branch-0 cbranch-no" title="branch not covered" >  } catch (error) {</span>
+<span class="cstat-no" title="statement not covered" >    if (key !== "global") {</span>
+<span class="cstat-no" title="statement not covered" >      await query(</span>
+<span class="cstat-no" title="statement not covered" >        `UPDATE system_state SET last_updated = NOW(), version = uuid_generate_v4() WHERE key = 'global'`</span>
+<span class="cstat-no" title="statement not covered" >      );</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  } catch (error) {</span>
 <span class="cstat-no" title="statement not covered" >    console.error(`Failed to update system state for key ${key}:`, error);</span>
 <span class="cstat-no" title="statement not covered" >  }</span>
-}
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
 /**
  * Retrieves the current version state of the system.
@@ -229,16 +229,16 @@ export async function updateSystemState(key: string): Promise&lt;void&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-22T07:24:49.961Z
+                at 2026-09-29T18:43:30.753Z
             </div>
-        <script src="../prettify.js"></script>
+        <script src="prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../sorter.js"></script>
-        <script src="../block-navigation.js"></script>
+        <script src="sorter.js"></script>
+        <script src="block-navigation.js"></script>
     </body>
 </html>
     
