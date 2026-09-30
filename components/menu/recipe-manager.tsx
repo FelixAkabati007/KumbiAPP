@@ -26,6 +26,9 @@ interface RecipeIngredient {
   unit: string;
   inventory_name: string;
   inventory_category?: string | null;
+  inventory_quantity?: number | string | null;
+  inventory_unit?: string | null;
+  stock_status: "stocked" | "out_of_stock";
 }
 
 interface RecipeManagerProps {
@@ -235,10 +238,10 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           <div className="overflow-x-auto rounded-md border">
             <Table className="min-w-[34rem]">
 
-              <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Stock</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
-                {ingredients.map((ing) => <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}
-                {ingredients.length === 0 && <TableRow><TableCell colSpan={4} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
+                {ingredients.map((ing) => <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell><Badge className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}
+                {ingredients.length === 0 && <TableRow><TableCell colSpan={5} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>
@@ -254,7 +257,7 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
             <div><Label htmlFor="supply-unit">Unit</Label><UnitSelect value={supplyUnit} onChange={(value) => setSupplyUnit(typeof value === "string" ? value : value[0] || "")} placeholder="Select unit" className="mt-1" /></div>
             <Button onClick={handleAddSupply} disabled={isAdding || !selectedSupplyId || !supplyUnit}><Plus className="size-4" data-icon="inline-start" />Add supply</Button>
           </div>
-          <div className="overflow-x-auto rounded-md border"><Table className="min-w-[34rem]"><TableHeader><TableRow><TableHead>Supply</TableHead><TableHead>Quantity</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.inventory_name}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${item.inventory_name}`} onClick={() => handleRemoveIngredient(item.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).length === 0 && <TableRow><TableCell colSpan={4} className="h-16 text-center text-muted-foreground">No supplies linked to this meal yet.</TableCell></TableRow>}</TableBody></Table></div>
+          <div className="overflow-x-auto rounded-md border"><Table className="min-w-[34rem]"><TableHeader><TableRow><TableHead>Supply</TableHead><TableHead>Quantity</TableHead><TableHead>Unit</TableHead><TableHead>Stock</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.inventory_name}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell><Badge className={item.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{item.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${item.inventory_name}`} onClick={() => handleRemoveIngredient(item.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}{ingredients.filter((item) => supplyInventoryItems.some((supply) => supply.id === item.inventory_item_id)).length === 0 && <TableRow><TableCell colSpan={5} className="h-16 text-center text-muted-foreground">No supplies linked to this meal yet.</TableCell></TableRow>}</TableBody></Table></div>
         </CardContent>
       </Card>
 
