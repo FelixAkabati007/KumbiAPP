@@ -12,7 +12,9 @@ export async function GET(
     if (error) return error;
 
     const result = await query(
-      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name, i.category as inventory_category
+      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name, i.category as inventory_category,
+              i.quantity as inventory_quantity, i.unit as inventory_unit,
+              CASE WHEN COALESCE(i.quantity, 0) >= r.quantity THEN 'stocked' ELSE 'out_of_stock' END as stock_status
        FROM recipe_ingredients r
        JOIN inventory i ON r.inventory_item_id = i.id
        WHERE r.menu_item_id = $1`,
