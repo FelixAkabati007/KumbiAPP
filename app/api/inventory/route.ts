@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
 import { isInventoryBaseUnit, getInventoryBaseUnit } from "@/lib/inventory-units";
+import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 
 export async function GET() {
   try {
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
       const error = validateInventoryNumber(value, field);
       if (error) return NextResponse.json({ error }, { status: 400 });
     }
+    const costValidationError = getInventoryCostValidationError(costPerContainer ?? 0, quantityPerContainer ?? 0);
+    if (costValidationError) return NextResponse.json({ error: costValidationError }, { status: 400 });
     const normalizedQuantity = quantityPerContainer && containerCount ? Number(quantityPerContainer) * Number(containerCount) : Number(quantity ?? 0);
     const normalizedCostPerItem = costPerContainer && quantityPerContainer ? Number(costPerContainer) / Number(quantityPerContainer) : Number(costPerItem ?? 0);
     const resolvedBaseUnit = baseUnit || getInventoryBaseUnit(unit) || null;

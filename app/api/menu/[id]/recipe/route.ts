@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
+import { calculateInventoryLineCost } from "@/lib/inventory-cost";
 
 export async function GET(
   request: Request,
@@ -31,7 +32,20 @@ export async function GET(
         requiredInInventoryUnit !== null && Number(row.inventory_quantity ?? 0) >= requiredInInventoryUnit
           ? "stocked"
           : "out_of_stock";
-      return { ...row, stock_status };
+      const cost = calculateInventoryLineCost({
+        recipeQuantity: Number(row.quantity), recipeUnit: row.unit, inventoryUnit: row.inventory_unit,
+        conversionRatio: row.inventory_conversion_ratio, densityGPerMl: row.inventory_density,
+        costPerInventoryUnit: row.inventory_cost_price,
+      });
+      return {
+        ...row,
+        stock_status,
+        cost_status: cost.status,
+        required_inventory_quantity: cost.requiredInventoryQuantity,
+        cost_per_inventory_unit: cost.costPerInventoryUnit,
+        line_cost: cost.lineCost,
+        cost_reason: cost.reason,
+      };
     });
 
     return NextResponse.json(rows);
