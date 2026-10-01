@@ -179,7 +179,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
 
   if (!systemStatus) {
     return (
-      <Card className={className}>
+      <Card className={`min-w-0 overflow-hidden ${className ?? ""}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Monitor className="h-5 w-5" />
@@ -200,14 +200,14 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
 
   return (
     <>
-      <Card className={className}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className={`min-w-0 overflow-hidden ${className ?? ""}`}>
+        <CardHeader className="space-y-3 sm:space-y-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2">
               <Monitor className="h-5 w-5" />
               System Dashboard
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               <Badge
                 variant={
                   systemStatus.overall.isHealthy ? "default" : "destructive"
@@ -243,7 +243,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
               <HardDrive className="h-4 w-4" />
               Hardware Status
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
               {/* Cash Drawer */}
               <Card>
                 <CardHeader className="pb-2">
@@ -418,7 +418,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
               <Settings className="h-4 w-4" />
               System Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
               <Card>
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-2">
@@ -492,7 +492,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
                 {events.slice(0, 5).map((event, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-3 p-2 rounded-lg border bg-card"
+                    className="flex min-w-0 items-start gap-3 rounded-lg border bg-card p-2"
                   >
                     {getEventIcon(event)}
                     <div className="flex items-center gap-2">
@@ -546,7 +546,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
 
       {/* Event Log Dialog */}
       <Dialog open={showEventLog} onOpenChange={setShowEventLog}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent className="max-h-[85vh] w-[calc(100%-1rem)] max-w-4xl overflow-hidden p-4 sm:w-full sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
