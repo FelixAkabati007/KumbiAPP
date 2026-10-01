@@ -23,7 +23,7 @@ const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
   fl_oz: "fl_oz", "fl oz": "fl_oz", "fluid ounce": "fl_oz", "fluid ounces": "fl_oz",
   qt: "qt", quart: "qt", quarts: "qt",
   gal: "gal", gallon: "gal", gallons: "gal",
-  unit: "unit", units: "unit", piece: "unit", pieces: "unit", each: "unit",
+  unit: "unit", units: "unit", piece: "unit", pieces: "unit", each: "unit", ea: "unit", ct: "unit", count: "unit", counts: "unit", pc: "unit", pcs: "unit", item: "unit", items: "unit",
   bag: "unit", bags: "unit", box: "unit", boxes: "unit", roll: "unit", rolls: "unit",
   tray: "unit", trays: "unit", pack: "unit", packs: "unit", pallet: "unit", pallets: "unit",
   can: "unit", cans: "unit", bottle: "unit", bottles: "unit", sack: "unit", sacks: "unit",

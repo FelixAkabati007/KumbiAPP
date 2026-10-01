@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
+import { getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
 
 export async function GET(
@@ -67,12 +67,7 @@ export async function POST(
 
     const body = await request.json();
     const { inventory_item_id, quantity, unit } = body;
-    const allowedUnits = new Set([
-      "cs", "bx", "pk", "bg", "flat", "crate", "tub", "drum", "bbl", "sleeve", "carton", "sack", "bottle", "tin", "tray",
-      "ea", "ct", "dz", "lb", "oz", "kg", "g", "gal", "qt", "l", "btl", "can", "item", "piece", "unit", "bulb", "clove", "knob", "bunch", "head", "leaf", "root",
-      "fl_oz", "ml", "scoop", "ladle", "slice", "pc", "tsp", "tbsp", "c", "pinch",
-    ]);
-    if (typeof unit !== "string" || !unit.trim() || !allowedUnits.has(unit)) {
+    if (typeof unit !== "string" || !unit.trim() || !isInventoryUnit(unit)) {
       return NextResponse.json({ error: "Select a valid recipe unit." }, { status: 400 });
     }
     if (!inventory_item_id || typeof inventory_item_id !== "string") {
