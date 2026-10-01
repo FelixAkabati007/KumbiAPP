@@ -94,35 +94,45 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
 
 export async function createInventoryItem(
   item: Omit<InventoryItem, "id">
-): Promise<InventoryItem | null> {
+): Promise<InventoryItem> {
+  let res: Response;
   try {
-    const res = await fetch("/api/inventory", {
+    res = await fetch("/api/inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
-    if (!res.ok) throw new Error("Failed to create inventory item");
-    const data = await res.json();
-    return { ...item, id: data.id } as InventoryItem;
   } catch (error) {
     console.error("Error creating inventory item:", error);
-    return null;
+    throw new Error(
+      "Could not reach the server. Check your internet connection and try again."
+    );
   }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to create inventory item (status ${res.status}).`);
+  }
+  const data = await res.json();
+  return { ...item, id: data.id } as InventoryItem;
 }
 
-export async function updateInventoryItem(
-  item: InventoryItem
-): Promise<boolean> {
+export async function updateInventoryItem(item: InventoryItem): Promise<void> {
+  let res: Response;
   try {
-    const res = await fetch(`/api/inventory/${item.id}`, {
+    res = await fetch(`/api/inventory/${item.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
-    return res.ok;
   } catch (error) {
     console.error("Error updating inventory item:", error);
-    return false;
+    throw new Error(
+      "Could not reach the server. Check your internet connection and try again."
+    );
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to update inventory item (status ${res.status}).`);
   }
 }
 

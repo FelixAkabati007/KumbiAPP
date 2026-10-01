@@ -355,25 +355,90 @@ function InventoryContent() {
     }
   };
 
+  // Maps a save failure to a clear reason plus a concrete next step, since
+  // the API returns a specific cause (validation, auth, not found, server).
+  const describeSaveError = (error: unknown): { reason: string; solution: string } => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Could not reach the server")) {
+      return {
+        reason: "The request never reached the server.",
+        solution: "Check your internet connection and try saving again.",
+      };
+    }
+    if (/^Unauthorized$/i.test(message)) {
+      return {
+        reason: "Your session has expired.",
+        solution: "Sign in again, then retry saving this item.",
+      };
+    }
+    if (/^Forbidden/i.test(message)) {
+      return {
+        reason: "Your account role does not have permission to change inventory.",
+        solution: "Ask an admin to make this change, or request access.",
+      };
+    }
+    if (/not found/i.test(message)) {
+      return {
+        reason: "This item no longer exists — it may have been deleted elsewhere.",
+        solution: "Close this dialog and refresh the inventory list.",
+      };
+    }
+    if (/status 5\d\d/.test(message) || /Failed to (upsert|update) inventory/i.test(message)) {
+      return {
+        reason: "The server ran into an unexpected problem saving this item.",
+        solution: "Wait a moment and try again. If it keeps happening, contact support.",
+      };
+    }
+    // Validation errors (invalid unit, non-numeric field, missing name, etc.)
+    // already come through as a specific, human-readable message from the API.
+    return {
+      reason: message,
+      solution: "Correct the highlighted value and try saving again.",
+    };
+  };
+
   const handleSaveItem = async () => {
     if (!editingItem) return;
 
     const quantity = Number(editingItem.quantity);
     const cost = Number(editingItem.cost);
     const reorderLevel = Number(editingItem.reorderLevel);
-    if (
-      !editingItem.name.trim() ||
-      !editingItem.sku.trim() ||
-      !Number.isFinite(quantity) ||
-      quantity < 0 ||
-      !Number.isFinite(cost) ||
-      cost < 0 ||
-      !Number.isFinite(reorderLevel) ||
-      reorderLevel < 0
-    ) {
+    if (!editingItem.name.trim()) {
       toast({
-        title: "Validation Error",
-        description: "Enter a name, SKU, and non-negative numeric stock values.",
+        title: "Name is required",
+        description: "Enter a name for this inventory item before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!editingItem.sku.trim()) {
+      toast({
+        title: "SKU is required",
+        description: "Enter a unique SKU for this inventory item before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      toast({
+        title: "Invalid quantity",
+        description: "Quantity must be a number of 0 or greater. Remove any letters or symbols from the field.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!Number.isFinite(cost) || cost < 0) {
+      toast({
+        title: "Invalid cost",
+        description: "Cost must be a number of 0 or greater. Remove any letters or symbols from the field.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!Number.isFinite(reorderLevel) || reorderLevel < 0) {
+      toast({
+        title: "Invalid reorder level",
+        description: "Reorder level must be a number of 0 or greater. Remove any letters or symbols from the field.",
         variant: "destructive",
       });
       return;
@@ -393,52 +458,35 @@ function InventoryContent() {
           lastUpdated: new Date().toISOString(),
         };
         const savedItem = await createInventoryItem(itemToCreate);
-        if (savedItem) {
-          setItems([...items, savedItem]);
-          toast({
-            title: "Item Added",
-            description: `${savedItem.name} has been added to inventory`,
-          });
-          setIsDialogOpen(false);
-        } else {
-          toast({
-            title: "Error",
-            description:
-              "Failed to create item. Please check your permissions.",
-            variant: "destructive",
-          });
-        }
+        setItems([...items, savedItem]);
+        toast({
+          title: "Item Added",
+          description: `${savedItem.name} has been added to inventory`,
+        });
+        setIsDialogOpen(false);
       } else {
         const updatedItem = {
           ...editingItem,
           lastUpdated: new Date().toISOString(),
         };
-        const success = await updateInventoryItem(updatedItem);
-        if (success) {
-          setItems(
-            items.map((item) =>
-              item.id === editingItem.id ? updatedItem : item
-            )
-          );
-          toast({
-            title: "Item Updated",
-            description: `${editingItem.name} has been updated`,
-          });
-          setIsDialogOpen(false);
-        } else {
-          toast({
-            title: "Error",
-            description:
-              "Failed to update item. Please check your permissions.",
-            variant: "destructive",
-          });
-        }
+        await updateInventoryItem(updatedItem);
+        setItems(
+          items.map((item) =>
+            item.id === editingItem.id ? updatedItem : item
+          )
+        );
+        toast({
+          title: "Item Updated",
+          description: `${editingItem.name} has been updated`,
+        });
+        setIsDialogOpen(false);
       }
     } catch (error) {
       console.error("Failed to save inventory item:", error);
+      const { reason, solution } = describeSaveError(error);
       toast({
-        title: "Error",
-        description: "Failed to save item",
+        title: "Unable to save item",
+        description: `${reason} ${solution}`,
         variant: "destructive",
       });
     }
