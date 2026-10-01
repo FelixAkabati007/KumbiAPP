@@ -55,6 +55,20 @@ export function getInventoryDeductionQuantity(quantity: number, fromUnit?: strin
   return null;
 }
 
+export function getRecipeDeductionQuantity(quantity: number, recipeUnit?: string | null, stockUnit?: string | null, recipeUnitPerStockUnit?: number | null, densityGPerMl?: number | null): number | null {
+  if (!Number.isFinite(quantity) || quantity < 0) return null;
+  const ratio = Number(recipeUnitPerStockUnit);
+  const recipeKey = resolveUnitKey(recipeUnit);
+  const stockKey = resolveUnitKey(stockUnit);
+  if (recipeKey && stockKey && recipeKey === stockKey) return quantity;
+  if (Number.isFinite(ratio) && ratio > 0) {
+    if (recipeKey && stockKey && FACTORS[recipeKey].dimension === FACTORS[stockKey].dimension) {
+      return quantity / ratio;
+    }
+  }
+  return getInventoryDeductionQuantity(quantity, recipeUnit, stockUnit, densityGPerMl);
+}
+
 export function isInventoryBaseUnit(unit?: string | null): boolean {
   return ["g", "ml", "unit"].includes(resolveUnitKey(unit) || "");
 }

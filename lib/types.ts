@@ -42,6 +42,9 @@ export interface InventoryItem {
   cost: string;
   supplier: string;
   baseUnit?: string;
+  recipeUnit?: string;
+  conversionRatio?: string;
+  conversionType?: "standard" | "pack";
   densityGPerMl?: string;
   lastUpdated?: string;
   }
