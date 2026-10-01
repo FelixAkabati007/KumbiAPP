@@ -77,8 +77,22 @@ export async function POST(
       return NextResponse.json({ error: "Quantity must be greater than zero." }, { status: 400 });
     }
 
-    await query(
-      `INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit)
+  const inventoryResult = await query(
+    `SELECT category, recipe_unit, unit, base_unit FROM inventory WHERE id = $1`,
+    [inventory_item_id]
+  );
+  const inventory = inventoryResult.rows[0];
+  if (!inventory) return NextResponse.json({ error: "Selected inventory item was not found." }, { status: 404 });
+  const isSupply = ["supply", "packaging", "disposable", "equipment", "non-food"].includes(String(inventory.category ?? "").toLowerCase());
+  if (isSupply && !inventory.recipe_unit) {
+    return NextResponse.json({ error: "Configure a recipe unit for this Inventory supply before adding it to a menu." }, { status: 400 });
+  }
+  if (isSupply && String(unit).toLowerCase() !== String(inventory.recipe_unit).toLowerCase()) {
+    return NextResponse.json({ error: `Use the Inventory recipe unit: ${inventory.recipe_unit}.` }, { status: 400 });
+  }
+
+  await query(
+    `INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (menu_item_id, inventory_item_id) 
        DO UPDATE SET quantity = $3, unit = $4`,
