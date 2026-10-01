@@ -105,7 +105,6 @@ function MenuContent() {
   const router = useRouter();
   const { toast } = useToast();
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -229,11 +228,6 @@ function MenuContent() {
 
     return filtered;
   }, [items, searchTerm, selectedCategory]);
-
-  // Update filteredItems when memoized value changes
-  useEffect(() => {
-    setFilteredItems(memoizedFilteredItems);
-  }, [memoizedFilteredItems]);
 
   // Memoized dialog/form handlers and utility callbacks
   // These must be declared unconditionally (before any early returns)
@@ -566,7 +560,7 @@ function MenuContent() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-3 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Button
           variant="ghost"
           size="sm"
@@ -579,7 +573,7 @@ function MenuContent() {
         <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200 ml-2">
           Menu Management
         </h1>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
           <Button
             onClick={handleAddItem}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg relative overflow-hidden flex items-center gap-2"
@@ -592,8 +586,8 @@ function MenuContent() {
       </header>
 
       {/* Filters */}
-      <main className="flex flex-1 flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-4 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 md:p-6">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
+        <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-center sm:gap-4 sm:mb-6">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -621,11 +615,11 @@ function MenuContent() {
         </div>
 
         {/* Menu Items Grid */}
-        <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredItems.map((item) => (
+        <div className="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
+          {memoizedFilteredItems.map((item) => (
             <Card
               key={item.id}
-              className="overflow-hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative"
+              className="overflow-hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md transition-shadow duration-200 hover:shadow-xl relative"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <div className="relative">
@@ -739,7 +733,7 @@ function MenuContent() {
         </div>
 
         {/* Empty State */}
-        {filteredItems.length === 0 && (
+        {memoizedFilteredItems.length === 0 && (
           <div className="text-center py-12">
             <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full flex items-center justify-center mb-4">
               <UtensilsCrossed className="h-12 w-12 text-orange-600 dark:text-orange-400" />
