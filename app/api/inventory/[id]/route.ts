@@ -7,6 +7,7 @@ import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
 import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
 import { isInventoryBaseUnit } from "@/lib/inventory-units";
+import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 
 export async function PUT(
   req: Request,
@@ -19,7 +20,7 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
     const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem, baseUnit, densityGPerMl, recipeUnit, conversionRatio, conversionType } = body;
-    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [costPerItem, "Cost per item"], [densityGPerMl, "Density"], [conversionRatio, "Conversion ratio"]] as const) {
+    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [densityGPerMl, "Density"], [conversionRatio, "Conversion ratio"]] as const) {
       const validationError = validateInventoryNumber(value, field);
       if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     }
@@ -50,6 +51,8 @@ export async function PUT(
     // value in sync even when only "Items per container" or "Container count" is edited.
     const effectiveCostPerContainer = costPerContainer !== undefined ? Number(costPerContainer) : Number(before.cost_per_container ?? 0);
     const effectiveQuantityPerContainer = quantityPerContainer !== undefined ? Number(quantityPerContainer) : Number(before.quantity_per_container ?? 0);
+    const costValidationError = getInventoryCostValidationError(effectiveCostPerContainer, effectiveQuantityPerContainer);
+    if (costValidationError) return NextResponse.json({ error: costValidationError }, { status: 400 });
     const resolvedCostPerItem =
       effectiveQuantityPerContainer > 0
         ? effectiveCostPerContainer / effectiveQuantityPerContainer

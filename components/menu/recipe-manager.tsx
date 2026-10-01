@@ -18,7 +18,9 @@ import { Trash2, Plus, Loader2 } from "lucide-react";
 import { getInventoryItems } from "@/lib/data";
 import { UnitSelect } from "@/components/ui/unit-select";
 import type { InventoryItem } from "@/lib/types";
+import { useRealtime } from "@/components/realtime-provider";
 import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
+import type { InventoryCostStatus } from "@/lib/inventory-cost";
 
 interface RecipeIngredient {
   id: string;
@@ -33,6 +35,9 @@ interface RecipeIngredient {
   inventory_conversion_ratio?: number | string | null;
   inventory_density?: number | string | null;
   inventory_cost_price?: number | string | null;
+  cost_status?: InventoryCostStatus;
+  line_cost?: number | null;
+  cost_reason?: string | null;
   stock_status: "stocked" | "out_of_stock";
 }
 
@@ -42,6 +47,7 @@ interface RecipeManagerProps {
 }
 
 function getIngredientCost(ing: RecipeIngredient): number | null {
+  if (ing.line_cost !== undefined) return ing.line_cost;
   const costPerInventoryUnit = Number(ing.inventory_cost_price ?? 0);
   if (!Number.isFinite(costPerInventoryUnit) || costPerInventoryUnit <= 0) return null;
   const density = ing.inventory_density !== null && ing.inventory_density !== undefined ? Number(ing.inventory_density) : null;
@@ -92,6 +98,7 @@ export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps)
   const [supplyUnit, setSupplyUnit] = useState("");
   const [steps, setSteps] = useState<Array<{ instruction: string; duration_minutes: string }>>([]);
   const [isSavingSteps, setIsSavingSteps] = useState(false);
+  const { lastEvent } = useRealtime();
 
   const foodInventoryItems = inventoryItems.filter((item) => ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase()));
   const supplyInventoryItems = inventoryItems.filter((item) => ["supply", "packaging", "disposable", "equipment", "non-food"].includes((item.category ?? "").toLowerCase()));
@@ -126,6 +133,10 @@ export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps)
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (lastEvent?.topic === "inventory.updated") void loadData();
+  }, [lastEvent, loadData]);
 
   const handleAddIngredient = async () => {
     const parsedQuantity = parseRecipeQuantity(quantity);
@@ -302,7 +313,7 @@ export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps)
 
               <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-28">Cost</TableHead><TableHead className="w-32">Stock</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
-                {ingredients.map((ing) => { const cost = getIngredientCost(ing); return <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="tabular-nums">{cost !== null ? `₵${cost.toFixed(2)}` : <span className="text-xs text-muted-foreground">No cost set</span>}</TableCell><TableCell><Badge title={`Inventory: ${ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>; })}
+                {ingredients.map((ing) => { const cost = getIngredientCost(ing); return <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="tabular-nums">{cost !== null ? `₵${cost.toFixed(2)}` : <span className="text-xs text-muted-foreground" title={ing.cost_reason ?? undefined}>{ing.cost_status === "unit_conversion_missing" ? "Unit conversion needed" : ing.cost_status === "missing_cost" ? "Cost not configured" : "Invalid inventory setup"}</span>}</TableCell><TableCell><Badge title={`Inventory: ${ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>; })}
                 {ingredients.length === 0 && <TableRow><TableCell colSpan={6} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
               </TableBody>
             </Table>
