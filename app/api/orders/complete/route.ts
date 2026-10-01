@@ -65,15 +65,16 @@ export async function POST(req: Request) {
           );
         } else if (item.id) {
 const ingredients = await client.query(
-            `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.name
-             FROM recipe_ingredients r
-             JOIN inventory i ON i.id = r.inventory_item_id
-             WHERE r.menu_item_id = $1`,
+        `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.density_g_per_ml AS inventory_density, i.name
+      FROM recipe_ingredients r
+      JOIN inventory i ON i.id = r.inventory_item_id
+      WHERE r.menu_item_id = $1`,
             [item.id]
           );
           for (const ingredient of ingredients.rows) {
             const requiredQuantity = Number(ingredient.quantity) * Number(item.quantity);
-            const deduction = getInventoryDeductionQuantity(requiredQuantity, ingredient.unit, ingredient.inventory_unit);
+            const density = ingredient.inventory_density !== null && ingredient.inventory_density !== undefined ? Number(ingredient.inventory_density) : null;
+            const deduction = getInventoryDeductionQuantity(requiredQuantity, ingredient.unit, ingredient.inventory_unit, density);
             if (deduction === null) {
               throw new Error(`${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit}); configure a compatible unit or density before selling ${item.name}`);
             }

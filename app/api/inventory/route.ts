@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
+import { isInventoryBaseUnit, getInventoryBaseUnit } from "@/lib/inventory-units";
 
 export async function GET() {
   try {
@@ -24,25 +25,28 @@ export async function POST(req: Request) {
     if (access.error) return access.error;
     const session = access.session;
     const body = await req.json();
-    const { menuItemId, quantity, unit, reorderLevel, cost, supplier, name, sku, category, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem } = body;
-    for (const [field, value] of Object.entries({ quantity, reorderLevel, cost })) {
+    const { menuItemId, quantity, unit, reorderLevel, cost, supplier, name, sku, category, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem, baseUnit, densityGPerMl } = body;
+    for (const [field, value] of Object.entries({ quantity, reorderLevel, cost, densityGPerMl })) {
       const error = validateInventoryNumber(value, field);
       if (error) return NextResponse.json({ error }, { status: 400 });
     }
     if (unit && !isInventoryUnit(String(unit))) return NextResponse.json({ error: "Invalid inventory unit" }, { status: 400 });
     if (containerUnit && !isInventoryUnit(String(containerUnit))) return NextResponse.json({ error: "Invalid container unit" }, { status: 400 });
+    if (baseUnit && !isInventoryBaseUnit(String(baseUnit))) return NextResponse.json({ error: "Invalid base unit" }, { status: 400 });
     for (const [field, value] of Object.entries({ quantityPerContainer, containerCount, costPerContainer, costPerItem })) {
       const error = validateInventoryNumber(value, field);
       if (error) return NextResponse.json({ error }, { status: 400 });
     }
     const normalizedQuantity = quantityPerContainer && containerCount ? Number(quantityPerContainer) * Number(containerCount) : Number(quantity ?? 0);
     const normalizedCostPerItem = costPerContainer && quantityPerContainer ? Number(costPerContainer) / Number(quantityPerContainer) : Number(costPerItem ?? 0);
+    const resolvedBaseUnit = baseUnit || getInventoryBaseUnit(unit) || null;
+    const resolvedDensity = densityGPerMl ? Number(densityGPerMl) : null;
     let res;
     if (menuItemId) {
-      res = await query(`INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, last_updated=NOW() RETURNING id, quantity`, [menuItemId, normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem]);
+      res = await query(`INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW()) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, base_unit=EXCLUDED.base_unit, density_g_per_ml=EXCLUDED.density_g_per_ml, last_updated=NOW() RETURNING id, quantity`, [menuItemId, normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem, resolvedBaseUnit, resolvedDensity]);
     } else {
       if (!String(name ?? "").trim()) return NextResponse.json({ error: "Name is required for standalone inventory items" }, { status: 400 });
-      res = await query(`INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW()) RETURNING id`, [String(name).trim(), sku ?? "", category ?? "ingredient", normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem]);
+      res = await query(`INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING id`, [String(name).trim(), sku ?? "", category ?? "ingredient", normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem, resolvedBaseUnit, resolvedDensity]);
     }
     await logAudit({
       performedBy: session?.id,
