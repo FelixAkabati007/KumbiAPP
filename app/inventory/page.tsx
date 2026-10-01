@@ -636,7 +636,7 @@ function InventoryContent() {
       <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:gap-4 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 rounded-xl px-2 py-1 text-inherit outline-none transition-colors duration-150 hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-500 dark:hover:bg-orange-950/40"
         >
           <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
