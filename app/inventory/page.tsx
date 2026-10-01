@@ -1105,11 +1105,11 @@ function InventoryContent() {
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
-                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const total = Number(per || 0) * Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, quantityPerContainer: per, quantity: String(total) }); }} />
+                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const total = Number(per || 0) * count; const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); setEditingItem({ ...editingItem, quantityPerContainer: per, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
-                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const total = Number(editingItem.quantityPerContainer || 0) * Number(count || 0); setEditingItem({ ...editingItem, containerCount: count, quantity: String(total) }); }} />
+                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const total = perContainer * Number(count || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); setEditingItem({ ...editingItem, containerCount: count, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
