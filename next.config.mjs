@@ -12,7 +12,9 @@ const nextConfig = {
   },
   // Keep output file tracing stable when multiple lockfiles exist
   outputFileTracingRoot: process.cwd(),
-  output: "standalone",
+  // Standalone tracing is for production builds; enabling it in dev can leave
+  // the preview serving HTML while client chunks are still being rebuilt.
+  output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
   // Performance optimizations
   experimental: {
     webpackMemoryOptimizations: true,
