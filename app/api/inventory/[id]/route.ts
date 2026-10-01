@@ -5,6 +5,8 @@ import { requireRole } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
+import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
+import { isInventoryBaseUnit } from "@/lib/inventory-units";
 
 export async function PUT(
   req: Request,
@@ -16,7 +18,18 @@ export async function PUT(
     const session = access.session;
     const { id } = await params;
     const body = await req.json();
-    const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem } = body;
+    const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem, baseUnit, densityGPerMl } = body;
+    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [costPerItem, "Cost per item"], [densityGPerMl, "Density"]] as const) {
+      const validationError = validateInventoryNumber(value, field);
+      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    const normalizedContainerUnit = containerUnit === "" ? null : containerUnit;
+    const normalizedBaseUnit = baseUnit === "" ? null : baseUnit;
+    const normalizedDensity = densityGPerMl === "" ? null : densityGPerMl;
+
+    if (unit !== undefined && !isInventoryUnit(unit)) return NextResponse.json({ error: "Invalid inventory unit" }, { status: 400 });
+    if (normalizedContainerUnit !== undefined && normalizedContainerUnit !== null && !isInventoryUnit(normalizedContainerUnit)) return NextResponse.json({ error: "Invalid container unit" }, { status: 400 });
+    if (normalizedBaseUnit !== undefined && normalizedBaseUnit !== null && !isInventoryBaseUnit(normalizedBaseUnit)) return NextResponse.json({ error: "Invalid base unit" }, { status: 400 });
 
     const beforeResult = await query(
       "SELECT id, name, sku, category, quantity, unit, supplier, cost_price FROM inventory WHERE id = $1",
@@ -49,7 +62,7 @@ export async function PUT(
       fields.push(`supplier = $${idx++}`);
       values.push(supplier);
     }
-    for (const [column, value] of [["container_unit", containerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem]] as const) {
+    for (const [column, value] of [["container_unit", normalizedContainerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem], ["base_unit", normalizedBaseUnit], ["density_g_per_ml", normalizedDensity]] as const) {
       if (value !== undefined) {
         fields.push(`${column} = $${idx++}`);
         values.push(value);

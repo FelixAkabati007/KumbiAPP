@@ -41,8 +41,10 @@ export interface InventoryItem {
   reorderLevel: string;
   cost: string;
   supplier: string;
+  baseUnit?: string;
+  densityGPerMl?: string;
   lastUpdated?: string;
-}
+  }
 
 export interface SalesData {
   id: string;

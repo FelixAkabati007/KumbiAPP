@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
+import { getInventoryDeductionQuantity } from "@/lib/inventory-units";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,10 +58,36 @@ export async function POST(req: Request) {
           const deduction = Number(row.direct_units_per_sale || 1) * Number(item.quantity);
           const updated = await client.query(`UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`, [deduction, row.direct_inventory_id]);
           if (updated.rowCount !== 1) throw new Error(`${item.name} is out of stock`);
+          await client.query(
+            `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
+             VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
+            [row.direct_inventory_id, item.id, -deduction, orderNumber, orderId, `Direct sale deduction for ${item.name}`, session.id]
+          );
         } else if (item.id) {
-          const ingredients = await client.query("SELECT inventory_item_id, quantity FROM recipe_ingredients WHERE menu_item_id = $1", [item.id]);
+const ingredients = await client.query(
+        `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.density_g_per_ml AS inventory_density, i.name
+      FROM recipe_ingredients r
+      JOIN inventory i ON i.id = r.inventory_item_id
+      WHERE r.menu_item_id = $1`,
+            [item.id]
+          );
           for (const ingredient of ingredients.rows) {
-            await client.query(`UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2`, [Number(ingredient.quantity) * Number(item.quantity), ingredient.inventory_item_id]);
+            const requiredQuantity = Number(ingredient.quantity) * Number(item.quantity);
+            const density = ingredient.inventory_density !== null && ingredient.inventory_density !== undefined ? Number(ingredient.inventory_density) : null;
+            const deduction = getInventoryDeductionQuantity(requiredQuantity, ingredient.unit, ingredient.inventory_unit, density);
+            if (deduction === null) {
+              throw new Error(`${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit}); configure a compatible unit or density before selling ${item.name}`);
+            }
+            const updated = await client.query(
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+              [deduction, ingredient.inventory_item_id]
+            );
+            if (updated.rowCount !== 1) throw new Error(`${item.name} is out of stock: ${ingredient.name}`);
+            await client.query(
+              `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
+               VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
+              [ingredient.inventory_item_id, item.id, -deduction, orderNumber, orderId, `Recipe deduction for ${item.name}`, session.id]
+            );
           }
         }
       }

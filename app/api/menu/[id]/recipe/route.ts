@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { getInventoryDeductionQuantity } from "@/lib/inventory-units";
 
 export async function GET(
   request: Request,
@@ -12,28 +13,28 @@ export async function GET(
     if (error) return error;
 
     const result = await query(
-      `WITH linked_items AS (
-         SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
-                i.quantity AS inventory_quantity, i.unit AS inventory_unit,
-                CASE
-                  WHEN r.unit IN ('g', 'kg', 'oz', 'lb') AND i.unit IN ('g', 'kg', 'oz', 'lb') AND
-                    COALESCE(i.quantity, 0) * CASE i.unit WHEN 'kg' THEN 1000 WHEN 'lb' THEN 453.592 WHEN 'oz' THEN 28.3495 ELSE 1 END >=
-                    r.quantity * CASE r.unit WHEN 'kg' THEN 1000 WHEN 'lb' THEN 453.592 WHEN 'oz' THEN 28.3495 ELSE 1 END THEN 'stocked'
-                  WHEN r.unit IN ('ml', 'l', 'fl_oz', 'gal', 'qt') AND i.unit IN ('ml', 'l', 'fl_oz', 'gal', 'qt') AND
-                    COALESCE(i.quantity, 0) * CASE i.unit WHEN 'l' THEN 1000 WHEN 'fl_oz' THEN 29.5735 WHEN 'gal' THEN 3785.41 WHEN 'qt' THEN 946.353 ELSE 1 END >=
-                    r.quantity * CASE r.unit WHEN 'l' THEN 1000 WHEN 'fl_oz' THEN 29.5735 WHEN 'gal' THEN 3785.41 WHEN 'qt' THEN 946.353 ELSE 1 END THEN 'stocked'
-                  WHEN r.unit IN ('g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz', 'gal', 'qt') OR i.unit IN ('g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz', 'gal', 'qt') THEN 'out_of_stock'
-                  WHEN COALESCE(i.quantity, 0) >= r.quantity THEN 'stocked'
-                  ELSE 'out_of_stock'
-                END AS stock_status
-         FROM recipe_ingredients r
-         JOIN inventory i ON r.inventory_item_id = i.id
-         WHERE r.menu_item_id = $1
-       )
-       SELECT * FROM linked_items`,
+      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
+              i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.density_g_per_ml AS inventory_density
+       FROM recipe_ingredients r
+       JOIN inventory i ON r.inventory_item_id = i.id
+       WHERE r.menu_item_id = $1`,
       [id]
     );
-    return NextResponse.json(result.rows);
+
+    // Derive stock status from the same shared unit-conversion logic used when
+    // deducting inventory on sale, so Menu Management and Inventory Management
+    // always agree on whether an ingredient/supply is truly stocked.
+    const rows = result.rows.map((row) => {
+      const density = row.inventory_density !== null && row.inventory_density !== undefined ? Number(row.inventory_density) : null;
+      const requiredInInventoryUnit = getInventoryDeductionQuantity(Number(row.quantity), row.unit, row.inventory_unit, density);
+      const stock_status =
+        requiredInInventoryUnit !== null && Number(row.inventory_quantity ?? 0) >= requiredInInventoryUnit
+          ? "stocked"
+          : "out_of_stock";
+      return { ...row, stock_status };
+    });
+
+    return NextResponse.json(rows);
   } catch (error) {
     console.error("Failed to fetch recipe:", error);
     return NextResponse.json({ error: "Failed to fetch recipe" }, { status: 500 });
