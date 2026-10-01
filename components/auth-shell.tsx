@@ -16,7 +16,7 @@ export function AuthShell({ title, description, children, footer }: { title: str
 
   return (
     <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-2 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
-      <div className="w-full max-w-md space-y-3 sm:space-y-6">
+      <div className="w-full max-w-md space-y-2 sm:space-y-6">
         <header className="space-y-1 text-center sm:space-y-2">
           <div className="flex justify-center"><LogoDisplay size="sm" /></div>
           <h1 className="text-lg font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">{restaurantName}</h1>

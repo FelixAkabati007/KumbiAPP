@@ -70,7 +70,7 @@ export function SignInForm() {
               <form
                 noValidate
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
+                className="space-y-3 sm:space-y-4"
               >
                 <FormField
                   control={form.control}
@@ -146,7 +146,7 @@ export function SignInForm() {
 
                 <Button
                   type="submit"
-                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 py-5 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:py-6 sm:text-lg"
+                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 py-4 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:py-6 sm:text-lg"
                   disabled={isLoading || !isDatabaseReady}
                 >
                   {isLoading ? (
