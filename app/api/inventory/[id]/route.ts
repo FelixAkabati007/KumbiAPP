@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
+import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
 
 export async function PUT(
   req: Request,
@@ -17,6 +18,12 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
     const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem } = body;
+    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [costPerItem, "Cost per item"]] as const) {
+      const validationError = validateInventoryNumber(value, field);
+      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    if (unit !== undefined && !isInventoryUnit(unit)) return NextResponse.json({ error: "Invalid inventory unit" }, { status: 400 });
+    if (containerUnit !== undefined && !isInventoryUnit(containerUnit)) return NextResponse.json({ error: "Invalid container unit" }, { status: 400 });
 
     const beforeResult = await query(
       "SELECT id, name, sku, category, quantity, unit, supplier, cost_price FROM inventory WHERE id = $1",
