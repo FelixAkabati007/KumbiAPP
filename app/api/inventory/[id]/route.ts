@@ -37,11 +37,25 @@ export async function PUT(
     const normalizedConversionRatio = conversionRatio === "" ? null : conversionRatio;
 
     const beforeResult = await query(
-      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price FROM inventory WHERE id = $1",
+      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price, cost_per_container, quantity_per_container, cost_per_item FROM inventory WHERE id = $1",
       [id]
     );
     const before = beforeResult.rows[0];
     if (!before) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+    // Recipe & Supplies cost must always reflect this item's actual packaging cost.
+    // Recompute cost_per_item from the effective cost_per_container / quantity_per_container
+    // (merging any fields present in this request with the item's current stored values)
+    // instead of trusting whatever costPerItem the client happens to send. This keeps the
+    // value in sync even when only "Items per container" or "Container count" is edited.
+    const effectiveCostPerContainer = costPerContainer !== undefined ? Number(costPerContainer) : Number(before.cost_per_container ?? 0);
+    const effectiveQuantityPerContainer = quantityPerContainer !== undefined ? Number(quantityPerContainer) : Number(before.quantity_per_container ?? 0);
+    const resolvedCostPerItem =
+      effectiveQuantityPerContainer > 0
+        ? effectiveCostPerContainer / effectiveQuantityPerContainer
+        : costPerItem !== undefined
+          ? Number(costPerItem)
+          : Number(before.cost_per_item ?? 0);
 
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
@@ -67,7 +81,7 @@ export async function PUT(
       fields.push(`supplier = $${idx++}`);
       values.push(supplier);
     }
-    for (const [column, value] of [["container_unit", normalizedContainerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem], ["base_unit", normalizedBaseUnit], ["density_g_per_ml", normalizedDensity], ["recipe_unit", normalizedRecipeUnit], ["conversion_ratio", normalizedConversionRatio], ["conversion_type", conversionType]] as const) {
+    for (const [column, value] of [["container_unit", normalizedContainerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", resolvedCostPerItem], ["base_unit", normalizedBaseUnit], ["density_g_per_ml", normalizedDensity], ["recipe_unit", normalizedRecipeUnit], ["conversion_ratio", normalizedConversionRatio], ["conversion_type", conversionType]] as const) {
       if (value !== undefined) {
         fields.push(`${column} = $${idx++}`);
         values.push(value);
