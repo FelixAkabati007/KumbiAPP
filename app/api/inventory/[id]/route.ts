@@ -7,6 +7,7 @@ import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
 import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
 import { isInventoryBaseUnit } from "@/lib/inventory-units";
+import { validateMaxStock } from "@/lib/inventory-stock-limits";
 
 export async function PUT(
   req: Request,
@@ -42,6 +43,11 @@ export async function PUT(
     );
     const before = beforeResult.rows[0];
     if (!before) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+    if (quantity !== undefined) {
+      const maxStockError = validateMaxStock({ category: before.category, name: before.name, quantity: Number(quantity) });
+      if (maxStockError) return NextResponse.json({ error: maxStockError }, { status: 400 });
+    }
 
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];

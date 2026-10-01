@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { isInventoryUnit, validateInventoryNumber } from "@/lib/inventory-validation";
 import { isInventoryBaseUnit, getInventoryBaseUnit } from "@/lib/inventory-units";
+import { validateMaxStock } from "@/lib/inventory-stock-limits";
 
 export async function GET() {
   try {
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
     const resolvedRecipeUnit = recipeUnit || getInventoryBaseUnit(unit) || unit || "unit";
     const resolvedConversionRatio = conversionRatio ? Number(conversionRatio) : 1;
     const resolvedConversionType = conversionType === "pack" ? "pack" : "standard";
+    const maxStockError = validateMaxStock({ category: category ?? "ingredient", name: name ?? null, quantity: normalizedQuantity });
+    if (maxStockError) return NextResponse.json({ error: maxStockError }, { status: 400 });
     let res;
     if (menuItemId) {
       res = await query(`INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW()) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, base_unit=EXCLUDED.base_unit, density_g_per_ml=EXCLUDED.density_g_per_ml, recipe_unit=EXCLUDED.recipe_unit, conversion_ratio=EXCLUDED.conversion_ratio, conversion_type=EXCLUDED.conversion_type, last_updated=NOW() RETURNING id, quantity`, [menuItemId, normalizedQuantity, unit ?? "units", reorderLevel ?? 0, cost ?? 0, supplier ?? null, containerUnit ?? null, quantityPerContainer ?? 1, containerCount ?? 0, costPerContainer ?? 0, normalizedCostPerItem, resolvedBaseUnit, resolvedDensity, resolvedRecipeUnit, resolvedConversionRatio, resolvedConversionType]);
