@@ -968,7 +968,7 @@ function MenuContent() {
               </TabsContent>
 <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
   <div className="min-w-0">
-    <RecipeManager menuItemId={editingItem.id} />
+    <RecipeManager menuItemId={editingItem.id} menuItemPrice={editingItem.price} />
   </div>
 </TabsContent>
             </Tabs>

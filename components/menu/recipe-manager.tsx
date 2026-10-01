@@ -18,6 +18,7 @@ import { Trash2, Plus, Loader2 } from "lucide-react";
 import { getInventoryItems } from "@/lib/data";
 import { UnitSelect } from "@/components/ui/unit-select";
 import type { InventoryItem } from "@/lib/types";
+import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
 
 interface RecipeIngredient {
   id: string;
@@ -28,11 +29,31 @@ interface RecipeIngredient {
   inventory_category?: string | null;
   inventory_quantity?: number | string | null;
   inventory_unit?: string | null;
+  inventory_recipe_unit?: string | null;
+  inventory_conversion_ratio?: number | string | null;
+  inventory_density?: number | string | null;
+  inventory_cost_price?: number | string | null;
   stock_status: "stocked" | "out_of_stock";
 }
 
 interface RecipeManagerProps {
   menuItemId: string;
+  menuItemPrice?: number;
+}
+
+function getIngredientCost(ing: RecipeIngredient): number | null {
+  const costPerInventoryUnit = Number(ing.inventory_cost_price ?? 0);
+  if (!Number.isFinite(costPerInventoryUnit) || costPerInventoryUnit <= 0) return null;
+  const density = ing.inventory_density !== null && ing.inventory_density !== undefined ? Number(ing.inventory_density) : null;
+  const requiredInInventoryUnit = getRecipeDeductionQuantity(
+    Number(ing.quantity),
+    ing.unit,
+    ing.inventory_unit,
+    ing.inventory_conversion_ratio !== null && ing.inventory_conversion_ratio !== undefined ? Number(ing.inventory_conversion_ratio) : null,
+    density
+  );
+  if (requiredInInventoryUnit === null) return null;
+  return requiredInInventoryUnit * costPerInventoryUnit;
 }
 
 function parseRecipeQuantity(value: string) {
@@ -54,7 +75,7 @@ function parseRecipeQuantity(value: string) {
   return Number(normalized);
 }
 
-export function RecipeManager({ menuItemId }: RecipeManagerProps) {
+export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps) {
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,8 +204,49 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
 
   if (isLoading) return <div className="flex items-center justify-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading recipe" /></div>;
 
+  const costedIngredientCount = ingredients.filter((ing) => getIngredientCost(ing) !== null).length;
+  const totalPlateCost = ingredients.reduce((sum, ing) => sum + (getIngredientCost(ing) ?? 0), 0);
+  const hasUnpricedIngredients = costedIngredientCount < ingredients.length;
+  const margin = typeof menuItemPrice === "number" && menuItemPrice > 0 ? menuItemPrice - totalPlateCost : null;
+  const marginPercent = margin !== null && menuItemPrice ? (margin / menuItemPrice) * 100 : null;
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {ingredients.length > 0 && (
+        <Card>
+          <CardHeader className="gap-1 pb-3">
+            <CardTitle className="text-base">Plate cost</CardTitle>
+            <CardDescription>Calculated live from recipe quantities and current inventory cost prices.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-6">
+              <div>
+                <p className="text-xs text-muted-foreground">Cost per plate</p>
+                <p className="text-2xl font-semibold tabular-nums">₵{totalPlateCost.toFixed(2)}</p>
+              </div>
+              {typeof menuItemPrice === "number" && menuItemPrice > 0 && (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Menu price</p>
+                    <p className="text-2xl font-semibold tabular-nums">₵{menuItemPrice.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Margin</p>
+                    <p className={`text-2xl font-semibold tabular-nums ${margin !== null && margin < 0 ? "text-destructive" : ""}`}>
+                      ₵{margin?.toFixed(2)} {marginPercent !== null && `(${marginPercent.toFixed(0)}%)`}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+            {hasUnpricedIngredients && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {ingredients.length - costedIngredientCount} of {ingredients.length} ingredients have no cost price set in Inventory yet, so this total is a partial estimate.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader className="gap-1 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -238,10 +300,10 @@ export function RecipeManager({ menuItemId }: RecipeManagerProps) {
           <div className="overflow-x-auto rounded-md border">
             <Table className="min-w-[34rem]">
 
-              <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-32">Stock</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-28">Cost</TableHead><TableHead className="w-32">Stock</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
-                {ingredients.map((ing) => <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell><Badge title={`Inventory: ${ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>)}
-                {ingredients.length === 0 && <TableRow><TableCell colSpan={5} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
+                {ingredients.map((ing) => { const cost = getIngredientCost(ing); return <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="tabular-nums">{cost !== null ? `₵${cost.toFixed(2)}` : <span className="text-xs text-muted-foreground">No cost set</span>}</TableCell><TableCell><Badge title={`Inventory: ${ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>; })}
+                {ingredients.length === 0 && <TableRow><TableCell colSpan={6} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>

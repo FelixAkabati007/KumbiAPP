@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const result = await transaction(async (client) => {
       const existing = await client.query(`SELECT id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata FROM inventory_top_up_audit WHERE idempotency_key = $1`, [idempotencyKey]);
       if (existing.rowCount) return { audit: existing.rows[0], duplicate: true };
-      const item = await client.query(`SELECT id, quantity, name, unit FROM inventory WHERE id = $1 FOR UPDATE`, [id]);
+      const item = await client.query(`SELECT id, quantity, name, unit, category FROM inventory WHERE id = $1 FOR UPDATE`, [id]);
       if (!item.rowCount) throw Object.assign(new Error("Inventory item not found"), { code: "NOT_FOUND" });
       const before = Number(item.rows[0].quantity ?? 0);
       const updated = await client.query(`UPDATE inventory SET quantity = quantity + $1, last_updated = NOW() WHERE id = $2 RETURNING id, name, quantity, unit`, [quantityAdded, id]);
