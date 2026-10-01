@@ -720,9 +720,11 @@ export function canPerformAction(
   section: AppSection,
   action: CrudAction,
 ): boolean {
-  if (isAdmin(role)) return true;
+  // Only administrators may create, edit, delete, manage, or otherwise
+  // mutate data from the frontend. Other roles retain view-only access.
+  if (action !== "view") return isAdmin(role);
   if (!isUserRole(role)) return false;
-  return roleCapabilities[role][section]?.[action] ?? false;
+  return rolePermissions[role][section] ?? false;
 }
 
 export function canManageFeatureToggles(
