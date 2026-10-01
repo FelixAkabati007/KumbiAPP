@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-import { getInventoryDeductionQuantity } from "@/lib/inventory-units";
+import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
 
 export async function GET(
   request: Request,
@@ -14,7 +14,7 @@ export async function GET(
 
     const result = await query(
       `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
-              i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.density_g_per_ml AS inventory_density
+              i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.recipe_unit AS inventory_recipe_unit, i.conversion_ratio AS inventory_conversion_ratio, i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density
        FROM recipe_ingredients r
        JOIN inventory i ON r.inventory_item_id = i.id
        WHERE r.menu_item_id = $1`,
@@ -26,7 +26,7 @@ export async function GET(
     // always agree on whether an ingredient/supply is truly stocked.
     const rows = result.rows.map((row) => {
       const density = row.inventory_density !== null && row.inventory_density !== undefined ? Number(row.inventory_density) : null;
-      const requiredInInventoryUnit = getInventoryDeductionQuantity(Number(row.quantity), row.unit, row.inventory_unit, density);
+      const requiredInInventoryUnit = getRecipeDeductionQuantity(Number(row.quantity), row.unit, row.inventory_unit, row.inventory_conversion_ratio, density);
       const stock_status =
         requiredInInventoryUnit !== null && Number(row.inventory_quantity ?? 0) >= requiredInInventoryUnit
           ? "stocked"

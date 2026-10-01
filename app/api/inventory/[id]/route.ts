@@ -18,8 +18,8 @@ export async function PUT(
     const session = access.session;
     const { id } = await params;
     const body = await req.json();
-    const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem, baseUnit, densityGPerMl } = body;
-    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [costPerItem, "Cost per item"], [densityGPerMl, "Density"]] as const) {
+    const { quantity, unit, reorderLevel, cost, supplier, containerUnit, quantityPerContainer, containerCount, costPerContainer, costPerItem, baseUnit, densityGPerMl, recipeUnit, conversionRatio, conversionType } = body;
+    for (const [value, field] of [[quantity, "Quantity"], [reorderLevel, "Reorder level"], [cost, "Cost"], [quantityPerContainer, "Quantity per container"], [containerCount, "Container count"], [costPerContainer, "Cost per container"], [costPerItem, "Cost per item"], [densityGPerMl, "Density"], [conversionRatio, "Conversion ratio"]] as const) {
       const validationError = validateInventoryNumber(value, field);
       if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     }
@@ -30,6 +30,11 @@ export async function PUT(
     if (unit !== undefined && !isInventoryUnit(unit)) return NextResponse.json({ error: "Invalid inventory unit" }, { status: 400 });
     if (normalizedContainerUnit !== undefined && normalizedContainerUnit !== null && !isInventoryUnit(normalizedContainerUnit)) return NextResponse.json({ error: "Invalid container unit" }, { status: 400 });
     if (normalizedBaseUnit !== undefined && normalizedBaseUnit !== null && !isInventoryBaseUnit(normalizedBaseUnit)) return NextResponse.json({ error: "Invalid base unit" }, { status: 400 });
+    if (recipeUnit !== undefined && recipeUnit !== null && recipeUnit !== "" && !isInventoryUnit(recipeUnit)) return NextResponse.json({ error: "Invalid recipe unit" }, { status: 400 });
+    if (conversionType !== undefined && !["standard", "pack"].includes(String(conversionType))) return NextResponse.json({ error: "Invalid conversion type" }, { status: 400 });
+    if (conversionRatio !== undefined && conversionRatio !== null && conversionRatio !== "" && Number(conversionRatio) <= 0) return NextResponse.json({ error: "Conversion ratio must be greater than zero" }, { status: 400 });
+    const normalizedRecipeUnit = recipeUnit === "" ? null : recipeUnit;
+    const normalizedConversionRatio = conversionRatio === "" ? null : conversionRatio;
 
     const beforeResult = await query(
       "SELECT id, name, sku, category, quantity, unit, supplier, cost_price FROM inventory WHERE id = $1",
@@ -62,7 +67,7 @@ export async function PUT(
       fields.push(`supplier = $${idx++}`);
       values.push(supplier);
     }
-    for (const [column, value] of [["container_unit", normalizedContainerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem], ["base_unit", normalizedBaseUnit], ["density_g_per_ml", normalizedDensity]] as const) {
+    for (const [column, value] of [["container_unit", normalizedContainerUnit], ["quantity_per_container", quantityPerContainer], ["container_count", containerCount], ["cost_per_container", costPerContainer], ["cost_per_item", costPerItem], ["base_unit", normalizedBaseUnit], ["density_g_per_ml", normalizedDensity], ["recipe_unit", normalizedRecipeUnit], ["conversion_ratio", normalizedConversionRatio], ["conversion_type", conversionType]] as const) {
       if (value !== undefined) {
         fields.push(`${column} = $${idx++}`);
         values.push(value);

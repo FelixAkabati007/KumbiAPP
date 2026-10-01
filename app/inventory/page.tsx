@@ -56,7 +56,7 @@ import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
 import { MOCK_INVENTORY_ITEMS } from "@/lib/mock-catalog";
-import { getInventoryUnitDimension, getInventoryBaseUnit } from "@/lib/inventory-units";
+import { getInventoryBaseUnit } from "@/lib/inventory-units";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -283,6 +283,9 @@ function InventoryContent() {
       cost: "0",
       supplier: "",
       baseUnit: getInventoryBaseUnit("kg") || undefined,
+      recipeUnit: "g",
+      conversionRatio: "1000",
+      conversionType: "standard",
       densityGPerMl: "",
       lastUpdated: new Date().toISOString(),
     });
@@ -313,6 +316,9 @@ function InventoryContent() {
         cost: item.cost?.toString() || "0",
         supplier: item.supplier || "",
         baseUnit: item.baseUnit || getInventoryBaseUnit(item.unit) || undefined,
+        recipeUnit: item.recipeUnit || getInventoryBaseUnit(item.unit) || item.unit,
+        conversionRatio: item.conversionRatio?.toString() || "1",
+        conversionType: item.conversionType || "standard",
         densityGPerMl: item.densityGPerMl?.toString() || "",
         lastUpdated: item.lastUpdated || new Date().toISOString(),
       };
@@ -1064,31 +1070,30 @@ function InventoryContent() {
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.unit}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
                 </div>
-                {getInventoryUnitDimension(editingItem.unit) !== "unknown" && (
-                  <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
-                    <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Unit syncing</p>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      This item is tracked in base unit <strong>{getInventoryBaseUnit(editingItem.unit) ?? editingItem.unit}</strong>. Recipes in Menu Management that use a different compatible unit (e.g. grams from a kilogram stock) deduct automatically.
-                    </p>
-                    {getInventoryUnitDimension(editingItem.unit) !== "count" && (
-                      <div className="grid gap-2">
-                        <Label htmlFor="densityGPerMl" className="text-orange-700 dark:text-orange-300">
-                          Density (g per ml) — only needed to convert {getInventoryUnitDimension(editingItem.unit) === "mass" ? "to liquid units" : "to solid units"}
-                        </Label>
-                        <Input
-                          id="densityGPerMl"
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          placeholder="e.g. 1.03 for milk"
-                          value={editingItem.densityGPerMl || ""}
-                          onChange={(e) => setEditingItem({ ...editingItem, densityGPerMl: e.target.value })}
-                          className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
-                        />
-                      </div>
-                    )}
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
+                  <p className="mb-1 text-sm font-medium text-orange-800 dark:text-orange-200">How chefs use this item</p>
+                  <p className="mb-3 text-xs text-muted-foreground">Stock stays in the purchase unit. Recipes and supplies use the chef-friendly unit below.</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="recipeUnit" className="text-orange-700 dark:text-orange-300">Used in recipes as</Label>
+                      <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Recipe units per stock unit</Label>
+                      <Input id="conversionRatio" type="number" min="0.000001" step="0.01" value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="conversionType" className="text-orange-700 dark:text-orange-300">Conversion setup</Label>
+                      <Select value={editingItem.conversionType || "standard"} onValueChange={(value) => setEditingItem({ ...editingItem, conversionType: value as "standard" | "pack" })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="standard">Automatic</SelectItem><SelectItem value="pack">Pack / container</SelectItem></SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                )}
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Example: stock unit <strong>{editingItem.unit}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.conversionRatio || "1"}</strong>. One {editingItem.unit} supplies that many recipe units.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label
