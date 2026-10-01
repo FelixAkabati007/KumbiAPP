@@ -1,3 +1,7 @@
+import { isInventoryUnit as isKnownInventoryUnit } from "./inventory-units"
+
+// Discrete packaging/recipe units that aren't recognized by the mass/volume/count
+// conversion system in lib/inventory-units.ts but are still valid unit labels.
 export const INVENTORY_UNITS = [
   "cs", "bx", "pk", "bg", "flat", "crate", "tub", "drum", "bbl", "sleeve", "carton", "sack", "bottle", "tin", "tray",
   "ea", "ct", "dz", "item", "piece", "unit", "bulb", "clove", "knob", "bunch", "head", "leaf", "root",
@@ -10,6 +14,11 @@ export function validateInventoryNumber(value: unknown, field: string) {
   return Number.isFinite(number) && number >= 0 ? null : `${field} must be a non-negative number`
 }
 
-export function isInventoryUnit(value: unknown): value is (typeof INVENTORY_UNITS)[number] {
-  return typeof value === "string" && (INVENTORY_UNITS as readonly string[]).includes(value)
+// Accepts anything recognized by either list, so real-world unit strings already stored
+// in the database (e.g. "litres", "bags", "boxes", "rolls", "trays") validate consistently
+// with the alias-aware conversion system used for recipe/inventory unit syncing.
+export function isInventoryUnit(value: unknown): boolean {
+  if (typeof value !== "string") return false
+  if ((INVENTORY_UNITS as readonly string[]).includes(value)) return true
+  return isKnownInventoryUnit(value)
 }

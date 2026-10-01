@@ -1,27 +1,62 @@
 export type InventoryDimension = "mass" | "volume" | "count" | "unknown";
 
+// Canonical unit codes. Every recognized spelling (full word, plural, abbreviation) used
+// anywhere in the app — inventory items, recipe ingredients, purchase packaging — must
+// resolve to one of these via UNIT_ALIASES, or conversion/sync silently fails.
 const FACTORS: Record<string, { dimension: InventoryDimension; toBase: number }> = {
   g: { dimension: "mass", toBase: 1 }, kg: { dimension: "mass", toBase: 1000 }, oz: { dimension: "mass", toBase: 28.349523125 }, lb: { dimension: "mass", toBase: 453.59237 },
   ml: { dimension: "volume", toBase: 1 }, l: { dimension: "volume", toBase: 1000 }, fl_oz: { dimension: "volume", toBase: 29.5735295625 }, qt: { dimension: "volume", toBase: 946.352946 }, gal: { dimension: "volume", toBase: 3785.411784 },
-  unit: { dimension: "count", toBase: 1 }, units: { dimension: "count", toBase: 1 }, piece: { dimension: "count", toBase: 1 }, pieces: { dimension: "count", toBase: 1 }, each: { dimension: "count", toBase: 1 },
+  unit: { dimension: "count", toBase: 1 },
 };
 
+// Maps real-world unit spellings (as stored on inventory items, recipe ingredients, and
+// purchase packaging) to a canonical FACTORS key. Discrete packaging units (bags, boxes,
+// rolls, trays, pieces, etc.) are countable and map to "unit" — they cannot be converted
+// to mass/volume since each one may contain a different amount of product.
+const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
+  g: "g", gram: "g", grams: "g", gramme: "g", grammes: "g",
+  kg: "kg", kilogram: "kg", kilograms: "kg", kilo: "kg", kilos: "kg",
+  oz: "oz", ounce: "oz", ounces: "oz",
+  lb: "lb", lbs: "lb", pound: "lb", pounds: "lb",
+  ml: "ml", millilitre: "ml", millilitres: "ml", milliliter: "ml", milliliters: "ml",
+  l: "l", litre: "l", litres: "l", liter: "l", liters: "l",
+  fl_oz: "fl_oz", "fl oz": "fl_oz", "fluid ounce": "fl_oz", "fluid ounces": "fl_oz",
+  qt: "qt", quart: "qt", quarts: "qt",
+  gal: "gal", gallon: "gal", gallons: "gal",
+  unit: "unit", units: "unit", piece: "unit", pieces: "unit", each: "unit",
+  bag: "unit", bags: "unit", box: "unit", boxes: "unit", roll: "unit", rolls: "unit",
+  tray: "unit", trays: "unit", pack: "unit", packs: "unit", pallet: "unit", pallets: "unit",
+  can: "unit", cans: "unit", bottle: "unit", bottles: "unit", sack: "unit", sacks: "unit",
+  crate: "unit", crates: "unit", carton: "unit", cartons: "unit",
+};
+
+function resolveUnitKey(unit?: string | null): keyof typeof FACTORS | null {
+  const normalized = String(unit || "").trim().toLowerCase();
+  return UNIT_ALIASES[normalized] ?? (normalized in FACTORS ? (normalized as keyof typeof FACTORS) : null);
+}
+
 export function getInventoryUnitDimension(unit?: string | null): InventoryDimension {
-  return FACTORS[String(unit || "").toLowerCase()]?.dimension || "unknown";
+  const key = resolveUnitKey(unit);
+  return key ? FACTORS[key].dimension : "unknown";
 }
 
 export function getInventoryDeductionQuantity(quantity: number, fromUnit?: string | null, toUnit?: string | null, densityGPerMl?: number | null): number | null {
-  const from = FACTORS[String(fromUnit || "").toLowerCase()];
-  const to = FACTORS[String(toUnit || "").toLowerCase()];
+  const fromKey = resolveUnitKey(fromUnit);
+  const toKey = resolveUnitKey(toUnit);
+  const from = fromKey ? FACTORS[fromKey] : undefined;
+  const to = toKey ? FACTORS[toKey] : undefined;
   if (!from || !to || !Number.isFinite(quantity) || quantity < 0) return null;
   if (from.dimension === to.dimension) return quantity * from.toBase / to.toBase;
+  // Countable units (bags, boxes, pieces, etc.) cannot convert to mass/volume: each unit
+  // may contain a different amount of product, so there is no safe conversion factor.
+  if (from.dimension === "count" || to.dimension === "count") return null;
   if (densityGPerMl && densityGPerMl > 0 && from.dimension === "mass" && to.dimension === "volume") return quantity * from.toBase / densityGPerMl / to.toBase;
   if (densityGPerMl && densityGPerMl > 0 && from.dimension === "volume" && to.dimension === "mass") return quantity * from.toBase * densityGPerMl / to.toBase;
   return null;
 }
 
 export function isInventoryBaseUnit(unit?: string | null): boolean {
-  return ["g", "ml", "unit"].includes(String(unit || "").toLowerCase());
+  return ["g", "ml", "unit"].includes(resolveUnitKey(unit) || "");
 }
 
 export const INVENTORY_BASE_UNIT_OPTIONS = [
@@ -37,7 +72,7 @@ export function normalizeToBase(quantity: number, unit?: string | null, baseUnit
 }
 
 export function isInventoryUnit(unit?: string | null): boolean {
-  return Boolean(FACTORS[String(unit || "").toLowerCase()]);
+  return Boolean(resolveUnitKey(unit));
 }
 
 export function validateInventoryNumber(value: unknown, label: string): string | null {
@@ -47,7 +82,8 @@ export function validateInventoryNumber(value: unknown, label: string): string |
 }
 
 export function getInventoryUnitFactor(unit: string): number | null {
-  return FACTORS[unit]?.toBase ?? null;
+  const key = resolveUnitKey(unit);
+  return key ? FACTORS[key].toBase : null;
 }
 
 export function getInventoryUnitBase(unit: string): InventoryDimension {
