@@ -5,7 +5,6 @@ import { logAudit } from "@/lib/audit";
 import { transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
-import { validateMaxStock } from "@/lib/inventory-stock-limits";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,8 +44,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const item = await client.query(`SELECT id, quantity, name, unit, category FROM inventory WHERE id = $1 FOR UPDATE`, [id]);
       if (!item.rowCount) throw Object.assign(new Error("Inventory item not found"), { code: "NOT_FOUND" });
       const before = Number(item.rows[0].quantity ?? 0);
-      const maxStockError = validateMaxStock({ category: item.rows[0].category, name: item.rows[0].name, quantity: before + quantityAdded });
-      if (maxStockError) throw Object.assign(new Error(maxStockError), { code: "MAX_STOCK_EXCEEDED" });
       const updated = await client.query(`UPDATE inventory SET quantity = quantity + $1, last_updated = NOW() WHERE id = $2 RETURNING id, name, quantity, unit`, [quantityAdded, id]);
       const after = Number(updated.rows[0].quantity);
       const audit = await client.query(`INSERT INTO inventory_top_up_audit (inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, idempotency_key, source, request_metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata`, [id, before, quantityAdded, after, session.id, idempotencyKey, "manual_top_up", JSON.stringify({ reason: body.reason ? String(body.reason).slice(0, 500) : null })]);
@@ -60,7 +57,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } catch (error) {
     const typed = error as { code?: string; message?: string };
     if (typed.code === "NOT_FOUND") return NextResponse.json({ error: "Inventory item not found", code: "INVENTORY_ITEM_NOT_FOUND" }, { status: 404 });
-    if (typed.code === "MAX_STOCK_EXCEEDED") return NextResponse.json({ error: typed.message, code: "MAX_STOCK_EXCEEDED" }, { status: 400 });
     if (typed.code === "23505") return NextResponse.json({ error: "This top-up was already submitted", code: "DUPLICATE_TOP_UP" }, { status: 409 });
     console.error("Inventory top-up failed:", error);
     return NextResponse.json({ error: "Failed to top up inventory" }, { status: 500 });
