@@ -179,7 +179,7 @@ export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps)
       ? inventoryItems.find((item) => item.id === selectedSupplyId)
       : supplyInventoryItems.find((item) => item.name.trim().toLowerCase() === normalizedSearch || item.sku?.trim().toLowerCase() === normalizedSearch);
     const resolvedSupplyId = resolvedSupply?.id ?? selectedSupplyId;
-    const resolvedUnit = supplyUnit || resolvedSupply?.unit || "unit";
+    const resolvedUnit = supplyUnit || resolvedSupply?.recipeUnit || resolvedSupply?.unit || "unit";
     const parsedQuantity = parseRecipeQuantity(supplyQuantity || "1");
     if (!resolvedSupplyId || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !resolvedUnit) {
       window.alert("Select a supply and enter a valid quantity and unit.");
