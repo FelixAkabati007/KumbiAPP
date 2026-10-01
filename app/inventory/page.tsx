@@ -636,15 +636,16 @@ function InventoryContent() {
       <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:gap-4 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-xl px-2 py-1 text-inherit outline-none transition-colors duration-150 hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-500 dark:hover:bg-orange-950/40"
+          aria-label="Back to dashboard"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-orange-600 outline-none dark:text-orange-400"
         >
-          <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-          <LogoDisplay size="sm" />
-          <Package className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-          <h1 className="min-w-0 truncate text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Inventory Management
-          </h1>
+          <ArrowLeft className="h-5 w-5" />
         </Link>
+        <LogoDisplay size="sm" />
+        <Package className="h-6 w-6 shrink-0 text-orange-600 dark:text-orange-400" />
+        <h1 className="min-w-0 truncate text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">
+          Inventory Management
+        </h1>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {lowStockCount > 0 && (
             <Badge
