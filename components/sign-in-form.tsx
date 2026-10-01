@@ -69,8 +69,9 @@ export function SignInForm() {
             <Form {...form}>
               <form
                 noValidate
+                autoComplete="on"
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-3 sm:space-y-4"
+                className="space-y-4"
               >
                 <FormField
                   control={form.control}
@@ -86,8 +87,10 @@ export function SignInForm() {
                           <Input
                             placeholder="Enter your email address"
                             type="email"
-                            className="pl-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                            disabled={isLoading || !isDatabaseReady}
+                            autoComplete="email"
+                            inputMode="email"
+                            className="min-h-11 rounded-2xl border-orange-200 bg-white/50 pl-10 dark:border-orange-700 dark:bg-gray-800/50 focus:border-orange-500 dark:focus:border-orange-400"
+                            disabled={isLoading || form.formState.isSubmitting || !isDatabaseReady}
                             {...field}
                           />
                         </div>
@@ -110,16 +113,17 @@ export function SignInForm() {
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <Input
                             type={showPassword ? "text" : "password"}
+                            autoComplete="current-password"
                             placeholder="Enter your password"
-                            className="pl-10 pr-10 rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                            disabled={isLoading || !isDatabaseReady}
+                            className="min-h-11 rounded-2xl border-orange-200 bg-white/50 pl-10 pr-10 dark:border-orange-700 dark:bg-gray-800/50 focus:border-orange-500 dark:focus:border-orange-400"
+                            disabled={isLoading || form.formState.isSubmitting || !isDatabaseReady}
                             {...field}
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            className="absolute right-0 top-0 h-full min-w-11 px-3 py-2 hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
                             aria-label={showPassword ? "Hide password" : "Show password"}
                             disabled={isLoading}
@@ -146,8 +150,8 @@ export function SignInForm() {
 
                 <Button
                   type="submit"
-                  className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 py-4 text-base font-medium text-white shadow-lg transition-all duration-300 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:py-6 sm:text-lg"
-                  disabled={isLoading || !isDatabaseReady}
+                  className="min-h-12 w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-3 text-base font-medium text-white shadow-lg transition-colors duration-150 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:min-h-14 sm:text-lg"
+                  disabled={isLoading || form.formState.isSubmitting || !isDatabaseReady}
                 >
                   {isLoading ? (
                     <AuthSpinner label="Signing in..." />

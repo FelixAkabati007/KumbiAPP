@@ -53,7 +53,7 @@ function SystemContent() {
       <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-3 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex min-w-0 items-center gap-2 hover:opacity-80 transition-opacity"
         >
           <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
@@ -62,13 +62,13 @@ function SystemContent() {
             System Monitoring
           </h1>
         </Link>
-        <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
+        <div className="ml-auto flex w-full items-center justify-stretch gap-2 sm:w-auto sm:justify-end">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
+            className="min-w-0 flex-1 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 sm:flex-none"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
@@ -79,7 +79,7 @@ function SystemContent() {
             <Button
               variant="outline"
               size="sm"
-              className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
+              className="min-w-0 flex-1 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 sm:flex-none"
             >
               <Settings className="h-4 w-4 mr-2" />
               Settings
@@ -89,7 +89,7 @@ function SystemContent() {
       </header>
 
       <main className="flex-1 px-3 py-4 sm:p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6">
           {/* System Status Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-orange-200 dark:border-orange-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm">

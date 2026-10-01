@@ -89,7 +89,7 @@ export default function FinancePage() {
 
   useEffect(() => {
     void loadTransactions();
-    const timer = window.setInterval(() => { void loadTransactions(); }, 15000);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadTransactions(); }, 15000);
     return () => window.clearInterval(timer);
   }, [source]);
 
@@ -103,7 +103,7 @@ export default function FinancePage() {
         .finally(() => setPnlLoading(false));
     };
     loadPnl();
-    const timer = window.setInterval(loadPnl, 15000);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") loadPnl(); }, 15000);
     return () => window.clearInterval(timer);
   }, [department]);
 
@@ -154,8 +154,8 @@ export default function FinancePage() {
 
   return (
     <RoleGuard section="finance">
-      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-4 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-6 lg:p-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 lg:p-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
           <header className="flex flex-col gap-4 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between md:p-6">
             <div className="flex items-start gap-3">
               <Button asChild variant="outline" size="icon" className="shrink-0 rounded-md" aria-label="Back to dashboard">

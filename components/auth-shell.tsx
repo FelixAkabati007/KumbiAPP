@@ -15,14 +15,14 @@ export function AuthShell({ title, description, children, footer }: { title: str
   const restaurantName = data?.account?.restaurantName?.trim() || "Kumbisaly Heritage Restaurant";
 
   return (
-    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-2 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:p-6">
+    <main className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 px-3 py-4 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:items-center sm:px-6 sm:py-8">
       <div className="w-full max-w-md space-y-2 sm:space-y-6">
         <header className="space-y-1 text-center sm:space-y-2">
           <div className="flex justify-center"><LogoDisplay size="sm" /></div>
           <h1 className="text-lg font-bold text-gray-800 dark:text-gray-200 sm:text-2xl">{restaurantName}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">Point of Sale System</p>
         </header>
-        <Card className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm dark:border-orange-700 dark:bg-gray-800/70">
+        <Card className="relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 shadow-sm dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl sm:backdrop-blur-sm">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
           <CardHeader className="relative z-10 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 p-4 text-center dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 sm:p-6">
             <CardTitle className="text-lg text-gray-800 dark:text-gray-200 sm:text-xl">{title}</CardTitle>

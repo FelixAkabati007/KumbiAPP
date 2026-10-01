@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,6 @@ function InventoryContent() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isNewItem, setIsNewItem] = useState(false);
@@ -102,12 +101,16 @@ function InventoryContent() {
   const [topUpHistoryItem, setTopUpHistoryItem] = useState<InventoryItem | null>(null);
   const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by_email?: string | null; request_metadata?: { reason?: string | null } }>>([]);
   const [isLoadingTopUpHistory, setIsLoadingTopUpHistory] = useState(false);
-  const [summary, setSummary] = useState({
-    totalItems: 0,
-    lowStockItems: 0,
-    totalValue: 0,
-    categories: {} as { [key: string]: number },
-  });
+  const summary = useMemo(() => {
+    const categories: Record<string, number> = {};
+    for (const item of items) categories[item.category] = (categories[item.category] ?? 0) + 1;
+    return {
+      totalItems: items.length,
+      lowStockItems: items.filter((item) => Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)).length,
+      totalValue: items.reduce((total, item) => total + Number.parseFloat(item.cost || "0"), 0),
+      categories,
+    };
+  }, [items]);
   const [hotelActivityCount, setHotelActivityCount] = useState(0);
   const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { actor?: { email?: string; role?: string }; item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string }; created_at: string }>>([]);
   const [nameSuggestions, setNameSuggestions] = useState<InventoryItem[]>([]);
@@ -152,26 +155,6 @@ function InventoryContent() {
       const loadedItems = await getInventoryItems();
       const displayItems = loadedItems.length > 0 ? loadedItems : MOCK_INVENTORY_ITEMS;
       setItems(displayItems);
-      setSummary({
-        totalItems: displayItems.length,
-        lowStockItems: displayItems.filter(
-          (item: InventoryItem) =>
-            Number.parseFloat(item.quantity) <=
-            Number.parseFloat(item.reorderLevel)
-        ).length,
-        totalValue: displayItems.reduce(
-          (total: number, item: InventoryItem) =>
-            total + Number.parseFloat(item.cost),
-          0
-        ),
-        categories: loadedItems.reduce(
-          (categories: { [key: string]: number }, item: InventoryItem) => {
-            categories[item.category] = (categories[item.category] || 0) + 1;
-            return categories;
-          },
-          {} as { [key: string]: number }
-        ),
-      });
     }
     load();
     fetch("/api/hotel-activity?limit=100")
@@ -179,18 +162,6 @@ function InventoryContent() {
       .then((events) => setHotelActivityCount(Array.isArray(events) ? events.length : 0))
       .catch(() => setHotelActivityCount(0));
   }, []);
-
-  const selectedCategory = ["ingredient", "beverage", "supply"].includes(activeTab)
-    ? activeTab
-    : null;
-  const selectedCategoryItems = selectedCategory
-    ? filteredItems
-    : [];
-  const selectedCategoryLabel = selectedCategory === "ingredient"
-    ? "Ingredients"
-    : selectedCategory === "beverage"
-      ? "Beverages"
-      : "Supplies";
 
   const getStockGroupLabel = (category: string | undefined, name: string | undefined) => {
     const value = `${category ?? ""} ${name ?? ""}`.toLowerCase();
@@ -200,31 +171,31 @@ function InventoryContent() {
   };
   const getStockGroup = (item: InventoryItem) => getStockGroupLabel(item.category, item.name);
 
-  const groupedInventoryItems = [...filteredItems].sort((a, b) => getStockGroup(a).localeCompare(getStockGroup(b)) || a.name.localeCompare(b.name));
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-  // Filter items based on search query and active tab
-  useEffect(() => {
-    let filtered = items;
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.category.toLowerCase().includes(searchQuery.toLowerCase())
+    return items.filter((item) => {
+      const matchesQuery = !query || [item.name, item.sku, item.category].some((value) =>
+        value.toLowerCase().includes(query)
       );
-    }
+      const quantity = Number.parseFloat(item.quantity);
+      const matchesTab = activeTab === "all"
+        || (activeTab === "active" && quantity > 0)
+        || (activeTab === "inactive" && quantity <= 0)
+        || (activeTab !== "active" && activeTab !== "inactive" && item.category === activeTab);
 
-    if (activeTab === "active") {
-      filtered = filtered.filter((item) => Number.parseFloat(item.quantity) > 0);
-    } else if (activeTab === "inactive") {
-      filtered = filtered.filter((item) => Number.parseFloat(item.quantity) <= 0);
-    } else if (activeTab !== "all") {
-      filtered = filtered.filter((item) => item.category === activeTab);
-    }
+      return matchesQuery && matchesTab;
+    });
+  }, [activeTab, items, searchQuery]);
 
-    setFilteredItems(filtered);
-  }, [searchQuery, activeTab, items]);
+  const groupedInventoryItems = useMemo(
+    () => [...filteredItems].sort((a, b) => getStockGroup(a).localeCompare(getStockGroup(b)) || a.name.localeCompare(b.name)),
+    [filteredItems]
+  );
+
+  const selectedCategory = ["ingredient", "beverage", "supply"].includes(activeTab) ? activeTab : null;
+  const selectedCategoryItems = selectedCategory ? filteredItems : [];
+  const selectedCategoryLabel = selectedCategory === "ingredient" ? "Ingredients" : selectedCategory === "beverage" ? "Beverages" : "Supplies";
 
   const handlePrintInventory = () => {
     if (!canPrintInventory || isPrintingInventory) return;
@@ -662,7 +633,7 @@ function InventoryContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 py-2 sm:gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:gap-4 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -710,9 +681,9 @@ function InventoryContent() {
           </Button>
           <Button
             onClick={handleAddItem}
-            className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg relative overflow-hidden"
+            className="min-h-11 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg transition-colors hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 animate-pulse"></div>
+            <div className="absolute inset-0 hidden bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 sm:block"></div>
             <Plus className="mr-2 h-4 w-4 relative z-10" />
             <span className="relative z-10">Add Item</span>
           </Button>
@@ -734,8 +705,8 @@ function InventoryContent() {
           </Card>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
+          <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md relative overflow-hidden sm:rounded-3xl sm:backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 via-cyan-100/20 to-teal-100/20 dark:from-blue-900/20 dark:via-cyan-900/20 dark:to-teal-900/20"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -749,7 +720,7 @@ function InventoryContent() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+          <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md relative overflow-hidden sm:rounded-3xl sm:backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-br from-red-100/20 via-pink-100/20 to-rose-100/20 dark:from-red-900/20 dark:via-pink-900/20 dark:to-rose-900/20"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -763,7 +734,7 @@ function InventoryContent() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+          <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md relative overflow-hidden sm:rounded-3xl sm:backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-br from-green-100/20 via-emerald-100/20 to-lime-100/20 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-lime-900/20"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -777,7 +748,7 @@ function InventoryContent() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+          <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md relative overflow-hidden sm:rounded-3xl sm:backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-100/20 via-violet-100/20 to-indigo-100/20 dark:from-purple-900/20 dark:via-violet-900/20 dark:to-indigo-900/20"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -791,7 +762,7 @@ function InventoryContent() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+          <Card className="bg-white/70 dark:bg-gray-800/70 border border-orange-200 dark:border-orange-700 rounded-2xl shadow-md relative overflow-hidden sm:rounded-3xl sm:backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">Hotel Activity</CardTitle>
               <Building2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -803,7 +774,7 @@ function InventoryContent() {
           </Card>
         </div>
 
-        <Card className="flex-1 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
+        <Card className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-orange-200 bg-white/70 shadow-md dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl sm:backdrop-blur-sm">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
           <CardHeader className="relative z-10">
             <CardTitle className="text-gray-800 dark:text-gray-200">
@@ -817,7 +788,7 @@ function InventoryContent() {
                   type="search"
                   placeholder="Search inventory items..."
                   aria-label="Search inventory items"
-                  className="rounded-2xl border-orange-200 bg-white/50 pl-8 dark:border-orange-700 dark:bg-gray-800/50"
+                  className="min-h-11 rounded-2xl border-orange-200 bg-white/50 pl-8 dark:border-orange-700 dark:bg-gray-800/50"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -838,8 +809,8 @@ function InventoryContent() {
             </div>
           </CardHeader>
           <CardContent className="relative z-10 p-0">
-            <ScrollArea className="h-[calc(100vh-400px)]">
-              <div className="p-6 pt-0">
+            <ScrollArea className="h-[min(62vh,42rem)] min-h-[20rem] sm:h-[calc(100vh-400px)]">
+              <div className="p-3 pt-0 sm:p-6 sm:pt-0">
                 <div className="space-y-2">
                   {groupedInventoryItems.map((item, index) => {
                     const stockGroup = getStockGroup(item);
@@ -853,7 +824,7 @@ function InventoryContent() {
                         )}
                     <div
                       key={`${item.id}-row`}
-                      className={`flex min-w-0 items-center justify-between gap-2 rounded-xl border bg-white/50 p-2.5 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:gap-3 sm:p-3 ${
+                      className={`flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border bg-white/50 p-2 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:flex-nowrap sm:gap-3 sm:p-3 ${
                         isLowStock(item)
                           ? "border-red-400 dark:border-red-600 animate-pulse"
                           : "border-orange-100 dark:border-orange-800"
