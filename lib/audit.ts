@@ -27,7 +27,7 @@ export async function logAudit({
         entity_type, 
         entity_id, 
         details, 
-        performed_by, 
+        user_id, 
         ip_address
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
       [
