@@ -12,12 +12,25 @@ export async function GET(
     if (error) return error;
 
     const result = await query(
-      `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name as inventory_name, i.category as inventory_category,
-              i.quantity as inventory_quantity, i.unit as inventory_unit,
-              CASE WHEN COALESCE(i.quantity, 0) >= r.quantity THEN 'stocked' ELSE 'out_of_stock' END as stock_status
-       FROM recipe_ingredients r
-       JOIN inventory i ON r.inventory_item_id = i.id
-       WHERE r.menu_item_id = $1`,
+      `WITH linked_items AS (
+         SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
+                i.quantity AS inventory_quantity, i.unit AS inventory_unit,
+                CASE
+                  WHEN r.unit IN ('g', 'kg', 'oz', 'lb') AND i.unit IN ('g', 'kg', 'oz', 'lb') AND
+                    COALESCE(i.quantity, 0) * CASE i.unit WHEN 'kg' THEN 1000 WHEN 'lb' THEN 453.592 WHEN 'oz' THEN 28.3495 ELSE 1 END >=
+                    r.quantity * CASE r.unit WHEN 'kg' THEN 1000 WHEN 'lb' THEN 453.592 WHEN 'oz' THEN 28.3495 ELSE 1 END THEN 'stocked'
+                  WHEN r.unit IN ('ml', 'l', 'fl_oz', 'gal', 'qt') AND i.unit IN ('ml', 'l', 'fl_oz', 'gal', 'qt') AND
+                    COALESCE(i.quantity, 0) * CASE i.unit WHEN 'l' THEN 1000 WHEN 'fl_oz' THEN 29.5735 WHEN 'gal' THEN 3785.41 WHEN 'qt' THEN 946.353 ELSE 1 END >=
+                    r.quantity * CASE r.unit WHEN 'l' THEN 1000 WHEN 'fl_oz' THEN 29.5735 WHEN 'gal' THEN 3785.41 WHEN 'qt' THEN 946.353 ELSE 1 END THEN 'stocked'
+                  WHEN r.unit IN ('g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz', 'gal', 'qt') OR i.unit IN ('g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz', 'gal', 'qt') THEN 'out_of_stock'
+                  WHEN COALESCE(i.quantity, 0) >= r.quantity THEN 'stocked'
+                  ELSE 'out_of_stock'
+                END AS stock_status
+         FROM recipe_ingredients r
+         JOIN inventory i ON r.inventory_item_id = i.id
+         WHERE r.menu_item_id = $1
+       )
+       SELECT * FROM linked_items`,
       [id]
     );
     return NextResponse.json(result.rows);
