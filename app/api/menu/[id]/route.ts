@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { updateSystemState } from "@/lib/system-sync";
 import { logAudit } from "@/lib/audit";
 import { publishRealtime } from "@/lib/realtime";
+import { calculateMenuAvailability } from "@/lib/menu-availability";
 
 interface MenuRow {
   id: string;
@@ -45,6 +46,11 @@ export async function GET(
     }
 
     const r = res.rows[0];
+    const recipeRes = await query<{ name: string; requiredQuantity: number | string; recipeUnit: string | null; availableQuantity: number | string | null; stockUnit: string | null; conversionRatio: number | string | null; densityGPerMl: number | string | null }>(
+      `SELECT i.name, ri.quantity AS "requiredQuantity", ri.unit AS "recipeUnit", i.quantity AS "availableQuantity", COALESCE(i.base_unit, i.unit) AS "stockUnit", i.conversion_ratio AS "conversionRatio", i.density_g_per_ml AS "densityGPerMl" FROM recipe_ingredients ri JOIN inventory i ON i.id = ri.inventory_item_id WHERE ri.menu_item_id = $1`,
+      [id]
+    );
+    const availability = calculateMenuAvailability({ inventoryMode: r.inventory_mode, availabilityMode: r.availability_mode, isAvailable: r.is_available, directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity), directUnitsPerSale: Number(r.direct_units_per_sale), ingredients: recipeRes.rows.map((ingredient) => ({ ...ingredient, requiredQuantity: Number(ingredient.requiredQuantity), availableQuantity: ingredient.availableQuantity == null ? null : Number(ingredient.availableQuantity), conversionRatio: ingredient.conversionRatio == null ? null : Number(ingredient.conversionRatio), densityGPerMl: ingredient.densityGPerMl == null ? null : Number(ingredient.densityGPerMl) })) });
     const item = {
       id: r.id,
       name: r.name,
@@ -56,12 +62,10 @@ export async function GET(
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
       isAvailable: r.is_available,
-      inStock: r.inventory_mode === "direct"
-        ? (r.availability_mode === "automatic" || r.is_available) && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale)
-        : r.is_available,
-      stockStatus: r.inventory_mode === "direct"
-        ? (r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available")
-        : r.is_available ? "available" : "manually_unavailable",
+      inStock: availability.inStock,
+      stockStatus: availability.stockStatus,
+      stockShortages: availability.stockShortages,
+      shortageDetails: availability.shortageDetails,
       image: r.image_url ?? undefined,
       category: r.category_slug || "ghanaian",
     };
