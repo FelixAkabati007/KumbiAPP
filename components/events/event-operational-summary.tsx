@@ -2,7 +2,6 @@
 
 import { CheckCircle2, ClipboardList, FileText, IndianRupee } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import type { WorkspaceSummary } from "@/components/events/event-workspace-panels";
 
 const tone: Record<WorkspaceSummary["booking"]["status"], string> = {

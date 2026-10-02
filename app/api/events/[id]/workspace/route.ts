@@ -32,10 +32,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const matchedPayments: Array<Record<string, unknown>> = [...transactionPayments, ...receiptPayments];
   const uniquePayments = matchedPayments.filter((payment, index, all) => all.findIndex((candidate) => candidate.id === payment.id || (candidate.amount === payment.amount && candidate.created_at === payment.created_at)) === index);
   const event = eventResult.rows[0] ?? {};
-  const invoiced = Number(event.total_invoiced ?? receipts.rows.reduce((sum: number, receipt: any) => sum + Number(receipt.snapshot?.total ?? 0), 0));
-  const paid = Number(event.total_paid ?? transactionPayments.filter((payment: any) => ["completed", "succeeded", "paid"].includes(payment.status)).reduce((sum: number, payment: any) => sum + Number(payment.amount ?? 0), 0));
+  const invoiced = Number(event.total_invoiced ?? receipts.rows.reduce((sum: number, receipt) => {
+    const snapshot = receipt.snapshot && typeof receipt.snapshot === "object" ? receipt.snapshot as Record<string, unknown> : {};
+    return sum + Number(snapshot.total ?? 0);
+  }, 0));
+  const paid = Number(event.total_paid ?? transactionPayments.filter((payment) => ["completed", "succeeded", "paid"].includes(String((payment as { status?: unknown }).status))).reduce((sum: number, payment) => sum + Number((payment as { amount?: unknown }).amount ?? 0), 0));
   const balanceDue = Math.max(0, Number(event.balance_due ?? invoiced - paid));
-  const openTasks = tasks.rows.filter((task: any) => !["completed", "done", "closed"].includes(task.metadata?.status ?? "open")).length;
+  const openTasks = tasks.rows.filter((task) => {
+    const metadata = task.metadata && typeof task.metadata === "object" ? task.metadata as Record<string, unknown> : {};
+    return !["completed", "done", "closed"].includes(String(metadata.status ?? "open"));
+  }).length;
   const completedTasks = tasks.rows.length - openTasks;
   const summary = {
     booking: { quoteStatus: event.quote_approved ? "approved" : "pending", secured: Boolean(event.receipt_id), status: event.receipt_id ? "complete" : "action_required", detail: event.receipt_id ? "Receipt created and booking secured" : "Quote approval and secure booking required", action: event.receipt_id ? null : "Secure booking" },
