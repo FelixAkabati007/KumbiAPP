@@ -36,7 +36,7 @@ export function EventBookingPanel({ eventId, secured, quoteApproved, receiptId, 
     if (data.receiptId) window.open(`/api/hotels/receipts/${data.receiptId}`, "_blank", "noopener,noreferrer");
   }
 
-  return <Card className="border-emerald-200 bg-emerald-50/70 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+  return <Card id="event-booking-panel" className="border-emerald-200 bg-emerald-50/70 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
     <CardHeader className="flex flex-row items-start justify-between gap-3">
       <div><p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Booking & services</p><CardTitle className="mt-1">Secure venue and services</CardTitle><p className="mt-1 text-sm leading-6 text-muted-foreground">Confirm the approved quote for this event, then create the receipt and financial record.</p></div>
       {secured ? <Badge className="shrink-0 bg-emerald-600"><CheckCircle2 className="mr-1 size-3" />Secured</Badge> : <LockKeyhole className="size-5 shrink-0 text-emerald-700" aria-hidden="true" />}
