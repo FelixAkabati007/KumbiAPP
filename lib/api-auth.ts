@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { hasPermission, isAdmin, type AppSection, type UserRole } from "@/lib/roles";
+import { canPerformAction, hasPermission, isAdmin, type AppSection, type CrudAction, type UserRole } from "@/lib/roles";
 
 export type ApiSession = {
   id: string;
@@ -55,6 +55,15 @@ export async function requirePermission(
         { status: 403 }
       ),
     };
+  }
+  return { session: session as ApiSession, error: null };
+}
+
+export async function requireCapability(section: AppSection, action: CrudAction): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (!canPerformAction(session.role as UserRole, section, action)) {
+    return { session: null, error: NextResponse.json({ error: `Forbidden: ${action} access is restricted` }, { status: 403 }) };
   }
   return { session: session as ApiSession, error: null };
 }
