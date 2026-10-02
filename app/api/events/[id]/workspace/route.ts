@@ -8,7 +8,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const [eventResult, receipts, payments, ledger, activity, tasks] = await Promise.all([
     query(`SELECT quote_approved, receipt_id, total_invoiced, total_paid, balance_due FROM events WHERE id = $1`, [id]),
-    query(`SELECT id, order_number, receipt_type, snapshot, created_at FROM hotel_receipts WHERE order_id = $1 OR reservation_id = $1 ORDER BY created_at DESC`, [id]),
+    query(`SELECT r.id, r.order_number, r.receipt_type, r.snapshot, r.created_at FROM hotel_receipts r LEFT JOIN events e ON e.receipt_id = r.id WHERE e.id = $1 OR r.order_id = $1 OR r.reservation_id = $1 ORDER BY CASE WHEN e.id = $1 THEN 0 ELSE 1 END, r.created_at DESC`, [id]),
     query(`SELECT id::text, amount, currency, status, payment_method, metadata, created_at FROM transaction_logs WHERE metadata->>'eventId' = $1 OR metadata->>'event_id' = $1 ORDER BY created_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_key, amount, direction, currency, status, source, occurred_at, payment_method, entity_type, entity_id, metadata FROM canonical_financial_ledger WHERE entity_type = 'event' AND entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_type, entity_type, description, metadata, occurred_at, created_by FROM hotel_activity_ledger WHERE entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
@@ -37,13 +37,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return sum + Number(snapshot.total ?? 0);
   }, 0));
   const paid = Number(event.total_paid ?? transactionPayments.filter((payment) => ["completed", "succeeded", "paid"].includes(String((payment as { status?: unknown }).status))).reduce((sum: number, payment) => sum + Number((payment as { amount?: unknown }).amount ?? 0), 0));
-  const balanceDue = Math.max(0, Number(event.balance_due ?? invoiced - paid));
+  const ledgerPostedTotal = ledger.rows.filter((entry) => entry.direction === "credit").reduce((sum: number, entry) => sum + Number(entry.amount ?? 0), 0);
+  const receipt = receipts.rows[0];
+  const receiptSnapshot = receipt?.snapshot && typeof receipt.snapshot === "object" ? receipt.snapshot as Record<string, unknown> : {};
+  const transactionPaid = transactionPayments.filter((payment) => ["completed", "succeeded", "paid", "success"].includes(String((payment as { status?: unknown }).status))).reduce((sum: number, payment) => sum + Number((payment as { amount?: unknown }).amount ?? 0), 0);
+  const paidTotal = transactionPaid > 0 ? transactionPaid : Number(event.total_paid ?? 0);
+  const balanceDue = Math.max(0, Number(event.balance_due ?? invoiced - paidTotal));
+  const receiptTotal = Number(receiptSnapshot.total ?? 0);
+  const hasInvoice = invoiced > 0 || receiptTotal > 0;
+  const financeException = receipt && Math.abs((receiptTotal || invoiced) - invoiced) > 0.01 ? "Receipt total does not match the event invoice total" : paidTotal > invoiced + 0.01 ? "Paid amount exceeds the invoice total" : null;
+  const financeStatus = financeException ? "exception" : !hasInvoice ? "not_invoiced" : balanceDue <= 0.01 ? "paid" : paidTotal > 0 ? "partially_paid" : "invoice_posted";
+  const finance = { invoiceTotal: invoiced || receiptTotal, subtotal: receiptSnapshot.subtotal == null ? null : Number(receiptSnapshot.subtotal), tax: receiptSnapshot.tax == null ? null : Number(receiptSnapshot.tax), paidTotal, balanceDue, ledgerPostedTotal, transactionCount: transactionPayments.length, receiptId: event.receipt_id ?? receipt?.id ?? null, status: financeStatus, reconciliation: financeException ? "unmatched" : hasInvoice && Math.abs(ledgerPostedTotal - (invoiced || receiptTotal)) <= 0.01 ? "matched" : "unmatched", lastUpdatedAt: receipt?.created_at ?? ledger.rows[0]?.occurred_at ?? null, exception: financeException };
   const openTasks = tasks.rows.filter((task) => {
     const metadata = task.metadata && typeof task.metadata === "object" ? task.metadata as Record<string, unknown> : {};
     return !["completed", "done", "closed"].includes(String(metadata.status ?? "open"));
   }).length;
   const completedTasks = tasks.rows.length - openTasks;
   const summary = {
+    finance,
     booking: { quoteStatus: event.quote_approved ? "approved" : "pending", secured: Boolean(event.receipt_id), status: event.receipt_id ? "complete" : "action_required", detail: event.receipt_id ? "Receipt created and booking secured" : "Quote approval and secure booking required", action: event.receipt_id ? null : "Secure booking" },
     collections: { invoiced, paid, balanceDue, transactionCount: transactionPayments.length, status: balanceDue > 0 ? "awaiting_payment" : "complete", detail: `GHS ${paid.toFixed(2)} paid · GHS ${balanceDue.toFixed(2)} due`, action: balanceDue > 0 ? "Review or record payment" : null },
     delivery: { openTasks, completedTasks, status: openTasks > 0 ? "in_progress" : "action_required", detail: `${openTasks} open · ${completedTasks} completed tasks`, action: openTasks > 0 ? "Complete open tasks" : "Add operational task" },
