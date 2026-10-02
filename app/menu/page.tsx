@@ -241,8 +241,8 @@ function MenuContent() {
     console.debug("✅ [MenuPage] New item dialog opened");
   }, []);
 
-  const handleEditItem = useCallback((item: MenuItem) => {
-    console.debug("✏️ [MenuPage] Editing item:", {
+  const handleEditItem = useCallback(async (item: MenuItem) => {
+  console.debug("✏️ [MenuPage] Editing item:", {
       id: item.id,
       name: item.name,
       category: item.category,
@@ -254,8 +254,15 @@ function MenuContent() {
       return;
     }
 
-    setEditingItem({ ...item });
-    setIsNewItem(false);
+  let detail = item;
+  try {
+    const response = await fetch(`/api/menu/${item.id}`, { cache: "no-store" });
+    if (response.ok) detail = await response.json();
+  } catch (error) {
+    console.error("[MenuPage] Failed to refresh stock truth:", error);
+  }
+  setEditingItem({ ...item, ...detail });
+  setIsNewItem(false);
     setFormErrors({});
     setIsDialogOpen(true);
     console.debug("✅ [MenuPage] Edit dialog opened");

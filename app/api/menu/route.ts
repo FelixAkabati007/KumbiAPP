@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
 import { MOCK_MENU_ITEMS } from "@/lib/mock-catalog";
+import { calculateMenuAvailability } from "@/lib/menu-availability";
 
 async function ensureCategory(slug: string): Promise<string> {
   const existing = await query<{ id: string }>(
@@ -40,6 +41,7 @@ export async function GET() {
       direct_inventory_quantity: string | null;
       direct_inventory_category: string | null;
       legacy_inventory_quantity: string | null;
+      recipe_ingredients: Array<{ name: string; requiredQuantity: number; recipeUnit: string | null; availableQuantity: number | null; stockUnit: string | null; conversionRatio: number | null; densityGPerMl: number | null }> | null;
     }>(
       `
       SELECT mi.id, mi.name, mi.description, mi.price, mi.barcode, mi.is_available, mi.availability_mode,
@@ -47,7 +49,8 @@ export async function GET() {
              di.quantity::text AS direct_inventory_quantity, di.category AS direct_inventory_category,
              legacy_i.quantity::text AS legacy_inventory_quantity,
              COUNT(ri.id)::text AS recipe_count,
-             ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients
+             ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients,
+             COALESCE(json_agg(json_build_object('name', i.name, 'requiredQuantity', ri.quantity, 'recipeUnit', ri.unit, 'availableQuantity', i.quantity, 'stockUnit', COALESCE(i.base_unit, i.unit), 'conversionRatio', i.conversion_ratio, 'densityGPerMl', i.density_g_per_ml)) FILTER (WHERE ri.id IS NOT NULL), '[]') AS recipe_ingredients
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
@@ -71,9 +74,7 @@ export async function GET() {
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
       directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
-      inStock: r.inventory_mode === "direct" ? (r.availability_mode === "automatic" || r.is_available) && Number(r.direct_inventory_quantity ?? 0) >= Number(r.direct_units_per_sale) : (r.recipe_count !== "0" ? r.unavailable_ingredients?.length === 0 : Number(r.legacy_inventory_quantity ?? 0) >= 1) && (r.availability_mode === "automatic" || r.is_available),
-      stockStatus: r.inventory_mode === "direct" ? (r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : Number(r.direct_inventory_quantity ?? 0) < Number(r.direct_units_per_sale) ? "out_of_stock" : "available") : r.recipe_count === "0" ? (Number(r.legacy_inventory_quantity ?? 0) >= 1 ? "available" : "recipe_required") : r.unavailable_ingredients?.length ? "out_of_stock" : r.availability_mode === "manual" && !r.is_available ? "manually_unavailable" : "available",
-      stockShortages: r.unavailable_ingredients ?? [],
+      ...(() => { const availability = calculateMenuAvailability({ inventoryMode: r.inventory_mode, availabilityMode: r.availability_mode, isAvailable: r.is_available, directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity), directUnitsPerSale: Number(r.direct_units_per_sale), ingredients: r.recipe_ingredients ?? [], legacyQuantity: r.legacy_inventory_quantity == null ? null : Number(r.legacy_inventory_quantity) }); return { inStock: availability.inStock, stockStatus: availability.stockStatus, stockShortages: availability.stockShortages, shortageDetails: availability.shortageDetails }; })(),
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as
         | "ghanaian"
