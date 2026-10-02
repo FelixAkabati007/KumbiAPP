@@ -633,20 +633,24 @@ function InventoryContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:gap-4 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
-        <Link
-          href="/"
-          aria-label="Back to dashboard"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-orange-600 outline-none dark:text-orange-400"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <LogoDisplay size="sm" />
-        <Package className="h-6 w-6 shrink-0 text-orange-600 dark:text-orange-400" />
-        <h1 className="min-w-0 truncate text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">
-          Inventory Management
-        </h1>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+      <header className="sticky top-0 z-10 border-b border-orange-200 bg-white px-3 py-3 dark:border-orange-700 dark:bg-gray-900 sm:px-4 md:px-6">
+        <div className="flex min-h-10 min-w-0 items-center gap-2 sm:gap-4">
+          <Link
+            href="/"
+            aria-label="Back to dashboard"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-orange-600 outline-none transition-colors hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-500 dark:text-orange-400 dark:hover:bg-orange-950/40"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <LogoDisplay size="sm" />
+            <Package className="h-6 w-6 shrink-0 text-orange-600 dark:text-orange-400" />
+            <h1 className="min-w-0 truncate text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">
+              Inventory Management
+            </h1>
+          </div>
+        </div>
+        <div className="mt-3 flex min-w-0 flex-wrap items-center justify-end gap-2">
           {lowStockCount > 0 && (
             <Badge
               variant="destructive"
@@ -682,9 +686,9 @@ function InventoryContent() {
           </Button>
           <Button
             onClick={handleAddItem}
-            className="min-h-11 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg transition-colors hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600"
+            className="relative min-h-11 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg transition-colors hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600"
           >
-            <div className="absolute inset-0 hidden bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 sm:block"></div>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 sm:block"></div>
             <Plus className="mr-2 h-4 w-4 relative z-10" />
             <span className="relative z-10">Add Item</span>
           </Button>
