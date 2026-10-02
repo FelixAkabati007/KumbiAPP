@@ -633,8 +633,8 @@ function InventoryContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 border-b border-orange-200 bg-white px-3 py-3 dark:border-orange-700 dark:bg-gray-900 sm:px-4 md:px-6">
-        <div className="flex min-h-10 min-w-0 items-center gap-2 sm:gap-4">
+      <header className="sticky top-0 z-10 border-b border-orange-200 bg-white px-3 py-2 dark:border-orange-700 dark:bg-gray-900 sm:px-4 md:px-6">
+        <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href="/"
             aria-label="Back to dashboard"
@@ -650,7 +650,7 @@ function InventoryContent() {
             </h1>
           </div>
         </div>
-        <div className="mt-3 flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           {lowStockCount > 0 && (
             <Badge
               variant="destructive"
