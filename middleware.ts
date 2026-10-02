@@ -88,26 +88,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Check for Protected API Routes
-  // Every state-changing API request is an administrator-only operation. This
-  // is enforced at the backend boundary so hidden/disabled frontend controls
-  // cannot be bypassed with a direct request. Read-only GET/HEAD/OPTIONS calls
-  // retain the existing role-based visibility rules.
+  // API handlers enforce the exact capability for each method. Middleware only
+  // authenticates and applies coarse route visibility so normal department work
+  // is not incorrectly restricted to administrators.
   const isAuthEndpoint = pathname.startsWith("/api/auth");
-  const isReadOnlyRequest = ["GET", "HEAD", "OPTIONS"].includes(req.method);
-  if (pathname.startsWith("/api/") && !isAuthEndpoint && !pathname.startsWith("/api/public") && !isReadOnlyRequest) {
-    const token = req.cookies.get("auth_token")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    try {
-      const secret = new TextEncoder().encode(JWT_SECRET);
-      const { payload } = await jwtVerify(token, secret);
-      if (payload.role !== "admin") {
-        return NextResponse.json({ error: "Forbidden: administrators only for data changes" }, { status: 403 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
 
   const protectedApiRoute =
     pathname === "/api/auth/signup"

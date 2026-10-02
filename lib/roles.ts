@@ -129,7 +129,7 @@ export type AppSection =
   | "events"
   | "eventPricing";
 
-export type CrudAction = "view" | "create" | "edit" | "delete" | "manage";
+export type CrudAction = "view" | "create" | "edit" | "delete" | "manage" | "approve" | "administer";
 export type OperationalScope = "hotel" | "restaurant" | "general" | "events" | "staff";
 
 export const operationalScopeOptions: { value: OperationalScope; label: string; description: string }[] = [
@@ -140,7 +140,7 @@ export const operationalScopeOptions: { value: OperationalScope; label: string; 
   { value: "staff", label: "Staff", description: "Assigned staff duties and day-to-day operational work." },
 ];
 
-export type RoleCapability = Record<CrudAction, boolean>;
+export type RoleCapability = Partial<Record<CrudAction, boolean>>;
 
 export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
   admin: ["general", "hotel", "restaurant", "events"],
@@ -402,7 +402,7 @@ export const rolePermissions = {
     operations: true,
     guestFolio: true,
     events: true,
-    eventPricing: false,
+    eventPricing: true,
   },
   operationsManager: {
     pos: false,
@@ -720,11 +720,21 @@ export function canPerformAction(
   section: AppSection,
   action: CrudAction,
 ): boolean {
-  // Only administrators may create, edit, delete, manage, or otherwise
-  // mutate data from the frontend. Other roles retain view-only access.
-  if (action !== "view") return isAdmin(role);
-  if (!isUserRole(role)) return false;
-  return rolePermissions[role][section] ?? false;
+  if (!isUserRole(role) || !hasPermission(role, section)) return false;
+  if (isAdmin(role)) return true;
+  return Boolean(roleCapabilities[role]?.[section]?.[action]);
+}
+
+export const roleRouteFallbacks: Record<UserRole, string[]> = {
+  admin: ["/system", "/operations"], manager: ["/operations", "/events", "/reports"], hotelManager: ["/hotels/rooms", "/hotels/reservations"], restaurantManager: ["/pos", "/kitchen", "/menu"], operationsManager: ["/operations", "/hotels/maintenance"], finance: ["/finance", "/payments", "/reports"], staff: ["/pos", "/receipt"], kitchen: ["/kitchen", "/order-display"], frontDesk: ["/hotels/check-in", "/hotels/reservations"], housekeeping: ["/hotels/housekeeping", "/hotels/maintenance"],
+};
+
+export function getDefaultRouteForRole(role: string | null | undefined): string {
+  if (!isUserRole(role)) return "/unauthorized";
+  return roleRouteFallbacks[role].find((route) => {
+    const sectionByRoute: Record<string, AppSection> = { "/system": "system", "/operations": "operations", "/events": "events", "/reports": "reports", "/hotels/rooms": "rooms", "/hotels/reservations": "reservations", "/pos": "pos", "/kitchen": "kitchen", "/menu": "menu", "/finance": "finance", "/payments": "payments", "/receipt": "receipt", "/order-display": "orderBoard", "/hotels/maintenance": "maintenance", "/hotels/check-in": "checkIn", "/hotels/housekeeping": "housekeeping" };
+    return Boolean(sectionByRoute[route] && hasPermission(role, sectionByRoute[route]));
+  }) ?? "/unauthorized";
 }
 
 export function canManageFeatureToggles(

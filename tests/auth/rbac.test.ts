@@ -4,9 +4,25 @@ import {
   rolePermissions,
   UserRole,
   AppSection,
+  canPerformAction,
+  getDefaultRouteForRole,
 } from "../../lib/roles";
 
 describe("RBAC System", () => {
+  it("routes every role to an area it can access", () => {
+    const destinations: Record<UserRole, string> = {
+      admin: "/system", manager: "/operations", hotelManager: "/hotels/rooms", restaurantManager: "/pos", operationsManager: "/operations", finance: "/finance", staff: "/pos", kitchen: "/kitchen", frontDesk: "/hotels/check-in", housekeeping: "/hotels/housekeeping",
+    };
+    Object.entries(destinations).forEach(([role, route]) => expect(getDefaultRouteForRole(role)).toBe(route));
+  });
+
+  it("allows department roles to perform their assigned mutations", () => {
+    expect(canPerformAction("staff", "pos", "create")).toBe(true);
+    expect(canPerformAction("kitchen", "orderBoard", "edit")).toBe(true);
+    expect(canPerformAction("finance", "payments", "create")).toBe(true);
+    expect(canPerformAction("operationsManager", "maintenance", "manage")).toBe(true);
+    expect(canPerformAction("staff", "finance", "create")).toBe(false);
+  });
   describe("Role Permissions", () => {
     it("Admin should have access to all sections", () => {
       const sections: AppSection[] = [
