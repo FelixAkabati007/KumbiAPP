@@ -6,7 +6,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { error } = await requirePermission("events");
   if (error) return error;
   const { id } = await params;
-  const [receipts, payments, ledger, activity, tasks] = await Promise.all([
+  const [eventResult, receipts, payments, ledger, activity, tasks] = await Promise.all([
+    query(`SELECT quote_approved, receipt_id, total_invoiced, total_paid, balance_due FROM events WHERE id = $1`, [id]),
     query(`SELECT id, order_number, receipt_type, snapshot, created_at FROM hotel_receipts WHERE order_id = $1 OR reservation_id = $1 ORDER BY created_at DESC`, [id]),
     query(`SELECT id::text, amount, currency, status, payment_method, metadata, created_at FROM transaction_logs WHERE metadata->>'eventId' = $1 OR metadata->>'event_id' = $1 ORDER BY created_at DESC LIMIT 100`, [id]),
     query(`SELECT id, event_key, amount, direction, currency, status, source, occurred_at, payment_method, entity_type, entity_id, metadata FROM canonical_financial_ledger WHERE entity_type = 'event' AND entity_id::text = $1 ORDER BY occurred_at DESC LIMIT 100`, [id]),
@@ -30,7 +31,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const transactionPayments = payments.rows.map((payment) => ({ ...payment, source: "transaction" as const }));
   const matchedPayments: Array<Record<string, unknown>> = [...transactionPayments, ...receiptPayments];
   const uniquePayments = matchedPayments.filter((payment, index, all) => all.findIndex((candidate) => candidate.id === payment.id || (candidate.amount === payment.amount && candidate.created_at === payment.created_at)) === index);
-  return NextResponse.json({ receipts: receipts.rows, payments: uniquePayments, ledger: ledger.rows, activity: activity.rows, tasks: tasks.rows });
+  const event = eventResult.rows[0] ?? {};
+  const invoiced = Number(event.total_invoiced ?? receipts.rows.reduce((sum: number, receipt: any) => sum + Number(receipt.snapshot?.total ?? 0), 0));
+  const paid = Number(event.total_paid ?? transactionPayments.filter((payment: any) => ["completed", "succeeded", "paid"].includes(payment.status)).reduce((sum: number, payment: any) => sum + Number(payment.amount ?? 0), 0));
+  const balanceDue = Math.max(0, Number(event.balance_due ?? invoiced - paid));
+  const openTasks = tasks.rows.filter((task: any) => !["completed", "done", "closed"].includes(task.metadata?.status ?? "open")).length;
+  const completedTasks = tasks.rows.length - openTasks;
+  const summary = {
+    booking: { quoteStatus: event.quote_approved ? "approved" : "pending", secured: Boolean(event.receipt_id), status: event.receipt_id ? "complete" : "action_required", detail: event.receipt_id ? "Receipt created and booking secured" : "Quote approval and secure booking required", action: event.receipt_id ? null : "Secure booking" },
+    collections: { invoiced, paid, balanceDue, transactionCount: transactionPayments.length, status: balanceDue > 0 ? "awaiting_payment" : "complete", detail: `GHS ${paid.toFixed(2)} paid · GHS ${balanceDue.toFixed(2)} due`, action: balanceDue > 0 ? "Review or record payment" : null },
+    delivery: { openTasks, completedTasks, status: openTasks > 0 ? "in_progress" : "action_required", detail: `${openTasks} open · ${completedTasks} completed tasks`, action: openTasks > 0 ? "Complete open tasks" : "Add operational task" },
+    records: { documentsAvailable: event.receipt_id ? 3 : 2, activityCount: activity.rows.length, lastActivityAt: activity.rows[0]?.occurred_at ?? null, status: event.receipt_id ? "complete" : "neutral", detail: `${event.receipt_id ? 3 : 2} documents · ${activity.rows.length} activity events`, action: null },
+    refreshedAt: new Date().toISOString(),
+  };
+  return NextResponse.json({ ...summary, receipts: receipts.rows, payments: uniquePayments, ledger: ledger.rows, activity: activity.rows, tasks: tasks.rows });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
