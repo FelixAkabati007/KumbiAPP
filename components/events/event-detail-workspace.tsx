@@ -38,6 +38,12 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
     fetch("/api/events", { cache: "no-store" }).then((response) => response.json()).then((data) => setEvent((data.events ?? []).find((item: EventRecord) => item.id === eventId) ?? null)).finally(() => setLoading(false));
   }, [eventId]);
   useEffect(() => { if (event && autoPrint) window.setTimeout(() => window.print(), 250); }, [event, autoPrint]);
+  const refreshWorkspace = async () => {
+    const [eventsResponse, workspaceResponse] = await Promise.all([fetch("/api/events", { cache: "no-store" }), fetch(`/api/events/${eventId}/workspace`, { cache: "no-store" })]);
+    if (eventsResponse.ok) { const data = await eventsResponse.json() as { events?: EventRecord[] }; setEvent((data.events ?? []).find((item) => item.id === eventId) ?? null); }
+    if (workspaceResponse.ok) setWorkspaceData(await workspaceResponse.json());
+  };
+
   useEffect(() => {
     let active = true;
     const loadWorkspace = () => fetch(`/api/events/${eventId}/workspace`, { cache: "no-store" }).then((response) => response.json()).then((data) => { if (active) setWorkspaceData(data); }).catch(() => undefined);
@@ -61,13 +67,9 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
     <nav className="flex gap-2 overflow-x-auto border-b border-border pb-2" aria-label="Event workspace sections">{tabs.map(({ id, label, icon: Icon }) => <Button key={id} variant={tab === id ? "secondary" : "ghost"} className="shrink-0" onClick={() => setTab(id)}><Icon data-icon="inline-start" />{label}</Button>)}</nav>
     <Card><CardHeader><CardTitle>{tabs.find((item) => item.id === tab)?.label}</CardTitle></CardHeader><CardContent className="space-y-4">
       {tab === "overview" && <><p className="text-sm leading-6 text-muted-foreground">Keep client, schedule, venue, guest requirements, and the next operational action visible here.</p><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Client contact</p><p className="mt-1 text-sm text-muted-foreground">{event.client_name}</p></div><div className="rounded-2xl border border-border p-4"><p className="text-sm font-medium">Coordinator</p><p className="mt-1 text-sm text-muted-foreground">Unassigned</p></div></div><div className="grid gap-4 md:grid-cols-2"><Card className="border-primary/30 bg-primary/5"><CardHeader><CardTitle>Quote pricing</CardTitle><p className="text-sm text-muted-foreground">Build and review pricing in the Quotes tab.</p></CardHeader><CardContent><Button onClick={() => setTab("quote")}>Open Quotes</Button></CardContent></Card><Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30"><CardHeader><CardTitle>Booking status</CardTitle><p className="text-sm text-muted-foreground">Venue and services are secured from the Quotes tab.</p></CardHeader><CardContent><Button onClick={() => setTab("quote")}>Open Quotes</Button></CardContent></Card></div></>}
-      {tab === "quote" && <><EventPricingDesk eventId={event.id} canEdit={canPrice} /><QuoteApprovalPanel eventId={event.id} /><EventBookingPanel eventId={event.id} secured={Boolean(event.receipt_id)} quoteApproved={Boolean(event.quote_approved)} receiptId={event.receipt_id} onReviewQuote={() => setTab("quote")} onSecured={async () => {
-        const [eventsResponse, workspaceResponse] = await Promise.all([fetch("/api/events", { cache: "no-store" }), fetch(`/api/events/${event.id}/workspace`, { cache: "no-store" })]);
-        if (eventsResponse.ok) { const data = await eventsResponse.json() as { events?: EventRecord[] }; setEvent((data.events ?? []).find((item) => item.id === event.id) ?? null); }
-        if (workspaceResponse.ok) setWorkspaceData(await workspaceResponse.json());
-      }} /></>}
-      {tab === "payments" && <EventPayments data={workspaceData} />}
-      {tab === "finance" && <EventFinance data={workspaceData} />}
+      {tab === "quote" && <><EventPricingDesk eventId={event.id} canEdit={canPrice} /><QuoteApprovalPanel eventId={event.id} /><EventBookingPanel eventId={event.id} secured={Boolean(event.receipt_id)} quoteApproved={Boolean(event.quote_approved)} receiptId={event.receipt_id} onReviewQuote={() => setTab("quote")} onSecured={refreshWorkspace} /></>}
+      {tab === "payments" && <EventPayments data={workspaceData} eventId={event.id} onRecorded={() => void refreshWorkspace()} />}
+      {tab === "finance" && <EventFinance data={workspaceData} eventId={event.id} onGenerated={() => void refreshWorkspace()} />}
       {tab === "operations" && <EventOperations event={event} data={workspaceData} eventId={event.id} />}
       {tab === "documents" && <EventDocuments eventId={event.id} receiptId={event.receipt_id} />}
       {tab === "activity" && <EventActivity data={workspaceData} eventId={event.id} receiptId={event.receipt_id} />}
