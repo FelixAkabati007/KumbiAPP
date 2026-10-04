@@ -86,6 +86,21 @@ function ReceiptContent() {
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
 
+  const toReceiptItems = (items: unknown): OrderItem[] => {
+    if (!Array.isArray(items)) return [];
+    return items.map((item, index) => {
+      const value = item as Record<string, unknown>;
+      const quantity = Number(value.quantity) || 1;
+      const total = Number(value.total_amount ?? value.total ?? value.amount) || 0;
+      return {
+        id: String(value.id ?? `event-item-${index}`),
+        name: String(value.description ?? value.label ?? value.name ?? "Event service"),
+        price: total / quantity,
+        quantity,
+      } as OrderItem;
+    });
+  };
+
   useEffect(() => {
     if (user?.role === "frontDesk") setReceiptSource("hotel");
   }, [user?.role]);
@@ -141,7 +156,10 @@ function ReceiptContent() {
   const response = await fetch(`/api/transactions?orderNumber=${encodeURIComponent(searchOrderNumber.trim())}&source=event&limit=1`);
   const rows = response.ok ? await response.json() : [];
   const row = Array.isArray(rows) ? rows[0] : null;
-  setFoundSale(row ? { id: row.id, orderNumber: row.metadata?.orderNumber ?? row.transaction_id, orderId: row.metadata?.eventId, date: row.created_at, items: [], subtotal: Number(row.amount) || 0, tax: 0, total: Number(row.amount) || 0, orderType: "event booking", customerName: row.metadata?.clientName, paymentMethod: row.payment_method ?? "event booking", performedBy: row.metadata?.performedBy } : null);
+  const items = toReceiptItems(row?.items);
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = Number(row?.amount) || 0;
+  setFoundSale(row ? { id: row.id, orderNumber: row.metadata?.orderNumber ?? row.transaction_id, orderId: row.metadata?.eventId, date: row.created_at, items, subtotal: Number(row.metadata?.subtotal) || subtotal, tax: Math.max(total - (Number(row.metadata?.subtotal) || subtotal), 0), total, orderType: "event booking", customerName: row.metadata?.clientName, paymentMethod: row.payment_method ?? "event booking", performedBy: row.metadata?.performedBy } : null);
   setHotelActivity(null);
   return;
   }
@@ -459,19 +477,13 @@ function ReceiptContent() {
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span>
-                          ₵
-                          {foundSale.items
-                            .reduce(
-                              (sum: number, item: OrderItem) =>
-                                sum + item.price * item.quantity,
-                              0,
-                            )
-                            .toFixed(2)}
-                        </span>{" "}
-                        {/* Changed type to any */}
+                          ₵{Number(foundSale.subtotal ?? 0).toFixed(2)}
+                        </span>
                       </div>
                       <div className="font-semibold">Statutory taxes and levies:</div><div className="text-xs text-muted-foreground">GRA E-VAT is the invoice channel; it is not added as a separate tax.</div>
-                      {levyRows(calculateTaxes(foundSale.items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0), appSettings.system.taxConfiguration, "pos").breakdown, appSettings.system.taxConfiguration, foundSale.subtotal, "GHS ").map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
+                      {receiptSource === "event" ? (
+                        <div className="flex justify-between pl-3 text-xs"><span>Event taxes and levies:</span><span>₵{Number(foundSale.tax ?? 0).toFixed(2)}</span></div>
+                      ) : levyRows(calculateTaxes(Number(foundSale.subtotal ?? 0), appSettings.system.taxConfiguration, "pos").breakdown, appSettings.system.taxConfiguration, foundSale.subtotal, "GHS ").map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
                       <div className="flex justify-between font-semibold">
                         <span>Total:</span>
                         <span>₵{foundSale.total.toFixed(2)}</span>
