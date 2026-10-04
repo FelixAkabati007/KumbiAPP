@@ -285,8 +285,8 @@ function DashboardContent() {
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="sticky top-0 z-40 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-wrap items-center gap-1 px-3 py-1 sm:px-4 md:px-6 lg:gap-2 xl:flex-nowrap xl:gap-3">
-          <div className="order-1 flex min-w-0 flex-1 basis-full gap-3 sm:basis-auto md:gap-6 lg:gap-10">
+        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col items-stretch gap-2 px-3 py-2 sm:px-4 md:px-6 lg:gap-3">
+          <div className="flex min-w-0 items-center gap-3 md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
               <LogoDisplay size="sm" />
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -299,8 +299,8 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<div className="order-3 flex min-w-0 basis-full flex-wrap items-center justify-start gap-1 sm:justify-end sm:gap-2 lg:basis-auto lg:justify-center xl:order-2 xl:flex-nowrap xl:justify-end">
-  <div className="flex min-w-0 max-w-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 xl:max-w-[13rem]">
+<div className="flex min-w-0 w-full flex-wrap items-center justify-start gap-1 sm:gap-2 lg:justify-between xl:flex-nowrap">
+  <div className="flex min-w-0 max-w-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
   <span className="max-w-[min(48vw,28rem)] whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
@@ -376,7 +376,7 @@ function DashboardContent() {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-  <div className="order-2 ml-auto flex shrink-0 items-center gap-1 sm:ml-1 xl:order-3 xl:ml-0">
+  <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
