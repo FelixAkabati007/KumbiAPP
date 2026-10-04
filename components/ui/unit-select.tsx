@@ -22,7 +22,10 @@ import {
 export interface Unit {
   value: string;
   label: string;
+  description?: string;
 }
+
+export type UnitDimension = "mass" | "volume" | "count" | "unknown";
 
 export interface UnitCategory {
   category: string;
@@ -38,6 +41,8 @@ interface UnitSelectProps {
   placeholder?: string;
   error?: string;
   excludeValues?: string[];
+  compatibleDimension?: UnitDimension;
+  helperText?: string;
 }
 
 // The unit list is static reference data (rarely, if ever, changes), so cache
@@ -50,6 +55,16 @@ let inFlightFetch: Promise<UnitCategory[]> | null = null;
 export function resetUnitSelectCache() {
   cachedCategories = null;
   inFlightFetch = null;
+}
+
+const MASS_UNITS = new Set(["g", "kg", "oz", "lb"]);
+const VOLUME_UNITS = new Set(["ml", "l", "fl_oz", "qt", "gal"]);
+const COUNT_UNITS = new Set(["unit", "ea", "ct", "pc", "pcs", "piece", "pack", "box", "bag", "bottle", "can", "tray", "sack", "crate", "carton", "cs", "pk", "bx", "bg"]);
+function unitDimension(value: string): UnitDimension {
+  if (MASS_UNITS.has(value)) return "mass";
+  if (VOLUME_UNITS.has(value)) return "volume";
+  if (COUNT_UNITS.has(value)) return "count";
+  return "unknown";
 }
 
 const LOCALIZATION: Record<string, Record<string, string>> = {
@@ -87,6 +102,8 @@ export function UnitSelect({
   placeholder,
   error: externalError,
   excludeValues = [],
+  compatibleDimension,
+  helperText,
 }: UnitSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [categories, setCategories] = React.useState<UnitCategory[]>(
@@ -141,7 +158,7 @@ export function UnitSelect({
       .filter((category) => category.category !== "Operational Management Units")
       .map((category) => ({
         ...category,
-        units: category.units.filter((unit) => !excludeValues.includes(unit.value)),
+        units: category.units.filter((unit) => !excludeValues.includes(unit.value) && (!compatibleDimension || unitDimension(unit.value) === compatibleDimension)),
       }))
       .filter((category) => category.units.length > 0),
     [categories, excludeValues]
@@ -257,7 +274,10 @@ export function UnitSelect({
                               isSelected(unit.value) ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          {unit.label}
+                          <span className="flex min-w-0 flex-col">
+                            <span>{unit.label}</span>
+                            {unit.description && <span className="text-xs text-muted-foreground">{unit.description}</span>}
+                          </span>
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -269,6 +289,7 @@ export function UnitSelect({
         </PopoverContent>
       </Popover>
       {externalError && <p className="text-sm text-red-500">{externalError}</p>}
+      {!externalError && helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
     </div>
   );
 }
