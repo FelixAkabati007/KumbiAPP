@@ -67,7 +67,7 @@ export default function SalesCharts({ data }: SalesChartsProps) {
   const timelineData = useMemo(() => {
     const timeline: Record<string, number> = {};
     data.forEach((order) => {
-      const date = new Date(order.date).toLocaleDateString();
+      const date = new Date(order.date).toISOString().slice(0, 10);
       timeline[date] = (timeline[date] || 0) + order.total;
     });
     return Object.entries(timeline)
@@ -78,21 +78,21 @@ export default function SalesCharts({ data }: SalesChartsProps) {
   const categoryConfig = {
     revenue: {
       label: "Revenue",
-      color: "hsl(var(--chart-1))",
+      color: "var(--chart-1)",
     },
   } satisfies ChartConfig;
 
   const paymentConfig = {
     revenue: {
       label: "Revenue",
-      color: "hsl(var(--chart-2))",
+      color: "var(--chart-2)",
     },
   } satisfies ChartConfig;
 
   const timelineConfig = {
     total: {
       label: "Total Revenue",
-      color: "hsl(var(--chart-3))",
+      color: "var(--chart-3)",
     },
   } satisfies ChartConfig;
 
@@ -111,7 +111,7 @@ export default function SalesCharts({ data }: SalesChartsProps) {
         <CardHeader>
           <CardTitle>Revenue by Category</CardTitle>
           <CardDescription>
-            Breakdown of sales across categories
+Recognized line-item revenue from canonical completed sales
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,8 +138,8 @@ export default function SalesCharts({ data }: SalesChartsProps) {
       {/* Payment Method Pie Chart */}
       <Card className="col-span-1 lg:col-span-1">
         <CardHeader>
-          <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>Distribution of payment types</CardDescription>
+            <CardTitle>Payment Methods</CardTitle>
+            <CardDescription>Recognized revenue grouped by normalized tender</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={paymentConfig}>
@@ -173,7 +173,7 @@ export default function SalesCharts({ data }: SalesChartsProps) {
       <Card className="col-span-1 lg:col-span-1 md:col-span-2">
         <CardHeader>
           <CardTitle>Revenue Trend</CardTitle>
-          <CardDescription>Daily revenue performance</CardDescription>
+            <CardDescription>Daily recognized revenue from the canonical sales model</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={timelineConfig}>
