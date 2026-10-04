@@ -142,7 +142,8 @@ export async function GET(request: Request) {
       queryText += " WHERE " + conditions.join(" AND ");
     }
 
-    queryText += " ORDER BY created_at DESC";
+    queryText +=
+      " ORDER BY CASE WHEN metadata->>'receiptRecord' = 'true' THEN 0 ELSE 1 END, created_at DESC";
 
     if (limit > 0) {
       queryText += ` LIMIT $${params.length + 1}`;
