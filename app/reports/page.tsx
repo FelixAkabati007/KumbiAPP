@@ -130,16 +130,26 @@ function ReportsPage() {
 
       let serverSales: SalesData[] = [];
       if (Array.isArray(transactions)) {
-        serverSales = transactions.map((tx: Transaction) => ({
+        serverSales = transactions.map((tx: Transaction & {
+          orderNumber?: string;
+          orderType?: string;
+          paymentMethod?: string;
+          customerName?: string;
+          date?: string;
+          total?: number;
+        }) => {
+          const metadata = tx.metadata ?? {};
+          const rawTotal = tx.total ?? tx.amount;
+          return {
           id: tx.id,
-          orderNumber: tx.metadata?.receiptNumber || tx.metadata?.orderNumber || tx.transaction_id,
-          orderId: tx.metadata?.orderId,
-          date: tx.created_at,
+          orderNumber: tx.orderNumber || metadata.receiptNumber || metadata.orderNumber || tx.transaction_id || tx.id,
+          orderId: metadata.orderId,
+          date: tx.date || tx.created_at,
           items: Array.isArray(tx.items)
             ? tx.items.map((rawItem, index: number) => {
                 const item = rawItem as unknown as Record<string, unknown>;
                 const quantity = Number(item.quantity) || 1;
-                const rawCategory = String(item.category ?? tx.metadata?.category ?? "sides");
+                const rawCategory = String(item.category ?? metadata.category ?? "sides");
                 const category = (["ghanaian", "continental", "beverages", "desserts", "sides"] as const).includes(rawCategory as "ghanaian" | "continental" | "beverages" | "desserts" | "sides")
                   ? rawCategory as OrderItem["category"]
                   : "sides";
@@ -155,15 +165,13 @@ function ReportsPage() {
                 };
               })
             : [],
-          total:
-            typeof tx.amount === "string"
-              ? Number.parseFloat(tx.amount)
-              : tx.amount,
-          orderType: tx.metadata?.orderType || "dine-in",
-          tableNumber: tx.metadata?.tableNumber,
-          customerName: tx.metadata?.guestName || tx.metadata?.customerName || tx.customer_id,
-          paymentMethod: tx.payment_method,
-        }));
+          total: typeof rawTotal === "string" ? Number.parseFloat(rawTotal) : Number(rawTotal) || 0,
+          orderType: tx.orderType || metadata.orderType || "dine-in",
+          tableNumber: metadata.tableNumber,
+          customerName: tx.customerName || metadata.guestName || metadata.customerName || tx.customer_id,
+          paymentMethod: tx.paymentMethod || tx.payment_method || "unknown",
+        };
+        });
       }
 
       // Sort by date descending
