@@ -89,11 +89,12 @@ function ReportsPage() {
   const loadData = useCallback(async () => {
     try {
       const [txRes, refRes] = await Promise.all([
-        fetch(`/api/transactions?limit=2000${sourceFilter !== "all" ? `&source=${sourceFilter}` : ""}`),
+        fetch(`/api/reports/sales${sourceFilter !== "all" ? `?source=${sourceFilter}` : ""}`),
         fetch("/api/refunds"),
       ]);
 
-      const transactions = await txRes.json();
+      const reportPayload = await txRes.json();
+      const transactions = Array.isArray(reportPayload) ? reportPayload : reportPayload.rows;
       const refundsData = await refRes.json();
 
       if (Array.isArray(refundsData)) {
@@ -134,7 +135,26 @@ function ReportsPage() {
           orderNumber: tx.metadata?.receiptNumber || tx.metadata?.orderNumber || tx.transaction_id,
           orderId: tx.metadata?.orderId,
           date: tx.created_at,
-          items: Array.isArray(tx.items) ? tx.items : [],
+          items: Array.isArray(tx.items)
+            ? tx.items.map((rawItem, index: number) => {
+                const item = rawItem as unknown as Record<string, unknown>;
+                const quantity = Number(item.quantity) || 1;
+                const rawCategory = String(item.category ?? tx.metadata?.category ?? "sides");
+                const category = (["ghanaian", "continental", "beverages", "desserts", "sides"] as const).includes(rawCategory as "ghanaian" | "continental" | "beverages" | "desserts" | "sides")
+                  ? rawCategory as OrderItem["category"]
+                  : "sides";
+                return {
+                  ...rawItem,
+                  id: String(item.id ?? `${tx.id}-item-${index}`),
+                  name: String(item.name ?? item.description ?? "Uncategorized item"),
+                  category,
+                  quantity,
+                  price: Number(item.price ?? item.total_amount ?? item.total ?? 0) / quantity,
+                  description: String(item.description ?? item.name ?? ""),
+                  inStock: item.inStock !== false,
+                };
+              })
+            : [],
           total:
             typeof tx.amount === "string"
               ? Number.parseFloat(tx.amount)
@@ -151,15 +171,8 @@ function ReportsPage() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      // Deduplicate by orderNumber to hide double logs
-      const seenOrders = new Set();
-      const uniqueSales = serverSales.filter((sale) => {
-        if (seenOrders.has(sale.orderNumber)) return false;
-        seenOrders.add(sale.orderNumber);
-        return true;
-      });
-
-      setData(uniqueSales);
+      // Deduplication is performed by the canonical SQL read model.
+      setData(serverSales);
     } catch (error) {
       console.error("Failed to load data:", error);
       setData([]);
