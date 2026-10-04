@@ -69,6 +69,29 @@ const UNIT_CATEGORIES = [
   },
 ];
 
+const UNIT_DESCRIPTIONS: Record<string, string> = {
+  g: "Canonical weight unit for solid ingredients.",
+  kg: "Purchase or storage weight; recipes can use kg or g.",
+  ml: "Canonical liquid volume unit.",
+  l: "Purchase or storage volume; recipes can use L or ml.",
+  ea: "One countable item; use for bowls, packs, containers, and whole produce.",
+  unit: "Canonical countable stock unit; one physical item.",
+  piece: "One physical piece; stored as the canonical unit.",
+  pack: "Purchase packaging only; configure pieces per pack separately.",
+  box: "Purchase packaging only; configure pieces per box separately.",
+  bag: "Purchase packaging only; configure pieces per bag separately.",
+  bottle: "Purchase packaging; use ml for liquid recipe quantities when known.",
+  tsp: "Recipe portion unit; use for small measured ingredients.",
+  tbsp: "Recipe portion unit; use for measured ingredients.",
+  c: "Recipe cup measure; use for measured ingredients.",
+};
+
 export async function GET() {
-  return NextResponse.json(UNIT_CATEGORIES);
+  return NextResponse.json(UNIT_CATEGORIES.map((category) => ({
+    ...category,
+    units: category.units.map((unit) => ({
+      ...unit,
+      description: UNIT_DESCRIPTIONS[unit.value] ?? "Supported restaurant measurement unit.",
+    })),
+  })));
 }
