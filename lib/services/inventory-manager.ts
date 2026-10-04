@@ -1,4 +1,5 @@
 import { transaction } from "@/lib/db";
+import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
 
 export interface InventoryDeductionItem {
   menu_item_id?: string;
@@ -7,100 +8,72 @@ export interface InventoryDeductionItem {
 }
 
 export class InventoryManager {
-  /**
-   * Deducts ingredients from inventory based on the provided items.
-   * This runs in a transaction to ensure integrity.
-   */
-  async deductIngredientsForOrder(
-    orderId: string,
-    items: InventoryDeductionItem[]
-  ): Promise<void> {
-    // console.log(`[InventoryManager] Starting deduction for order ${orderId}`);
-
-    if (items.length === 0) {
-      console.warn(`[InventoryManager] No items provided for order ${orderId}`);
-      return;
-    }
+  async deductIngredientsForOrder(orderId: string, items: InventoryDeductionItem[]): Promise<void> {
+    if (items.length === 0) return;
 
     await transaction(async (client) => {
       for (const item of items) {
-        // The menu item explicitly controls whether this sale consumes a recipe or direct stock.
         let recipeFound = false;
         let directStockHandled = false;
 
         if (item.menu_item_id) {
-          const modeRes = await client.query(
-            `SELECT inventory_mode, direct_inventory_id, direct_units_per_sale
-             FROM menu_items WHERE id = $1`,
+          const mode = (await client.query(
+            `SELECT inventory_mode, direct_inventory_id, direct_units_per_sale FROM menu_items WHERE id = $1`,
             [item.menu_item_id]
-          );
-          const mode = modeRes.rows[0];
+          )).rows[0];
+
           if (mode?.inventory_mode === "direct") {
             if (!mode.direct_inventory_id) throw new Error(`Direct inventory is not configured for ${item.item_name}`);
-            await client.query(
-              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2`,
-              [Number(mode.direct_units_per_sale) * item.quantity, mode.direct_inventory_id]
+            const deduction = Number(mode.direct_units_per_sale || 1) * item.quantity;
+            const updated = await client.query(
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+              [deduction, mode.direct_inventory_id]
             );
+            if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock`);
             directStockHandled = true;
           }
 
-          const recipeRes = directStockHandled ? { rows: [] } : await client.query(
-            `SELECT inventory_item_id, quantity, unit 
-             FROM recipe_ingredients 
-             WHERE menu_item_id = $1`,
-            [item.menu_item_id]
-          );
+          if (!directStockHandled) {
+            const ingredients = (await client.query(
+              `SELECT r.inventory_item_id, r.quantity, r.unit, i.unit AS inventory_unit,
+                      i.recipe_unit, i.conversion_ratio, i.density_g_per_ml, i.name
+               FROM recipe_ingredients r
+               JOIN inventory i ON i.id = r.inventory_item_id
+               WHERE r.menu_item_id = $1`,
+              [item.menu_item_id]
+            )).rows;
 
-          const ingredients = recipeRes.rows;
-
-          if (ingredients.length > 0) {
-            recipeFound = true;
-            // Deduct based on recipe
+            if (ingredients.length > 0) recipeFound = true;
             for (const ingredient of ingredients) {
-              const totalDeduction = ingredient.quantity * item.quantity;
-
-              await client.query(
-                `UPDATE inventory 
-                 SET quantity = quantity - $1, 
-                 last_updated = NOW() 
-                 WHERE id = $2`,
-                [totalDeduction, ingredient.inventory_item_id]
+              const deduction = getRecipeDeductionQuantity(
+                Number(ingredient.quantity) * item.quantity,
+                ingredient.unit,
+                ingredient.inventory_unit,
+                ingredient.conversion_ratio,
+                ingredient.density_g_per_ml
               );
-
-              // console.log(
-              //   `[InventoryManager] Deducted ${totalDeduction} ${ingredient.unit} of inventory item ${ingredient.inventory_item_id} for menu item ${item.menu_item_id}`
-              // );
+              if (deduction === null) throw new Error(`${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit})`);
+              const updated = await client.query(
+                `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+                [deduction, ingredient.inventory_item_id]
+              );
+              if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock: ${ingredient.name}`);
             }
           }
         }
 
-        // 2. Fallback: Direct Name/SKU Match (Legacy Mode)
-        // Only if no recipe was found/processed
         if (!recipeFound && !directStockHandled) {
-          // If no recipe, try to find an inventory item with the exact same name
-          const invItemRes = await client.query(
-            `SELECT id, quantity FROM inventory WHERE name = $1 LIMIT 1`,
-            [item.item_name]
-          );
-
-          if (invItemRes.rows.length > 0) {
-            const invId = invItemRes.rows[0].id;
-            await client.query(
-              `UPDATE inventory 
-                     SET quantity = quantity - $1, 
-                     last_updated = NOW() 
-                     WHERE id = $2`,
-              [item.quantity, invId]
+          const inventory = (await client.query(`SELECT id, quantity FROM inventory WHERE name = $1 LIMIT 1`, [item.item_name])).rows[0];
+          if (inventory) {
+            const updated = await client.query(
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+              [item.quantity, inventory.id]
             );
-            // console.log(
-            //   `[InventoryManager] Direct deduction: ${item.quantity} for ${item.item_name}`
-            // );
+            if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock`);
           }
         }
       }
     });
-
-    // console.log(`[InventoryManager] Deduction completed for order ${orderId}`);
   }
 }
 
