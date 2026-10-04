@@ -299,9 +299,9 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-wrap items-center gap-1.5 sm:gap-2 lg:justify-between xl:flex-nowrap">
-  <div className="order-1 flex min-w-0 max-w-full basis-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:basis-auto">
-  <span className="max-w-[min(48vw,28rem)] whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
+<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-wrap items-center gap-2 lg:justify-between xl:flex-nowrap">
+  <div className="order-1 basis-full flex min-w-0 max-w-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:basis-auto sm:max-w-[min(28rem,42vw)]">
+  <span className="max-w-full whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
@@ -378,7 +378,7 @@ function DashboardContent() {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-  <div className="order-4 ml-auto flex basis-full shrink-0 items-center justify-end gap-1 sm:basis-auto sm:gap-2">
+  <div className="order-4 ml-auto flex min-w-0 basis-full shrink-0 items-center justify-end gap-1 sm:basis-auto sm:gap-2">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
