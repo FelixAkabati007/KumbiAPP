@@ -17,18 +17,18 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // A receipt is counted from a successful, non-refund transaction.
-    // Providers use several equivalent success labels, so normalize status before filtering.
+    // hotel_receipts is the canonical receipt record. Financial ledger entries
+    // remain the source for monetary reporting, but must not be counted as
+    // additional receipts because event bookings write to both tables.
     const sql = `
-        SELECT
-          COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int AS today,
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_DATE))::int AS week,
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE))::int AS month,
-          COUNT(*)::int AS total
-        FROM transaction_logs
-        WHERE LOWER(TRIM(status)) IN ('success', 'successful', 'completed', 'succeeded', 'paid')
-          AND LOWER(TRIM(COALESCE(metadata->>'type', 'payment'))) NOT IN ('refund', 'refunded', 'reversal', 'reversed')
-      `;
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int AS today,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_DATE))::int AS week,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE))::int AS month,
+        COUNT(*)::int AS total
+      FROM hotel_receipts
+      WHERE LOWER(COALESCE(receipt_type, '')) NOT IN ('refund', 'refunded', 'reversal', 'reversed', 'void')
+    `;
 
     const result = await query(sql);
     const row = result.rows[0];

@@ -73,6 +73,25 @@ export async function GET(request: Request) {
                occurred_at AS created_at, updated_at
         FROM canonical_financial_ledger
         WHERE COALESCE(amount, 0) <> 0
+
+        UNION ALL
+
+        SELECT id::text AS id, order_number AS transaction_id,
+               COALESCE((snapshot->>'total')::numeric, 0) AS amount,
+               COALESCE(snapshot->'quote'->>'currency', 'GHS') AS currency,
+               'completed' AS status, 'event booking' AS payment_method,
+               NULL::text AS customer_id,
+               COALESCE(snapshot->'quote'->'items', '[]'::jsonb) AS items,
+               jsonb_build_object(
+                 'source', 'event', 'receiptRecord', true,
+                 'eventId', reservation_id, 'orderId', order_id,
+                 'clientName', snapshot->'event'->>'client_name',
+                 'subtotal', COALESCE(snapshot->>'subtotal', '0'),
+                 'performedBy', snapshot->'bookedBy'
+               ) AS metadata,
+               created_at, created_at AS updated_at
+        FROM hotel_receipts
+        WHERE receipt_type = 'event_booking'
       )
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at
@@ -98,7 +117,7 @@ export async function GET(request: Request) {
 
     if (orderNumber) {
       conditions.push(
-        `LOWER(metadata->>'orderNumber') = LOWER($${params.length + 1})`
+        `(LOWER(metadata->>'orderNumber') = LOWER($${params.length + 1}) OR LOWER(transaction_id) = LOWER($${params.length + 1}))`
       );
       params.push(orderNumber);
     }
@@ -123,7 +142,8 @@ export async function GET(request: Request) {
       queryText += " WHERE " + conditions.join(" AND ");
     }
 
-    queryText += " ORDER BY created_at DESC";
+    queryText +=
+      " ORDER BY CASE WHEN metadata->>'receiptRecord' = 'true' THEN 0 ELSE 1 END, created_at DESC";
 
     if (limit > 0) {
       queryText += ` LIMIT $${params.length + 1}`;
