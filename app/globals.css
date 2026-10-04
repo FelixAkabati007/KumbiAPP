@@ -4,7 +4,40 @@
 
 /* Keep the global stylesheet in the active app bundle. */
 
+@layer components {
+  .enterprise-card {
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .enterprise-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -16px hsl(var(--foreground) / 0.35);
+    border-color: hsl(var(--ring) / 0.45);
+  }
+
+  .enterprise-interactive:hover {
+    will-change: transform, box-shadow;
+  }
+}
+
 @layer utilities {
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .enterprise-card:hover,
+  .enterprise-interactive:hover {
+    transform: none !important;
+  }
+}
+
   .text-balance {
     overflow-wrap: anywhere;
   }
