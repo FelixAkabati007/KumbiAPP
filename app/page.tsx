@@ -285,8 +285,8 @@ function DashboardContent() {
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="sticky top-0 z-40 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col items-stretch gap-2 px-3 py-2 sm:px-4 md:px-6 lg:gap-3">
-          <div className="flex min-w-0 items-center gap-3 md:gap-6 lg:gap-10">
+        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col gap-2 px-2 py-2 sm:px-4 md:px-6 lg:gap-3">
+          <div className="flex min-w-0 items-center justify-between gap-2 md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
               <LogoDisplay size="sm" />
               <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -299,15 +299,15 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<div className="flex min-w-0 w-full flex-wrap items-center gap-2 sm:gap-2 lg:justify-between xl:flex-nowrap">
-  <div className="flex min-w-0 max-w-full basis-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:basis-auto">
+<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-wrap items-center gap-1.5 sm:gap-2 lg:justify-between xl:flex-nowrap">
+  <div className="order-1 flex min-w-0 max-w-full basis-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:basis-auto">
   <span className="max-w-[min(48vw,28rem)] whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
             {access.pos && access.kitchen && (
-  <Link className="shrink-0" href="/split-workspace" prefetch={false}>
+  <Link className="order-2 shrink-0" href="/split-workspace" prefetch={false}>
               <Button
                 variant="outline"
                 size="sm"
@@ -320,7 +320,7 @@ function DashboardContent() {
   </Link>
   )}
   {access.reservations && access.checkIn && (
-  <Link href="/hotel-split-workspace" prefetch={false}>
+  <Link className="order-2 shrink-0" href="/hotel-split-workspace" prefetch={false}>
   <Button
   variant="outline"
   size="sm"
@@ -333,19 +333,21 @@ function DashboardContent() {
   </Link>
   )}
   {access.menu && access.inventory && (
-  <Link href="/menu-inventory-split-workspace" prefetch={false}>
+  <Link className="order-2 shrink-0" href="/menu-inventory-split-workspace" prefetch={false}>
     <Button variant="outline" size="sm" aria-label="Open split Menu Management and Inventory workspace" className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50">
       <SplitSquareHorizontal className="h-4 w-4" />
       <span className="hidden sm:inline">Split Menu + Inventory</span>
     </Button>
   </Link>
   )}
-  <Link href="/settings" prefetch={false}>
+  <Link className="order-3 shrink-0" href="/settings" prefetch={false}>
     <Button variant="outline" size="sm" className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent">
       <Settings className="h-4 w-4" />
     </Button>
   </Link>
-  <AppUpdateMenu />
+  <div className="order-3 shrink-0">
+    <AppUpdateMenu />
+  </div>
   <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -376,7 +378,7 @@ function DashboardContent() {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-  <div className="ml-auto flex basis-full shrink-0 items-center justify-end gap-1 sm:basis-auto sm:gap-2">
+  <div className="order-4 ml-auto flex basis-full shrink-0 items-center justify-end gap-1 sm:basis-auto sm:gap-2">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
@@ -384,7 +386,7 @@ function DashboardContent() {
     {/* User avatar menu */}
     <UserNav />
   </div>
-  </div>
+</nav>
         </div>
       </header>
 
