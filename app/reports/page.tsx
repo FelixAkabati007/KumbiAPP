@@ -368,13 +368,17 @@ function ReportsPage() {
     // Top selling items
     const itemSales: Record<
       string,
-      { name: string; quantity: number; revenue: number }
+      { name: string; quantity: number; revenue: number; isRental: boolean }
     > = {};
     filteredData.forEach((order) => {
       order.items.forEach((item) => {
+        const isRental =
+          order.orderType === "event" ||
+          /venue|hire|rental|rent|sound system|premises|chair/i.test(item.name);
         if (!itemSales[item.id]) {
-          itemSales[item.id] = { name: item.name, quantity: 0, revenue: 0 };
+          itemSales[item.id] = { name: item.name, quantity: 0, revenue: 0, isRental };
         }
+        itemSales[item.id].isRental ||= isRental;
         itemSales[item.id].quantity += item.quantity;
         itemSales[item.id].revenue += item.price * item.quantity;
       });
@@ -662,7 +666,7 @@ function ReportsPage() {
               <CardHeader className="relative z-10">
                 <CardTitle className="text-lg font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Top Selling Items
+                  Top Selling & Rented Items
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 relative z-10">
@@ -681,7 +685,7 @@ function ReportsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-orange-700 dark:text-orange-300">
-                        {item.quantity} sold
+                        {item.quantity} {item.isRental ? "rented" : "sold"}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         ₵{item.revenue.toFixed(2)}
