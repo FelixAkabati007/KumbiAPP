@@ -78,7 +78,7 @@ export async function POST(
     }
 
   const inventoryResult = await query(
-    `SELECT category, recipe_unit, unit, base_unit FROM inventory WHERE id = $1`,
+    `SELECT category, recipe_unit, unit, base_unit, conversion_ratio, density_g_per_ml FROM inventory WHERE id = $1`,
     [inventory_item_id]
   );
   const inventory = inventoryResult.rows[0];
@@ -89,6 +89,19 @@ export async function POST(
   }
   if (isSupply && String(unit).toLowerCase() !== String(inventory.recipe_unit).toLowerCase()) {
     return NextResponse.json({ error: `Use the Inventory recipe unit: ${inventory.recipe_unit}.` }, { status: 400 });
+  }
+
+  const requiredInInventoryUnit = getRecipeDeductionQuantity(
+    Number(quantity),
+    unit,
+    inventory.unit,
+    inventory.conversion_ratio,
+    inventory.density_g_per_ml
+  );
+  if (requiredInInventoryUnit === null) {
+    return NextResponse.json({
+      error: `Cannot convert ${unit} to the Inventory stock unit ${inventory.unit}. Configure a compatible recipe unit, conversion ratio, or density first.`,
+    }, { status: 400 });
   }
 
   await query(
