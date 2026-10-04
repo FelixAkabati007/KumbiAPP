@@ -376,7 +376,7 @@ function DashboardContent() {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-  <div className="order-2 ml-1 flex items-center gap-1">
+  <div className="order-2 ml-auto flex shrink-0 items-center gap-1 sm:ml-1">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
