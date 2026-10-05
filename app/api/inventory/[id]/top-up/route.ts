@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
-import { logAudit } from "@/lib/audit";
 import { transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
@@ -15,12 +14,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const url = new URL(req.url);
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 200);
     const result = await transaction((client) => client.query(
-      `SELECT a.id, a.inventory_item_id, a.quantity_before, a.quantity_added, a.quantity_after,
-              a.performed_by, a.performed_at, a.source, a.request_metadata,
-              u.email AS performed_by_email, COALESCE(u.name, u.email) AS performed_by_name,
-              u.role AS performed_by_role
-       FROM inventory_top_up_audit a LEFT JOIN users u ON u.id = a.performed_by
-       WHERE a.inventory_item_id = $1 ORDER BY a.performed_at DESC LIMIT $2`, [id, limit]
+      `SELECT e.id, e.inventory_id AS inventory_item_id, e.quantity_before,
+              e.quantity_delta AS quantity_added, e.quantity_after, e.staff_id AS performed_by,
+              e.created_at AS performed_at, e.event_type AS source, e.reason,
+              e.purchase_packaging_price_before, e.purchase_packaging_price_after,
+              e.staff_name AS performed_by_name, e.staff_role AS performed_by_role
+       FROM inventory_events e
+       WHERE e.inventory_id = $1 ORDER BY e.created_at DESC LIMIT $2`, [id, limit]
     ));
     return NextResponse.json(result.rows);
   } catch (error) {
@@ -63,10 +63,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const after = Number(updated.rows[0].quantity);
       const metadata = { eventType: hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", reason, staffName: session.name || session.email, staffRole: session.role, priceField: "Purchase Packaging", purchasePackagingPriceBefore: priceBefore, purchasePackagingPriceAfter: priceAfter };
       const audit = await client.query(`INSERT INTO inventory_top_up_audit (inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, idempotency_key, source, request_metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata`, [id, before, quantityAdded, after, session.id, idempotencyKey, hasPriceChange ? "manual_top_up_price_change" : "manual_top_up", JSON.stringify(metadata)]);
+      await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, purchase_packaging_price_before, purchase_packaging_price_after, cost_per_item_before, cost_per_item_after, reason, staff_id, staff_name, staff_role, correlation_id, idempotency_key, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, [id, hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", before, quantityAdded, after, priceBefore, priceAfter, Number(item.rows[0].cost_per_item ?? 0), costPerItem, reason, session.id, session.name || session.email || session.id, session.role, idempotencyKey, idempotencyKey, JSON.stringify(metadata)]);
       return { item: updated.rows[0], audit: audit.rows[0], duplicate: false };
     });
     if (!result.duplicate) {
-      await logAudit({ performedBy: session.id, action: hasPriceChange ? "INVENTORY_RESTOCK_AND_PRICE_CHANGE" : "INVENTORY_TOP_UP", entityType: "INVENTORY", entityId: id, details: result.audit, ipAddress: req.headers.get("x-forwarded-for") || "unknown" });
       await updateSystemState("inventory");
     }
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });

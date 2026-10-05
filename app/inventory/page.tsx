@@ -55,7 +55,6 @@ import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
-import { MOCK_INVENTORY_ITEMS } from "@/lib/mock-catalog";
 import { getInventoryBaseUnit } from "@/lib/inventory-units";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
@@ -120,7 +119,22 @@ function InventoryContent() {
   useEffect(() => {
     fetch("/api/inventory/restocks")
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => data?.logs && setRestockLogs(data.logs))
+      .then((data) => {
+        if (!data?.logs) return;
+        setRestockLogs(data.logs.map((event: { id: string; inventory_item_id: string; quantity_before: number; quantity_added: number; quantity_after: number; user_id?: string; staff_name?: string; staff_role?: string; created_at: string; name?: string; category?: string; unit?: string; supplier?: string }) => ({
+          id: event.id,
+          created_at: event.created_at,
+          details: {
+            actor: { email: event.staff_name, role: event.staff_role },
+            item: { name: event.name, category: event.category },
+            quantityBefore: event.quantity_before,
+            quantityAdded: event.quantity_added,
+            quantityAfter: event.quantity_after,
+            unit: event.unit,
+            supplier: event.supplier,
+          },
+        })));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -154,8 +168,7 @@ function InventoryContent() {
   useEffect(() => {
     async function load() {
       const loadedItems = await getInventoryItems();
-      const displayItems = loadedItems.length > 0 ? loadedItems : MOCK_INVENTORY_ITEMS;
-      setItems(displayItems);
+      setItems(loadedItems);
     }
     load();
     fetch("/api/hotel-activity?limit=100")
