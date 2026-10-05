@@ -56,6 +56,7 @@ import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
 import { getInventoryBaseUnit } from "@/lib/inventory-units";
+import { canTopUpInventory } from "@/lib/roles";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -78,6 +79,7 @@ function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const canMutateExistingInventory = user?.role === "admin";
+  const canTopUpStock = canTopUpInventory(user?.role);
   const normalizedRole = (user?.role ?? "").toLowerCase().replace(/[ _-]/g, "");
   const canPrintInventory = INVENTORY_PRINT_ROLES.has(normalizedRole);
   const [isPrintingInventory, setIsPrintingInventory] = useState(false);
@@ -99,7 +101,7 @@ function InventoryContent() {
   const [topUpPurchasePackagingPrice, setTopUpPurchasePackagingPrice] = useState("");
   const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
   const [topUpHistoryItem, setTopUpHistoryItem] = useState<InventoryItem | null>(null);
-  const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by_email?: string | null; request_metadata?: { reason?: string | null } }>>([]);
+  const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by?: string | null; performed_by_name?: string | null; performed_by_role?: string | null; reason?: string | null; correlation_id?: string | null; idempotency_key?: string | null; purchase_packaging_price_before?: string | number | null; purchase_packaging_price_after?: string | number | null }>>([]);
   const [isLoadingTopUpHistory, setIsLoadingTopUpHistory] = useState(false);
   const summary = useMemo(() => {
     const categories: Record<string, number> = {};
@@ -112,7 +114,7 @@ function InventoryContent() {
     };
   }, [items]);
   const [hotelActivityCount, setHotelActivityCount] = useState(0);
-  const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { actor?: { email?: string; role?: string }; item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string }; created_at: string }>>([]);
+  const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { actor?: { email?: string; role?: string }; item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string; staffId?: string; staffRole?: string; reason?: string | null; correlationId?: string; idempotencyKey?: string }; created_at: string }>>([]);
   const [nameSuggestions, setNameSuggestions] = useState<InventoryItem[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
@@ -121,7 +123,7 @@ function InventoryContent() {
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
         if (!data?.logs) return;
-        setRestockLogs(data.logs.map((event: { id: string; inventory_item_id: string; quantity_before: number; quantity_added: number; quantity_after: number; user_id?: string; staff_name?: string; staff_role?: string; created_at: string; name?: string; category?: string; unit?: string; supplier?: string }) => ({
+        setRestockLogs(data.logs.map((event: { id: string; inventory_item_id: string; quantity_before: number; quantity_added: number; quantity_after: number; user_id?: string; staff_name?: string; staff_role?: string; created_at: string; name?: string; category?: string; unit?: string; supplier?: string; reason?: string | null; correlation_id?: string; idempotency_key?: string; }) => ({
           id: event.id,
           created_at: event.created_at,
           details: {
@@ -132,6 +134,11 @@ function InventoryContent() {
             quantityAfter: event.quantity_after,
             unit: event.unit,
             supplier: event.supplier,
+            staffId: event.user_id,
+            staffRole: event.staff_role,
+            reason: event.reason,
+            correlationId: event.correlation_id,
+            idempotencyKey: event.idempotency_key,
           },
         })));
       })
@@ -899,7 +906,7 @@ function InventoryContent() {
   <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">
   <AlertTriangle className="h-4 w-4" />
   </Button>
-  {canMutateExistingInventory && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
+  {canTopUpStock && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
   <Button variant="ghost" size="icon" title="View top-up history" aria-label={`View top-up history for ${item.name}`} onClick={() => openTopUpHistory(item)} className="h-8 w-8 text-slate-600 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><TrendingDown className="h-4 w-4 rotate-180" /></Button>
   {canMutateExistingInventory && <div className="flex gap-2">
   <Button
@@ -1218,7 +1225,7 @@ function InventoryContent() {
           <DialogContent className="max-w-3xl rounded-3xl">
             <DialogHeader><DialogTitle>Top-up history</DialogTitle><DialogDescription>Immutable stock replenishment records for {topUpHistoryItem?.name ?? "this item"}. Timestamps are shown in UTC.</DialogDescription></DialogHeader>
             <div className="max-h-[55vh] overflow-y-auto rounded-2xl border">
-              {isLoadingTopUpHistory ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading history...</div> : topUpHistory.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No top-ups recorded yet.</p> : <div className="divide-y">{topUpHistory.map((entry) => <div key={entry.id} className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="font-medium">{entry.quantity_before} + {entry.quantity_added} = {entry.quantity_after} {topUpHistoryItem?.unit}</p><p className="text-muted-foreground">{entry.request_metadata?.reason || "Manual stock top-up"}</p></div><div className="text-left text-xs text-muted-foreground sm:text-right"><p>{new Date(entry.performed_at).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p><p>{entry.performed_by_email || "Authenticated user"}</p></div></div>)}</div>}
+              {isLoadingTopUpHistory ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading history...</div> : topUpHistory.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No top-ups recorded yet.</p> : <div className="divide-y">{topUpHistory.map((entry) => <div key={entry.id} className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="font-medium">{entry.quantity_before} + {entry.quantity_added} = {entry.quantity_after} {topUpHistoryItem?.unit}</p><p className="text-muted-foreground">{entry.reason || "Manual stock top-up"}</p><p className="text-xs text-muted-foreground">Staff ID: {entry.performed_by || "Unavailable"} · Role: {entry.performed_by_role || "Unavailable"}</p><p className="text-xs text-muted-foreground">Price: {entry.purchase_packaging_price_before ?? "—"} → {entry.purchase_packaging_price_after ?? "—"}</p><p className="break-all text-xs text-muted-foreground">Correlation: {entry.correlation_id || "Unavailable"} · Idempotency: {entry.idempotency_key || "Unavailable"}</p></div><div className="text-left text-xs text-muted-foreground sm:text-right"><p>{new Date(entry.performed_at).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p><p>{entry.performed_by_name || "Authenticated user"}</p></div></div>)}</div>}
             </div>
           </DialogContent>
         </Dialog>

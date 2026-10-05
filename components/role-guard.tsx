@@ -9,9 +9,11 @@ import { LoadingSpinner } from "@/components/ui/spinner";
 export function RoleGuard({
   children,
   section,
+  allowedRoles,
 }: {
   children: React.ReactNode;
   section: AppSection;
+  allowedRoles?: UserRole[];
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -26,13 +28,13 @@ export function RoleGuard({
       return;
     }
 
-    if (hasPermission(user.role as UserRole, section)) {
+    if ((allowedRoles?.includes(user.role as UserRole) ?? false) || hasPermission(user.role as UserRole, section)) {
       setIsAuthorized(true);
     } else {
       router.push("/unauthorized");
     }
     setChecking(false);
-  }, [user, isLoading, section, router]);
+  }, [user, isLoading, section, allowedRoles, router]);
 
   if (isLoading || checking) {
     return (

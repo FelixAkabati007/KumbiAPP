@@ -43,6 +43,18 @@ export function getRoleDisplayName(role: UserRole | string): string {
   return roleDisplayNames[role as UserRole] || "Unknown role";
 }
 
+/** Roles allowed to increase stock through the controlled top-up transaction. */
+export const inventoryTopUpRoles: readonly UserRole[] = ["admin", "restaurantManager", "manager", "kitchen", "frontDesk"];
+
+export function canTopUpInventory(role?: string | null): boolean {
+  return Boolean(role && inventoryTopUpRoles.includes(role as UserRole));
+}
+
+/** Chefs may edit recipe ingredients, but not create/edit/delete menu items. */
+export function canEditRecipes(role?: string | null): boolean {
+  return role === "admin" || role === "restaurantManager" || role === "manager" || role === "kitchen";
+}
+
 export type StaffClassification =
   | "reception"
   | "restaurantPos"

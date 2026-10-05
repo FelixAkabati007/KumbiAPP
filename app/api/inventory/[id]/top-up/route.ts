@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
+import { canTopUpInventory } from "@/lib/roles";
 
 const priceRoles = new Set(["admin", "manager", "restaurantManager", "kitchen", "frontDesk"]);
 
@@ -18,7 +19,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
               e.quantity_delta AS quantity_added, e.quantity_after, e.staff_id AS performed_by,
               e.created_at AS performed_at, e.event_type AS source, e.reason,
               e.purchase_packaging_price_before, e.purchase_packaging_price_after,
-              e.staff_name AS performed_by_name, e.staff_role AS performed_by_role
+              e.staff_name AS performed_by_name, e.staff_role AS performed_by_role,
+              e.correlation_id, e.idempotency_key
        FROM inventory_events e
        WHERE e.inventory_id = $1 ORDER BY e.created_at DESC LIMIT $2`, [id, limit]
     ));
@@ -33,6 +35,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const access = await requirePermission("inventory");
   if (access.error) return access.error;
   const session = access.session;
+  if (!canTopUpInventory(session.role)) {
+    return NextResponse.json({ error: "Forbidden: stock top-up access is restricted" }, { status: 403 });
+  }
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));

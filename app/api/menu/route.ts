@@ -4,7 +4,6 @@ import { getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
-import { MOCK_MENU_ITEMS } from "@/lib/mock-catalog";
 import { calculateMenuAvailability } from "@/lib/menu-availability";
 
 async function ensureCategory(slug: string): Promise<string> {
@@ -83,7 +82,7 @@ export async function GET() {
         | "desserts"
         | "sides",
     }));
-    return NextResponse.json(items.length > 0 ? items : MOCK_MENU_ITEMS);
+    return NextResponse.json(items);
   } catch (error) {
     console.error("Menu GET failed:", error);
     return NextResponse.json(

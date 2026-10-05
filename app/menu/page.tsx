@@ -102,6 +102,7 @@ function MenuContent() {
   console.debug("🚀 [MenuPage] Component initializing");
 
   const { user, isLoading: authLoading } = useAuth();
+  const canManageMenu = user?.role !== "kitchen";
   const router = useRouter();
   const { toast } = useToast();
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -581,14 +582,14 @@ function MenuContent() {
           Menu Management
         </h1>
         <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
-          <Button
+          {canManageMenu && <Button
             onClick={handleAddItem}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg relative overflow-hidden flex items-center gap-2"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 via-amber-400/20 to-yellow-400/20 animate-pulse"></div>
             <Plus className="h-4 w-4 relative z-10" />
             <span className="relative z-10">Add Menu Item</span>
-          </Button>
+          </Button>}
         </div>
       </header>
 
@@ -982,7 +983,7 @@ function MenuContent() {
 
 export default function MenuPage() {
   return (
-    <RoleGuard section="menu">
+    <RoleGuard section="menu" allowedRoles={["admin", "manager", "restaurantManager", "kitchen"]}>
       <MenuContent />
     </RoleGuard>
   );
