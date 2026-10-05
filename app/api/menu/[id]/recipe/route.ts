@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireRole } from "@/lib/api-auth";
 import { getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
 
@@ -67,7 +67,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const { error } = await requirePermission("menu");
+    const { error } = await requireRole("admin", "restaurantManager", "manager", "kitchen");
     if (error) return error;
 
     const body = await request.json();
@@ -136,7 +136,7 @@ export async function DELETE(
   }
 
   try {
-    const { error } = await requirePermission("menu");
+    const { error } = await requireRole("admin", "restaurantManager", "manager", "kitchen");
     if (error) return error;
 
     await query(
