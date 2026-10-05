@@ -13,7 +13,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const amount = Number(body.amount);
   const method = typeof body.method === "string" ? body.method : "cash";
   const reference = typeof body.reference === "string" ? body.reference.trim() : "";
+  const idempotencyKey = request.headers.get("Idempotency-Key")?.trim() || (typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "");
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: "Enter a valid payment amount" }, { status: 400 });
+  if (!idempotencyKey) return NextResponse.json({ error: "Idempotency-Key is required" }, { status: 400 });
+  if (!reference) return NextResponse.json({ error: "Payment reference is required" }, { status: 400 });
   if (!allowedMethods.has(method)) return NextResponse.json({ error: "Select a valid payment method" }, { status: 400 });
 
   try {
@@ -26,22 +29,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const event = eventResult.rows[0];
       if (!event.receipt_id) throw new Error("EVENT_NOT_INVOICED");
 
-      const transactionReference = `EVENT-PAYMENT-${eventId.slice(0, 8).toUpperCase()}-${Date.now()}`;
-      const inserted = await client.query(
-        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-         VALUES (NULL, $1, $2, 'GHS', $3::payment_method_enum, 'completed', $4::jsonb, $5::uuid) RETURNING id, created_at`,
-        [transactionReference, amount.toFixed(2), method, JSON.stringify({ source: "event_workspace", eventId, eventName: event.name, reference: reference || null, recordedBy: session.id }), session.id],
+      const currentPaid = Number(event.total_paid ?? 0);
+      const invoiceTotal = Number(event.total_invoiced ?? 0);
+      if (currentPaid + amount > invoiceTotal + 0.005) throw new Error("OVERPAYMENT");
+      const transactionReference = `EVENT-PAYMENT-${eventId.slice(0, 8).toUpperCase()}-${idempotencyKey.slice(0, 12).toUpperCase()}`;
+      const payment = await client.query(
+        `INSERT INTO event_payments (event_id, amount, currency, method, provider_reference, idempotency_key, recorded_by)
+         VALUES ($1, $2, 'GHS', $3, $4, $5, $6)
+         ON CONFLICT (idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+         RETURNING id, amount, recorded_at`,
+        [eventId, amount.toFixed(2), method, reference, idempotencyKey, session.id],
       );
-
-      const newTotalPaid = Number(event.total_paid ?? 0) + amount;
-      const newBalanceDue = Math.max(0, Number(event.total_invoiced ?? 0) - newTotalPaid);
+      const newTotalPaid = currentPaid + Number(payment.rows[0].amount);
+      const newBalanceDue = invoiceTotal - newTotalPaid;
       await client.query(
         `UPDATE events SET total_paid = $1, balance_due = $2, updated_at = now() WHERE id = $3`,
         [newTotalPaid, newBalanceDue, eventId],
       );
 
       await recordFinancialLedgerEntry(client, {
-        eventKey: `event-payment:${eventId}:${transactionReference}`,
+        eventKey: `event-payment:${eventId}:${idempotencyKey}`,
         amount,
         currency: "GHS",
         direction: "credit",
@@ -50,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         paymentMethod: method,
         entityType: "event",
         entityId: eventId,
-        metadata: { eventId, transactionReference, reference: reference || null, recordedBy: session.id },
+        metadata: { eventId, paymentId: payment.rows[0].id, transactionReference, reference, idempotencyKey, recordedBy: session.id },
       });
 
       await client.query(
@@ -59,13 +66,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         [eventId, amount, `Payment of GHS ${amount.toFixed(2)} recorded via ${method}`, JSON.stringify({ method, transactionReference, reference: reference || null, recordedBy: session.id })],
       );
 
-      return { transactionId: inserted.rows[0].id, createdAt: inserted.rows[0].created_at, totalPaid: newTotalPaid, balanceDue: newBalanceDue };
+      return { paymentId: payment.rows[0].id, createdAt: payment.rows[0].recorded_at, totalPaid: newTotalPaid, balanceDue: newBalanceDue };
     });
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Unable to record payment";
-    const status = ["EVENT_NOT_FOUND", "EVENT_NOT_INVOICED"].includes(message) ? 409 : 500;
-    const friendly = message === "EVENT_NOT_INVOICED" ? "Secure the booking and post an invoice before recording a payment" : message === "EVENT_NOT_FOUND" ? "Event not found" : message;
+    const status = ["EVENT_NOT_FOUND", "EVENT_NOT_INVOICED", "OVERPAYMENT"].includes(message) ? 409 : 500;
+    const friendly = message === "EVENT_NOT_INVOICED" ? "Secure the booking and post an invoice before recording a payment" : message === "EVENT_NOT_FOUND" ? "Event not found" : message === "OVERPAYMENT" ? "Payment exceeds the outstanding event balance" : message;
     return NextResponse.json({ error: friendly }, { status });
   }
 }
