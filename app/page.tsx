@@ -299,14 +299,14 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex min-w-max w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-  <div className="flex min-w-[11rem] max-w-[min(28rem,42vw)] shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
+<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-2 pb-1">
+  <div className="flex basis-full min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:flex sm:basis-auto sm:max-w-[min(28rem,42vw)]">
   <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+  <div className="flex min-w-0 basis-full flex-wrap items-center gap-1.5 sm:basis-auto sm:gap-2">
             {access.pos && access.kitchen && (
   <Link className="shrink-0" href="/split-workspace" prefetch={false}>
               <Button
@@ -321,7 +321,7 @@ function DashboardContent() {
   </Link>
   )}
   {access.reservations && access.checkIn && (
-  <Link className="order-2 shrink-0" href="/hotel-split-workspace" prefetch={false}>
+  <Link className="shrink-0" href="/hotel-split-workspace" prefetch={false}>
   <Button
   variant="outline"
   size="sm"
@@ -341,7 +341,6 @@ function DashboardContent() {
     </Button>
   </Link>
   )}
-            </div>
   <Link className="shrink-0" href="/settings" prefetch={false}>
     <Button variant="outline" size="sm" className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent">
       <Settings className="h-4 w-4" />
@@ -387,6 +386,7 @@ function DashboardContent() {
     </div>
     {/* User avatar menu */}
     <UserNav />
+  </div>
   </div>
 </nav>
         </div>
