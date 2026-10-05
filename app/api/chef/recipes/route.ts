@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 
 export async function GET() {
   const session = await getSession();
-  if (!session || !["kitchen", "admin", "manager"].includes(session.role)) {
+  if (!session || !["kitchen", "admin", "manager", "restaurantManager"].includes(session.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const { error } = await requirePermission("menu");
+    const { error } = await requireRole("admin", "restaurantManager", "manager", "kitchen");
     if (error) return error;
 
     const result = await query(
