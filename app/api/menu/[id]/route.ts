@@ -5,6 +5,7 @@ import { updateSystemState } from "@/lib/system-sync";
 import { logAudit } from "@/lib/audit";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateMenuAvailability } from "@/lib/menu-availability";
+import { recordMenuChange } from "@/lib/menu-change-events";
 
 interface MenuRow {
   id: string;
@@ -123,6 +124,9 @@ export async function PUT(
       }
     }
 
+    const beforeResult = await query(`SELECT name, description, price, barcode, is_available, availability_mode, image_url, inventory_mode, direct_inventory_id, direct_units_per_sale FROM menu_items WHERE id = $1`, [id]);
+    const beforeSnapshot = beforeResult.rows[0] || {};
+
     // Build dynamic update query
     const fields: string[] = [];
     const values: (string | number | boolean | null | undefined)[] = [];
@@ -191,6 +195,10 @@ export async function PUT(
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
+
+    const afterResult = await query(`SELECT name, description, price, barcode, is_available, availability_mode, image_url, inventory_mode, direct_inventory_id, direct_units_per_sale FROM menu_items WHERE id = $1`, [id]);
+    const afterSnapshot = afterResult.rows[0] || {};
+    await recordMenuChange({ menuItemId: id, eventType: "MENU_ITEM_UPDATED", before: beforeSnapshot, after: afterSnapshot, changedFields: fields.map((field) => field.split(" = ")[0]), session });
 
     await logAudit({
       performedBy: session.id,
