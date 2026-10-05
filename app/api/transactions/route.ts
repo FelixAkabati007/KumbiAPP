@@ -99,7 +99,7 @@ export async function GET(request: Request) {
             WHERE cfl.entity_type = 'event'
               AND cfl.entity_id::text = hr.reservation_id::text
           )
-      )
+      ),
       normalized_transactions AS (
         SELECT id, transaction_id, amount, currency, status, payment_method,
                customer_id, items, metadata, created_at, updated_at,
