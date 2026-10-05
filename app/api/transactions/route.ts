@@ -90,12 +90,19 @@ export async function GET(request: Request) {
                  'performedBy', snapshot->'bookedBy'
                ) AS metadata,
                created_at, created_at AS updated_at
-        FROM hotel_receipts
+        FROM hotel_receipts hr
         WHERE receipt_type = 'event_booking'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM canonical_financial_ledger cfl
+            WHERE cfl.entity_type = 'event'
+              AND cfl.entity_id::text = hr.reservation_id::text
+          )
       )
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at
-      FROM unified_transactions`;
+      FROM unified_transactions
+      WHERE LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')`;
     const conditions: string[] = [];
 
     if (startDate) {
