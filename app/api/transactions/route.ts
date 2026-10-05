@@ -6,185 +6,29 @@ export async function GET(request: Request) {
   try {
     const { error } = await requireFinanceAccess();
     if (error) return error;
-
     const { searchParams } = new URL(request.url);
+    const params: (string | number)[] = [];
+    const conditions = ["LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')", "COALESCE(amount, 0) <> 0"];
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
-    const status = searchParams.get("status");
-    const orderNumber = searchParams.get("orderNumber");
-    const orderId = searchParams.get("orderId");
     const source = searchParams.get("source");
+    const status = searchParams.get("status");
+    const orderId = searchParams.get("orderId");
+    const orderNumber = searchParams.get("orderNumber");
     const dateFilter = searchParams.get("dateFilter");
-    const requestedLimit = searchParams.get("limit")
-      ? Number.parseInt(searchParams.get("limit")!, 10)
-      : 1000;
-    const limit = Number.isFinite(requestedLimit)
-      ? Math.min(Math.max(requestedLimit, 1), 1000)
-      : 1000;
-
-    const params: (string | number | boolean | null)[] = [];
-    let queryText = `
-      WITH unified_transactions AS (
-        SELECT id::text AS id, transaction_id::text AS transaction_id,
-               amount, currency, status, payment_method,
-               customer_id::text AS customer_id, items,
-               COALESCE(metadata, '{}'::jsonb) AS metadata,
-               created_at, created_at AS updated_at
-        FROM transaction_logs
-
-        UNION ALL
-
-        SELECT id::text AS id, transaction_reference::text AS transaction_id,
-               amount, currency, status, method::text AS payment_method,
-               NULL::text AS customer_id, NULL::jsonb AS items,
-               jsonb_build_object(
-                 'source', 'hotel',
-                 'orderId', order_id,
-                 'performedBy', performed_by
-               ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
-               created_at, created_at AS updated_at
-        FROM transactions
-
-        UNION ALL
-
-        SELECT id::text AS id, 'HOTEL-' || id::text AS transaction_id,
-               amount, currency,
-               CASE WHEN amount = 0 THEN 'activity' ELSE 'completed' END AS status,
-               'hotel' AS payment_method, guest_id::text AS customer_id,
-               NULL::jsonb AS items,
-               jsonb_build_object(
-                 'source', 'hotel', 'eventType', event_type,
-                 'entityType', entity_type, 'entityId', entity_id,
-                 'description', description, 'reservationId', reservation_id,
-                 'roomId', room_id
-               ) AS metadata,
-               occurred_at AS created_at, created_at AS updated_at
-        FROM hotel_activity_ledger
-        WHERE COALESCE(amount, 0) <> 0
-
-        UNION ALL
-
-        SELECT id::text AS id, event_key AS transaction_id,
-               amount, currency, status, payment_method,
-               NULL::text AS customer_id, NULL::jsonb AS items,
-               jsonb_build_object(
-                 'source', CASE WHEN entity_type = 'event' THEN 'event' ELSE source END, 'ledgerSource', source, 'entityType', entity_type,
-                 'entityId', entity_id, 'eventId', CASE WHEN entity_type = 'event' THEN entity_id ELSE NULL END
-               ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
-               occurred_at AS created_at, updated_at
-        FROM canonical_financial_ledger
-        WHERE COALESCE(amount, 0) <> 0
-
-        UNION ALL
-
-        SELECT id::text AS id, order_number AS transaction_id,
-               COALESCE((snapshot->>'total')::numeric, 0) AS amount,
-               COALESCE(snapshot->'quote'->>'currency', 'GHS') AS currency,
-               'completed' AS status, 'event booking' AS payment_method,
-               NULL::text AS customer_id,
-               COALESCE(snapshot->'quote'->'items', '[]'::jsonb) AS items,
-               jsonb_build_object(
-                 'source', 'event', 'receiptRecord', true,
-                 'eventId', reservation_id, 'orderId', order_id,
-                 'clientName', snapshot->'event'->>'client_name',
-                 'subtotal', COALESCE(snapshot->>'subtotal', '0'),
-                 'performedBy', snapshot->'bookedBy'
-               ) AS metadata,
-               created_at, created_at AS updated_at
-        FROM hotel_receipts hr
-        WHERE receipt_type = 'event_booking'
-          AND NOT EXISTS (
-            SELECT 1
-            FROM canonical_financial_ledger cfl
-            WHERE cfl.entity_type = 'event'
-              AND cfl.entity_id::text = hr.reservation_id::text
-          )
-      ),
-      normalized_transactions AS (
-        SELECT id, transaction_id, amount, currency, status, payment_method,
-               customer_id, items, metadata, created_at, updated_at,
-               CASE
-                 WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', metadata->>'isSharedEvent', 'false')) = 'true'
-                   OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
-                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('event','events','event_organization','event_booking')
-                   OR LOWER(COALESCE(metadata->>'entityType', '')) IN ('event','events','event_organization') THEN 'event'
-                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage')
-                   OR (metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL) THEN 'restaurant'
-                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('hotel','hotel_activity','room','rooms') THEN 'hotel'
-                 ELSE 'shared'
-               END AS normalized_source
-        FROM unified_transactions
-      )
-      SELECT id, transaction_id, amount, currency, status, payment_method,
-             customer_id, items, metadata, created_at, updated_at,
-             normalized_source AS source,
-             normalized_source AS source_label
-      FROM normalized_transactions
-      WHERE LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')`;
-    const conditions: string[] = [];
-
-    if (dateFilter && ["today", "week", "month"].includes(dateFilter)) {
-      conditions.push(`created_at >= CURRENT_DATE - CASE $${params.length + 1} WHEN 'today' THEN INTERVAL '0 days' WHEN 'week' THEN INTERVAL '6 days' WHEN 'month' THEN INTERVAL '1 month' END`);
-      params.push(dateFilter);
-    }
-
-    if (startDate) {
-      conditions.push(`created_at >= $${params.length + 1}`);
-      params.push(startDate);
-    }
-
-    if (endDate) {
-      conditions.push(
-        `created_at < ($${params.length + 1}::date + INTERVAL '1 day')`
-      );
-      params.push(endDate);
-    }
-
-    if (status) {
-      conditions.push(`status = $${params.length + 1}`);
-      params.push(status);
-    }
-
-    if (orderNumber) {
-      conditions.push(
-        `(LOWER(metadata->>'orderNumber') = LOWER($${params.length + 1}) OR LOWER(transaction_id) = LOWER($${params.length + 1}))`
-      );
-      params.push(orderNumber);
-    }
-
-    if (["hotel", "restaurant", "event", "shared_event", "shared"].includes(source ?? "")) {
-      conditions.push(`normalized_source = $${params.length + 1}`);
-      params.push(source!);
-    }
-
-    if (orderId) {
-      conditions.push(
-        `(metadata->>'orderId' = $${params.length + 1} OR transaction_id = $${
-          params.length + 1
-        })`
-      );
-      params.push(orderId);
-    }
-
-    if (conditions.length > 0) {
-      queryText += " AND " + conditions.join(" AND ");
-    }
-
-    queryText +=
-      " ORDER BY CASE WHEN metadata->>'receiptRecord' = 'true' THEN 0 ELSE 1 END, created_at DESC";
-
-    if (limit > 0) {
-      queryText += ` LIMIT $${params.length + 1}`;
-      params.push(limit);
-    }
-
-    const result = await query(queryText, params);
+    const requestedLimit = Number.parseInt(searchParams.get("limit") ?? "1000", 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 1000) : 1000;
+    if (dateFilter && ["today", "week", "month"].includes(dateFilter)) { conditions.push(`occurred_at >= CURRENT_DATE - CASE $${params.length + 1} WHEN 'today' THEN INTERVAL '0 days' WHEN 'week' THEN INTERVAL '6 days' ELSE INTERVAL '1 month' END`); params.push(dateFilter); }
+    if (startDate) { conditions.push(`occurred_at >= $${params.length + 1}`); params.push(startDate); }
+    if (endDate) { conditions.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
+    if (status) { conditions.push(`status = $${params.length + 1}`); params.push(status); }
+    if (source && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(source)) { conditions.push(`LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) = $${params.length + 1}`); params.push(source); }
+    if (orderId) { conditions.push(`(entity_id = $${params.length + 1} OR metadata->>'orderId' = $${params.length + 1})`); params.push(orderId); }
+    if (orderNumber) { conditions.push(`(event_key = $${params.length + 1} OR metadata->>'orderNumber' = $${params.length + 1})`); params.push(orderNumber); }
+    const result = await query(`SELECT id::text id, event_key transaction_id, amount, currency, status, payment_method, NULL::text customer_id, metadata, occurred_at created_at, updated_at, source, entity_type, entity_id, direction, journal_type FROM canonical_financial_ledger WHERE ${conditions.join(" AND ")} ORDER BY occurred_at DESC LIMIT $${params.length + 1}`, [...params, limit]);
     return NextResponse.json(result.rows);
   } catch (error) {
-    console.error("Failed to fetch transactions:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch transactions" },
-      { status: 500 }
-    );
+    console.error("Failed to fetch canonical transactions:", error);
+    return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 });
   }
 }
