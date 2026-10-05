@@ -14,8 +14,9 @@ export async function GET() {
               e.quantity_delta AS quantity_added, e.quantity_after,
               e.purchase_packaging_price_before, e.purchase_packaging_price_after,
               e.reason, e.staff_id AS user_id, e.staff_name, e.staff_role,
-              e.correlation_id, e.created_at
+              e.correlation_id, e.created_at, i.name, i.category, i.unit, i.supplier
        FROM inventory_events e
+       LEFT JOIN inventory i ON i.id = e.inventory_id
        WHERE e.event_type IN ('RESTOCK', 'RESTOCK_AND_PRICE_CHANGE')
        ORDER BY e.created_at DESC LIMIT 200`
     );
