@@ -55,7 +55,6 @@ import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
-import { MOCK_INVENTORY_ITEMS } from "@/lib/mock-catalog";
 import { getInventoryBaseUnit } from "@/lib/inventory-units";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
@@ -154,8 +153,7 @@ function InventoryContent() {
   useEffect(() => {
     async function load() {
       const loadedItems = await getInventoryItems();
-      const displayItems = loadedItems.length > 0 ? loadedItems : MOCK_INVENTORY_ITEMS;
-      setItems(displayItems);
+      setItems(loadedItems);
     }
     load();
     fetch("/api/hotel-activity?limit=100")
