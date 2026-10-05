@@ -299,21 +299,21 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-wrap items-center gap-2 lg:justify-start xl:flex-nowrap">
-  <div className="order-1 basis-full flex min-w-0 max-w-full shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30 sm:basis-auto sm:max-w-[min(28rem,42vw)]">
+<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 lg:justify-start">
+  <div className="order-1 flex min-w-[11rem] max-w-[min(28rem,42vw)] shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
   <span className="max-w-full whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
-            <div className="order-2 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+            <div className="order-2 flex shrink-0 items-center gap-1.5 sm:gap-2">
             {access.pos && access.kitchen && (
   <Link className="shrink-0" href="/split-workspace" prefetch={false}>
               <Button
                 variant="outline"
                 size="sm"
                 aria-label="Open split POS and Kitchen workspace"
-                className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
+                className="shrink-0 gap-2 whitespace-nowrap rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
               >
                 <SplitSquareHorizontal className="h-4 w-4" />
                 <span className="hidden lg:inline">Split POS + Kitchen</span>
@@ -326,7 +326,7 @@ function DashboardContent() {
   variant="outline"
   size="sm"
   aria-label="Open split Reservations and Check-In workspace"
-  className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
+  className="shrink-0 gap-2 whitespace-nowrap rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50"
   >
   <SplitSquareHorizontal className="h-4 w-4" />
   <span className="hidden lg:inline">Split Hotel Desk</span>
@@ -335,7 +335,7 @@ function DashboardContent() {
   )}
   {access.menu && access.inventory && (
   <Link className="shrink-0" href="/menu-inventory-split-workspace" prefetch={false}>
-    <Button variant="outline" size="sm" aria-label="Open split Menu Management and Inventory workspace" className="gap-2 rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50">
+    <Button variant="outline" size="sm" aria-label="Open split Menu Management and Inventory workspace" className="shrink-0 gap-2 whitespace-nowrap rounded-2xl border-orange-300 bg-orange-100/80 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50">
       <SplitSquareHorizontal className="h-4 w-4" />
       <span className="hidden lg:inline">Split Menu + Inventory</span>
     </Button>
@@ -380,7 +380,7 @@ function DashboardContent() {
               )}
             </Button>
   </div>
-  <div className="order-5 ml-auto flex min-w-0 basis-full shrink-0 items-center justify-end gap-1 sm:basis-auto sm:gap-2">
+  <div className="order-5 ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-2">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
