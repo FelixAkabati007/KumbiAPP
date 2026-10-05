@@ -49,12 +49,9 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       const statuses = status.split(",").map((value) => value.trim()).filter(Boolean);
-      if (statuses.length === 1) {
-        sql += ` AND r.status = $${params.length + 1}`;
-        params.push(statuses[0]);
-      } else if (statuses.length > 1) {
+      if (statuses.length > 0) {
         const placeholders = statuses.map((_, index) => `$${params.length + index + 1}`);
-        sql += ` AND r.status IN (${placeholders.join(", ")})`;
+        sql += ` AND (CASE WHEN r.status = 'occupied' AND res.check_in_date IS NULL THEN 'available' ELSE r.status END) IN (${placeholders.join(", ")})`;
         params.push(...statuses);
       }
     }
