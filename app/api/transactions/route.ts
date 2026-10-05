@@ -100,7 +100,17 @@ export async function GET(request: Request) {
           )
       )
       SELECT id, transaction_id, amount, currency, status, payment_method,
-             customer_id, items, metadata, created_at, updated_at
+             customer_id, items, metadata, created_at, updated_at,
+             CASE
+               WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', metadata->>'isSharedEvent', 'false')) = 'true'
+                 OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
+               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('event','events','event_organization','event_booking')
+                 OR LOWER(COALESCE(metadata->>'entityType', '')) IN ('event','events','event_organization') THEN 'event'
+               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage')
+                 OR (metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL) THEN 'restaurant'
+               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('hotel','hotel_activity','room','rooms') THEN 'hotel'
+               ELSE 'shared'
+             END AS normalized_source
       FROM unified_transactions
       WHERE LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')`;
     const conditions: string[] = [];
@@ -129,11 +139,9 @@ export async function GET(request: Request) {
       params.push(orderNumber);
     }
 
-    if (source === "hotel" || source === "restaurant" || source === "event" || source === "refund") {
-      conditions.push(
-        `(LOWER(COALESCE(metadata->>'source', '')) = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
-      );
-      params.push(source);
+    if (["hotel", "restaurant", "event", "shared_event", "shared"].includes(source ?? "")) {
+      conditions.push(`normalized_source = $${params.length + 1}`);
+      params.push(source!);
     }
 
     if (orderId) {
@@ -146,7 +154,7 @@ export async function GET(request: Request) {
     }
 
     if (conditions.length > 0) {
-      queryText += " WHERE " + conditions.join(" AND ");
+      queryText += " AND " + conditions.join(" AND ");
     }
 
     queryText +=

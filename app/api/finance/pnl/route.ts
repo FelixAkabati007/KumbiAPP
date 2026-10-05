@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
 
-type Department = "hotel" | "restaurant" | "event" | "shared";
+type Department = "hotel" | "restaurant" | "event" | "shared_event" | "shared";
 
 const departmentSql = `CASE
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('refund', 'unknown', '') THEN 'shared'
+  WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', 'false')) = 'true' OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event', 'shared_events', 'event_shared') THEN 'shared_event'
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
   if (startDate) { filters.push(`occurred_at >= $${params.length + 1}`); params.push(startDate); }
   if (endDate) { filters.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
-  if (requestedDepartment && ["hotel", "restaurant", "event", "shared"].includes(requestedDepartment)) {
+  if (requestedDepartment && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(requestedDepartment)) {
     filters.push(`department = $${params.length + 1}`); params.push(requestedDepartment);
   }
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
         SELECT CASE
           WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('hotel', 'room', 'accommodation') THEN 'hotel'
           WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
+          WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', 'false')) = 'true' OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event', 'shared_events', 'event_shared') THEN 'shared_event'
           WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('event', 'events', 'event_organization') THEN 'event'
           ELSE 'shared'
         END AS department,
@@ -122,7 +124,7 @@ export async function GET(request: Request) {
       SELECT department, ROUND(revenue, 2) AS revenue, ROUND(refund_amount, 2) AS refund_amount, ROUND(gross_revenue, 2) AS gross_revenue, ROUND(expense, 2) AS expense,
         ROUND(revenue - expense, 2) AS profit,
         CASE WHEN revenue = 0 THEN 0 ELSE ROUND(((revenue - expense) / revenue) * 100, 2) END AS margin
-      FROM grouped ORDER BY CASE department WHEN 'hotel' THEN 1 WHEN 'restaurant' THEN 2 WHEN 'event' THEN 3 ELSE 4 END`,
+      FROM grouped ORDER BY CASE department WHEN 'hotel' THEN 1 WHEN 'restaurant' THEN 2 WHEN 'event' THEN 3 WHEN 'shared_event' THEN 4 ELSE 5 END`,
       params,
     );
 
@@ -138,7 +140,7 @@ export async function GET(request: Request) {
       profit: Number(row.profit || 0),
       margin: Number(row.margin || 0),
     }));
-    const departments: Department[] = ["hotel", "restaurant", "event", "shared"];
+    const departments: Department[] = ["hotel", "restaurant", "event", "shared_event", "shared"];
     const byDepartment = departments.map((department) => rows.find((row) => row.department === department) ?? { department, revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0, margin: 0 });
     const totals = byDepartment.reduce((summary, row) => ({ revenue: summary.revenue + row.revenue, refundAmount: summary.refundAmount + row.refundAmount, grossRevenue: summary.grossRevenue + row.grossRevenue, expense: summary.expense + row.expense, profit: summary.profit + row.profit }), { revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0 });
     return NextResponse.json({ departments: byDepartment, totals: { ...totals, margin: totals.revenue ? Number(((totals.profit / totals.revenue) * 100).toFixed(2)) : 0 }, complimentary: { waivedAmount: Number(complimentaryResult.rows[0]?.waived_amount || 0), usageCount: Number(complimentaryResult.rows[0]?.usage_count || 0) }, payroll: { accrualExpense: Number(payrollBasis.rows[0]?.accrual_expense || 0), cashPaid: Number(payrollBasis.rows[0]?.cash_paid || 0), deductionsPayable: Number(payrollBasis.rows[0]?.deductions_payable || 0) }, accountingBasis: { accrual: "Approved, processed, and paid gross payroll", cash: "Net payroll payments posted as paid" }, exceptions: exceptionResult.rows.map((row) => ({ transactionId: row.transaction_id, amount: Number(row.amount || 0), status: row.status, createdAt: row.created_at, source: row.metadata?.source ?? null })), actingAuthority: Boolean(auth.actingAuthority) });

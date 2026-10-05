@@ -28,6 +28,7 @@ import { LogoDisplay } from "@/components/logo-display";
 import type { SalesData, OrderItem } from "@/lib/types";
 import { RoleGuard } from "@/components/role-guard";
 import { useLoading } from "@/components/loading-provider";
+import { normalizePaymentSource } from "@/lib/payment-sources";
 
 export default function PaymentsPage() {
   const [data, setData] = useState<SalesData[]>([]);
@@ -49,6 +50,7 @@ export default function PaymentsPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const salesData: SalesData[] = transactions.map((txn: any) => {
           const metadata = txn.metadata || {};
+          const normalizedSource = normalizePaymentSource({ source: txn.source, entityType: txn.entity_type, metadata });
           const items: OrderItem[] = metadata.items || [];
           const orderNumber =
             metadata.orderNumber || txn.transaction_id || "Unknown";
@@ -68,6 +70,7 @@ export default function PaymentsPage() {
             customerName:
               metadata.customer_name || metadata.customerName || "Guest",
             paymentMethod: txn.payment_method || "cash",
+            source: normalizedSource,
             customerRefused: metadata.customerRefused,
             type: ["refunded", "reversed", "cancelled"].includes(String(txn.status).toLowerCase()) ? "refund" : metadata.type || "sale",
           };
@@ -272,7 +275,7 @@ export default function PaymentsPage() {
             </Select>
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"><SelectValue placeholder="Source" /></SelectTrigger>
-              <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem></SelectContent>
+              <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700"><SelectItem value="all">All Sources</SelectItem><SelectItem value="hotel">Hotel Activity</SelectItem><SelectItem value="restaurant">Restaurant Sales</SelectItem><SelectItem value="event">Event</SelectItem><SelectItem value="shared_event">Shared Event</SelectItem><SelectItem value="shared">Shared Operations</SelectItem></SelectContent>
             </Select>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
               <SelectTrigger className="w-48 rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">

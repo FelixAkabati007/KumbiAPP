@@ -63,6 +63,7 @@ export interface SalesData {
   customerName?: string;
   customerRefused?: boolean;
   paymentMethod: string;
+  source?: "hotel" | "restaurant" | "event" | "shared_event" | "shared";
   performedBy?: { id?: string; name?: string | null; email?: string; role?: string };
   type?: "sale" | "refund";
 }

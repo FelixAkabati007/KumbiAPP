@@ -20,7 +20,7 @@ type Transaction = {
 };
 
 type DepartmentResult = {
-  department: "hotel" | "restaurant" | "event" | "shared";
+  department: "hotel" | "restaurant" | "event" | "shared_event" | "shared";
   revenue: number;
   grossRevenue: number;
   refundAmount: number;
@@ -37,7 +37,7 @@ type PnlResponse = {
 };
 type ExceptionHistoryItem = { transactionId: string; resolver: string; assignedSource: string | null; originalSource: string | null; reason: string; resolvedAt: string };
 
-const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared: "Shared / Corporate" } as const;
+const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared_event: "Shared Event", shared: "Shared / Corporate" } as const;
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -171,11 +171,11 @@ export default function FinancePage() {
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Select value={source} onValueChange={setSource}>
                 <SelectTrigger className="w-full sm:w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem><SelectItem value="refund">Refunds</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem><SelectItem value="shared_event">Shared Event</SelectItem><SelectItem value="shared">Shared Operations</SelectItem><SelectItem value="refund">Refunds</SelectItem></SelectContent>
               </Select>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="w-full sm:w-[170px]" aria-label="Profit and loss department"><SelectValue placeholder="All departments" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All departments</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="all">All departments</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared_event">Shared Event</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent>
               </Select>
               <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Refresh
