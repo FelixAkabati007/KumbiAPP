@@ -28,10 +28,14 @@ export async function GET(
     const rows = result.rows.map((row) => {
       const density = row.inventory_density !== null && row.inventory_density !== undefined ? Number(row.inventory_density) : null;
       const requiredInInventoryUnit = getRecipeDeductionQuantity(Number(row.quantity), row.unit, row.inventory_unit, row.inventory_conversion_ratio, density);
-      const stock_status =
-        requiredInInventoryUnit !== null && Number(row.inventory_quantity ?? 0) >= requiredInInventoryUnit
-          ? "stocked"
-          : "out_of_stock";
+      const availableQuantity = Number(row.inventory_quantity ?? 0);
+      const stock_status = requiredInInventoryUnit === null
+        ? "unit_mismatch"
+        : availableQuantity <= 0
+          ? "out_of_stock"
+          : availableQuantity < requiredInInventoryUnit
+            ? "low_stock"
+            : "stocked";
       const cost = calculateInventoryLineCost({
         recipeQuantity: Number(row.quantity), recipeUnit: row.unit, inventoryUnit: row.inventory_unit,
         conversionRatio: row.inventory_conversion_ratio, densityGPerMl: row.inventory_density,
@@ -40,8 +44,9 @@ export async function GET(
       return {
         ...row,
         stock_status,
+        required_inventory_quantity: requiredInInventoryUnit,
+        available_inventory_quantity: availableQuantity,
         cost_status: cost.status,
-        required_inventory_quantity: cost.requiredInventoryQuantity,
         cost_per_inventory_unit: cost.costPerInventoryUnit,
         line_cost: cost.lineCost,
         cost_reason: cost.reason,
