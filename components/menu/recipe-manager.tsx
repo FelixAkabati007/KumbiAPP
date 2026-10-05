@@ -38,7 +38,9 @@ interface RecipeIngredient {
   cost_status?: InventoryCostStatus;
   line_cost?: number | null;
   cost_reason?: string | null;
-  stock_status: "stocked" | "out_of_stock";
+  stock_status: "stocked" | "low_stock" | "out_of_stock" | "unit_mismatch";
+  required_inventory_quantity?: number | null;
+  available_inventory_quantity?: number | null;
 }
 
 interface RecipeManagerProps {
@@ -60,6 +62,19 @@ function getIngredientCost(ing: RecipeIngredient): number | null {
   );
   if (requiredInInventoryUnit === null) return null;
   return requiredInInventoryUnit * costPerInventoryUnit;
+}
+
+function getStockStatusLabel(status: RecipeIngredient["stock_status"]) {
+  if (status === "stocked") return "In stock";
+  if (status === "low_stock") return "Low stock";
+  if (status === "unit_mismatch") return "Unit mismatch";
+  return "Out of stock";
+}
+
+function getStockStatusClass(status: RecipeIngredient["stock_status"]) {
+  if (status === "stocked") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300";
+  if (status === "low_stock") return "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300";
+  return "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300";
 }
 
 function parseRecipeQuantity(value: string) {
@@ -313,7 +328,7 @@ if (!resolvedSupplyId || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0
 
               <TableHeader><TableRow><TableHead>Ingredient</TableHead><TableHead className="w-32">Quantity</TableHead><TableHead className="w-32">Unit</TableHead><TableHead className="w-28">Cost</TableHead><TableHead className="w-32">Stock</TableHead><TableHead className="w-20 text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
-                {ingredients.map((ing) => { const cost = getIngredientCost(ing); return <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="tabular-nums">{cost !== null ? `₵${cost.toFixed(2)}` : <span className="text-xs text-muted-foreground" title={ing.cost_reason ?? undefined}>{ing.cost_status === "unit_conversion_missing" ? "Unit conversion needed" : ing.cost_status === "missing_cost" ? "Cost not configured" : "Invalid inventory setup"}</span>}</TableCell><TableCell><Badge title={`Inventory: ${ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={ing.stock_status === "stocked" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300"}>{ing.stock_status === "stocked" ? "Stocked" : "Out of stock"}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>; })}
+                {ingredients.map((ing) => { const cost = getIngredientCost(ing); return <TableRow key={ing.id}><TableCell className="font-medium">{ing.inventory_name}</TableCell><TableCell>{ing.quantity}</TableCell><TableCell>{ing.unit}</TableCell><TableCell className="tabular-nums">{cost !== null ? `₵${cost.toFixed(2)}` : <span className="text-xs text-muted-foreground" title={ing.cost_reason ?? undefined}>{ing.cost_status === "unit_conversion_missing" ? "Unit conversion needed" : ing.cost_status === "missing_cost" ? "Cost not configured" : "Invalid inventory setup"}</span>}</TableCell><TableCell><div className="flex min-w-32 flex-col items-start gap-1"><Badge title={`Available: ${ing.available_inventory_quantity ?? ing.inventory_quantity ?? 0} ${ing.inventory_unit ?? "units"}`} className={getStockStatusClass(ing.stock_status)}>{getStockStatusLabel(ing.stock_status)}</Badge><span className="text-xs tabular-nums text-muted-foreground">{Number(ing.available_inventory_quantity ?? ing.inventory_quantity ?? 0).toLocaleString()} {ing.inventory_unit ?? "units"} available</span>{ing.required_inventory_quantity !== null && ing.required_inventory_quantity !== undefined && <span className="text-xs tabular-nums text-muted-foreground">{Number(ing.required_inventory_quantity).toLocaleString()} required / serving</span>}</div></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Remove ${ing.inventory_name}`} onClick={() => handleRemoveIngredient(ing.inventory_item_id)}><Trash2 className="size-4 text-destructive" /></Button></TableCell></TableRow>; })}
                 {ingredients.length === 0 && <TableRow><TableCell colSpan={6} className="h-20 text-center text-muted-foreground">No ingredients linked to this dish yet.</TableCell></TableRow>}
               </TableBody>
             </Table>
