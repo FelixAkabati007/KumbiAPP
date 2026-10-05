@@ -40,15 +40,15 @@ export function ChefRecipeCard() {
       <CardContent className="flex flex-col gap-4">
         {!active ? <p className="text-sm text-muted-foreground">No available menu recipes yet.</p> : <div className="grid gap-5 xl:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2fr)]">
           <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-wrap gap-2">{recipes.map((recipe) => <Button key={recipe.id} size="sm" variant={recipe.id === active.id ? "default" : "outline"} onClick={() => setSelected(recipe.id)}>{recipe.name}</Button>)}</div>
-          <div className="flex flex-col gap-3 rounded-2xl border border-border/60 p-3">
-            <div><h3 className="font-semibold">{active.name}</h3><p className="text-xs text-muted-foreground">{active.description || "Follow the measured ingredients and steps below."}</p></div>
-            {shortages.length > 0 && <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-2 text-xs text-destructive"><CircleAlert className="mt-0.5 size-4 shrink-0" />Short on: {shortages.map((item) => item.name).join(", ")}</div>}
-            <div className="grid gap-2 sm:grid-cols-2">{active.ingredients.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-sm"><span className="truncate">{item.name}</span><span className="font-medium">{item.quantity} {item.unit}<span className="text-xs text-muted-foreground"> / {item.available} available</span></span></div>)}</div>
-            {active.steps.length > 0 && <div className="flex flex-col gap-2 border-t pt-3"><p className="flex items-center gap-2 text-sm font-medium"><ListChecks className="size-4 text-orange-600" /> Method</p>{active.steps.map((step) => <div key={step.id} className="flex gap-2 text-sm"><Badge variant="outline">{step.stepNumber}</Badge><span>{step.instruction}{step.durationMinutes ? <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" />{step.durationMinutes} min</span> : null}</span></div>)}</div>}
-          </div>
+            <div className="flex flex-wrap gap-2">{recipes.map((recipe) => <Button key={recipe.id} size="sm" variant={recipe.id === active.id ? "default" : "outline"} onClick={() => setSelected(recipe.id)}>{recipe.name}</Button>)}</div>
+            <div className="flex flex-col gap-3 rounded-2xl border border-border/60 p-3">
+              <div><h3 className="font-semibold">{active.name}</h3><p className="text-xs text-muted-foreground">{active.description || "Follow the measured ingredients and steps below."}</p></div>
+              {shortages.length > 0 && <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-2 text-xs text-destructive"><CircleAlert className="mt-0.5 size-4 shrink-0" />Short on: {shortages.map((item) => item.name).join(", ")}</div>}
+              <div className="grid gap-2 sm:grid-cols-2">{active.ingredients.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-sm"><span className="truncate">{item.name}</span><span className="font-medium">{item.quantity} {item.unit}<span className="text-xs text-muted-foreground"> / {item.available} available</span></span></div>)}</div>
+            </div>
           </div>
           <div className="min-w-0 rounded-2xl border border-orange-200/80 bg-background/70 p-3 shadow-sm dark:border-orange-800/70">
+            {!editingRecipeId && <div className="mb-4 flex flex-col gap-2 rounded-xl border border-orange-200/70 bg-orange-50/60 p-3 dark:border-orange-800/60 dark:bg-orange-950/20"><p className="flex items-center gap-2 text-sm font-medium"><ListChecks className="size-4 text-orange-600" /> Method of cooking</p>{active.steps.length > 0 ? active.steps.map((step) => <div key={step.id} className="flex gap-2 text-sm leading-relaxed"><Badge variant="outline">{step.stepNumber}</Badge><span>{step.instruction}{step.durationMinutes ? <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" />{step.durationMinutes} min</span> : null}</span></div>) : <p className="text-sm text-muted-foreground">No cooking method has been added for this dish.</p>}</div>}
             {!editingRecipeId ? (
               <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
                 <div className="rounded-full bg-orange-100 p-3 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300"><Pencil className="size-5" /></div>
