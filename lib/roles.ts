@@ -310,6 +310,8 @@ export const roleCapabilities: Record<
       delete: false,
       manage: false,
     },
+    menu: { view: true, create: true, edit: true, delete: true, manage: false },
+    inventory: { view: true, create: false, edit: true, delete: false, manage: false },
     orderBoard: {
       view: true,
       create: false,
@@ -319,6 +321,7 @@ export const roleCapabilities: Record<
     },
   },
   frontDesk: {
+    inventory: { view: true, create: false, edit: true, delete: false, manage: false },
     reservations: {
       view: true,
       create: true,
@@ -524,7 +527,7 @@ export const rolePermissions = {
     kitchen: false,
     orderBoard: false,
     menu: false,
-    inventory: false,
+    inventory: true,
     reports: false,
     finance: false,
     payments: true,

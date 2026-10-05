@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requireCapability } from "@/lib/api-auth";
 import { updateSystemState } from "@/lib/system-sync";
 import { logAudit } from "@/lib/audit";
 import { publishRealtime } from "@/lib/realtime";
@@ -85,10 +85,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session || (session.role !== "admin" && session.role !== "manager")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+    const access = await requireCapability("menu", "edit");
+    if (access.error) return access.error;
+    const session = access.session;
 
     const { id } = await params;
     const body = await req.json();
@@ -220,10 +219,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session || (session.role !== "admin" && session.role !== "manager")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+    const access = await requireCapability("menu", "delete");
+    if (access.error) return access.error;
+    const session = access.session;
 
     const { id } = await params;
     const res = await query("DELETE FROM menu_items WHERE id = $1", [id]);
