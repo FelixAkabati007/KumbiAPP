@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     const orderNumber = searchParams.get("orderNumber");
     const orderId = searchParams.get("orderId");
     const source = searchParams.get("source");
+    const dateFilter = searchParams.get("dateFilter");
     const requestedLimit = searchParams.get("limit")
       ? Number.parseInt(searchParams.get("limit")!, 10)
       : 1000;
@@ -99,21 +100,33 @@ export async function GET(request: Request) {
               AND cfl.entity_id::text = hr.reservation_id::text
           )
       )
+      normalized_transactions AS (
+        SELECT id, transaction_id, amount, currency, status, payment_method,
+               customer_id, items, metadata, created_at, updated_at,
+               CASE
+                 WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', metadata->>'isSharedEvent', 'false')) = 'true'
+                   OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
+                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('event','events','event_organization','event_booking')
+                   OR LOWER(COALESCE(metadata->>'entityType', '')) IN ('event','events','event_organization') THEN 'event'
+                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage')
+                   OR (metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL) THEN 'restaurant'
+                 WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('hotel','hotel_activity','room','rooms') THEN 'hotel'
+                 ELSE 'shared'
+               END AS normalized_source
+        FROM unified_transactions
+      )
       SELECT id, transaction_id, amount, currency, status, payment_method,
              customer_id, items, metadata, created_at, updated_at,
-             CASE
-               WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', metadata->>'isSharedEvent', 'false')) = 'true'
-                 OR LOWER(COALESCE(metadata->>'source', '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
-               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('event','events','event_organization','event_booking')
-                 OR LOWER(COALESCE(metadata->>'entityType', '')) IN ('event','events','event_organization') THEN 'event'
-               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage')
-                 OR (metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL) THEN 'restaurant'
-               WHEN LOWER(COALESCE(metadata->>'source', '')) IN ('hotel','hotel_activity','room','rooms') THEN 'hotel'
-               ELSE 'shared'
-             END AS normalized_source
-      FROM unified_transactions
+             normalized_source AS source,
+             normalized_source AS source_label
+      FROM normalized_transactions
       WHERE LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')`;
     const conditions: string[] = [];
+
+    if (dateFilter && ["today", "week", "month"].includes(dateFilter)) {
+      conditions.push(`created_at >= CURRENT_DATE - CASE $${params.length + 1} WHEN 'today' THEN INTERVAL '0 days' WHEN 'week' THEN INTERVAL '6 days' WHEN 'month' THEN INTERVAL '1 month' END`);
+      params.push(dateFilter);
+    }
 
     if (startDate) {
       conditions.push(`created_at >= $${params.length + 1}`);

@@ -36,14 +36,18 @@ export default function PaymentsPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { showLoading, hideLoading } = useLoading();
 
   useEffect(() => {
     async function load(silent = false) {
       if (!silent) showLoading("Loading transactions...");
       try {
-        const res = await fetch(`/api/transactions${sourceFilter !== "all" ? `?source=${sourceFilter}` : ""}`);
-        if (!res.ok) throw new Error("Failed to fetch transactions");
+        const params = new URLSearchParams();
+        if (sourceFilter !== "all") params.set("source", sourceFilter);
+        if (dateFilter !== "all") params.set("dateFilter", dateFilter);
+        const res = await fetch(`/api/transactions${params.toString() ? `?${params.toString()}` : ""}`);
+        if (!res.ok) throw new Error("Failed to fetch transactions from the operational ledger");
         const transactions = await res.json();
 
         // Map DB transactions to SalesData
@@ -76,10 +80,10 @@ export default function PaymentsPage() {
           };
         });
         setData(salesData);
+        setLoadError(null);
       } catch (error) {
         console.error("Error loading payments:", error);
-        // Fallback to empty if DB fails
-        setData([]);
+        setLoadError(error instanceof Error ? error.message : "Unable to load payment truth");
       } finally {
         if (!silent) hideLoading();
       }
@@ -91,7 +95,7 @@ export default function PaymentsPage() {
     // Poll for updates instead of storage event (since we are using DB now)
     const interval = setInterval(() => load(true), 30000); // Refresh every 30s
     return () => clearInterval(interval);
-  }, [showLoading, hideLoading, sourceFilter]);
+  }, [showLoading, hideLoading, sourceFilter, dateFilter]);
 
   const filteredData = useMemo(() => {
     let filtered = [...data];
@@ -289,6 +293,12 @@ export default function PaymentsPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {loadError && (
+            <div role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+              {loadError}. Try refreshing or changing the filters.
+            </div>
+          )}
 
           {/* Analytics Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
