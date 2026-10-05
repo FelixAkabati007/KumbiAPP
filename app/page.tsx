@@ -1009,47 +1009,35 @@ function DashboardContent() {
                   Quick Actions
                 </CardTitle>
                 <CardDescription className="text-orange-600 dark:text-orange-400">
-                  Role-aware shortcuts for today&apos;s service operations
+                  Shortcuts mapped directly to the operational cards on this dashboard
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="space-y-2">
-                  <Link href="/pos">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      New Sale
-                    </Button>
-                  </Link>
-                  <Link href="/kitchen">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <ChefHat className="mr-2 h-4 w-4" />
-                      Kitchen Orders
-                    </Button>
-                  </Link>
-                  <Link href="/menu">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <Utensils className="mr-2 h-4 w-4" />
-                      Edit Menu
-                    </Button>
-                  </Link>
-                  <Link href="/reports">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      View Reports
-                    </Button>
-                  </Link>
+                  {access.pos && (
+                    <Link href="/pos" className="block">
+                      <Button variant="ghost" className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20">
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                        <span>Point of Sale System</span>
+                      </Button>
+                    </Link>
+                  )}
+                  {access.kitchen && (
+                    <Link href="/kitchen" className="block">
+                      <Button variant="ghost" className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20">
+                        <ChefHat className="mr-2 h-4 w-4" />
+                        <span>Kitchen Management</span>
+                      </Button>
+                    </Link>
+                  )}
+                  {access.reports && (
+                    <Link href="/reports" className="block">
+                      <Button variant="ghost" className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20">
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        <span>Analytics &amp; Reports</span>
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>
