@@ -299,14 +299,14 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex min-w-0 w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 lg:justify-start">
-  <div className="order-1 flex min-w-[11rem] max-w-[min(28rem,42vw)] shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
-  <span className="max-w-full whitespace-normal break-words text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
+<nav aria-label="Dashboard navigation" className="flex min-w-max w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+  <div className="flex min-w-[11rem] max-w-[min(28rem,42vw)] shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-700 dark:bg-orange-900/30">
+  <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
-            <div className="order-2 flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {access.pos && access.kitchen && (
   <Link className="shrink-0" href="/split-workspace" prefetch={false}>
               <Button
@@ -342,12 +342,12 @@ function DashboardContent() {
   </Link>
   )}
             </div>
-  <Link className="order-3 shrink-0" href="/settings" prefetch={false}>
+  <Link className="shrink-0" href="/settings" prefetch={false}>
     <Button variant="outline" size="sm" className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent">
       <Settings className="h-4 w-4" />
     </Button>
   </Link>
-  <div className="order-4 flex shrink-0 items-center gap-1.5 sm:gap-2">
+  <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
     <AppUpdateMenu />
   <TooltipProvider>
               <Tooltip>
@@ -380,7 +380,7 @@ function DashboardContent() {
               )}
             </Button>
   </div>
-  <div className="order-5 ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-2">
+  <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
     <GlobalSearch role={user?.role} />
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
