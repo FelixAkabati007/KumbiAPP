@@ -67,7 +67,13 @@ export async function GET(request: Request) {
                amount, currency, status, payment_method,
                NULL::text AS customer_id, NULL::jsonb AS items,
                jsonb_build_object(
-                 'source', CASE WHEN entity_type = 'event' THEN 'event' ELSE source END, 'ledgerSource', source, 'entityType', entity_type,
+                 'source', CASE
+    WHEN LOWER(COALESCE(source, '')) IN ('shared_event', 'shared-event', 'event_shared', 'event-shared', 'shared events') THEN 'shared'
+    WHEN LOWER(COALESCE(source, '')) IN ('event', 'events', 'event_organization', 'event booking') OR LOWER(COALESCE(entity_type, '')) = 'event' THEN 'event'
+    WHEN LOWER(COALESCE(source, '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
+    WHEN LOWER(COALESCE(source, '')) IN ('hotel', 'room', 'accommodation') THEN 'hotel'
+    ELSE 'shared'
+  END, 'ledgerSource', source, 'entityType', entity_type,
                  'entityId', entity_id, 'eventId', CASE WHEN entity_type = 'event' THEN entity_id ELSE NULL END
                ) || COALESCE(metadata, '{}'::jsonb) AS metadata,
                occurred_at AS created_at, updated_at
@@ -129,9 +135,9 @@ export async function GET(request: Request) {
       params.push(orderNumber);
     }
 
-    if (source === "hotel" || source === "restaurant" || source === "event" || source === "refund") {
-      conditions.push(
-        `(LOWER(COALESCE(metadata->>'source', '')) = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
+if (["hotel", "restaurant", "event", "shared", "refund"].includes(source || "")) {
+  conditions.push(
+  `(LOWER(COALESCE(metadata->>'source', '')) = $${params.length + 1} OR ($${params.length + 1} = 'restaurant' AND metadata->>'source' IS NULL AND metadata->>'orderType' IS NOT NULL))`,
       );
       params.push(source);
     }

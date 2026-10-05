@@ -6,7 +6,8 @@ type Department = "hotel" | "restaurant" | "event" | "shared";
 
 const departmentSql = `CASE
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('refund', 'unknown', '') THEN 'shared'
-  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization') THEN 'event'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('shared_event', 'shared-event', 'event_shared', 'event-shared', 'shared events') THEN 'shared'
+  WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('event', 'events', 'event_organization', 'event booking') THEN 'event'
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
   WHEN LOWER(COALESCE(metadata->>'originalSource', metadata->>'originalDepartment', metadata->>'source', metadata->>'businessUnit', '')) = 'hotel' THEN 'hotel'
   WHEN transaction_id LIKE 'HOTEL-%' THEN 'hotel'
@@ -64,7 +65,8 @@ export async function GET(request: Request) {
         SELECT CASE
           WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('hotel', 'room', 'accommodation') THEN 'hotel'
           WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('restaurant', 'pos', 'food_beverage') THEN 'restaurant'
-          WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('event', 'events', 'event_organization') THEN 'event'
+          WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('shared_event', 'shared-event', 'event_shared', 'event-shared', 'shared events') THEN 'shared'
+  WHEN LOWER(COALESCE(metadata->>'businessUnit', metadata->>'source', 'shared')) IN ('event', 'events', 'event_organization', 'event booking') THEN 'event'
           ELSE 'shared'
         END AS department,
           created_at AS occurred_at,
