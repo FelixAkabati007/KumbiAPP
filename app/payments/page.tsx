@@ -69,7 +69,7 @@ export default function PaymentsPage() {
               metadata.customer_name || metadata.customerName || "Guest",
             paymentMethod: txn.payment_method || "cash",
             customerRefused: metadata.customerRefused,
-            type: metadata.type || "sale",
+            type: ["refunded", "reversed", "cancelled"].includes(String(txn.status).toLowerCase()) ? "refund" : metadata.type || "sale",
           };
         });
         setData(salesData);
