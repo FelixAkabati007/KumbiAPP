@@ -50,7 +50,7 @@ export async function GET() {
              legacy_i.quantity::text AS legacy_inventory_quantity,
              COUNT(ri.id)::text AS recipe_count,
              ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients,
-             COALESCE(json_agg(json_build_object('name', i.name, 'requiredQuantity', ri.quantity, 'recipeUnit', ri.unit, 'availableQuantity', i.quantity, 'stockUnit', COALESCE(i.base_unit, i.unit), 'conversionRatio', i.conversion_ratio, 'densityGPerMl', i.density_g_per_ml)) FILTER (WHERE ri.id IS NOT NULL), '[]') AS recipe_ingredients
+             COALESCE(json_agg(json_build_object('name', i.name, 'requiredQuantity', ri.quantity, 'recipeUnit', ri.unit, 'availableQuantity', i.quantity, 'stockUnit', i.unit, 'conversionRatio', i.conversion_ratio, 'densityGPerMl', i.density_g_per_ml)) FILTER (WHERE ri.id IS NOT NULL), '[]') AS recipe_ingredients
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
