@@ -60,7 +60,7 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="rounded-full p-0 h-10 w-10 focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="h-9 w-9 rounded-full p-0 focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:h-10 sm:w-10"
           aria-label="Open user menu"
         >
           <Avatar className="h-10 w-10">
