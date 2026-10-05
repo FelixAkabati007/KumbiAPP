@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requirePermission, requireRole } from "@/lib/api-auth";
 import { getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
+import { recordMenuChange } from "@/lib/menu-change-events";
 
 export async function GET(
   request: Request,
@@ -67,8 +68,9 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const { error } = await requireRole("admin", "restaurantManager", "manager", "kitchen");
-    if (error) return error;
+    const access = await requireRole("admin", "restaurantManager", "manager", "kitchen");
+    if (access.error) return access.error;
+    const session = access.session;
 
     const body = await request.json();
     const { inventory_item_id, quantity, unit } = body;
@@ -109,13 +111,15 @@ export async function POST(
     }, { status: 400 });
   }
 
+  const beforeResult = await query(`SELECT inventory_item_id, quantity, unit FROM recipe_ingredients WHERE menu_item_id = $1 AND inventory_item_id = $2`, [id, inventory_item_id]);
   await query(
     `INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (menu_item_id, inventory_item_id) 
+       ON CONFLICT (menu_item_id, inventory_item_id)
        DO UPDATE SET quantity = $3, unit = $4`,
       [id, inventory_item_id, quantity, unit]
     );
+    await recordMenuChange({ menuItemId: id, eventType: beforeResult.rows.length ? "RECIPE_INGREDIENT_UPDATED" : "RECIPE_INGREDIENT_ADDED", before: beforeResult.rows[0] || {}, after: { inventory_item_id, quantity, unit }, changedFields: ["quantity", "unit"], session });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to save recipe ingredient:", error);
@@ -136,13 +140,14 @@ export async function DELETE(
   }
 
   try {
-    const { error } = await requireRole("admin", "restaurantManager", "manager", "kitchen");
-    if (error) return error;
-
+    const access = await requireRole("admin", "restaurantManager", "manager", "kitchen");
+    if (access.error) return access.error;
+    const beforeResult = await query(`SELECT inventory_item_id, quantity, unit FROM recipe_ingredients WHERE menu_item_id = $1 AND inventory_item_id = $2`, [id, inventoryItemId]);
     await query(
       `DELETE FROM recipe_ingredients WHERE menu_item_id = $1 AND inventory_item_id = $2`,
       [id, inventoryItemId]
     );
+    if (beforeResult.rows[0]) await recordMenuChange({ menuItemId: id, eventType: "RECIPE_INGREDIENT_REMOVED", before: beforeResult.rows[0], after: {}, changedFields: ["quantity", "unit"], session: access.session });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete recipe ingredient:", error);

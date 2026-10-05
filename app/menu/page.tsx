@@ -46,6 +46,7 @@ import {
 import type { MenuItem } from "@/lib/types";
 import { RoleGuard } from "@/components/role-guard";
 import { useToast } from "@/components/ui/use-toast";
+import { MenuChangeHistorySheet } from "@/components/menu/menu-change-history-sheet";
 
 // Hosts allowed for next/image optimization. Keep this list explicit and small.
 const allowedImageHosts = new Set([
@@ -706,6 +707,7 @@ function MenuContent() {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
+                    {user && ["admin", "manager", "restaurantManager"].includes(user.role) && <MenuChangeHistorySheet menuItemId={item.id} menuItemName={item.name} />}
                     <Button
                       variant="destructive"
                       size="icon"
