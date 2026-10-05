@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission, requireRole } from "@/lib/api-auth";
 import { getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
@@ -124,6 +124,39 @@ export async function POST(
   } catch (error) {
     console.error("Failed to save recipe ingredient:", error);
     return NextResponse.json({ error: "Failed to save recipe ingredient" }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const access = await requireRole("admin", "restaurantManager", "manager", "kitchen");
+  if (access.error) return access.error;
+  const body = await request.json();
+  if (!Array.isArray(body.ingredients) || !Array.isArray(body.steps)) return NextResponse.json({ error: "ingredients and steps are required" }, { status: 400 });
+  const requestedKey = request.headers.get("Idempotency-Key") || body.correlation_id;
+  const correlationId = typeof requestedKey === "string" && requestedKey.trim() ? requestedKey.trim() : crypto.randomUUID();
+  try {
+    await transaction(async (client) => {
+      const beforeIngredients = await client.query(`SELECT inventory_item_id, quantity, unit FROM recipe_ingredients WHERE menu_item_id = $1 ORDER BY inventory_item_id`, [id]);
+      const beforeSteps = await client.query(`SELECT step_number, instruction, duration_minutes FROM recipe_steps WHERE menu_item_id = $1 ORDER BY step_number`, [id]);
+      await client.query(`DELETE FROM recipe_ingredients WHERE menu_item_id = $1`, [id]);
+      for (const item of body.ingredients) {
+        if (!item.inventory_item_id || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0 || typeof item.unit !== "string" || !isInventoryUnit(item.unit)) throw new Error("Invalid recipe ingredient");
+        await client.query(`INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, quantity, unit) VALUES ($1,$2,$3,$4)`, [id, item.inventory_item_id, Number(item.quantity), item.unit]);
+      }
+      await client.query(`DELETE FROM recipe_steps WHERE menu_item_id = $1`, [id]);
+      for (const [index, step] of body.steps.entries()) {
+        if (typeof step.instruction !== "string" || !step.instruction.trim()) continue;
+        await client.query(`INSERT INTO recipe_steps (menu_item_id, step_number, instruction, duration_minutes) VALUES ($1,$2,$3,$4)`, [id, index + 1, step.instruction.trim(), Number.isFinite(Number(step.duration_minutes)) ? Number(step.duration_minutes) : null]);
+      }
+      const afterIngredients = await client.query(`SELECT inventory_item_id, quantity, unit FROM recipe_ingredients WHERE menu_item_id = $1 ORDER BY inventory_item_id`, [id]);
+      const afterSteps = await client.query(`SELECT step_number, instruction, duration_minutes FROM recipe_steps WHERE menu_item_id = $1 ORDER BY step_number`, [id]);
+      await recordMenuChange({ menuItemId: id, eventType: "RECIPE_UPDATED", before: { ingredients: beforeIngredients.rows, steps: beforeSteps.rows }, after: { ingredients: afterIngredients.rows, steps: afterSteps.rows }, changedFields: ["ingredients", "steps"], session: access.session, correlationId }, client);
+    });
+    return NextResponse.json({ success: true, correlation_id: correlationId });
+  } catch (error) {
+    console.error("Failed to save recipe atomically:", error);
+    return NextResponse.json({ error: "Recipe was not saved. No changes were committed." }, { status: 400 });
   }
 }
 
