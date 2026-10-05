@@ -32,6 +32,7 @@ type DepartmentResult = {
 type PnlResponse = {
   departments: DepartmentResult[];
   totals: { revenue: number; grossRevenue: number; refundAmount: number; expense: number; profit: number; margin: number };
+  complimentary: { waivedAmount: number; usageCount: number };
   exceptions: Array<{ transactionId?: string; amount: number; status: string; createdAt: string; source?: string | null }>;
 };
 type ExceptionHistoryItem = { transactionId: string; resolver: string; assignedSource: string | null; originalSource: string | null; reason: string; resolvedAt: string };
@@ -240,6 +241,7 @@ export default function FinancePage() {
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refunds issued</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Count and value of refund postings in the current register.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p><p className="text-xs text-muted-foreground">GHS {totals.refundValue.toFixed(2)} reversed</p></CardContent></Card>
+  <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Complimentary waived</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Approved VIP/complimentary value used, sourced from authorization usage.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {(pnl?.complimentary.waivedAmount ?? 0).toFixed(2)}</p><p className="text-xs text-muted-foreground">{pnl?.complimentary.usageCount ?? 0} applied exception(s)</p></CardContent></Card>
           </section>
           <Card id="transactions">
             <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" aria-hidden="true" /> Recent transactions</CardTitle></CardHeader>
