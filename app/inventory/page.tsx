@@ -97,6 +97,7 @@ function InventoryContent() {
   const [topUpItem, setTopUpItem] = useState<InventoryItem | null>(null);
   const [topUpQuantity, setTopUpQuantity] = useState("");
   const [topUpReason, setTopUpReason] = useState("");
+  const [topUpPurchasePackagingPrice, setTopUpPurchasePackagingPrice] = useState("");
   const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
   const [topUpHistoryItem, setTopUpHistoryItem] = useState<InventoryItem | null>(null);
   const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by_email?: string | null; request_metadata?: { reason?: string | null } }>>([]);
@@ -617,13 +618,13 @@ function InventoryContent() {
     }
     setIsSubmittingTopUp(true);
     try {
-      const response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ quantityAdded: quantity, reason: topUpReason }) });
+      const response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ quantityAdded: quantity, reason: topUpReason, purchasePackagingPrice: topUpPurchasePackagingPrice === "" ? undefined : Number(topUpPurchasePackagingPrice) }) });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || "Unable to top up stock");
       const updated = result.item;
       setItems((current) => current.map((item) => item.id === topUpItem.id ? { ...item, quantity: String(updated.quantity), lastUpdated: new Date().toISOString() } : item));
       toast({ title: "Stock topped up", description: `${topUpItem.name} is now at ${updated.quantity} ${topUpItem.unit}.` });
-      setTopUpItem(null); setTopUpQuantity(""); setTopUpReason("");
+      setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice("");
     } catch (error) {
       toast({ title: "Top-up failed", description: error instanceof Error ? error.message : "Unable to top up stock.", variant: "destructive" });
     } finally { setIsSubmittingTopUp(false); }
@@ -1209,13 +1210,14 @@ function InventoryContent() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); } }}>
+        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice(""); } }}>
           <DialogContent className="max-w-md rounded-3xl border-emerald-200 dark:border-emerald-800">
             <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="rounded-2xl bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30"><span className="text-muted-foreground">Current balance</span><p className="text-xl font-semibold">{topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</p></div>
               <div className="grid gap-2"><Label htmlFor="top-up-quantity">Quantity to add</Label><Input id="top-up-quantity" type="number" min="0.001" step="any" value={topUpQuantity} onChange={(event) => setTopUpQuantity(event.target.value)} placeholder="Enter a positive quantity" autoFocus /></div>
               <div className="grid gap-2"><Label htmlFor="top-up-reason">Reason (optional)</Label><Input id="top-up-reason" value={topUpReason} onChange={(event) => setTopUpReason(event.target.value)} placeholder="Purchase, delivery, adjustment..." maxLength={500} /></div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-800 dark:bg-emerald-950/20"><p className="mb-2 text-sm font-medium">Purchase Packaging</p><Label htmlFor="top-up-packaging-price">Change Price (₵)</Label><Input id="top-up-packaging-price" type="number" min="0" step="0.01" value={topUpPurchasePackagingPrice} onChange={(event) => setTopUpPurchasePackagingPrice(event.target.value)} placeholder="Leave blank to keep current price" /><p className="mt-2 text-xs text-muted-foreground">Only the purchase packaging price is changed here. Explain a market increase in the reason field.</p></div>
               <p className="text-sm text-muted-foreground">New balance: <strong>{topUpQuantity && Number(topUpQuantity) > 0 ? (Number(topUpItem?.quantity ?? 0) + Number(topUpQuantity)).toLocaleString() : topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</strong></p>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>Top up stock</Button></DialogFooter>
