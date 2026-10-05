@@ -46,7 +46,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { rolePermissions, roleDashboardConfig, managementRoles, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
@@ -278,6 +278,15 @@ function DashboardContent() {
     (roleDashboard.categories.includes(category) && categorySectionMap[category].some((section) => access[section])),
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
+  const operationalModules = [
+    access.pos && { title: "Point of Sale System", description: "Capture orders, payments, and service hand-offs", href: "/pos", icon: <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.kitchen && { title: "Kitchen Management", description: "Track preparation status and keep service moving", href: "/kitchen", icon: <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.reports && { title: "Analytics & Reports", description: "Reconcile sales, payments, and operating performance", href: "/reports", icon: <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.menu && { title: "Menu Management", description: "Manage menu items, pricing, and recipe availability", href: "/menu", icon: <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.inventory && { title: "Inventory", description: "Track live stock levels and supplies", href: "/inventory", icon: <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.reservations && { title: "Reservations", description: "Manage guest bookings and room availability", href: "/hotels/reservations", icon: <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+    access.finance && { title: "Finance Desk", description: "Reconcile payments, waivers, and transaction activity", href: "/finance", icon: <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
+  ].filter(Boolean) as Array<{ title: string; description: string; href: string; icon: ReactNode }>;
 
   return (
     <div
@@ -957,49 +966,21 @@ function DashboardContent() {
                 A single operating view for service, kitchen flow, and business performance
               </CardDescription>
             </CardHeader>
-            <CardContent className="pl-2 relative z-10">
-              <div className="space-y-4 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full">
-                    <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      Point of Sale System
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Capture orders, payments, and service hand-offs
-                    </p>
-                  </div>
+              <CardContent className="pl-2 relative z-10">
+                <div className="space-y-4 p-4">
+                  {operationalModules.map((module) => (
+                    <div key={module.title} className="flex items-center gap-3">
+                      <div className="rounded-full bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 p-2 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30">
+                        {module.icon}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{module.title}</p>
+                        <p className="text-xs text-muted-foreground">{module.description}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full">
-                    <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      Kitchen Management
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Track preparation status and keep service moving
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full">
-                    <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      Analytics & Reports
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Reconcile sales, payments, and operating performance
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
+              </CardContent>
           </Card>
           {user.role !== "staff" && (
             <Card className="min-w-0 md:col-span-2 lg:col-span-3 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
@@ -1009,47 +990,19 @@ function DashboardContent() {
                   Quick Actions
                 </CardTitle>
                 <CardDescription className="text-orange-600 dark:text-orange-400">
-                  Role-aware shortcuts for today&apos;s service operations
+                  Shortcuts mapped directly to the operational cards on this dashboard
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="space-y-2">
-                  <Link href="/pos">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      New Sale
-                    </Button>
-                  </Link>
-                  <Link href="/kitchen">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <ChefHat className="mr-2 h-4 w-4" />
-                      Kitchen Orders
-                    </Button>
-                  </Link>
-                  <Link href="/menu">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <Utensils className="mr-2 h-4 w-4" />
-                      Edit Menu
-                    </Button>
-                  </Link>
-                  <Link href="/reports">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                    >
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      View Reports
-                    </Button>
-                  </Link>
+                  {operationalModules.map((module) => (
+                    <Link key={module.title} href={module.href} className="block">
+                      <Button variant="ghost" className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20">
+                        {module.icon}
+                        <span className="ml-2">{module.title}</span>
+                      </Button>
+                    </Link>
+                  ))}
                 </div>
               </CardContent>
             </Card>
