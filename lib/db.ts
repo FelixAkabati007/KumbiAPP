@@ -26,7 +26,7 @@ const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5
 
 if (!connectionString) {
   console.warn(
-    "DATABASE_URL (or DB_URL) environment variable is not defined. Database functionality will not work."
+    "KUMRESH_DB_DATABASE_URL environment variable is not defined. Database functionality will not work."
   );
 }
 
