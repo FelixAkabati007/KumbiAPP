@@ -4,8 +4,12 @@
 
 // Define environment variables
 export const env = {
-  // Database configuration (Neon/PostgreSQL)
-  DATABASE_URL: process.env.DATABASE_URL || "",
+  // Database configuration (connected Neon integration first)
+  DATABASE_URL:
+    process.env.KUMRESH_DB_DATABASE_URL ||
+    process.env.KUMRESH_DB_POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    "",
 
   // App configuration
   NODE_ENV: process.env.NODE_ENV || "development",
