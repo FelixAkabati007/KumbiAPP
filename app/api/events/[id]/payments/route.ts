@@ -77,13 +77,6 @@ export async function POST(
           session.id,
         ],
       );
-      const newTotalPaid = currentPaid + Number(payment.rows[0].amount);
-      const newBalanceDue = invoiceTotal - newTotalPaid;
-      await client.query(
-        `UPDATE events SET total_paid = $1, balance_due = $2, updated_at = now() WHERE id = $3`,
-        [newTotalPaid, newBalanceDue, eventId],
-      );
-
       await recordFinancialLedgerEntry(client, {
         eventKey: `event-payment:${eventId}:${idempotencyKey}`,
         amount,
@@ -104,6 +97,13 @@ export async function POST(
         },
       });
 
+      const postedTotal = await getPostedEntityCredits(client, "event", eventId);
+      const newBalanceDue = invoiceTotal - postedTotal;
+      await client.query(
+        `UPDATE events SET total_paid = $1, balance_due = $2, updated_at = now() WHERE id = $3`,
+        [postedTotal, newBalanceDue, eventId],
+      );
+
       await client.query(
         `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, amount, currency, description, metadata, occurred_at)
          VALUES ('payment_recorded', 'event', $1, $2, 'GHS', $3, $4::jsonb, now())`,
@@ -123,7 +123,7 @@ export async function POST(
       return {
         paymentId: payment.rows[0].id,
         createdAt: payment.rows[0].recorded_at,
-        totalPaid: newTotalPaid,
+        totalPaid: postedTotal,
         balanceDue: newBalanceDue,
       };
     });
