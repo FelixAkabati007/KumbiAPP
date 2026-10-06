@@ -23,7 +23,12 @@ export function ChefRecipeCard() {
 
   useEffect(() => { void load(); }, [load, lastEvent?.topic === "menu.updated" ? lastEvent.at : null]);
 
-  const active = recipes.find((recipe) => recipe.id === selected) ?? recipes[0];
+  const foodRecipes = recipes.filter((recipe) => {
+    const normalizedName = recipe.name.toLowerCase();
+    const normalizedDescription = recipe.description?.toLowerCase() ?? "";
+    return !normalizedName.includes("beverage") && !normalizedName.includes("drink") && !normalizedDescription.includes("beverage") && !normalizedDescription.includes("drink");
+  });
+  const active = foodRecipes.find((recipe) => recipe.id === selected) ?? foodRecipes[0];
   const shortages = active?.ingredients.filter((item) => item.available < item.quantity) ?? [];
 
   return (
@@ -34,13 +39,13 @@ export function ChefRecipeCard() {
             <CardTitle className="flex items-center gap-2 text-gray-800 dark:text-gray-200"><ChefHat className="size-5 text-orange-600" /> Chef Recipe Book</CardTitle>
             <CardDescription className="text-orange-600 dark:text-orange-400">Live quantities and cooking steps from Menu Management</CardDescription>
           </div>
-          <Badge variant="secondary">{recipes.length} dishes</Badge>
+          <Badge variant="secondary">{foodRecipes.length} dishes</Badge>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {!active ? <p className="text-sm text-muted-foreground">No available menu recipes yet.</p> : <div className="grid gap-5 xl:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2fr)]">
           <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap gap-2">{recipes.map((recipe) => <Button key={recipe.id} size="sm" variant={recipe.id === active.id ? "default" : "outline"} onClick={() => setSelected(recipe.id)}>{recipe.name}</Button>)}</div>
+            <div className="flex flex-wrap gap-2">{foodRecipes.map((recipe) => <Button key={recipe.id} size="sm" variant={recipe.id === active.id ? "default" : "outline"} onClick={() => setSelected(recipe.id)}>{recipe.name}</Button>)}</div>
             <div className="flex flex-col gap-3 rounded-2xl border border-border/60 p-3">
               <div><h3 className="font-semibold">{active.name}</h3><p className="text-xs text-muted-foreground">{active.description || "Follow the measured ingredients and steps below."}</p></div>
               {shortages.length > 0 && <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-2 text-xs text-destructive"><CircleAlert className="mt-0.5 size-4 shrink-0" />Short on: {shortages.map((item) => item.name).join(", ")}</div>}
