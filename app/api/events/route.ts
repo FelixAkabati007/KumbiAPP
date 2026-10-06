@@ -30,30 +30,35 @@ export async function POST(request: Request) {
   const clientName = String(body.clientName ?? "").trim();
   const venue = String(body.venue ?? "").trim();
   const startsAt = String(body.startsAt ?? "").trim();
+  const endsAt = String(body.endsAt ?? "").trim() || null;
   const guestCount = Number(body.guestCount ?? 0);
+  const startDate = new Date(startsAt);
+  const endDate = endsAt ? new Date(endsAt) : null;
 
   if (
     !name ||
     !clientName ||
     !venue ||
     !startsAt ||
+    Number.isNaN(startDate.getTime()) ||
+    (endDate && (Number.isNaN(endDate.getTime()) || endDate <= startDate)) ||
     !Number.isInteger(guestCount) ||
     guestCount < 0
   ) {
     return NextResponse.json(
       {
         error:
-          "Event name, client, venue, start time, and a valid guest count are required",
+          "Event name, client, venue, valid start time, and a valid guest count are required; end time must be after start time",
       },
       { status: 400 },
     );
   }
 
   const result = await query(
-    `INSERT INTO events (name, client_name, venue, starts_at, guest_count, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO events (name, client_name, venue, starts_at, ends_at, guest_count, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes`,
-    [name, clientName, venue, startsAt, guestCount, session.id],
+    [name, clientName, venue, startsAt, endsAt, guestCount, session.id],
   );
 
   return NextResponse.json({ event: result.rows[0] }, { status: 201 });
@@ -85,7 +90,7 @@ export async function PATCH(request: Request) {
   }
 
   const current = await query(
-    "SELECT id, status, starts_at FROM events WHERE id = $1",
+    "SELECT id, status, starts_at, ends_at FROM events WHERE id = $1",
     [eventId],
   );
   const event = current.rows[0];
@@ -97,9 +102,9 @@ export async function PATCH(request: Request) {
       { status: 409 },
     );
   }
-  if (nextStatus === "completed" && new Date(event.starts_at) > new Date()) {
+  if (nextStatus === "completed" && event.ends_at && new Date(event.ends_at) > new Date()) {
     return NextResponse.json(
-      { error: "An event can only be completed after its scheduled start" },
+      { error: "An event can only be completed after its scheduled end" },
       { status: 400 },
     );
   }
