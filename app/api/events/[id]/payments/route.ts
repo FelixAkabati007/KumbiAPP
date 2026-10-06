@@ -54,11 +54,21 @@ export async function POST(
       const event = eventResult.rows[0];
       if (!event.receipt_id) throw new Error("EVENT_NOT_INVOICED");
 
-      const currentPaid = await getPostedEntityCredits(
-        client,
-        "event",
-        eventId,
+      const existingPayment = await client.query(
+        `SELECT id, amount, recorded_at FROM event_payments WHERE idempotency_key = $1 AND event_id = $2`,
+        [idempotencyKey, eventId],
       );
+      if (existingPayment.rowCount) {
+        const postedTotal = await getPostedEntityCredits(client, "event", eventId);
+        const invoiceTotal = Number(event.total_invoiced ?? 0);
+        return {
+          paymentId: existingPayment.rows[0].id,
+          createdAt: existingPayment.rows[0].recorded_at,
+          totalPaid: postedTotal,
+          balanceDue: Math.max(0, invoiceTotal - postedTotal),
+        };
+      }
+      const currentPaid = await getPostedEntityCredits(client, "event", eventId);
       const invoiceTotal = Number(event.total_invoiced ?? 0);
       if (currentPaid + amount > invoiceTotal + 0.005)
         throw new Error("OVERPAYMENT");
@@ -66,7 +76,6 @@ export async function POST(
       const payment = await client.query(
         `INSERT INTO event_payments (event_id, amount, currency, method, provider_reference, idempotency_key, recorded_by)
          VALUES ($1, $2, 'GHS', $3, $4, $5, $6)
-         ON CONFLICT (idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
          RETURNING id, amount, recorded_at`,
         [
           eventId,
