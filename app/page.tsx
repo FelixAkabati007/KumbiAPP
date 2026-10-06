@@ -47,7 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { rolePermissions, roleDashboardConfig, managementRoles, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
+import { rolePermissions, roleDashboardConfig, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { GlobalSearch } from "@/components/global-search";
@@ -678,7 +678,8 @@ function DashboardContent() {
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Finance</div>
-                <p className="text-xs text-muted-foreground">Reconcile payments and review transaction activity.</p>
+                <p className="text-xs text-muted-foreground">Canonical ledger view for posted sales, refunds, expenses, and exceptions.</p>
+                <p className="mt-2 text-xs font-medium text-muted-foreground">Source of truth: canonical financial ledger</p>
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/finance" className="w-full">
@@ -778,38 +779,18 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Receipts
                 </div>
-                <div className="my-2 grid grid-cols-2 gap-2 text-xs text-gray-700 dark:text-gray-300">
-                  {receiptStats ? (
-                    <>
-                      <div>
-                        Today:{" "}
-                        <span className="font-semibold">
-                          {receiptStats.today}
-                        </span>
-                      </div>
-                      <div>
-                        This Week:{" "}
-                        <span className="font-semibold">
-                          {receiptStats.week}
-                        </span>
-                      </div>
-                      <div>
-                        This Month:{" "}
-                        <span className="font-semibold">
-                          {receiptStats.month}
-                        </span>
-                      </div>
-                      <div>
-                        Total:{" "}
-                        <span className="font-semibold">
-                          {receiptStats.total}
-                        </span>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
+                {receiptStats ? (
+                  <div className="my-2 grid grid-cols-2 gap-2 text-xs text-foreground">
+                    <div>Today: <span className="font-semibold">{receiptStats.today}</span></div>
+                    <div>This week: <span className="font-semibold">{receiptStats.week}</span></div>
+                    <div>This month: <span className="font-semibold">{receiptStats.month}</span></div>
+                    <div>Total: <span className="font-semibold">{receiptStats.total}</span></div>
+                  </div>
+                ) : (
+                  <p className="my-2 text-xs text-muted-foreground">Receipt activity is loading from the canonical receipt register.</p>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  View and print receipts
+                  Search and print only persisted transaction receipts.
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
