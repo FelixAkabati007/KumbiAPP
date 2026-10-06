@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { hasPermission } from "@/lib/roles";
 import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, FileText, IndianRupee, Printer, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ const tabs: { id: Tab; label: string; icon: typeof CalendarDays }[] = [
 
 export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: string; autoPrint?: boolean }) {
   const { user } = useAuth();
-  const canPrice = user?.role === "manager" || user?.role === "operationsManager";
+  const canPrice = Boolean(user?.role && hasPermission(user.role, "eventPricing"));
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
@@ -98,7 +99,7 @@ function QuoteApprovalPanel({ eventId }: { eventId: string }) {
     setBusy(null);
   };
   if (loading) return <p className="text-sm text-muted-foreground">Loading quote versions…</p>;
-  if (!quotes.length) return <div className="grid gap-4"><p className="text-sm text-muted-foreground">No quote versions exist for this event.</p><Button asChild><Link href={`/events/${eventId}?tab=quote`}>Create draft quote</Link></Button></div>;
+  if (!quotes.length) return <div className="grid gap-4"><p className="text-sm text-muted-foreground">No quote versions exist for this event.</p><Button type="button" onClick={() => document.getElementById("event-pricing-desk")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Create draft quote</Button></div>;
   return <div className="grid gap-4"><div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm leading-6"><p className="font-semibold">Approval control</p><p className="text-muted-foreground">Approved quotes are locked. Changes must be made as a new quote version; only the current approved version can secure the event.</p><Button className="mt-3" size="sm" asChild><Link href={`/events/${eventId}?tab=quote`}>Create new quote version</Link></Button></div>{quotes.map((quote) => { const locked = ["approved", "sent", "accepted", "superseded"].includes(quote.status); return <div key={quote.id} className={`rounded-2xl border p-4 ${locked ? "border-amber-400 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/20" : "border-border"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">Quote {quote.id.slice(0, 8).toUpperCase()}</p><p className="text-sm text-muted-foreground">Created {new Date(quote.created_at).toLocaleString()} · {quote.items.length} line item{quote.items.length === 1 ? "" : "s"}</p></div><Badge variant={quote.status === "approved" ? "default" : "secondary"}>{quote.status.replace("_", " ")}</Badge></div><div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-lg font-semibold">{Number(quote.total).toFixed(2)} {quote.currency ?? "GHS"}</p><div className="flex flex-wrap gap-2">{quote.status === "draft" && <Button size="sm" onClick={() => transition(quote.id, "pending_approval")} disabled={busy === quote.id}>Submit for approval</Button>}{quote.status === "pending_approval" && <Button size="sm" onClick={() => transition(quote.id, "approved")} disabled={busy === quote.id}>Approve quote</Button>}{quote.status === "approved" && <Button size="sm" onClick={() => document.getElementById("event-booking-panel")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Secure this quote</Button>}{locked && <span className="self-center text-xs text-muted-foreground">Locked version</span>}</div></div></div>;})}</div>;
 }
 
