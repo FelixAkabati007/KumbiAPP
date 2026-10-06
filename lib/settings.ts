@@ -41,6 +41,8 @@ export interface TaxConfiguration {
 }
 
 export interface AppSettings {
+  /** Server-issued optimistic concurrency version. Never user-editable. */
+  version?: number;
   theme: string;
   notifications: {
     orderAlerts: boolean;
@@ -242,7 +244,7 @@ const defaultSettings: AppSettings = {
     },
   },
   security: {
-    requireLogin: false,
+    requireLogin: true,
     sessionTimeout: 30,
     twoFactorAuth: false,
   },
@@ -282,6 +284,13 @@ export async function fetchSettings(): Promise<AppSettings> {
           ...defaultSettings.system.barcodeScanner,
           ...(data.system?.barcodeScanner || {}),
         },
+        thermalPrinter: {
+          ...defaultSettings.system.thermalPrinter,
+          ...(data.system?.thermalPrinter || {}),
+        },
+        secondaryPrinter: data.system?.secondaryPrinter
+          ? { ...defaultSettings.system.secondaryPrinter, ...data.system.secondaryPrinter }
+          : defaultSettings.system.secondaryPrinter,
         refunds: {
           ...defaultSettings.system.refunds,
           ...(data.system?.refunds || {}),
@@ -302,11 +311,12 @@ export function getSettings(_useDefaults = false): AppSettings {
   return defaultSettings;
 }
 
-export async function saveSettings(settings: AppSettings): Promise<{ success: true }> {
+export async function saveSettings(settings: AppSettings): Promise<{ success: true; version?: number }> {
+  const { version, ...persistedSettings } = settings;
   const response = await fetch("/api/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(settings),
+    body: JSON.stringify({ ...persistedSettings, expectedVersion: version }),
   });
 
   if (!response.ok) {

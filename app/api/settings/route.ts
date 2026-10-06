@@ -37,7 +37,9 @@ export async function GET() {
     // Fetch settings JSONB
     const settingsRes = await query("SELECT data, version FROM settings WHERE id = 1");
     let settingsData =
-      settingsRes.rows.length > 0 ? settingsRes.rows[0].data : {};
+      settingsRes.rows.length > 0 && settingsRes.rows[0].data
+        ? settingsRes.rows[0].data
+        : {};
 
     // Fetch restaurant profile
     const profileRes = await query(`

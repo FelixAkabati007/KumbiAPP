@@ -62,9 +62,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const resetSettings = useCallback(() => {
     const defaults = getSettings(true);
-    setSettings(defaults);
-    saveSettings(defaults);
-  }, []);
+    setSettings((current) => ({ ...defaults, version: current.version }));
+    void saveSettings({ ...defaults, version: settings.version }).catch((error) => {
+      console.error("[v0] Settings provider failed to reset settings:", error);
+    });
+  }, [settings.version]);
 
   return (
     <SettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>

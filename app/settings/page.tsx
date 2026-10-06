@@ -150,7 +150,7 @@ function SettingsPageContent() {
       },
     },
     security: {
-      requireLogin: false,
+      requireLogin: true,
       sessionTimeout: 30,
       twoFactorAuth: false,
     },
