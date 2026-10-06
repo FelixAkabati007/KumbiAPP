@@ -4,6 +4,7 @@ import { GET, POST } from "../../app/api/settings/route";
 vi.mock("@/lib/db", () => ({
   query: vi.fn(),
   getClient: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -63,7 +64,7 @@ describe("Settings API", () => {
       const { getSession } = await import("@/lib/auth");
       (getSession as unknown as Mock).mockResolvedValue({ role: "admin" });
 
-      const { query, getClient } = await import("@/lib/db");
+      const { query, transaction } = await import("@/lib/db");
       (query as unknown as Mock).mockResolvedValue({ rows: [] });
       const client = {
         query: vi.fn().mockImplementation((sql: string) =>
@@ -73,7 +74,7 @@ describe("Settings API", () => {
         ),
         release: vi.fn(),
       };
-      (getClient as unknown as Mock).mockResolvedValue(client);
+      (transaction as unknown as Mock).mockImplementation(async (callback: (tx: typeof client) => Promise<unknown>) => callback(client));
 
       const req = new Request("http://localhost/api/settings", {
         method: "POST",
@@ -94,11 +95,6 @@ describe("Settings API", () => {
       expect(res.status).toBe(200);
 
       // Verify the transaction writes both profile and canonical settings state.
-      const calls = (getClient as unknown as Mock).mock.results[0]?.value
-        ? await (getClient as unknown as Mock).mock.results[0].value
-        : null;
-      expect(calls).toBeTruthy();
-
       const profileCall = (client.query as unknown as Mock).mock.calls.find((c: unknown[]) =>
         String(c[0]).includes("INSERT INTO restaurant_profile")
       );
