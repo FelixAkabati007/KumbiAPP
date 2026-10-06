@@ -19,6 +19,7 @@ import { useReceiptStats } from "@/hooks/use-receipt-stats";
 import { useAuth } from "@/components/auth-provider";
 import { calculateTaxes } from "@/lib/tax";
 import { levyRows } from "@/lib/levy-presentation";
+import { canonicalizeReceipt } from "@/lib/canonical-receipts";
 
 interface ReceiptData {
   orderNumber: string;
@@ -239,6 +240,25 @@ function ReceiptContent() {
       return;
     }
 
+      const entityId = receiptSource === "hotel"
+        ? String(hotelActivity?.metadata?.reservationId ?? searchOrderNumber)
+        : String(foundSale?.orderId ?? foundSale?.id ?? foundSale?.orderNumber ?? searchOrderNumber);
+      const receipt = canonicalizeReceipt({
+        source: receiptSource,
+        entityId,
+        receiptNumber: foundSale?.orderNumber ?? searchOrderNumber,
+        printMethod: "browser",
+        payload: foundSale ?? hotelActivity ?? receiptData,
+      });
+      const persistence = await fetch("/api/canonical-receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(receipt),
+      });
+      if (!persistence.ok) {
+        toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
+        return;
+      }
       // The receipt generator uses the browser dialog as the default, matching POS and hotel manual printing.
       window.print();
       toast({
