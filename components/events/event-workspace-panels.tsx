@@ -35,7 +35,7 @@ function RecordPaymentForm({ eventId, receiptId, onRecorded }: { eventId: string
     if (!Number.isFinite(value) || value <= 0) { setMessage({ type: "error", text: "Enter a valid payment amount" }); return; }
     setSaving(true);
     setMessage(null);
-    const response = await fetch(`/api/events/${eventId}/payments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amount: value, method, reference }) });
+    const response = await fetch(`/api/events/${eventId}/payments`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ amount: value, method, reference }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { setMessage({ type: "error", text: data.error ?? "Unable to record payment" }); setSaving(false); return; }
     setMessage({ type: "success", text: "Payment recorded." });
@@ -56,7 +56,7 @@ function RecordPaymentForm({ eventId, receiptId, onRecorded }: { eventId: string
     {open && <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
       <label className="grid gap-1.5 text-sm font-medium">Amount (GHS)<Input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" /></label>
       <label className="grid gap-1.5 text-sm font-medium">Method<select value={method} onChange={(event) => setMethod(event.target.value)} className="h-10 rounded-xl border border-input bg-background px-3 font-normal"><option value="cash">Cash</option><option value="card">Card</option><option value="mobile">Mobile money</option></select></label>
-      <label className="grid gap-1.5 text-sm font-medium">Reference (optional)<Input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="e.g. Receipt #" /></label>
+      <label className="grid gap-1.5 text-sm font-medium">Reference<Input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="e.g. Receipt #" /></label>
       <Button onClick={() => void submit()} disabled={saving}>{saving ? "Saving…" : "Save payment"}</Button>
     </div>}
     {message && <p className={`mt-3 text-sm font-medium ${message.type === "error" ? "text-destructive" : "text-emerald-600"}`} role="status">{message.text}</p>}

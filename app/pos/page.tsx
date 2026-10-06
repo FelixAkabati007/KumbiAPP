@@ -28,7 +28,7 @@ import {
   QrCode,
   Save,
   Search,
-  Sparkles,
+  ShoppingCart,
   Trash,
   User,
   Utensils,
@@ -1101,7 +1101,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             ) : (
               <div className="flex flex-col items-center justify-center h-40">
                 <div className="p-4 bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full mb-4">
-                  <Sparkles className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+                  <ShoppingCart className="h-8 w-8 text-orange-600 dark:text-orange-400" aria-hidden="true" />
                 </div>
                 <p className="text-muted-foreground font-medium">
                   No items in order
