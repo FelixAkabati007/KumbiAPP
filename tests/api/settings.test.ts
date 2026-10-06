@@ -3,6 +3,7 @@ import { GET, POST } from "../../app/api/settings/route";
 
 vi.mock("@/lib/db", () => ({
   query: vi.fn(),
+  getClient: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -10,15 +11,17 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 describe("Settings API", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { getSession } = await import("@/lib/auth");
+    (getSession as unknown as Mock).mockResolvedValue({ id: "user-1", role: "admin" });
   });
 
   describe("GET", () => {
     it("fetches settings and merges with restaurant profile", async () => {
       const { query } = await import("@/lib/db");
       (query as unknown as Mock)
-        .mockResolvedValueOnce({ rows: [{ data: { theme: "dark" } }] }) // settings
+        .mockResolvedValueOnce({ rows: [{ data: { theme: "dark" }, version: 1 }] }) // settings
         .mockResolvedValueOnce({
           rows: [
             {
@@ -60,8 +63,17 @@ describe("Settings API", () => {
       const { getSession } = await import("@/lib/auth");
       (getSession as unknown as Mock).mockResolvedValue({ role: "admin" });
 
-      const { query } = await import("@/lib/db");
+      const { query, getClient } = await import("@/lib/db");
       (query as unknown as Mock).mockResolvedValue({ rows: [] });
+      const client = {
+        query: vi.fn().mockImplementation((sql: string) =>
+          sql.includes("SELECT data, version")
+            ? Promise.resolve({ rows: [{ data: {}, version: 1 }] })
+            : Promise.resolve({ rowCount: 1, rows: [{ version: 2 }] }),
+        ),
+        release: vi.fn(),
+      };
+      (getClient as unknown as Mock).mockResolvedValue(client);
 
       const req = new Request("http://localhost/api/settings", {
         method: "POST",
@@ -81,14 +93,13 @@ describe("Settings API", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
 
-      // Verify DB calls
-      expect(query).toHaveBeenCalled();
+      // Verify the transaction writes both profile and canonical settings state.
+      const calls = (getClient as unknown as Mock).mock.results[0]?.value
+        ? await (getClient as unknown as Mock).mock.results[0].value
+        : null;
+      expect(calls).toBeTruthy();
 
-      const calls = (query as unknown as Mock).mock.calls as Array<
-        [string, unknown[]?]
-      >;
-
-      const profileCall = calls.find((c) =>
+      const profileCall = (client.query as unknown as Mock).mock.calls.find((c: unknown[]) =>
         String(c[0]).includes("INSERT INTO restaurant_profile")
       );
       expect(profileCall).toBeTruthy();
@@ -101,7 +112,7 @@ describe("Settings API", () => {
         "img.png",
       ]);
 
-      const settingsCall = calls.find((c) =>
+      const settingsCall = (client.query as unknown as Mock).mock.calls.find((c: unknown[]) =>
         String(c[0]).includes("INSERT INTO settings")
       );
       expect(settingsCall).toBeTruthy();
