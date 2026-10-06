@@ -149,19 +149,21 @@ export async function POST(req: Request) {
         );
       }
 
+      const currentData = (current.rows[0]?.data ?? {}) as Record<string, unknown>;
+      const mergedSettings = { ...currentData, ...settingsToSave };
       const nextVersion = currentVersion + 1;
       const saved = await client.query(
         `INSERT INTO settings (id, data, version, updated_at) VALUES (1, $1, $2, NOW())
          ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, version = EXCLUDED.version, updated_at = NOW()
          WHERE settings.version = $3 RETURNING version`,
-        [JSON.stringify(settingsToSave), nextVersion, currentVersion],
+        [JSON.stringify(mergedSettings), nextVersion, currentVersion],
       );
       if (saved.rowCount !== 1) throw new Error("SETTINGS_VERSION_CONFLICT");
 
       await client.query(
         `INSERT INTO settings_change_log (settings_version, performed_by, action, before_data, after_data, ip_address)
          VALUES ($1, $2, 'UPDATE_SETTINGS', $3::jsonb, $4::jsonb, $5)`,
-        [nextVersion, session.id, JSON.stringify(current.rows[0]?.data ?? {}), JSON.stringify(settingsToSave), req.headers.get("x-forwarded-for") || "unknown"],
+        [nextVersion, session.id, JSON.stringify(current.rows[0]?.data ?? {}), JSON.stringify(mergedSettings), req.headers.get("x-forwarded-for") || "unknown"],
       );
       await client.query("COMMIT");
       await updateSystemState("settings");

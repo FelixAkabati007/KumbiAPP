@@ -46,17 +46,17 @@ export function validateEnv() {
   // Validate environment variables
   if (!env.DATABASE_URL) {
     if (env.NODE_ENV === "production") {
-      errors.push("DATABASE_URL is missing (Required for Neon PostgreSQL)");
+      errors.push("KUMRESH_DB_DATABASE_URL is missing (Required for Neon PostgreSQL)");
     } else {
       warnings.push(
-        "DATABASE_URL is missing (App may not function correctly without DB)"
+        "KUMRESH_DB_DATABASE_URL is missing (App may not function correctly without DB)"
       );
     }
   } else if (
     !env.DATABASE_URL.startsWith("postgres://") &&
     !env.DATABASE_URL.startsWith("postgresql://")
   ) {
-    errors.push("DATABASE_URL must start with postgres:// or postgresql://");
+    errors.push("KUMRESH_DB_DATABASE_URL must start with postgres:// or postgresql://");
   }
 
   if (!env.JWT_SECRET && env.NODE_ENV === "production") {
