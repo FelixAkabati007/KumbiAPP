@@ -57,7 +57,6 @@ function ReceiptContent() {
 
   // receiptData is used to store data from URL params, but the UI currently relies on foundSale.
   // Kept for potential future use or fixing the redirect logic.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [receiptData, setReceiptData] = useState<ReceiptData>({
     orderNumber: "",
     date: new Date().toLocaleDateString(),
@@ -285,8 +284,11 @@ function ReceiptContent() {
           </h1>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          <Button
+            <Button
             onClick={handlePrint}
+            disabled={!foundSale && !hotelActivity}
+            aria-disabled={!foundSale && !hotelActivity}
+            title={!foundSale && !hotelActivity ? "Search for a persisted transaction before printing" : "Print the validated receipt"}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
           >
             <Printer className="mr-2 h-4 w-4" />
@@ -530,20 +532,16 @@ function ReceiptContent() {
                   </div>
                 </ScrollArea>
               ) : searchTouched ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
-                  <span className="text-2xl">
-                    No receipt found for this order number.
-                  </span>
+                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-6 text-center text-muted-foreground">
+                  <Receipt className="size-8 text-destructive/70" aria-hidden="true" />
+                  <span className="font-semibold text-foreground">No persisted receipt found</span>
+                  <span className="text-sm">Verify the {receiptSource === "hotel" ? "reservation or booking number" : receiptSource === "event" ? "event receipt number" : "order number"} and search again.</span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-300 dark:text-gray-600">
-                  <span className="text-lg">
-  {receiptSource === "hotel"
-  ? "Search for a hotel payment receipt by reservation ID or booking number."
-  : receiptSource === "event"
-    ? "Search for an event booking receipt by event receipt number."
-    : "Search for a restaurant receipt by order number."}
-                  </span>
+                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center text-muted-foreground">
+                  <Receipt className="size-8" aria-hidden="true" />
+                  <span className="font-semibold text-foreground">Receipt preview is locked</span>
+                  <span className="text-sm">{receiptSource === "hotel" ? "Search for a hotel payment receipt by reservation ID or booking number." : receiptSource === "event" ? "Search for an event booking receipt by event receipt number." : "Search for a restaurant receipt by order number."}</span>
                 </div>
               )}
               {/* Tracking Section */}
