@@ -13,10 +13,10 @@ const tone: Record<WorkspaceSummary["booking"]["status"], string> = {
   in_progress: "border-primary/30 bg-primary/5",
 };
 
-export function EventOperationalSummary({ summary, onOpen }: { summary?: WorkspaceSummary; onOpen: (tab: "overview" | "payments" | "operations" | "documents") => void }) {
+export function EventOperationalSummary({ summary, onOpen }: { summary?: WorkspaceSummary; onOpen: (tab: "overview" | "quote" | "payments" | "finance" | "operations" | "documents" | "activity") => void }) {
   if (!summary) return null;
   const cards = [
-    { key: "booking", label: "Booking", icon: CheckCircle2, detail: summary.booking.detail, action: summary.booking.action, tab: "overview" as const },
+    { key: "booking", label: "Booking", icon: CheckCircle2, detail: summary.booking.detail, action: summary.booking.action, tab: summary.booking.secured ? "overview" as const : "quote" as const },
     { key: "collections", label: "Collections", icon: IndianRupee, detail: summary.collections.detail, action: summary.collections.action, tab: "payments" as const },
     { key: "delivery", label: "Delivery", icon: ClipboardList, detail: summary.delivery.detail, action: summary.delivery.action, tab: "operations" as const },
     { key: "records", label: "Records", icon: FileText, detail: summary.records.detail, action: summary.records.action, tab: "documents" as const },
