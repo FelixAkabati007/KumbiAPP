@@ -308,14 +308,14 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-1 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5">
+<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-2 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5">
   <div className="order-1 basis-full flex min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-2.5 py-1 md:basis-auto md:max-w-[min(17rem,24vw)] lg:max-w-[min(20rem,26vw)]">
   <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
-  <div className="order-2 flex min-w-0 max-w-full shrink-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-visible md:gap-1">
+  <div className="order-2 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
             {access.pos && access.kitchen && (
   <Link className="shrink-0" href="/split-workspace" prefetch={false}>
               <Button
@@ -389,15 +389,15 @@ function DashboardContent() {
               )}
             </Button>
   </div>
-  <div className="order-5 ml-auto flex min-w-0 shrink-0 items-center gap-1 md:gap-1.5">
+  <div className="order-5 flex shrink-0 items-center gap-2 md:ml-auto md:gap-1.5">
     <GlobalSearch role={user?.role} />
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
       <NotificationBell />
     </div>
-  </div>
-  <div className="order-6 ml-auto flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
-    {/* User avatar menu */}
-    <UserNav />
+    <div className="flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
+      {/* User avatar menu */}
+      <UserNav />
+    </div>
   </div>
 </nav>
         </div>
