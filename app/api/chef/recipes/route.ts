@@ -19,9 +19,11 @@ export async function GET() {
         'durationMinutes', rs.duration_minutes
       ) ORDER BY rs.step_number) FROM recipe_steps rs WHERE rs.menu_item_id = mi.id), '[]') AS steps
     FROM menu_items mi
+    LEFT JOIN categories c ON c.id = mi.category_id
     LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
     LEFT JOIN inventory i ON i.id = ri.inventory_item_id
     WHERE mi.is_available = true
+      AND COALESCE(LOWER(c.slug), '') NOT IN ('beverage', 'beverages', 'drink', 'drinks')
     GROUP BY mi.id
     ORDER BY mi.name ASC
   `);
