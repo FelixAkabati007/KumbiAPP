@@ -11,7 +11,13 @@ export type FinancialLedgerEntry = {
   entityType?: string | null;
   entityId?: string | null;
   originalEntryId?: string | null;
-  journalType?: "operational" | "refund" | "reversal" | "adjustment" | "expense" | "payroll";
+  journalType?:
+    | "operational"
+    | "refund"
+    | "reversal"
+    | "adjustment"
+    | "expense"
+    | "payroll";
   sourceEventId?: string | null;
   metadata?: Record<string, unknown>;
   occurredAt?: string | Date;
@@ -21,7 +27,10 @@ export type FinancialLedgerEntry = {
  * The canonical journal is append-only. Replays are idempotent by eventKey;
  * corrections must be represented by a linked reversal or adjustment entry.
  */
-export async function recordFinancialLedgerEntry(client: DatabaseClient, entry: FinancialLedgerEntry) {
+export async function recordFinancialLedgerEntry(
+  client: DatabaseClient,
+  entry: FinancialLedgerEntry,
+) {
   const result = await client.query<{ id: string }>(
     `INSERT INTO canonical_financial_ledger
       (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, original_entry_id, journal_type, source_event_id, metadata, occurred_at)
@@ -47,4 +56,33 @@ export async function recordFinancialLedgerEntry(client: DatabaseClient, entry: 
   );
 
   return result.rows[0]?.id ?? null;
+}
+
+export async function getPostedEntityBalance(
+  client: DatabaseClient,
+  entityType: string,
+  entityId: string,
+) {
+  const result = await client.query<{ balance: string }>(
+    `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END), 0)::numeric AS balance
+     FROM canonical_financial_ledger
+     WHERE entity_type = $1 AND entity_id = $2 AND status = 'posted'`,
+    [entityType, entityId],
+  );
+  return Number(result.rows[0]?.balance ?? 0);
+}
+
+export async function getPostedEntityCredits(
+  client: DatabaseClient,
+  entityType: string,
+  entityId: string,
+) {
+  const result = await client.query<{ credits: string }>(
+    `SELECT COALESCE(SUM(amount), 0)::numeric AS credits
+     FROM canonical_financial_ledger
+     WHERE entity_type = $1 AND entity_id = $2 AND direction = 'credit' AND status = 'posted'
+       AND source = 'event_payment'`,
+    [entityType, entityId],
+  );
+  return Number(result.rows[0]?.credits ?? 0);
 }
