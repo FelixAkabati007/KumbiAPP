@@ -315,7 +315,7 @@ function DashboardContent() {
   </span>
   <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
   </div>
-  <div className="order-2 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
+  <div className="order-2 hidden min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
             {access.pos && access.kitchen && (
   <Link className="shrink-0" href="/split-workspace" prefetch={false}>
               <Button
