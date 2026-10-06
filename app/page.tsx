@@ -294,7 +294,7 @@ function DashboardContent() {
       className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="sticky top-0 z-40 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col gap-2 px-2 py-2 sm:px-4 md:px-6 lg:gap-3">
+        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col gap-1 px-2 py-1 sm:gap-2 sm:px-4 sm:py-2 md:px-6 lg:gap-3">
           <div className="flex min-w-0 items-center justify-between gap-2 md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
               <LogoDisplay size="sm" />
@@ -308,7 +308,7 @@ function DashboardContent() {
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-1.5 overflow-hidden pb-1 md:flex-nowrap md:gap-1 lg:gap-1.5">
+<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-1 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5">
   <div className="order-1 basis-full flex min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-2.5 py-1 md:basis-auto md:max-w-[min(17rem,24vw)] lg:max-w-[min(20rem,26vw)]">
   <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
     Welcome, {user.name}
@@ -395,7 +395,7 @@ function DashboardContent() {
       <NotificationBell />
     </div>
   </div>
-  <div className="order-6 basis-full flex justify-end md:order-6 md:basis-auto">
+  <div className="order-6 ml-auto flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
     {/* User avatar menu */}
     <UserNav />
   </div>
