@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     if (startDate) { conditions.push(`occurred_at >= $${params.length + 1}`); params.push(startDate); }
     if (endDate) { conditions.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
     if (status) { conditions.push(`status = $${params.length + 1}`); params.push(status); }
-    if (source && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(source)) { conditions.push(`LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) = $${params.length + 1}`); params.push(source); }
+    if (source && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(source)) { conditions.push(`LOWER(CASE WHEN source = 'event_booking' THEN 'event' ELSE COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared') END) = $${params.length + 1}`); params.push(source); }
     if (orderId) { conditions.push(`(entity_id = $${params.length + 1} OR metadata->>'orderId' = $${params.length + 1})`); params.push(orderId); }
     if (orderNumber) { conditions.push(`(event_key = $${params.length + 1} OR metadata->>'orderNumber' = $${params.length + 1})`); params.push(orderNumber); }
     const result = await query(`SELECT id::text id, event_key transaction_id, amount, currency, status, payment_method, NULL::text customer_id, metadata, occurred_at created_at, updated_at, source, entity_type, entity_id, direction, journal_type FROM canonical_financial_ledger WHERE ${conditions.join(" AND ")} ORDER BY occurred_at DESC LIMIT $${params.length + 1}`, [...params, limit]);

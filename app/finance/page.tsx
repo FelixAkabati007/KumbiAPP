@@ -130,6 +130,33 @@ export default function FinancePage() {
     }
   };
 
+  const exportExcel = () => {
+    const rows = [
+      ["Transaction", "Amount", "Currency", "Status", "Payment Method", "Source", "Department", "Event ID", "Quote ID", "Created"],
+      ...transactions.map((item) => [
+        item.transaction_id ?? "",
+        String(item.amount),
+        String((item as Transaction & { currency?: string }).currency ?? "GHS"),
+        item.status,
+        item.payment_method ?? "",
+        String(item.metadata?.source ?? item.metadata?.department ?? ""),
+        String(item.metadata?.departmentLabel ?? (item.metadata?.department === "event" ? "Event Organization" : "")),
+        String(item.metadata?.eventId ?? item.metadata?.event_id ?? ""),
+        String(item.metadata?.quoteId ?? item.metadata?.quote_id ?? ""),
+        item.created_at,
+      ]),
+    ];
+    const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    const table = `<table><thead><tr>${rows[0].map((cell) => `<th>${escape(cell)}</th>`).join("")}</tr></thead><tbody>${rows.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const blob = new Blob([`<html><head><meta charset="utf-8"><style>table{border-collapse:collapse}th,td{border:1px solid #999;padding:6px;text-align:left}</style></head><body>${table}</body></html>`], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `finance-transactions-${new Date().toISOString().slice(0, 10)}.xls`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportCsv = () => {
     const rows = [
       ["Transaction", "Amount", "Status", "Payment Method", "Source", "Event ID", "Quote ID", "Created"],
@@ -183,8 +210,8 @@ export default function FinancePage() {
               <Button asChild variant="outline">
                 <Link href="/expenses">Operating expenses</Link>
               </Button>
-              <Button onClick={exportCsv} disabled={!transactions.length}>
-                <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export CSV
+              <Button onClick={exportExcel} disabled={!transactions.length}>
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export Excel
               </Button>
             </div>
           </header>
