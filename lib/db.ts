@@ -13,11 +13,13 @@ declare global {
 }
 
 // Configuration for the database connection
+// Prefer the connected KUMRESH_DB Neon integration URL. DATABASE_URL can be
+// left over from an older Neon project and may authenticate against a stale role.
 const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.DB_URL ||
   process.env.KUMRESH_DB_DATABASE_URL ||
-  process.env.KUMRESH_DB_POSTGRES_URL;
+  process.env.KUMRESH_DB_POSTGRES_URL ||
+  process.env.DATABASE_URL ||
+  process.env.DB_URL;
 const poolMax = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 8 : 20));
 const idleTimeoutMillis = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000);
 const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000);
