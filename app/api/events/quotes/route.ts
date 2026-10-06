@@ -10,7 +10,8 @@ function money(value: unknown) {
 }
 
 export async function GET(request: Request) {
-  const { error } = await requirePermission("eventPricing");
+  // Reading event quotes is part of event workspace visibility; mutations remain pricing-authorized below.
+  const { error } = await requirePermission("events");
   if (error) return error;
   const eventId = new URL(request.url).searchParams.get("eventId");
   if (!eventId) return NextResponse.json({ error: "eventId is required" }, { status: 400 });
