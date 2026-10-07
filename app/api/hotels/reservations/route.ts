@@ -4,6 +4,22 @@ import { requirePermission } from "@/lib/api-auth";
 import { z } from "zod";
 import { isShortStayRoomType } from "@/lib/hotels/short-stay";
 
+let shortStaySchemaReady: Promise<void> | null = null;
+
+async function ensureShortStaySchema() {
+  if (!shortStaySchemaReady) {
+    shortStaySchemaReady = query(`
+      ALTER TABLE reservations
+        ADD COLUMN IF NOT EXISTS stay_type VARCHAR(20) NOT NULL DEFAULT 'overnight',
+        ADD COLUMN IF NOT EXISTS check_in_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS checkout_due_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS overstay_started_at TIMESTAMPTZ
+    `).then(() => undefined);
+  }
+  return shortStaySchemaReady;
+}
+
 const reservationSchema = z.object({
   guestId: z.string().uuid(),
   roomTypeId: z.string().uuid(),
@@ -82,19 +98,22 @@ export async function GET(request: NextRequest) {
 // Create a new reservation
   export async function POST(request: NextRequest) {
   try {
-  const { session, error } = await requirePermission("reservations");
+    const { session, error } = await requirePermission("reservations");
     if (error) return error;
 
+    await ensureShortStaySchema();
     const parsed = reservationSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation details" }, { status: 400 });
     }
     const { guestId, roomTypeId, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
     const { checkInDate, checkOutDate } = parsed.data;
+    const checkInDay = checkInDate.toISOString().slice(0, 10);
+    const checkOutDay = checkOutDate.toISOString().slice(0, 10);
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const roomTypeName = roomTypeNameResult.rows[0]?.name;
     const isShortStay = parsed.data.stayType === "short_stay" || isShortStayRoomType(roomTypeName);
-    if (isShortStay && checkInDate.toDateString() !== checkOutDate.toDateString()) {
+    if (isShortStay && checkInDay !== checkOutDay) {
       return NextResponse.json({ error: "Short time bookings must use the same check-in and check-out date." }, { status: 400 });
     }
     if (!isShortStay && checkOutDate <= checkInDate) {
@@ -152,9 +171,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error("Error creating reservation:", error);
+    console.error("[v0] Error creating reservation:", error);
     return NextResponse.json(
-      { error: "Failed to create reservation" },
+      { error: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Failed to create reservation" },
       { status: 500 }
     );
   }
