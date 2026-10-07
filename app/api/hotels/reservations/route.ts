@@ -140,9 +140,10 @@ export async function GET(request: NextRequest) {
                OR (
                  LOWER(TRIM(COALESCE(r.status, ''))) = 'occupied'
                  AND NOT EXISTS (
-                   SELECT 1 FROM reservations checked_in
-                   WHERE checked_in.room_id = r.id AND checked_in.status = 'checked_in'
-                 )
+                   SELECT 1 FROM reservations existing
+                   WHERE existing.room_id = r.id
+                     AND existing.status IN ('confirmed', 'pending', 'checked_in')
+                  )
                )
              )`
         : `SELECT COUNT(*) AS available
