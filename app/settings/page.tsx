@@ -168,6 +168,7 @@ function SettingsPageContent() {
     const response = await fetch("/api/feature-toggles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, enabled }) });
     if (!response.ok) throw new Error("Unable to update feature toggle");
     setFeatureToggles((current) => ({ ...current, [key]: enabled }));
+    window.dispatchEvent(new Event("featureTogglesUpdated"));
     toast({ title: "Feature setting updated", description: `${key === "kitchen_display" ? "Kitchen Display" : key === "order_board" ? "Order Board" : "Advanced Housekeeping"} is now ${enabled ? "on" : "off"}.` });
   };
   const [activeTab, setActiveTab] = useState<string>(

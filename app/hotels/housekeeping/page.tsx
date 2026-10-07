@@ -170,7 +170,20 @@ function HousekeepingPage() {
   };
 
   useEffect(() => {
-    fetch("/api/feature-toggles", { cache: "no-store" }).then((response) => response.json()).then((data) => setAdvancedMode(data.toggles?.housekeeping_advanced === true)).catch(() => setAdvancedMode(false));
+    const loadHousekeepingMode = async () => {
+      try {
+        const response = await fetch("/api/feature-toggles", { cache: "no-store" });
+        if (!response.ok) throw new Error("Failed to load feature toggles");
+        const data = await response.json();
+        setAdvancedMode(data.toggles?.housekeeping_advanced === true);
+      } catch {
+        setAdvancedMode(false);
+      }
+    };
+
+    void loadHousekeepingMode();
+    window.addEventListener("featureTogglesUpdated", loadHousekeepingMode);
+    return () => window.removeEventListener("featureTogglesUpdated", loadHousekeepingMode);
   }, []);
 
   useEffect(() => {
