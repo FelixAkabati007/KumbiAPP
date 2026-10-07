@@ -31,6 +31,9 @@ export async function recordFinancialLedgerEntry(
   client: DatabaseClient,
   entry: FinancialLedgerEntry,
 ) {
+  const status = entry.status === "completed" || entry.status === "paid" || entry.status === "success" || entry.status === "succeeded"
+    ? "posted"
+    : entry.status;
   const result = await client.query<{ id: string }>(
     `INSERT INTO canonical_financial_ledger
       (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, original_entry_id, journal_type, source_event_id, metadata, occurred_at)
@@ -42,7 +45,7 @@ export async function recordFinancialLedgerEntry(
       Math.abs(entry.amount),
       entry.currency ?? "GHS",
       entry.direction,
-      entry.status,
+      status,
       entry.source,
       entry.paymentMethod ?? null,
       entry.entityType ?? null,

@@ -643,8 +643,7 @@ function POSContent() {
         
         <div class="total">
           <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
-          <div class="levy-header">GRA E-VAT / statutory levies:</div>
-          ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}
+${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ") ? `<div class="levy-header">GRA E-VAT / statutory levies:</div>${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}` : ""}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
@@ -1386,10 +1385,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       <span>Subtotal:</span>
                       <span>₵{calculateTotal().toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between">
-<span>GRA E-VAT / statutory levies:</span>
+{appSettings.system.taxConfiguration.enabled && calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax > 0 && <div className="flex justify-between">
+  <span>GRA E-VAT / statutory levies:</span>
   <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
-                    </div>
+  </div>}
                     <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
                       <span>TOTAL:</span>
                       <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").total.toFixed(2)}</span>
