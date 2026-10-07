@@ -8,10 +8,17 @@ import { fetchSettings } from "@/lib/settings";
 interface LogoDisplayProps {
   size?: "sm" | "md" | "lg";
   className?: string;
+  fallbackSrc?: string;
+  loadSettings?: boolean;
 }
 
-export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
-  const [logo, setLogo] = useState<string>("/logo.svg");
+export function LogoDisplay({
+  size = "md",
+  className = "",
+  fallbackSrc = "/logo.jpg",
+  loadSettings = true,
+}: LogoDisplayProps) {
+  const [logo, setLogo] = useState<string>(fallbackSrc);
   const [isValidImage, setIsValidImage] = useState(true);
 
   const loadLogo = useCallback(async () => {
@@ -43,6 +50,7 @@ export function LogoDisplay({ size = "md", className = "" }: LogoDisplayProps) {
   }, []);
 
   useEffect(() => {
+    if (!loadSettings) return;
     loadLogo();
 
     // Listen for storage changes to update logo across tabs
