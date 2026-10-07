@@ -7,6 +7,61 @@ export async function POST() {
   if (auth.error) return auth.error;
 
   const processed = await transaction(async (client) => {
+    const reminderResult = await client.query(
+      `WITH due AS (
+         SELECT r.id, r.reservation_number, r.checkout_due_at, r.room_id, r.guest_id
+         FROM reservations r
+         WHERE r.stay_type = 'short_stay'
+           AND r.status = 'checked_in'
+           AND r.checkout_due_at IS NOT NULL
+           AND r.reminder_sent_at IS NULL
+           AND r.checkout_due_at <= now() + interval '20 minutes'
+           AND r.checkout_due_at > now()
+         FOR UPDATE SKIP LOCKED
+       ), marked AS (
+         UPDATE reservations r
+         SET reminder_sent_at = now(), updated_at = now()
+         FROM due
+         WHERE r.id = due.id
+         RETURNING due.*
+       )
+       INSERT INTO notifications (recipient_user_id, title, message, type)
+       SELECT u.id,
+              'Short-stay checkout reminder',
+              CONCAT('Reservation ', marked.reservation_number, ' is due to check out in 20 minutes. Please ask the guest to prepare and leave the premises to avoid additional charges.'),
+              'short_stay_checkout_reminder'
+       FROM marked
+       JOIN users u ON u.role::text = 'reception' AND u.is_active = true
+       RETURNING id`,
+    );
+
+    const overstayResult = await client.query(
+      `WITH due AS (
+         SELECT r.id, r.reservation_number, r.checkout_due_at, r.room_id, r.guest_id
+         FROM reservations r
+         WHERE r.stay_type = 'short_stay'
+           AND r.status = 'checked_in'
+           AND r.checkout_due_at IS NOT NULL
+           AND r.checkout_due_at <= now()
+           AND r.overstay_started_at IS NULL
+         FOR UPDATE SKIP LOCKED
+       ), marked AS (
+         UPDATE reservations r
+         SET overstay_started_at = now(), updated_at = now()
+         FROM due
+         WHERE r.id = due.id
+         RETURNING due.*
+       ), ledger AS (
+         INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, room_id, amount, description, metadata)
+         SELECT 'short_stay_overdue', 'reservation', id::text, id::text, guest_id::text, room_id::text, 0,
+                CONCAT('Short stay exceeded checkout deadline for reservation ', reservation_number),
+                jsonb_build_object('checkoutDueAt', checkout_due_at, 'source', 'system')
+         FROM marked
+         RETURNING reservation_id
+       )
+       SELECT COUNT(*)::int AS count FROM ledger`,
+    );
+
     const claimed = await client.query(
       `UPDATE operational_outbox
        SET status = 'processing', attempts = attempts + 1
@@ -68,10 +123,14 @@ export async function POST() {
         results.push({ id: event.id, status: "retrying" });
       }
     }
-    return results;
+    return {
+      outbox: results,
+      shortStayReminders: reminderResult.rowCount ?? 0,
+      shortStayOverstays: Number(overstayResult.rows[0]?.count ?? 0),
+    };
   });
 
-  return NextResponse.json({ processed, count: processed.length });
+  return NextResponse.json({ ...processed, count: processed.outbox.length });
 }
 
 export async function GET() {
