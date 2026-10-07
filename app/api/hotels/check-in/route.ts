@@ -29,7 +29,18 @@ export async function POST(request: NextRequest) {
       }
 
       const roomResult = await client.query(
-        `SELECT id, room_number FROM rooms WHERE id = $1::uuid AND is_active = true AND status = 'available' FOR UPDATE`,
+        `SELECT r.id, r.room_number
+         FROM rooms r
+         LEFT JOIN LATERAL (
+           SELECT 1 AS active_stay
+           FROM reservations checked_in
+           WHERE checked_in.room_id = r.id AND checked_in.status = 'checked_in'
+           LIMIT 1
+         ) active ON true
+         WHERE r.id = $1::uuid
+           AND r.is_active = true
+           AND (LOWER(TRIM(COALESCE(r.status, ''))) = 'available' OR active.active_stay IS NULL)
+         FOR UPDATE OF r`,
         [roomId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
@@ -50,7 +61,17 @@ export async function POST(request: NextRequest) {
       // Update room status to occupied
       const updatedRoomResult = await client.query(
         `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1::uuid), updated_at = NOW()
-         WHERE id = $2::uuid AND status IN ('available', 'dirty', 'cleaning')`,
+         WHERE id = $2::uuid
+           AND (
+             status IN ('available', 'dirty', 'cleaning')
+             OR (
+               status = 'occupied'
+               AND NOT EXISTS (
+                 SELECT 1 FROM reservations checked_in
+                 WHERE checked_in.room_id = rooms.id AND checked_in.status = 'checked_in'
+               )
+             )
+           )`,
         [reservationId, roomId]
       );
       if (updatedRoomResult.rowCount === 0) {
