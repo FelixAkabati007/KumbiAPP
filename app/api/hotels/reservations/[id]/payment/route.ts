@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         eventKey: reference,
         amount,
         direction: "credit",
-        status: "completed",
+        status: "posted",
         source: "hotel-pre-checkin",
         paymentMethod: method,
         entityType: "reservation",
