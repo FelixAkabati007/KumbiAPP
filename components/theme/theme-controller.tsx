@@ -22,22 +22,31 @@ export function ThemeController() {
   useEffect(() => {
     if (!isMounted) return;
 
-    try {
-      const pref = getThemePreference();
-      if (pref && pref.key) {
-        applyTheme(pref.key as ThemeKey, pref.config);
-        setTheme(pref.key);
-      } else {
-        const settings = getSettings();
-        const defaultKey =
-          (settings.theme as ThemeKey) || ("light" as ThemeKey);
-        setTheme(defaultKey);
-        applyTheme(defaultKey);
+    let cancelled = false;
+    const loadTheme = async () => {
+      try {
+        const response = await fetch("/api/theme/preferences", { cache: "no-store" });
+        const pref = response.ok ? await response.json() : null;
+        if (cancelled) return;
+        if (pref?.key) {
+          applyTheme(pref.key as ThemeKey, pref.config);
+          setTheme(pref.key);
+        } else {
+          const settings = await import("@/lib/settings").then(({ fetchSettings }) => fetchSettings());
+          if (cancelled) return;
+          const defaultKey = (settings.theme as ThemeKey) || "system";
+          setTheme(defaultKey);
+          applyTheme(defaultKey);
+        }
+      } catch {
+        if (!cancelled) {
+          setTheme("light");
+          applyTheme("light");
+        }
       }
-    } catch {
-      setTheme("light");
-      applyTheme("light");
-    }
+    };
+    void loadTheme();
+    return () => { cancelled = true; };
 
     const handler = (e: Event) => {
       // visual feedback on theme change

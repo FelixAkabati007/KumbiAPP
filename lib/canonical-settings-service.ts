@@ -58,7 +58,7 @@ export async function saveCanonicalSettings({ request, actorId, actorRole, patch
         phone: input.account.phone,
         address: input.account.address,
         logo: input.account.logo,
-      } : undefined, notifications: input.notifications }
+      } : undefined, notifications: input.notifications, theme: input.theme }
     : input;
   return persistCanonicalSettings({ request, actorId, actorRole, patch: restrictedPatch });
 }

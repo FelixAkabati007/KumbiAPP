@@ -324,7 +324,8 @@ export async function saveSettings(settings: AppSettings): Promise<{ success: tr
     throw new Error(payload?.error || `Failed to save settings (${response.status})`);
   }
 
-  return { success: true };
+  const payload = await response.json().catch(() => ({}));
+  return { success: true, version: payload.version };
 }
 
 export function getCurrentLogo(): string {
