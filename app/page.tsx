@@ -46,8 +46,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { rolePermissions, roleDashboardConfig, UserRole, AppSection, getRoleDisplayName } from "@/lib/roles";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  rolePermissions,
+  roleDashboardConfig,
+  UserRole,
+  AppSection,
+  getRoleDisplayName,
+} from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { GlobalSearch } from "@/components/global-search";
@@ -99,19 +111,24 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeDashboardCategory, setActiveDashboardCategory] = useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
-  const [attendanceRecord, setAttendanceRecord] = useState<{ verification_status?: string; check_in_at?: string | null; check_out_at?: string | null } | null>(null);
+  const [activeDashboardCategory, setActiveDashboardCategory] =
+    useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
+  const [attendanceRecord, setAttendanceRecord] = useState<{
+    verification_status?: string;
+    check_in_at?: string | null;
+    check_out_at?: string | null;
+  } | null>(null);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   useEffect(() => {
-
     let cancelled = false;
 
     const syncTime = async () => {
       try {
         const response = await fetch("/api/system/time", { cache: "no-store" });
-        if (!response.ok) throw new Error(`Time API returned ${response.status}`);
+        if (!response.ok)
+          throw new Error(`Time API returned ${response.status}`);
         const payload = (await response.json()) as { iso?: string };
         if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
       } catch {
@@ -120,7 +137,10 @@ function DashboardContent() {
     };
 
     void syncTime();
-    const tickTimer = window.setInterval(() => setCurrentTime((value) => new Date(value.getTime() + 1000)), 1000);
+    const tickTimer = window.setInterval(
+      () => setCurrentTime((value) => new Date(value.getTime() + 1000)),
+      1000,
+    );
     const syncTimer = window.setInterval(syncTime, 30_000);
     return () => {
       cancelled = true;
@@ -185,7 +205,7 @@ function DashboardContent() {
     if (!user) return;
     let cancelled = false;
     void fetch("/api/attendance", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => (response.ok ? response.json() : null))
       .then((data: { record?: typeof attendanceRecord } | null) => {
         if (!cancelled) {
           setAttendanceRecord(data?.record ?? null);
@@ -195,7 +215,9 @@ function DashboardContent() {
       .catch(() => {
         if (!cancelled) setAttendanceLoaded(true);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   // Load receipt stats from Neon
@@ -206,7 +228,8 @@ function DashboardContent() {
 
   const handleFeatureToggle = useCallback(
     async (key: "kitchen_display" | "order_board", nextEnabled: boolean) => {
-      const label = key === "kitchen_display" ? "Kitchen Display" : "Order Board";
+      const label =
+        key === "kitchen_display" ? "Kitchen Display" : "Order Board";
       const ok = await setToggle(key, nextEnabled);
       if (ok) {
         toast({
@@ -223,7 +246,7 @@ function DashboardContent() {
         });
       }
     },
-    [setToggle, toast]
+    [setToggle, toast],
   );
 
   // Double-click/double-tap handler
@@ -260,33 +283,105 @@ function DashboardContent() {
   const access: Record<AppSection, boolean> =
     rolePermissions[user.role as UserRole] ||
     ({} as Record<AppSection, boolean>);
-  const roleDashboard = roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
+  const roleDashboard =
+    roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
   const isAttendanceExempt = user.role === "admin" || user.role === "manager";
-  const attendanceDenied = attendanceLoaded && !isAttendanceExempt && ["rejected", "denied"].includes(String(attendanceRecord?.verification_status ?? "").toLowerCase());
-  const categorySectionMap: Record<(typeof DASHBOARD_CATEGORIES)[number][0], AppSection[]> = {
+  const attendanceDenied =
+    attendanceLoaded &&
+    !isAttendanceExempt &&
+    ["rejected", "denied"].includes(
+      String(attendanceRecord?.verification_status ?? "").toLowerCase(),
+    );
+  const categorySectionMap: Record<
+    (typeof DASHBOARD_CATEGORIES)[number][0],
+    AppSection[]
+  > = {
     all: [],
-    hotel: ["rooms", "reservations", "checkIn", "checkOut", "housekeeping", "guestFolio"],
+    hotel: [
+      "rooms",
+      "reservations",
+      "checkIn",
+      "checkOut",
+      "housekeeping",
+      "guestFolio",
+    ],
     restaurant: ["pos", "kitchen", "orderBoard", "menu", "inventory"],
     finance: ["finance", "payments", "refunds", "reports", "receipt"],
     technical: ["operations", "maintenance"],
     administration: ["system"],
-  events: ["events"],
+    events: ["events"],
   };
-  const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(([category]) =>
-    category === "all" ||
-    (roleDashboard.categories.includes(category) && categorySectionMap[category].some((section) => access[section])),
+  const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(
+    ([category]) =>
+      category === "all" ||
+      (roleDashboard.categories.includes(category) &&
+        categorySectionMap[category].some((section) => access[section])),
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
   const operationalModules = [
-    access.pos && { title: "Point of Sale System", description: "Capture orders, payments, and service hand-offs", href: "/pos", icon: <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.kitchen && { title: "Kitchen Management", description: "Track preparation status and keep service moving", href: "/kitchen", icon: <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.reports && { title: "Analytics & Reports", description: "Reconcile sales, payments, and operating performance", href: "/reports", icon: <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.menu && { title: "Menu Management", description: "Manage menu items, pricing, and recipe availability", href: "/menu", icon: <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.inventory && { title: "Inventory", description: "Track live stock levels and supplies", href: "/inventory", icon: <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.reservations && { title: "Reservations", description: "Manage guest bookings and room availability", href: "/hotels/reservations", icon: <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-    access.finance && { title: "Finance Desk", description: "Reconcile payments, waivers, and transaction activity", href: "/finance", icon: <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" /> },
-  ].filter(Boolean) as Array<{ title: string; description: string; href: string; icon: ReactNode }>;
+    access.pos && {
+      title: "Point of Sale System",
+      description: "Capture orders, payments, and service hand-offs",
+      href: "/pos",
+      icon: (
+        <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.kitchen && {
+      title: "Kitchen Management",
+      description: "Track preparation status and keep service moving",
+      href: "/kitchen",
+      icon: (
+        <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.reports && {
+      title: "Analytics & Reports",
+      description: "Reconcile sales, payments, and operating performance",
+      href: "/reports",
+      icon: (
+        <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.menu && {
+      title: "Menu Management",
+      description: "Manage menu items, pricing, and recipe availability",
+      href: "/menu",
+      icon: (
+        <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.inventory && {
+      title: "Inventory",
+      description: "Track live stock levels and supplies",
+      href: "/inventory",
+      icon: (
+        <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.reservations && {
+      title: "Reservations",
+      description: "Manage guest bookings and room availability",
+      href: "/hotels/reservations",
+      icon: (
+        <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+    access.finance && {
+      title: "Finance Desk",
+      description: "Reconcile payments, waivers, and transaction activity",
+      href: "/finance",
+      icon: (
+        <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+      ),
+    },
+  ].filter(Boolean) as Array<{
+    title: string;
+    description: string;
+    href: string;
+    icon: ReactNode;
+  }>;
 
   return (
     <div
@@ -302,175 +397,298 @@ function DashboardContent() {
               <span className="inline-block min-w-0 truncate font-bold text-base text-gray-800 dark:text-gray-200 sm:text-lg lg:text-xl">
                 {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
                 <span className="sm:hidden">KHRMS</span>
-                <span className="hidden min-w-0 truncate sm:inline" suppressHydrationWarning>
+                <span
+                  className="hidden min-w-0 truncate sm:inline"
+                  suppressHydrationWarning
+                >
                   {settings.account.restaurantName}
                 </span>
               </span>
             </div>
           </div>
-<nav aria-label="Dashboard navigation" className="flex w-full flex-wrap items-center gap-2 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5">
-  <div className="order-1 basis-full flex min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-2.5 py-1 md:basis-auto md:max-w-[min(17rem,24vw)] lg:max-w-[min(20rem,26vw)]">
-  <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
-    Welcome, {user.name}
-  </span>
-  <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{getRoleDisplayName(user.role)}</span>
-  </div>
-  <div className="order-2 hidden min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
-            {access.pos && access.kitchen && (
-  <Link className="shrink-0" href="/split-workspace" prefetch={false}>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Open split POS and Kitchen workspace"
-                className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
-              >
-                <SplitSquareHorizontal className="h-4 w-4" />
-                <span className="hidden lg:inline">Split POS + Kitchen</span>
-              </Button>
-  </Link>
-  )}
-  {access.reservations && access.checkIn && (
-  <Link className="shrink-0" href="/hotel-split-workspace" prefetch={false}>
-  <Button
-  variant="outline"
-  size="sm"
-  aria-label="Open split Reservations and Check-In workspace"
-  className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
-  >
-  <SplitSquareHorizontal className="h-4 w-4" />
-  <span className="hidden lg:inline">Split Hotel Desk</span>
-  </Button>
-  </Link>
-  )}
-  {access.menu && access.inventory && (
-  <Link className="shrink-0" href="/menu-inventory-split-workspace" prefetch={false}>
-    <Button variant="outline" size="sm" aria-label="Open split Menu Management and Inventory workspace" className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3">
-      <SplitSquareHorizontal className="h-4 w-4" />
-      <span className="hidden lg:inline">Split Menu + Inventory</span>
-    </Button>
-  </Link>
-  )}
-  </div>
-  <Link className="order-3 shrink-0" href="/settings" prefetch={false}>
-    <Button variant="outline" size="sm" className="h-9 rounded-xl border-orange-200 bg-transparent px-2 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 lg:px-2.5">
-      <Settings className="h-4 w-4" />
-    </Button>
-  </Link>
-  <div className="order-4 flex shrink-0 items-center gap-1 md:gap-1.5">
-    <AppUpdateMenu />
-  <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
+          <nav
+            aria-label="Dashboard navigation"
+            className="flex w-full flex-wrap items-center gap-2 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5"
+          >
+            <div className="order-1 basis-full flex min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-2.5 py-1 md:basis-auto md:max-w-[min(17rem,24vw)] lg:max-w-[min(20rem,26vw)]">
+              <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
+                Welcome, {user.name}
+              </span>
+              <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                {getRoleDisplayName(user.role)}
+              </span>
+            </div>
+            <div className="order-2 hidden min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
+              {access.pos && access.kitchen && (
+                <Link
+                  className="shrink-0"
+                  href="/split-workspace"
+                  prefetch={false}
+                >
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleLogout}
-                    className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent relative group"
+                    aria-label="Open split POS and Kitchen workspace"
+                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <SplitSquareHorizontal className="h-4 w-4" />
+                    <span className="hidden lg:inline">
+                      Split POS + Kitchen
+                    </span>
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sign Out (Ctrl+Shift+L)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={isFullscreen ? "Minimize" : "Maximize"}
-              onClick={handleToggleFullscreen}
-              className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
+                </Link>
               )}
-            </Button>
-  </div>
-  <div className="order-5 flex shrink-0 items-center gap-2 md:ml-auto md:gap-1.5">
-    <GlobalSearch role={user?.role} />
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700" title="Notifications">
-      <NotificationBell />
-    </div>
-    <div className="flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
-      {/* User avatar menu */}
-      <UserNav />
-    </div>
-  </div>
-</nav>
+              {access.reservations && access.checkIn && (
+                <Link
+                  className="shrink-0"
+                  href="/hotel-split-workspace"
+                  prefetch={false}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Open split Reservations and Check-In workspace"
+                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
+                  >
+                    <SplitSquareHorizontal className="h-4 w-4" />
+                    <span className="hidden lg:inline">Split Hotel Desk</span>
+                  </Button>
+                </Link>
+              )}
+              {access.menu && access.inventory && (
+                <Link
+                  className="shrink-0"
+                  href="/menu-inventory-split-workspace"
+                  prefetch={false}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Open split Menu Management and Inventory workspace"
+                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
+                  >
+                    <SplitSquareHorizontal className="h-4 w-4" />
+                    <span className="hidden lg:inline">
+                      Split Menu + Inventory
+                    </span>
+                  </Button>
+                </Link>
+              )}
+            </div>
+            <Link
+              className="order-3 shrink-0"
+              href="/settings"
+              prefetch={false}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl border-orange-200 bg-transparent px-2 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 lg:px-2.5"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="order-4 flex shrink-0 items-center gap-1 md:gap-1.5">
+              <AppUpdateMenu />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent relative group"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sign Out (Ctrl+Shift+L)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={isFullscreen ? "Minimize" : "Maximize"}
+                onClick={handleToggleFullscreen}
+                className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="order-5 flex shrink-0 items-center gap-2 md:ml-auto md:gap-1.5">
+              <GlobalSearch role={user?.role} />
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
+                title="Notifications"
+              >
+                <NotificationBell />
+              </div>
+              <div className="flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
+                {/* User avatar menu */}
+                <UserNav />
+              </div>
+            </div>
+          </nav>
         </div>
       </header>
 
       <main className="flex-1 space-y-5 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">{roleDashboard.summary}</p>
-            <h2 className="responsive-heading mt-1 font-bold tracking-tight text-gray-800 dark:text-gray-200">Dashboard</h2>
-            <p className="important-description mt-3 max-w-2xl text-sm">{roleDashboard.focus}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">
+              {roleDashboard.summary}
+            </p>
+            <h2 className="responsive-heading mt-1 font-bold tracking-tight text-gray-800 dark:text-gray-200">
+              Dashboard
+            </h2>
+            <p className="important-description mt-3 max-w-2xl text-sm">
+              {roleDashboard.focus}
+            </p>
           </div>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
-  {!attendanceDenied && canSwitchDashboardCategories && (
-  <div className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Dashboard container category">
+            {!attendanceDenied && canSwitchDashboardCategories && (
+              <div
+                className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0"
+                role="group"
+                aria-label="Dashboard container category"
+              >
                 {availableDashboardCategories.map(([category, label]) => (
-                  <Button key={category} type="button" size="sm" variant={activeDashboardCategory === category ? "default" : "outline"} onClick={() => setActiveDashboardCategory(category)} className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700">
+                  <Button
+                    key={category}
+                    type="button"
+                    size="sm"
+                    variant={
+                      activeDashboardCategory === category
+                        ? "default"
+                        : "outline"
+                    }
+                    onClick={() => setActiveDashboardCategory(category)}
+                    className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700"
+                  >
                     {label}
                   </Button>
                 ))}
               </div>
             )}
-            {!attendanceDenied && <Link href={roleDashboard.primaryHref} className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">{roleDashboard.primaryAction}</Link>}
-  <div className="flex flex-wrap items-center justify-end gap-2">
-  <div className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40" aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}>
-  <Clock3 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
-  <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">{clockTime}</span>
-  <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{clockPeriod}</span>
-  </div>
-  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
-  <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-  <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-  {getRoleDisplayName(user.role)} Access
-  </span>
-  </div>
-  </div>
+            {!attendanceDenied && (
+              <Link
+                href={roleDashboard.primaryHref}
+                className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+              >
+                {roleDashboard.primaryAction}
+              </Link>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <div
+                className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
+                aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
+              >
+                <Clock3
+                  className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+                  aria-hidden="true"
+                />
+                <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">
+                  {clockTime}
+                </span>
+                <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+                  {clockPeriod}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
+                <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                  {getRoleDisplayName(user.role)} Access
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">{roleDashboard.visibilityNote}</p>
+        <p className="text-sm text-muted-foreground">
+          {roleDashboard.visibilityNote}
+        </p>
 
         <style>{`[data-attendance-only="true"] > *:not([data-attendance-card="true"]) { display: none !important; } [data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
-        <div data-dashboard-category-filter={activeDashboardCategory} data-attendance-only={attendanceDenied ? "true" : "false"} className="dashboard-category-grid responsive-grid">
+        <div
+          data-dashboard-category-filter={activeDashboardCategory}
+          data-attendance-only={attendanceDenied ? "true" : "false"}
+          className="dashboard-category-grid responsive-grid"
+        >
           <div data-dashboard-category="all" className="min-w-0">
             <AnnouncementCard />
           </div>
-          <Card data-dashboard-category="all" data-attendance-card="true" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+          <Card
+            data-dashboard-category="all"
+            data-attendance-card="true"
+            className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-              <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Staff Attendance Register</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Staff Attendance Register
+              </CardTitle>
               <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </CardHeader>
             <CardContent className="relative z-10">
-              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Attendance</div>
-              <p className="text-sm leading-6 text-muted-foreground">Check in before your scheduled start, check out at or after your scheduled end, and wait for a manager approval before opening other workspaces.</p>
-              <Link href={user.role === "staff" ? "/staff/attendance" : "/attendance"} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">{user.role === "staff" ? "Open staff attendance" : "Open attendance register"}</Link>
+              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                Attendance
+              </div>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Check in before your scheduled start, check out at or after your
+                scheduled end, and wait for a manager approval before opening
+                other workspaces.
+              </p>
+              <Link
+                href={
+                  user.role === "staff" ? "/staff/attendance" : "/attendance"
+                }
+                className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+              >
+                {user.role === "staff"
+                  ? "Open staff attendance"
+                  : "Open attendance register"}
+              </Link>
             </CardContent>
           </Card>
           {access.events && (
-            <Card data-dashboard-category="events" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="events"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">Event Organization</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Event Organization
+                </CardTitle>
                 <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Events</div>
-                <p className="text-sm leading-6 text-muted-foreground">Plan events, coordinate venues, manage guests, assign delivery teams, and prepare quotations through the Pricing desk.</p>
-                <Link href="/events" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">Open Event Organization</Link>
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                  Events
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Plan events, coordinate venues, manage guests, assign delivery
+                  teams, and prepare quotations through the Pricing desk.
+                </p>
+                <Link
+                  href="/events"
+                  className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+                >
+                  Open Event Organization
+                </Link>
               </CardContent>
             </Card>
           )}
           {access.pos && (
-            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="restaurant"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -488,7 +706,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/pos" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Open POS
                   </Button>
                 </Link>
@@ -496,7 +714,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.kitchen && (
-            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="restaurant"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -509,7 +730,9 @@ function DashboardContent() {
                         <span>
                           <Switch
                             checked={toggles.kitchen_display}
-                            disabled={!canManage || updating === "kitchen_display"}
+                            disabled={
+                              !canManage || updating === "kitchen_display"
+                            }
                             onCheckedChange={(checked) =>
                               handleFeatureToggle("kitchen_display", checked)
                             }
@@ -541,7 +764,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/kitchen" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Kitchen
                   </Button>
                 </Link>
@@ -549,7 +772,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.orderBoard && (
-            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="restaurant"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -594,7 +820,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/order-display?mode=grid" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Orders
                   </Button>
                 </Link>
@@ -602,7 +828,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.menu && (
-            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="restaurant"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -620,7 +849,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/menu" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Manage Menu
                   </Button>
                 </Link>
@@ -628,7 +857,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.inventory && (
-            <Card data-dashboard-category="restaurant" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="restaurant"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -646,7 +878,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/inventory" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Inventory
                   </Button>
                 </Link>
@@ -654,42 +886,78 @@ function DashboardContent() {
             </Card>
           )}
           {access.operations && (
-    <Card data-dashboard-category="technical" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-      <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-        <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">Technical Operations</CardTitle>
-        <Wrench className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
-      </CardHeader>
-      <CardContent className="relative z-10">
-        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">Maintenance</p>
-        <p className="text-xs text-muted-foreground">Coordinate hotel and restaurant technical issues</p>
-      </CardContent>
-      <CardFooter className="relative z-10">
-        <Link href="/operations" className="w-full"><Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">Open Operations</Button></Link>
-      </CardFooter>
-    </Card>
-  )}
-  {access.finance && (
-            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="technical"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">Finance Desk</CardTitle>
-                <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+              <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Technical Operations
+                </CardTitle>
+                <Wrench
+                  className="h-4 w-4 text-orange-600 dark:text-orange-400"
+                  aria-hidden="true"
+                />
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">Finance</div>
-                <p className="text-xs text-muted-foreground">Canonical ledger view for posted sales, refunds, expenses, and exceptions.</p>
-                <p className="mt-2 text-xs font-medium text-muted-foreground">Source of truth: canonical financial ledger</p>
+                <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                  Maintenance
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Coordinate hotel and restaurant technical issues
+                </p>
+              </CardContent>
+              <CardFooter className="relative z-10">
+                <Link href="/operations" className="w-full">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">
+                    Open Operations
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          )}
+          {access.finance && (
+            <Card
+              data-dashboard-category="finance"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Finance Desk
+                </CardTitle>
+                <CreditCard
+                  className="h-4 w-4 text-orange-600 dark:text-orange-400"
+                  aria-hidden="true"
+                />
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                  Finance
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Canonical ledger view for posted sales, refunds, expenses, and
+                  exceptions.
+                </p>
+                <p className="mt-2 text-xs font-medium text-muted-foreground">
+                  Source of truth: canonical financial ledger
+                </p>
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/finance" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">Open Finance</Button>
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                    Open Finance
+                  </Button>
                 </Link>
               </CardFooter>
             </Card>
           )}
           {access.reports && (
-            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="finance"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -707,7 +975,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/reports" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Reports
                   </Button>
                 </Link>
@@ -715,7 +983,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.refunds && (
-            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="finance"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -733,7 +1004,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/refunds" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     Manage Refunds
                   </Button>
                 </Link>
@@ -741,7 +1012,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.payments && (
-            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="finance"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -759,7 +1033,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/payments" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Payments
                   </Button>
                 </Link>
@@ -767,7 +1041,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.receipt && (
-            <Card data-dashboard-category="finance" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="finance"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -781,13 +1058,34 @@ function DashboardContent() {
                 </div>
                 {receiptStats ? (
                   <div className="my-2 grid grid-cols-2 gap-2 text-xs text-foreground">
-                    <div>Today: <span className="font-semibold">{receiptStats.today}</span></div>
-                    <div>This week: <span className="font-semibold">{receiptStats.week}</span></div>
-                    <div>This month: <span className="font-semibold">{receiptStats.month}</span></div>
-                    <div>Total: <span className="font-semibold">{receiptStats.total}</span></div>
+                    <div>
+                      Today:{" "}
+                      <span className="font-semibold">
+                        {receiptStats.today}
+                      </span>
+                    </div>
+                    <div>
+                      This week:{" "}
+                      <span className="font-semibold">{receiptStats.week}</span>
+                    </div>
+                    <div>
+                      This month:{" "}
+                      <span className="font-semibold">
+                        {receiptStats.month}
+                      </span>
+                    </div>
+                    <div>
+                      Total:{" "}
+                      <span className="font-semibold">
+                        {receiptStats.total}
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  <p className="my-2 text-xs text-muted-foreground">Receipt activity is loading from the canonical receipt register.</p>
+                  <p className="my-2 text-xs text-muted-foreground">
+                    Receipt activity is loading from the canonical receipt
+                    register.
+                  </p>
                 )}
                 <p className="text-xs text-muted-foreground">
                   Search and print only persisted transaction receipts.
@@ -795,7 +1093,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/receipt" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View Receipts
                   </Button>
                 </Link>
@@ -803,7 +1101,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.system && (
-            <Card data-dashboard-category="administration" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="administration"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -821,7 +1122,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/system" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
                     View System
                   </Button>
                 </Link>
@@ -829,7 +1130,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.reservations && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="hotel"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -847,7 +1151,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/reservations" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     Manage Reservations
                   </Button>
                 </Link>
@@ -855,7 +1159,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.rooms && !isHousekeeping && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="hotel"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -873,7 +1180,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/rooms" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     View Rooms
                   </Button>
                 </Link>
@@ -881,7 +1188,10 @@ function DashboardContent() {
             </Card>
           )}
           {(access.housekeeping || isHousekeeping) && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="hotel"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -899,7 +1209,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/housekeeping" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     View Tasks
                   </Button>
                 </Link>
@@ -907,7 +1217,10 @@ function DashboardContent() {
             </Card>
           )}
           {access.checkIn && (
-            <Card data-dashboard-category="hotel" className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card">
+            <Card
+              data-dashboard-category="hotel"
+              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
                 <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -925,7 +1238,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/check-in" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
                     Process Check-In
                   </Button>
                 </Link>
@@ -934,19 +1247,26 @@ function DashboardContent() {
           )}
         </div>
 
-        {!isHousekeeping && user.role === "kitchen" && <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7 mb-4"><ChefRecipeCard /></div>}
+        {!isHousekeeping && user.role === "kitchen" && (
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7 mb-4">
+            <ChefRecipeCard />
+          </div>
+        )}
 
-        {!isHousekeeping && <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="min-w-0 md:col-span-2 lg:col-span-4 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-            <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-              <CardTitle className="text-gray-800 dark:text-gray-200">
-                Welcome to {settings.account.restaurantName || "your business"}
-              </CardTitle>
-              <CardDescription className="text-orange-600 dark:text-orange-400">
-                A single operating view for service, kitchen flow, and business performance
-              </CardDescription>
-            </CardHeader>
+        {!isHousekeeping && (
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Card className="min-w-0 md:col-span-2 lg:col-span-4 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+              <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                <CardTitle className="text-gray-800 dark:text-gray-200">
+                  Welcome to{" "}
+                  {settings.account.restaurantName || "your business"}
+                </CardTitle>
+                <CardDescription className="text-orange-600 dark:text-orange-400">
+                  A single operating view for service, kitchen flow, and
+                  business performance
+                </CardDescription>
+              </CardHeader>
               <CardContent className="pl-2 relative z-10">
                 <div className="space-y-4 p-4">
                   {operationalModules.map((module) => (
@@ -955,42 +1275,54 @@ function DashboardContent() {
                         {module.icon}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{module.title}</p>
-                        <p className="text-xs text-muted-foreground">{module.description}</p>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {module.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {module.description}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
               </CardContent>
-          </Card>
-          {user.role !== "staff" && (
-            <Card className="min-w-0 md:col-span-2 lg:col-span-3 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="text-gray-800 dark:text-gray-200">
-                  Quick Actions
-                </CardTitle>
-                <CardDescription className="text-orange-600 dark:text-orange-400">
-                  Shortcuts mapped directly to the operational cards on this dashboard
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="space-y-2">
-                  {operationalModules.map((module) => (
-                    <Link key={module.title} href={module.href} className="block">
-                      <Button variant="ghost" className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20">
-                        {module.icon}
-                        <span className="ml-2">{module.title}</span>
-                      </Button>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
             </Card>
-          )}
-
-  </div>}
-  </main>
+            {user.role !== "staff" && (
+              <Card className="min-w-0 md:col-span-2 lg:col-span-3 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                  <CardTitle className="text-gray-800 dark:text-gray-200">
+                    Quick Actions
+                  </CardTitle>
+                  <CardDescription className="text-orange-600 dark:text-orange-400">
+                    Shortcuts mapped directly to the operational cards on this
+                    dashboard
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="space-y-2">
+                    {operationalModules.map((module) => (
+                      <Link
+                        key={module.title}
+                        href={module.href}
+                        className="block"
+                      >
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start rounded-2xl text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-900/20"
+                        >
+                          {module.icon}
+                          <span className="ml-2">{module.title}</span>
+                        </Button>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
