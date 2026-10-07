@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
 
@@ -98,6 +98,19 @@ export async function POST(request: NextRequest) {
       );
       if (roomResult.rowCount !== 1) throw new Error("Room was not found");
 
+      // Checkout always creates the housekeeping work item in the same transaction
+      // as the dirty-room transition, so the room and task cannot drift apart.
+      await client.query(
+        `INSERT INTO housekeeping_tasks (room_id, task_type, priority, notes)
+         SELECT $1, 'cleaning', 'normal', $2
+         WHERE NOT EXISTS (
+           SELECT 1 FROM housekeeping_tasks
+           WHERE room_id = $1 AND task_type = 'cleaning'
+             AND status IN ('pending', 'in_progress')
+         )`,
+        [checkedOutRoomId, `Automatic cleaning task created after checkout ${reservationId}`],
+      );
+
       const verified = await client.query(
         `SELECT id, status, room_id, guest_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
         [reservationId]
@@ -120,6 +133,22 @@ export async function POST(request: NextRequest) {
       );
       return { ...verified.rows[0], receiptId: receiptResult.rows[0]?.id ?? null, receipt: receiptResult.rows[0]?.snapshot ?? null, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
+
+    await query(
+      `INSERT INTO notifications (recipient_user_id, title, message, type)
+       SELECT u.id, $1, $2, 'housekeeping'
+       FROM users u
+       WHERE u.role = 'housekeeping' AND u.is_active = true
+         AND NOT EXISTS (
+           SELECT 1 FROM notifications n
+           WHERE n.recipient_user_id = u.id AND n.type = 'housekeeping'
+             AND n.title = $1 AND n.created_at > NOW() - INTERVAL '10 minutes'
+         )`,
+      [
+        `Room ${result.room_id} needs cleaning`,
+        `Room ${result.room_id} is dirty after checkout and is ready for cleaning.`,
+      ],
+    );
 
     return NextResponse.json(
       { ...result, persisted: true, status: "checked_out" },
