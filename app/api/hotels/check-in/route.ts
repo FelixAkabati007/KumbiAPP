@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
 
       const resResult = await client.query(
-        `UPDATE reservations SET status = 'checked_in', room_id = $1::uuid, updated_at = NOW()
+        `UPDATE reservations
+         SET status = 'checked_in', room_id = $1::uuid, check_in_at = NOW(),
+             checkout_due_at = CASE WHEN stay_type = 'short_stay' THEN NOW() + interval '130 minutes' ELSE NULL END,
+             reminder_sent_at = NULL, overstay_started_at = NULL, updated_at = NOW()
          WHERE id = $2::uuid AND status IN ('confirmed', 'pending') RETURNING *`,
         [roomId, reservationId]
       );

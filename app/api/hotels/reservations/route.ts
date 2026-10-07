@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { z } from "zod";
+import { isShortStayRoomType } from "@/lib/hotels/short-stay";
 
 const reservationSchema = z.object({
   guestId: z.string().uuid(),
@@ -14,6 +15,7 @@ const reservationSchema = z.object({
   promoCode: z.string().max(50).optional(),
   discountPercent: z.coerce.number().min(0).max(100).default(0),
   createdBy: z.string().uuid().optional(),
+  stayType: z.enum(["overnight", "short_stay"]).optional(),
 });
 
 // Get all reservations with optional filtering
@@ -90,8 +92,8 @@ export async function GET(request: NextRequest) {
     const { guestId, roomTypeId, numberOfGuests, specialRequests, source, promoCode, discountPercent, createdBy } = parsed.data;
     const { checkInDate, checkOutDate } = parsed.data;
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
-    const roomTypeName = roomTypeNameResult.rows[0]?.name?.trim().toLowerCase();
-    const isShortStay = roomTypeName === "short time" || roomTypeName === "short stay";
+    const roomTypeName = roomTypeNameResult.rows[0]?.name;
+    const isShortStay = parsed.data.stayType === "short_stay" || isShortStayRoomType(roomTypeName);
     if (isShortStay && checkInDate.toDateString() !== checkOutDate.toDateString()) {
       return NextResponse.json({ error: "Short time bookings must use the same check-in and check-out date." }, { status: 400 });
     }
@@ -135,9 +137,9 @@ export async function GET(request: NextRequest) {
       if (!reservationNumber) throw new Error("Unable to generate reservation number");
 
       const inserted = await client.query(
-        `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'confirmed') RETURNING *`,
-        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, session.id]
+        `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, stay_type, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'confirmed') RETURNING *`,
+        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, session.id, isShortStay ? "short_stay" : "overnight"]
       );
 
       await client.query(

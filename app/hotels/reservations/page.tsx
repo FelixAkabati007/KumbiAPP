@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Plus, ArrowLeft } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
+import { isShortStayRoomType } from "@/lib/hotels/short-stay";
 
 interface Reservation {
   id: string;
@@ -27,6 +28,8 @@ interface Reservation {
   total_price: number;
   room_type_name: string;
   group_booking_reference?: string | null;
+  stay_type?: "overnight" | "short_stay";
+  checkout_due_at?: string | null;
 }
 
 interface RoomType {
@@ -111,11 +114,11 @@ function ReservationsPage() {
       return;
     }
 
-    const checkIn = new Date(formData.checkInDate);
-    const checkOut = new Date(formData.checkOutDate);
-  const selectedRoomType = roomTypes.find((roomType) => roomType.id === formData.roomTypeId);
-  const isShortStay = /short time|short stay/i.test(selectedRoomType?.name || "");
-  if (isShortStay && checkIn.toDateString() !== checkOut.toDateString()) {
+    const checkIn = new Date(`${formData.checkInDate}T00:00:00`);
+    const checkOut = new Date(`${formData.checkOutDate}T00:00:00`);
+    const selectedRoomType = roomTypes.find((roomType) => roomType.id === formData.roomTypeId);
+    const isShortStay = isShortStayRoomType(selectedRoomType?.name);
+    if (isShortStay && formData.checkInDate !== formData.checkOutDate) {
   toast({
   title: "Short stay booking rule",
   description: "Short time bookings must use the same check-in and check-out date. The default short-stay duration remains two hours.",
@@ -177,6 +180,7 @@ function ReservationsPage() {
           roomCount: formData.roomCount,
           totalPrice: totalPrice * formData.roomCount,
           source: "walk_in",
+          stayType: isShortStay ? "short_stay" : "overnight",
         }),
       });
 

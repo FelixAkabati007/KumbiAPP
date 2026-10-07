@@ -17,14 +17,14 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // hotel_receipts is the canonical receipt record. Financial ledger entries
-    // remain the source for monetary reporting, but must not be counted as
-    // additional receipts because event bookings write to both tables.
+    // hotel_receipts is the canonical generated-receipt record for all sources,
+    // including event_booking. The financial ledger is intentionally not counted
+    // here because Event securing writes one receipt and one ledger entry.
     const sql = `
       SELECT
-        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int AS today,
-        COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_DATE))::int AS week,
-        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE))::int AS month,
+        COUNT(*) FILTER (WHERE created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Accra')::date)::int AS today,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Accra')::timestamp))::int AS week,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Accra')::timestamp))::int AS month,
         COUNT(*)::int AS total
       FROM hotel_receipts
       WHERE LOWER(COALESCE(receipt_type, '')) NOT IN ('refund', 'refunded', 'reversal', 'reversed', 'void')

@@ -292,7 +292,8 @@ function SettingsPageContent() {
   const handleSaveSettings = async () => {
     setSaveState("saving");
     try {
-      await saveSettings(settings);
+      const result = await saveSettings(settings);
+      setSettingsState((current) => ({ ...current, version: result.version ?? current.version }));
 
     // Notify mounted consumers, including the Navbar, of the saved business name.
     window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: settings }));
@@ -479,7 +480,7 @@ function SettingsPageContent() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <Card
                         className={`cursor-pointer transition-all duration-300 rounded-2xl border-2 relative overflow-hidden transform hover:scale-[1.02] active:scale-95 active:shadow-md ${
-                          theme === "light"
+                          settings.theme === "light"
                             ? "border-orange-500 bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-900 dark:to-amber-800 shadow-lg scale-105"
                             : "border-orange-200 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 bg-white/50 dark:bg-gray-800/50"
                         }`}
@@ -511,7 +512,7 @@ function SettingsPageContent() {
                       </Card>
                       <Card
                         className={`cursor-pointer transition-all duration-300 rounded-2xl border-2 relative overflow-hidden transform hover:scale-[1.02] active:scale-95 active:shadow-md ${
-                          theme === "dark"
+                          settings.theme === "dark"
                             ? "border-orange-500 bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-900 dark:to-amber-800 shadow-lg scale-105"
                             : "border-orange-200 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 bg-white/50 dark:bg-gray-800/50"
                         }`}
@@ -543,7 +544,7 @@ function SettingsPageContent() {
                       </Card>
                       <Card
                         className={`cursor-pointer transition-all duration-300 rounded-2xl border-2 relative overflow-hidden transform hover:scale-[1.02] active:scale-95 active:shadow-md ${
-                          theme === "system"
+                          settings.theme === "system"
                             ? "border-orange-500 bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-900 dark:to-amber-800 shadow-lg scale-105"
                             : "border-orange-200 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 bg-white/50 dark:bg-gray-800/50"
                         }`}
