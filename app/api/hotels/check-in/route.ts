@@ -48,14 +48,16 @@ export async function POST(request: NextRequest) {
          LEFT JOIN LATERAL (
            SELECT 1 AS active_stay
            FROM reservations checked_in
-           WHERE checked_in.room_id = r.id AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
+           WHERE checked_in.room_id = r.id
+             AND checked_in.id <> $2::uuid
+             AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
            LIMIT 1
          ) active ON true
          WHERE r.id = $1::uuid
            AND r.is_active = true
            AND (LOWER(TRIM(COALESCE(r.status, ''))) = 'available' OR active.active_stay IS NULL)
          FOR UPDATE OF r`,
-        [roomId]
+        [roomId, reservationId]
       );
       if (roomResult.rowCount === 0) throw new Error("Room is no longer available");
 
@@ -82,7 +84,9 @@ export async function POST(request: NextRequest) {
                status = 'occupied'
                AND NOT EXISTS (
                  SELECT 1 FROM reservations checked_in
-                 WHERE checked_in.room_id = rooms.id AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
+                 WHERE checked_in.room_id = rooms.id
+                   AND checked_in.id <> $1::uuid
+                   AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
                )
              )
            )`,

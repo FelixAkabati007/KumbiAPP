@@ -145,16 +145,18 @@ export async function GET(request: NextRequest) {
                  )
                )
              )`
-        : `SELECT (
-             SELECT COUNT(*) FROM rooms r
-             WHERE r.room_type_id = $3 AND r.is_active = true AND r.status = 'available'
-           ) - (
-             SELECT COUNT(*) FROM reservations existing
-             WHERE existing.room_type_id = $3
-               AND existing.status IN ('confirmed', 'checked_in')
-               AND existing.check_in_date < $2
-               AND existing.check_out_date > $1
-           ) AS available`,
+        : `SELECT COUNT(*) AS available
+           FROM rooms r
+           WHERE r.room_type_id = $3
+             AND r.is_active = true
+             AND LOWER(TRIM(COALESCE(r.status, ''))) = 'available'
+             AND NOT EXISTS (
+               SELECT 1 FROM reservations existing
+               WHERE existing.room_id = r.id
+                 AND existing.status IN ('confirmed', 'pending', 'checked_in')
+                 AND existing.check_in_date < $2
+                 AND existing.check_out_date > $1
+             )`,
       isShortStay ? [roomTypeId] : [checkInDate, checkOutDate, roomTypeId]
     );
     if (Number(availability.rows[0]?.available ?? 0) <= 0) {

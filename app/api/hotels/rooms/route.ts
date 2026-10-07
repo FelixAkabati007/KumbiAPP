@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const roomTypeId = searchParams.get("roomTypeId");
+    const reservationId = searchParams.get("reservationId");
 
     let sql = `
       SELECT r.id, r.room_number, r.floor, r.building,
@@ -35,7 +36,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN LATERAL (
         SELECT check_in_date, check_out_date
         FROM reservations
-        WHERE room_id = r.id AND status IN ('checked_in', 'confirmed', 'pending')
+        WHERE room_id = r.id
+          AND status IN ('checked_in', 'confirmed', 'pending')
+          ${reservationId ? "AND id <> $1::uuid" : ""}
         ORDER BY updated_at DESC
         LIMIT 1
       ) res ON true
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users hu ON hu.id = hk.assigned_to
       WHERE r.is_active = true
     `;
-    const params: (string | undefined)[] = [];
+    const params: (string | undefined)[] = reservationId ? [reservationId] : [];
 
     if (status) {
       const statuses = status.split(",").map((value) => value.trim()).filter(Boolean);
