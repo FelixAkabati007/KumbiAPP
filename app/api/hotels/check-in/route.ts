@@ -19,6 +19,20 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
+      const reservationRoomResult = await client.query(
+        `SELECT room_type_id FROM reservations WHERE id = $1::uuid AND status IN ('confirmed', 'pending') FOR UPDATE`,
+        [reservationId],
+      );
+      if (reservationRoomResult.rowCount === 0) throw new Error("Reservation not found or already checked in");
+
+      const selectedRoomTypeResult = await client.query(
+        `SELECT room_type_id FROM rooms WHERE id = $1::uuid AND is_active = true`,
+        [roomId],
+      );
+      if (selectedRoomTypeResult.rowCount === 0) throw new Error("Room is no longer available");
+      if (selectedRoomTypeResult.rows[0].room_type_id !== reservationRoomResult.rows[0].room_type_id) {
+        throw new Error("Selected room does not match the reservation room type");
+      }
       const paymentResult = await client.query(
         `SELECT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1 AND status = 'completed') AS paid,
                 EXISTS (SELECT 1 FROM complimentary_authorizations WHERE reservation_id = $2::uuid AND status = 'active' AND valid_from <= now() AND valid_until > now() AND room_waived = true) AS is_vip`,
@@ -34,7 +48,7 @@ export async function POST(request: NextRequest) {
          LEFT JOIN LATERAL (
            SELECT 1 AS active_stay
            FROM reservations checked_in
-           WHERE checked_in.room_id = r.id AND checked_in.status = 'checked_in'
+           WHERE checked_in.room_id = r.id AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
            LIMIT 1
          ) active ON true
          WHERE r.id = $1::uuid
@@ -68,7 +82,7 @@ export async function POST(request: NextRequest) {
                status = 'occupied'
                AND NOT EXISTS (
                  SELECT 1 FROM reservations checked_in
-                 WHERE checked_in.room_id = rooms.id AND checked_in.status = 'checked_in'
+                 WHERE checked_in.room_id = rooms.id AND checked_in.status IN ('checked_in', 'confirmed', 'pending')
                )
              )
            )`,

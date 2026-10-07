@@ -25,7 +25,7 @@ export async function GET(
       JOIN room_types rt ON r.room_type_id = rt.id AND rt.is_active = true
       LEFT JOIN LATERAL (
         SELECT id FROM reservations
-        WHERE room_id = r.id AND status = 'checked_in'
+        WHERE room_id = r.id AND status IN ('checked_in', 'confirmed', 'pending')
         LIMIT 1
       ) active_stay ON true
       WHERE r.id = $1 AND r.is_active = true

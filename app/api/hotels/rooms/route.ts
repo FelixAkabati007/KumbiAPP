@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN LATERAL (
         SELECT check_in_date, check_out_date
         FROM reservations
-        WHERE room_id = r.id AND status = 'checked_in'
+        WHERE room_id = r.id AND status IN ('checked_in', 'confirmed', 'pending')
         ORDER BY updated_at DESC
         LIMIT 1
       ) res ON true
