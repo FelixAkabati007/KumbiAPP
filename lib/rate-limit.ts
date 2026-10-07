@@ -9,17 +9,41 @@ export async function recordSignupAttempt(
   ip: string | null
 ): Promise<void> {
   try {
-    // Record the attempt
     await query("INSERT INTO signup_attempts (email, ip) VALUES ($1, $2)", [
       email || null,
       ip || null,
     ]);
-
-    // Cleanup is now handled by a scheduled job or dedicated cleanup endpoint
-    // to avoid slowing down user requests.
   } catch (err) {
-    // Log but don't throw - we don't want to block user registration due to metrics failure
     console.warn("Failed to record signup attempt", err);
+  }
+}
+
+export async function recordAndCheckLoginAttempt(
+  email: string | null,
+  ip: string | null,
+  windowMinutes = 10,
+  maxAttempts = 15
+): Promise<boolean> {
+  if (!email && !ip) return false;
+
+  try {
+    const res = await query<{ count: string }>(
+      `
+      WITH inserted AS (
+        INSERT INTO signup_attempts (email, ip) VALUES ($1, $2)
+      )
+      SELECT COUNT(*)::text AS count
+      FROM signup_attempts
+      WHERE created_at > NOW() - make_interval(mins => $3)
+        AND (($1::text IS NOT NULL AND email = $1::text)
+          OR ($2::text IS NOT NULL AND ip = $2::text))
+      `,
+      [email || null, ip || null, windowMinutes]
+    );
+    return Number(res.rows[0]?.count || "0") >= maxAttempts;
+  } catch (err) {
+    console.warn("Login rate limit check failed", err);
+    return false;
   }
 }
 
