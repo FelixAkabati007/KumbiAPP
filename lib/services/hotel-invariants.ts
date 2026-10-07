@@ -59,7 +59,7 @@ export async function getHotelInvariantReport(): Promise<HotelInvariantReport> {
       (
         SELECT COUNT(*)::int FROM guest_folios f
         LEFT JOIN reservations res ON res.id = f.reservation_id
-        WHERE res.id IS NULL AND COALESCE(f.status, 'open') IN ('open', 'active')
+        WHERE res.id IS NULL
       ) AS "openFoliosWithoutReservation"
   `);
 
