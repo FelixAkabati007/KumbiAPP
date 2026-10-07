@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { comparePassword, signToken } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { recordSignupAttempt, isRateLimited } from "@/lib/rate-limit";
+import { recordAndCheckLoginAttempt } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations/auth";
 
 export async function POST(req: Request) {
@@ -29,8 +29,7 @@ export async function POST(req: Request) {
       (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
       req.headers.get("x-real-ip") ||
       null;
-    await recordSignupAttempt(cleanEmail, ip);
-    const limited = await isRateLimited(cleanEmail, ip, 15, 10);
+    const limited = await recordAndCheckLoginAttempt(cleanEmail, ip, 10, 15);
     if (limited) {
       return NextResponse.json(
         {
@@ -42,9 +41,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await query("SELECT * FROM users WHERE email = $1", [
-      cleanEmail,
-    ]);
+    const result = await query(
+      `SELECT id, email, name, role, password_hash, email_verified
+       FROM users
+       WHERE email = $1
+       LIMIT 1`,
+      [cleanEmail]
+    );
     if (result.rows.length === 0) {
       return NextResponse.json(
         {

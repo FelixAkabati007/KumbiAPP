@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 interface AppUser {
   id: string;
@@ -31,8 +32,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDatabaseReady] = useState(true);
 
   const checkAuth = useCallback(async () => {
@@ -51,8 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const isPublicAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/sign-up";
+    if (isPublicAuthPage) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     checkAuth().finally(() => setIsLoading(false));
-  }, [checkAuth]);
+  }, [checkAuth, pathname]);
 
   // Re-fetches the current user (e.g. after avatar/profile updates) so
   // context consumers stay in sync without requiring a full page reload.
