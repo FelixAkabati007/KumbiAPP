@@ -34,6 +34,14 @@ export async function recordFinancialLedgerEntry(
   const status = entry.status === "completed" || entry.status === "paid" || entry.status === "success" || entry.status === "succeeded"
     ? "posted"
     : entry.status;
+  const metadata = { ...(entry.metadata ?? {}) };
+  for (const key of ["performedBy", "approvedBy"]) {
+    const value = metadata[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const actor = value as Record<string, unknown>;
+      if (!actor.accountName) actor.accountName = actor.name ?? actor.email ?? actor.id ?? null;
+    }
+  }
   const result = await client.query<{ id: string }>(
     `INSERT INTO canonical_financial_ledger
       (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, original_entry_id, journal_type, source_event_id, metadata, occurred_at)
@@ -53,7 +61,7 @@ export async function recordFinancialLedgerEntry(
       entry.originalEntryId ?? null,
       entry.journalType ?? "operational",
       entry.sourceEventId ?? entry.eventKey,
-      JSON.stringify(entry.metadata ?? {}),
+      JSON.stringify(metadata),
       entry.occurredAt ?? null,
     ],
   );

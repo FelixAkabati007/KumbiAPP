@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
            VALUES (NULL, $1, $2, 'GHS', $3::payment_method_enum, 'completed', $4::jsonb, $5::uuid)`,
-          [reference, amount.toFixed(2), method, JSON.stringify({ source: "hotel-pre-check-in", reservationId, reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: session.id }), session.id],
+          [reference, amount.toFixed(2), method, JSON.stringify({ source: "hotel-pre-check-in", department: "hotel", departmentLabel: "Hotel", reservationId, reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: { id: session.id, accountName: session.name, name: session.name, email: session.email, role: session.role } }), session.id],
         );
       } else {
         await client.query(
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         paymentMethod: method,
         entityType: "reservation",
         entityId: reservationId,
-        metadata: { reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: session.id },
+        metadata: { department: "hotel", departmentLabel: "Hotel", reservationNumber: booking.reservation_number, isVip: booking.is_vip, performedBy: { id: session.id, accountName: session.name, name: session.name, email: session.email, role: session.role } },
       });
       return { reservationId, reference, amount, isVip: booking.is_vip };
     });

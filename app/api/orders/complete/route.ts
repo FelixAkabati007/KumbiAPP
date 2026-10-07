@@ -3,6 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
 import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,9 +98,30 @@ const ingredients = await client.query(
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
            VALUES (NULL,$1,$2,'GHS',$3,'completed',$4,$5)`,
-          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", orderNumber, orderType, tableNumber: tableNumber || undefined, customerName: customerName || undefined, customerRefused: !customerName, items, kitchenOrderId: orderId, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
+          [orderNumber, total, paymentMethod, JSON.stringify({ source: "pos-order-completion", department: "restaurant", departmentLabel: "Restaurant", orderNumber, orderType, tableNumber: tableNumber || undefined, customerName: customerName || undefined, customerRefused: !customerName, items, kitchenOrderId: orderId, performedBy: { id: session.id, accountName: session.name, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
+      await recordFinancialLedgerEntry(client, {
+        eventKey: `pos-order:${orderNumber}`,
+        amount: Number(total),
+        direction: "credit",
+        status: "posted",
+        source: "pos-order-completion",
+        paymentMethod,
+        entityType: "restaurant_order",
+        entityId: String(orderId),
+        metadata: {
+          department: "restaurant",
+          departmentLabel: "Restaurant",
+          orderNumber,
+          orderType,
+          tableNumber: tableNumber || null,
+          customerName: customerName || null,
+          kitchenOrderId: orderId,
+          items,
+          performedBy: { id: session.id, accountName: session.name, name: session.name, email: session.email, role: session.role },
+        },
+      });
       return { id: orderId, idempotent: false };
     });
 

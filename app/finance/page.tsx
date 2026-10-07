@@ -37,6 +37,7 @@ type Transaction = {
   metadata?: Record<string, unknown>;
   created_at: string;
   performed_by_name?: string | null;
+  performed_by_account_name?: string | null;
   performed_by_email?: string | null;
   performed_by_role?: string | null;
   approved_by_name?: string | null;
@@ -288,7 +289,7 @@ export default function FinancePage() {
           item.metadata?.departmentLabel ??
             (item.metadata?.department === "event" ? "Event Organization" : ""),
         ),
-        item.performed_by_name ?? item.performed_by_email ?? "",
+        item.performed_by_account_name ?? item.performed_by_name ?? item.performed_by_email ?? "",
         item.performed_by_role ?? "",
         item.approved_by_name ?? item.approved_by_email ?? "",
         item.approved_by_role ?? "",

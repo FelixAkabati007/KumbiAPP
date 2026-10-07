@@ -6,8 +6,8 @@ type Department = "hotel" | "restaurant" | "event" | "shared_event" | "shared";
 
 const departmentSql = `CASE
   WHEN source = 'event_booking' THEN 'event'
-  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('hotel','room','accommodation') THEN 'hotel'
-  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('restaurant','pos','food_beverage','food_and_beverage') THEN 'restaurant'
+  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('hotel','room','accommodation','hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') OR source IN ('hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') THEN 'hotel'
+  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion','restaurant-order','hotel-folio-restaurant') OR source IN ('pos-order-completion','restaurant-order','hotel-folio-restaurant') THEN 'restaurant'
   WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', 'false')) = 'true' OR LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
   WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('event','events','event_organization') THEN 'event'
   ELSE 'shared'
@@ -26,6 +26,26 @@ export async function GET(request: Request) {
   if (endDate) { filters.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
   if (requestedDepartment && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(requestedDepartment)) { filters.push(`${departmentSql} = $${params.length + 1}`); params.push(requestedDepartment); }
   try {
+    await query(`
+      INSERT INTO canonical_financial_ledger
+        (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, journal_type, metadata, occurred_at)
+      SELECT t.transaction_reference, ABS(t.amount), COALESCE(t.currency, 'GHS'), 'credit',
+        CASE WHEN LOWER(t.status) IN ('completed','paid','success','succeeded') THEN 'posted' ELSE LOWER(t.status) END,
+        CASE
+          WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('hotel','room','accommodation') THEN 'hotel-payment'
+          WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion') THEN 'pos-order-completion'
+          ELSE COALESCE(t.metadata->>'source', 'legacy-transaction')
+        END,
+        t.method, 'legacy_transaction', t.id,
+        'operational',
+        jsonb_set(COALESCE(t.metadata, '{}'::jsonb), '{performedBy,accountName}', to_jsonb(COALESCE(u.name, u.email, t.performed_by::text)), true),
+        COALESCE(t.created_at, now())
+      FROM transactions t
+      LEFT JOIN users u ON u.id = t.performed_by
+      WHERE COALESCE(t.amount, 0) <> 0
+        AND LOWER(t.status) IN ('completed','paid','success','succeeded','posted')
+        AND NOT EXISTS (SELECT 1 FROM canonical_financial_ledger l WHERE l.event_key = t.transaction_reference)
+      ON CONFLICT (event_key) DO NOTHING`, []);
     const result = await query(
       `WITH posted AS (
         SELECT ${departmentSql} AS department,
