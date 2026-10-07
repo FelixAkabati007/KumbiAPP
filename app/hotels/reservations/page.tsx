@@ -338,8 +338,8 @@ function ReservationsPage() {
                   placeholder="John"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
               <div>
                 <Label htmlFor="lastName">Surname <span className="text-muted-foreground">(optional)</span></Label>
@@ -348,8 +348,8 @@ function ReservationsPage() {
                   placeholder="Doe"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
             </div>
 
@@ -362,8 +362,8 @@ function ReservationsPage() {
                   placeholder="john@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
               <div>
                 <Label htmlFor="phone">Phone <span className="text-destructive" aria-hidden="true">*</span></Label>
@@ -372,8 +372,8 @@ function ReservationsPage() {
                   placeholder="+233501234567"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
             </div>
 
@@ -390,8 +390,8 @@ function ReservationsPage() {
                   type="date"
                   value={formData.checkInDate}
                   onChange={(e) => setFormData({ ...formData, checkInDate: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
               <div>
                 <Label htmlFor="checkOutDate">Check-out Date <span className="text-destructive" aria-hidden="true">*</span></Label>
@@ -400,8 +400,8 @@ function ReservationsPage() {
                   type="date"
                   value={formData.checkOutDate}
                   onChange={(e) => setFormData({ ...formData, checkOutDate: e.target.value })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
             </div>
 
@@ -414,8 +414,8 @@ function ReservationsPage() {
                   min="1"
                   value={formData.numberOfGuests}
                   onChange={(e) => setFormData({ ...formData, numberOfGuests: parseInt(e.target.value) })}
-                  className="rounded-lg"
-                />
+className="rounded-lg appearance-auto [color-scheme:light]"
+  />
               </div>
               <div>
                 <Label htmlFor="roomCount">Rooms to reserve</Label>

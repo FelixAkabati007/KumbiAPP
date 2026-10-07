@@ -18,7 +18,10 @@ export function levyRows(
   prefix = "₵",
 ) {
   const mode: LevyDisplayMode = config?.levyDisplayMode ?? "amount";
-  return STATUTORY_LEVY_LABELS.map(([key, label, rateKey]) => {
+  return STATUTORY_LEVY_LABELS.filter(([key, , rateKey]) => {
+    if (key === "graEVat") return config?.graEVatEnabled !== false;
+    return config?.[`${key}Enabled` as keyof TaxConfiguration] !== false;
+  }).map(([key, label, rateKey]) => {
     const amount = Number(breakdown[key] ?? 0);
     const rate = Number(config?.[rateKey] ?? 0);
     return {

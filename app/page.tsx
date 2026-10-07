@@ -488,7 +488,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/pos" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     Open POS
                   </Button>
                 </Link>
@@ -541,7 +541,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/kitchen" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Kitchen
                   </Button>
                 </Link>
@@ -594,7 +594,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/order-display?mode=grid" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Orders
                   </Button>
                 </Link>
@@ -620,7 +620,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/menu" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     Manage Menu
                   </Button>
                 </Link>
@@ -646,7 +646,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/inventory" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Inventory
                   </Button>
                 </Link>
@@ -683,7 +683,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/finance" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">Open Finance</Button>
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">Open Finance</Button>
                 </Link>
               </CardFooter>
             </Card>
@@ -707,7 +707,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/reports" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Reports
                   </Button>
                 </Link>
@@ -733,7 +733,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/refunds" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     Manage Refunds
                   </Button>
                 </Link>
@@ -759,7 +759,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/payments" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Payments
                   </Button>
                 </Link>
@@ -795,7 +795,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/receipt" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View Receipts
                   </Button>
                 </Link>
@@ -821,7 +821,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/system" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
+                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg">
                     View System
                   </Button>
                 </Link>
@@ -847,7 +847,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/reservations" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
                     Manage Reservations
                   </Button>
                 </Link>
@@ -873,7 +873,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/rooms" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
                     View Rooms
                   </Button>
                 </Link>
@@ -899,7 +899,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/housekeeping" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
                     View Tasks
                   </Button>
                 </Link>
@@ -925,7 +925,7 @@ function DashboardContent() {
               </CardContent>
               <CardFooter className="relative z-10">
                 <Link href="/hotels/check-in" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
+                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-white hover:via-muted hover:to-foreground hover:text-white text-white shadow-lg cursor-pointer">
                     Process Check-In
                   </Button>
                 </Link>

@@ -20,6 +20,9 @@ type Transaction = {
   performed_by_name?: string | null;
   performed_by_email?: string | null;
   performed_by_role?: string | null;
+  approved_by_name?: string | null;
+  approved_by_email?: string | null;
+  approved_by_role?: string | null;
 };
 
 type DepartmentResult = {
@@ -135,7 +138,7 @@ export default function FinancePage() {
 
   const exportExcel = () => {
     const rows = [
-      ["Transaction", "Amount", "Currency", "Status", "Payment Method", "Source", "Department", "Event ID", "Quote ID", "Created"],
+      ["Transaction", "Amount", "Currency", "Status", "Payment Method", "Source", "Department", "Initiated By", "Initiator Role", "Approved By", "Approver Role", "Event ID", "Quote ID", "Created"],
       ...transactions.map((item) => [
         item.transaction_id ?? "",
         String(item.amount),
@@ -144,6 +147,10 @@ export default function FinancePage() {
         item.payment_method ?? "",
         String(item.metadata?.source ?? item.metadata?.department ?? ""),
         String(item.metadata?.departmentLabel ?? (item.metadata?.department === "event" ? "Event Organization" : "")),
+        item.performed_by_name ?? item.performed_by_email ?? "",
+        item.performed_by_role ?? "",
+        item.approved_by_name ?? item.approved_by_email ?? "",
+        item.approved_by_role ?? "",
         String(item.metadata?.eventId ?? item.metadata?.event_id ?? ""),
         String(item.metadata?.quoteId ?? item.metadata?.quote_id ?? ""),
         item.created_at,
@@ -276,7 +283,7 @@ export default function FinancePage() {
           <Card id="transactions">
             <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" aria-hidden="true" /> Recent transactions</CardTitle></CardHeader>
             <CardContent>
-              {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Source</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Performed by</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => { const metadata = item.metadata ?? {}; const itemSource = typeof metadata.source === "string" ? metadata.source : "unclassified"; const isRefund = item.status.toLowerCase() === "refunded" || itemSource === "refund"; return <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3 capitalize">{isRefund ? "Refund" : itemSource.replaceAll("_", " ")}</td><td className={`p-3 ${isRefund ? "text-destructive" : ""}`}>GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{item.performed_by_name ?? item.performed_by_email ?? "—"}{item.performed_by_role ? <span className="ml-1 text-xs text-muted-foreground">({item.performed_by_role})</span> : null}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>; })}</tbody></table></div>}
+              {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Source</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Initiated by</th><th className="p-3">Approved by</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => { const metadata = item.metadata ?? {}; const itemSource = typeof metadata.source === "string" ? metadata.source : "unclassified"; const isRefund = item.status.toLowerCase() === "refunded" || itemSource === "refund"; return <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3 capitalize">{isRefund ? "Refund" : itemSource.replaceAll("_", " ")}</td><td className={`p-3 ${isRefund ? "text-destructive" : ""}`}>GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{item.performed_by_name ?? item.performed_by_email ?? "—"}{item.performed_by_role ? <span className="ml-1 text-xs text-muted-foreground">({item.performed_by_role})</span> : null}</td><td className="p-3">{item.approved_by_name ?? item.approved_by_email ?? "—"}{item.approved_by_role ? <span className="ml-1 text-xs text-muted-foreground">({item.approved_by_role})</span> : null}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>; })}</tbody></table></div>}
             </CardContent>
           </Card>
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4" aria-hidden="true" /> Finance access is limited to authorized roles.</div>
