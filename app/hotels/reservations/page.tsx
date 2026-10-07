@@ -211,10 +211,10 @@ function ReservationsPage() {
       });
       await fetchReservations();
     } catch (error) {
-      console.error("Error creating reservation:", error);
+      console.error("[v0] Error creating reservation:", error);
       toast({
         title: "Error",
-        description: "Failed to create reservation. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create reservation. Please try again.",
         variant: "destructive",
       });
     } finally {

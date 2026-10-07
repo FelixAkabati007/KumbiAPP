@@ -130,17 +130,32 @@ export async function GET(request: NextRequest) {
     // Enforce capacity on the server so concurrent clients cannot book a
     // fully occupied room type by bypassing the client dialog.
     const availability = await query<{ available: string }>(
-      `SELECT (
-         SELECT COUNT(*) FROM rooms r
-         WHERE r.room_type_id = $3 AND r.is_active = true AND r.status = 'available'
-       ) - (
-         SELECT COUNT(*) FROM reservations existing
-         WHERE existing.room_type_id = $3
-           AND existing.status IN ('confirmed', 'checked_in')
-           AND existing.check_in_date < $2
-           AND existing.check_out_date > $1
-       ) AS available`,
-      [checkInDate, checkOutDate, roomTypeId]
+      isShortStay
+        ? `SELECT COUNT(*) AS available
+           FROM rooms r
+           WHERE r.room_type_id = $1
+             AND COALESCE(r.is_active, true) = true
+             AND (
+               LOWER(TRIM(COALESCE(r.status, ''))) = 'available'
+               OR (
+                 LOWER(TRIM(COALESCE(r.status, ''))) = 'occupied'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM reservations checked_in
+                   WHERE checked_in.room_id = r.id AND checked_in.status = 'checked_in'
+                 )
+               )
+             )`
+        : `SELECT (
+             SELECT COUNT(*) FROM rooms r
+             WHERE r.room_type_id = $3 AND r.is_active = true AND r.status = 'available'
+           ) - (
+             SELECT COUNT(*) FROM reservations existing
+             WHERE existing.room_type_id = $3
+               AND existing.status IN ('confirmed', 'checked_in')
+               AND existing.check_in_date < $2
+               AND existing.check_out_date > $1
+           ) AS available`,
+      isShortStay ? [roomTypeId] : [checkInDate, checkOutDate, roomTypeId]
     );
     if (Number(availability.rows[0]?.available ?? 0) <= 0) {
       return NextResponse.json(
