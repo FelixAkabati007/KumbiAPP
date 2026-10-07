@@ -128,6 +128,8 @@ export default function FinancePage() {
   );
   const [resolutionSource, setResolutionSource] = useState("shared");
   const [resolutionReason, setResolutionReason] = useState("");
+  const [resolutionSaving, setResolutionSaving] = useState(false);
+  const [resolutionError, setResolutionError] = useState("");
   const [exceptionHistory, setExceptionHistory] = useState<
     ExceptionHistoryItem[]
   >([]);
@@ -224,7 +226,9 @@ export default function FinancePage() {
   }, [transactions]);
 
   const resolveException = async (transactionId: string) => {
-    if (resolutionReason.trim().length < 10) return;
+    if (resolutionReason.trim().length < 10 || resolutionSaving) return;
+    setResolutionSaving(true);
+    setResolutionError("");
     const response = await fetch("/api/finance/exceptions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -237,12 +241,17 @@ export default function FinancePage() {
     if (response.ok) {
       setResolvingException(null);
       setResolutionReason("");
+      setResolutionSource("shared");
       const refreshed = await fetch(
         `/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`,
         { cache: "no-store" },
       );
       if (refreshed.ok) setPnl(await refreshed.json());
+    } else {
+      const payload = await response.json().catch(() => null);
+      setResolutionError(payload?.error || "Unable to save classification.");
     }
+    setResolutionSaving(false);
   };
 
   const exportExcel = (departmentFilter?: DepartmentResult["department"]) => {
@@ -729,10 +738,15 @@ export default function FinancePage() {
                           onClick={() =>
                             void resolveException(exception.transactionId ?? "")
                           }
-                          disabled={resolutionReason.trim().length < 10}
+                          disabled={resolutionReason.trim().length < 10 || resolutionSaving}
                         >
-                          Save
+                          {resolutionSaving ? "Saving..." : "Save"}
                         </Button>
+                        {resolutionError && (
+                          <p className="text-sm text-destructive sm:col-span-3" role="alert">
+                            {resolutionError}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <Button
@@ -944,8 +958,8 @@ export default function FinancePage() {
                   No transactions found.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-sm">
+              <div className="max-h-[18rem] overflow-auto scrollbar-hide">
+                <table className="w-full min-w-[760px] text-sm">
                     <thead>
                       <tr className="border-b text-left">
                         <th className="p-3">Transaction</th>
