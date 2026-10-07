@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     if (source && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(source)) { conditions.push(`LOWER(CASE WHEN source = 'event_booking' THEN 'event' ELSE COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared') END) = $${params.length + 1}`); params.push(source); }
     if (orderId) { conditions.push(`(entity_id = $${params.length + 1} OR metadata->>'orderId' = $${params.length + 1})`); params.push(orderId); }
     if (orderNumber) { conditions.push(`(event_key = $${params.length + 1} OR metadata->>'orderNumber' = $${params.length + 1})`); params.push(orderNumber); }
-    const result = await query(`SELECT id::text id, event_key transaction_id, amount, currency, status, payment_method, NULL::text customer_id, metadata, occurred_at created_at, updated_at, source, entity_type, entity_id, direction, journal_type FROM canonical_financial_ledger WHERE ${conditions.join(" AND ")} ORDER BY occurred_at DESC LIMIT $${params.length + 1}`, [...params, limit]);
+    const result = await query(`SELECT id::text id, event_key transaction_id, amount, currency, status, payment_method, NULL::text customer_id, metadata, metadata->'performedBy'->>'name' AS performed_by_name, metadata->'performedBy'->>'email' AS performed_by_email, metadata->'performedBy'->>'role' AS performed_by_role, occurred_at created_at, updated_at, source, entity_type, entity_id, direction, journal_type FROM canonical_financial_ledger WHERE ${conditions.join(" AND ")} ORDER BY occurred_at DESC LIMIT $${params.length + 1}`, [...params, limit]);
     return NextResponse.json(result.rows);
   } catch (error) {
     console.error("Failed to fetch canonical transactions:", error);
