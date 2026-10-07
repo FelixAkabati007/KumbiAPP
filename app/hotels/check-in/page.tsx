@@ -274,7 +274,7 @@ function CheckInPage() {
     setLoadingRooms(true);
     try {
       const response = await fetch(
-        `/api/hotels/rooms?status=available&roomTypeId=${reservation.room_type_id}`,
+        `/api/hotels/rooms?status=available&roomTypeId=${reservation.room_type_id}&reservationId=${reservation.id}`,
         { cache: "no-store" },
       );
       if (!response.ok) throw new Error("Failed to fetch available rooms");
