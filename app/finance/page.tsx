@@ -2,12 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/components/role-guard";
 import Link from "next/link";
-import { ArrowLeft, CreditCard, Download, RefreshCw, TrendingUp } from "lucide-react";
+import {
+  ArrowLeft,
+  CreditCard,
+  Download,
+  RefreshCw,
+  TrendingUp,
+} from "lucide-react";
 import { StaffRewardsPanel } from "@/components/finance/staff-rewards-panel";
 
 type Transaction = {
@@ -37,13 +56,39 @@ type DepartmentResult = {
 
 type PnlResponse = {
   departments: DepartmentResult[];
-  totals: { revenue: number; grossRevenue: number; refundAmount: number; expense: number; profit: number; margin: number };
+  totals: {
+    revenue: number;
+    grossRevenue: number;
+    refundAmount: number;
+    expense: number;
+    profit: number;
+    margin: number;
+  };
   complimentary: { waivedAmount: number; usageCount: number };
-  exceptions: Array<{ transactionId?: string; amount: number; status: string; createdAt: string; source?: string | null }>;
+  exceptions: Array<{
+    transactionId?: string;
+    amount: number;
+    status: string;
+    createdAt: string;
+    source?: string | null;
+  }>;
 };
-type ExceptionHistoryItem = { transactionId: string; resolver: string; assignedSource: string | null; originalSource: string | null; reason: string; resolvedAt: string };
+type ExceptionHistoryItem = {
+  transactionId: string;
+  resolver: string;
+  assignedSource: string | null;
+  originalSource: string | null;
+  reason: string;
+  resolvedAt: string;
+};
 
-const departmentLabels = { hotel: "Hotel", restaurant: "Restaurant", event: "Event Organization", shared_event: "Shared Event", shared: "Shared / Corporate" } as const;
+const departmentLabels = {
+  hotel: "Hotel",
+  restaurant: "Restaurant",
+  event: "Event Organization",
+  shared_event: "Shared Event",
+  shared: "Shared / Corporate",
+} as const;
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -52,15 +97,26 @@ export default function FinancePage() {
   const [department, setDepartment] = useState("all");
   const [loading, setLoading] = useState(true);
   const [pnlLoading, setPnlLoading] = useState(true);
-  const [authority, setAuthority] = useState<{ actingAuthority: boolean; authorityLabel: string; role?: string } | null>(null);
-  const [resolvingException, setResolvingException] = useState<string | null>(null);
+  const [authority, setAuthority] = useState<{
+    actingAuthority: boolean;
+    authorityLabel: string;
+    role?: string;
+  } | null>(null);
+  const [resolvingException, setResolvingException] = useState<string | null>(
+    null,
+  );
   const [resolutionSource, setResolutionSource] = useState("shared");
   const [resolutionReason, setResolutionReason] = useState("");
-  const [exceptionHistory, setExceptionHistory] = useState<ExceptionHistoryItem[]>([]);
+  const [exceptionHistory, setExceptionHistory] = useState<
+    ExceptionHistoryItem[]
+  >([]);
   const [historyResolver, setHistoryResolver] = useState("");
   const [historySource, setHistorySource] = useState("all");
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState<
+    DepartmentResult["department"] | null
+  >(null);
 
   const loadExceptionHistory = async () => {
     const params = new URLSearchParams();
@@ -68,7 +124,9 @@ export default function FinancePage() {
     if (historySource !== "all") params.set("source", historySource);
     if (historyFrom) params.set("from", historyFrom);
     if (historyTo) params.set("to", historyTo);
-    const response = await fetch(`/api/finance/exceptions?${params}`, { cache: "no-store" });
+    const response = await fetch(`/api/finance/exceptions?${params}`, {
+      cache: "no-store",
+    });
     if (response.ok) setExceptionHistory(await response.json());
   };
 
@@ -79,15 +137,20 @@ export default function FinancePage() {
       .catch(() => undefined);
   }, []);
 
-  useEffect(() => { void loadExceptionHistory(); }, [historyResolver, historySource, historyFrom, historyTo]);
+  useEffect(() => {
+    void loadExceptionHistory();
+  }, [historyResolver, historySource, historyFrom, historyTo]);
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/transactions?limit=1000${source !== "all" ? `&source=${source}` : ""}`, { cache: "no-store" });
+      const response = await fetch(
+        `/api/transactions?limit=1000${source !== "all" ? `&source=${source}` : ""}`,
+        { cache: "no-store" },
+      );
       if (response.ok) {
         const data = await response.json();
-        setTransactions(Array.isArray(data) ? data : data.transactions ?? []);
+        setTransactions(Array.isArray(data) ? data : (data.transactions ?? []));
       }
     } finally {
       setLoading(false);
@@ -96,30 +159,44 @@ export default function FinancePage() {
 
   useEffect(() => {
     void loadTransactions();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadTransactions(); }, 15000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadTransactions();
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [source]);
 
   useEffect(() => {
     const loadPnl = () => {
       setPnlLoading(true);
-      fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" })
+      fetch(
+        `/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`,
+        { cache: "no-store" },
+      )
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => data && setPnl(data))
         .catch(() => undefined)
         .finally(() => setPnlLoading(false));
     };
     loadPnl();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") loadPnl(); }, 15000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") loadPnl();
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [department]);
 
   const totals = useMemo(() => {
-    const completed = transactions.filter((item) => ["completed", "succeeded", "success"].includes(item.status.toLowerCase()));
-    const refunded = transactions.filter((item) => item.status.toLowerCase() === "refunded");
+    const completed = transactions.filter((item) =>
+      ["completed", "succeeded", "success"].includes(item.status.toLowerCase()),
+    );
+    const refunded = transactions.filter(
+      (item) => item.status.toLowerCase() === "refunded",
+    );
     return {
       gross: completed.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-      refundValue: refunded.reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0),
+      refundValue: refunded.reduce(
+        (sum, item) => sum + Math.abs(Number(item.amount || 0)),
+        0,
+      ),
       count: completed.length,
       refunds: refunded.length,
     };
@@ -127,26 +204,90 @@ export default function FinancePage() {
 
   const resolveException = async (transactionId: string) => {
     if (resolutionReason.trim().length < 10) return;
-    const response = await fetch("/api/finance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId, source: resolutionSource, reason: resolutionReason.trim() }) });
+    const response = await fetch("/api/finance/exceptions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transactionId,
+        source: resolutionSource,
+        reason: resolutionReason.trim(),
+      }),
+    });
     if (response.ok) {
       setResolvingException(null);
       setResolutionReason("");
-      const refreshed = await fetch(`/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`, { cache: "no-store" });
+      const refreshed = await fetch(
+        `/api/finance/pnl${department !== "all" ? `?department=${department}` : ""}`,
+        { cache: "no-store" },
+      );
       if (refreshed.ok) setPnl(await refreshed.json());
     }
   };
 
-  const exportExcel = () => {
+  const exportExcel = (departmentFilter?: DepartmentResult["department"]) => {
+    const exportTransactions = departmentFilter
+      ? transactions.filter((item) => {
+          const value = String(
+            item.metadata?.department ??
+              item.metadata?.businessUnit ??
+              item.metadata?.source ??
+              item.metadata?.sourceType ??
+              "shared",
+          ).toLowerCase();
+          return departmentFilter === "event"
+            ? value.includes("event") && !value.includes("shared")
+            : departmentFilter === "hotel"
+              ? ["hotel", "room", "accommodation"].includes(value)
+              : departmentFilter === "restaurant"
+                ? [
+                    "restaurant",
+                    "pos",
+                    "food_beverage",
+                    "food_and_beverage",
+                  ].includes(value)
+                : departmentFilter === "shared_event"
+                  ? value.includes("shared_event")
+                  : ![
+                      "hotel",
+                      "room",
+                      "accommodation",
+                      "restaurant",
+                      "pos",
+                      "food_beverage",
+                      "food_and_beverage",
+                      "event",
+                      "shared_event",
+                    ].includes(value);
+        })
+      : transactions;
     const rows = [
-      ["Transaction", "Amount", "Currency", "Status", "Payment Method", "Source", "Department", "Initiated By", "Initiator Role", "Approved By", "Approver Role", "Event ID", "Quote ID", "Created"],
-      ...transactions.map((item) => [
+      [
+        "Transaction",
+        "Amount",
+        "Currency",
+        "Status",
+        "Payment Method",
+        "Source",
+        "Department",
+        "Initiated By",
+        "Initiator Role",
+        "Approved By",
+        "Approver Role",
+        "Event ID",
+        "Quote ID",
+        "Created",
+      ],
+      ...exportTransactions.map((item) => [
         item.transaction_id ?? "",
         String(item.amount),
         String((item as Transaction & { currency?: string }).currency ?? "GHS"),
         item.status,
         item.payment_method ?? "",
         String(item.metadata?.source ?? item.metadata?.department ?? ""),
-        String(item.metadata?.departmentLabel ?? (item.metadata?.department === "event" ? "Event Organization" : "")),
+        String(
+          item.metadata?.departmentLabel ??
+            (item.metadata?.department === "event" ? "Event Organization" : ""),
+        ),
         item.performed_by_name ?? item.performed_by_email ?? "",
         item.performed_by_role ?? "",
         item.approved_by_name ?? item.approved_by_email ?? "",
@@ -156,9 +297,25 @@ export default function FinancePage() {
         item.created_at,
       ]),
     ];
-    const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-    const table = `<table><thead><tr>${rows[0].map((cell) => `<th>${escape(cell)}</th>`).join("")}</tr></thead><tbody>${rows.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-    const blob = new Blob([`<html><head><meta charset="utf-8"><style>table{border-collapse:collapse}th,td{border:1px solid #999;padding:6px;text-align:left}</style></head><body>${table}</body></html>`], { type: "application/vnd.ms-excel" });
+    const escape = (value: string) =>
+      value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    const table = `<table><thead><tr>${rows[0].map((cell) => `<th>${escape(cell)}</th>`).join("")}</tr></thead><tbody>${rows
+      .slice(1)
+      .map(
+        (row) =>
+          `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join("")}</tr>`,
+      )
+      .join("")}</tbody></table>`;
+    const blob = new Blob(
+      [
+        `<html><head><meta charset="utf-8"><style>table{border-collapse:collapse}th,td{border:1px solid #999;padding:6px;text-align:left}</style></head><body>${table}</body></html>`,
+      ],
+      { type: "application/vnd.ms-excel" },
+    );
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -169,7 +326,16 @@ export default function FinancePage() {
 
   const exportCsv = () => {
     const rows = [
-      ["Transaction", "Amount", "Status", "Payment Method", "Source", "Event ID", "Quote ID", "Created"],
+      [
+        "Transaction",
+        "Amount",
+        "Status",
+        "Payment Method",
+        "Source",
+        "Event ID",
+        "Quote ID",
+        "Created",
+      ],
       ...transactions.map((item) => [
         item.transaction_id ?? "",
         String(item.amount),
@@ -181,7 +347,16 @@ export default function FinancePage() {
         item.created_at,
       ]),
     ];
-    const blob = new Blob([rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n")], { type: "text/csv" });
+    const blob = new Blob(
+      [
+        rows
+          .map((row) =>
+            row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","),
+          )
+          .join("\n"),
+      ],
+      { type: "text/csv" },
+    );
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -196,97 +371,780 @@ export default function FinancePage() {
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
           <header className="flex flex-col gap-4 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between md:p-6">
             <div className="flex items-start gap-3">
-              <Button asChild variant="outline" size="icon" className="shrink-0 rounded-md" aria-label="Back to dashboard">
-                <Link href="/"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Link>
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="shrink-0 rounded-md"
+                aria-label="Back to dashboard"
+              >
+                <Link href="/">
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                </Link>
               </Button>
               <div>
-              <p className="text-sm font-medium text-primary">Finance workspace</p>
-              <h1 className="text-3xl font-bold tracking-tight text-balance">Reconciliation and cash flow</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Review completed transactions, refunds, and payment activity.</p>
+                <p className="text-sm font-medium text-primary">
+                  Finance workspace
+                </p>
+                <h1 className="text-3xl font-bold tracking-tight text-balance">
+                  Reconciliation and cash flow
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Review completed transactions, refunds, and payment activity.
+                </p>
               </div>
             </div>
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="w-full sm:w-[150px]" aria-label="Transaction source"><SelectValue placeholder="All sources" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="hotel">Hotel activity</SelectItem><SelectItem value="restaurant">Restaurant sales</SelectItem><SelectItem value="event">Event organization</SelectItem><SelectItem value="shared_event">Shared Event</SelectItem><SelectItem value="shared">Shared Operations</SelectItem><SelectItem value="refund">Refunds</SelectItem></SelectContent>
+                <SelectTrigger
+                  className="w-full sm:w-[150px]"
+                  aria-label="Transaction source"
+                >
+                  <SelectValue placeholder="All sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All sources</SelectItem>
+                  <SelectItem value="hotel">Hotel activity</SelectItem>
+                  <SelectItem value="restaurant">Restaurant sales</SelectItem>
+                  <SelectItem value="event">Event organization</SelectItem>
+                  <SelectItem value="shared_event">Shared Event</SelectItem>
+                  <SelectItem value="shared">Shared Operations</SelectItem>
+                  <SelectItem value="refund">Refunds</SelectItem>
+                </SelectContent>
               </Select>
               <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="w-full sm:w-[170px]" aria-label="Profit and loss department"><SelectValue placeholder="All departments" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All departments</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared_event">Shared Event</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent>
+                <SelectTrigger
+                  className="w-full sm:w-[170px]"
+                  aria-label="Profit and loss department"
+                >
+                  <SelectValue placeholder="All departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All departments</SelectItem>
+                  <SelectItem value="hotel">Hotel</SelectItem>
+                  <SelectItem value="restaurant">Restaurant</SelectItem>
+                  <SelectItem value="event">Event Organization</SelectItem>
+                  <SelectItem value="shared_event">Shared Event</SelectItem>
+                  <SelectItem value="shared">Shared / Corporate</SelectItem>
+                </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => void loadTransactions()} disabled={loading} aria-label="Refresh finance transactions">
-                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Refresh
+              <Button
+                variant="outline"
+                onClick={() => void loadTransactions()}
+                disabled={loading}
+                aria-label="Refresh finance transactions"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{" "}
+                Refresh
               </Button>
               <Button asChild variant="outline">
                 <Link href="/expenses">Operating expenses</Link>
               </Button>
-              <Button onClick={exportExcel} disabled={!transactions.length}>
-                <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export Excel
+              <Button
+                onClick={() => exportExcel()}
+                disabled={!transactions.length}
+              >
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export
+                Excel
               </Button>
             </div>
           </header>
-          <section aria-labelledby="finance-areas-heading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <h2 id="finance-areas-heading" className="sr-only">Finance areas</h2>
+          <section
+            aria-labelledby="finance-areas-heading"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+          >
+            <h2 id="finance-areas-heading" className="sr-only">
+              Finance areas
+            </h2>
             <Card className="flex min-h-[250px] flex-col">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Reconciliation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Review completed sales, refunds, and payment methods to confirm reported revenue.</p></CardHeader>
-              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="#transactions">Open reconciliation</Link></Button></CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Reconciliation</CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Review completed sales, refunds, and payment methods to
+                  confirm reported revenue.
+                </p>
+              </CardHeader>
+              <CardContent className="mt-auto pt-0">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link href="#transactions">Open reconciliation</Link>
+                </Button>
+              </CardContent>
             </Card>
             <Card className="flex min-h-[250px] flex-col">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Operating expenses</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Submit and track electricity, repairs, supplies, and other approved business costs.</p></CardHeader>
-              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/expenses">Open expense register</Link></Button></CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Operating expenses</CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Submit and track electricity, repairs, supplies, and other
+                  approved business costs.
+                </p>
+              </CardHeader>
+              <CardContent className="mt-auto pt-0">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link href="/expenses">Open expense register</Link>
+                </Button>
+              </CardContent>
             </Card>
             <Card className="flex min-h-[250px] flex-col">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Payroll &amp; compensation</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Maintain recurring staff pay profiles used for payroll preparation and review.</p></CardHeader>
-              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/payroll">Open payroll</Link></Button></CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  Payroll &amp; compensation
+                </CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Maintain recurring staff pay profiles used for payroll
+                  preparation and review.
+                </p>
+              </CardHeader>
+              <CardContent className="mt-auto pt-0">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link href="/payroll">Open payroll</Link>
+                </Button>
+              </CardContent>
             </Card>
             <Card className="flex min-h-[250px] flex-col">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Payables</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Track approved supplier and service obligations without duplicating purchase orders.</p></CardHeader>
-              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/inventory">View procurement</Link></Button></CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Payables</CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Track approved supplier and service obligations without
+                  duplicating purchase orders.
+                </p>
+              </CardHeader>
+              <CardContent className="mt-auto pt-0">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link href="/inventory">View procurement</Link>
+                </Button>
+              </CardContent>
             </Card>
             <Card className="flex min-h-[250px] flex-col">
-              <CardHeader className="pb-2"><CardTitle className="text-base">Reports</CardTitle><p className="text-sm leading-relaxed text-muted-foreground">Compare hotel, restaurant, and shared costs against revenue and payment activity.</p></CardHeader>
-              <CardContent className="mt-auto pt-0"><Button asChild variant="link" className="h-auto p-0"><Link href="/reports">Open reports</Link></Button></CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Reports</CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Compare hotel, restaurant, and shared costs against revenue
+                  and payment activity.
+                </p>
+              </CardHeader>
+              <CardContent className="mt-auto pt-0">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link href="/reports">Open reports</Link>
+                </Button>
+              </CardContent>
             </Card>
           </section>
           {authority?.actingAuthority && (
             <Alert className="border-border bg-muted/50">
               <AlertTitle>Acting Finance Authority</AlertTitle>
-              <AlertDescription>No active Finance Manager is assigned. As General Manager, you temporarily have operational Finance access until a Finance Manager is appointed or reactivated. All actions are audited.</AlertDescription>
+              <AlertDescription>
+                No active Finance Manager is assigned. As General Manager, you
+                temporarily have operational Finance access until a Finance
+                Manager is appointed or reactivated. All actions are audited.
+              </AlertDescription>
             </Alert>
           )}
           <section aria-labelledby="pnl-heading" className="space-y-4">
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-foreground">
               <p className="text-sm font-semibold">Finance terms at a glance</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground"><span className="font-semibold">Gross Value</span> is sales before waivers. <span className="font-semibold">Complimentary</span> is the value waived. <span className="font-semibold">Net Collected</span> is cash received. <span className="font-semibold">Cost</span> is the operational cost consumed. <span className="font-semibold">Net Impact</span> is net collected minus cost. Stock is deducted by the fulfilled operational order, not by Finance.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                <span className="font-semibold">Gross Value</span> is sales
+                before waivers.{" "}
+                <span className="font-semibold">Complimentary</span> is the
+                value waived.{" "}
+                <span className="font-semibold">Net Collected</span> is cash
+                received. <span className="font-semibold">Cost</span> is the
+                operational cost consumed.{" "}
+                <span className="font-semibold">Net Impact</span> is net
+                collected minus cost. Stock is deducted by the fulfilled
+                operational order, not by Finance.
+              </p>
             </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div><p className="text-sm font-medium text-primary">Departmental performance</p><h2 id="pnl-heading" className="text-2xl font-bold tracking-tight">Profit and loss by business area</h2></div>
-              <p className="text-sm text-muted-foreground">Revenue minus approved expenses and processed payroll.</p>
+              <div>
+                <p className="text-sm font-medium text-primary">
+                  Departmental performance
+                </p>
+                <h2
+                  id="pnl-heading"
+                  className="text-2xl font-bold tracking-tight"
+                >
+                  Profit and loss by business area
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Revenue minus approved expenses and processed payroll.
+              </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {(pnl?.departments ?? []).map((item) => <Card key={item.department} className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">{departmentLabels[item.department]}</CardTitle><p className="text-xs text-muted-foreground">{item.margin.toFixed(1)}% margin</p></CardHeader><CardContent className="space-y-2"><p className="text-2xl font-bold">GHS {item.profit.toFixed(2)}</p><div className="flex justify-between text-xs text-muted-foreground"><span>Revenue GHS {item.revenue.toFixed(2)}</span><span>Costs GHS {item.expense.toFixed(2)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full ${item.profit >= 0 ? "bg-primary" : "bg-destructive"}`} style={{ width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%` }} /></div></CardContent></Card>)}
+              {(pnl?.departments ?? []).map((item) => (
+                <Card
+                  key={item.department}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedDepartment(item.department)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ")
+                      setSelectedDepartment(item.department);
+                  }}
+                  className="cursor-pointer overflow-hidden transition hover:border-primary hover:shadow-md"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {departmentLabels[item.department]}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {item.margin.toFixed(1)}% margin · View transactions
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-2xl font-bold">
+                      GHS {item.profit.toFixed(2)}
+                    </p>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Revenue GHS {item.revenue.toFixed(2)}</span>
+                      <span>Costs GHS {item.expense.toFixed(2)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full ${item.profit >= 0 ? "bg-primary" : "bg-destructive"}`}
+                        style={{
+                          width: `${Math.min(Math.max(item.revenue ? Math.abs(item.profit / item.revenue) * 100 : 0, 0), 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <Card><CardHeader><CardTitle>Consolidated P&L</CardTitle><p className="text-sm text-muted-foreground">Use this view for management decisions; reconciliation remains in the transaction register below.</p></CardHeader><CardContent>{pnlLoading ? <p className="text-sm text-muted-foreground">Calculating departmental results...</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Gross revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Refunds</p><p className="text-xl font-semibold">GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net revenue</p><p className="text-xl font-semibold">GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Total costs</p><p className="text-xl font-semibold">GHS {(pnl?.totals.expense ?? 0).toFixed(2)}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Net profit</p><p className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>GHS {(pnl?.totals.profit ?? 0).toFixed(2)} <span className="text-sm font-normal">({(pnl?.totals.margin ?? 0).toFixed(1)}%)</span></p></div></div>}</CardContent></Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Consolidated P&L</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Use this view for management decisions; reconciliation remains
+                  in the transaction register below.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {pnlLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Calculating departmental results...
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Gross revenue
+                      </p>
+                      <p className="text-xl font-semibold">
+                        GHS {(pnl?.totals.grossRevenue ?? 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Refunds
+                      </p>
+                      <p className="text-xl font-semibold">
+                        GHS {(pnl?.totals.refundAmount ?? 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Net revenue
+                      </p>
+                      <p className="text-xl font-semibold">
+                        GHS {(pnl?.totals.revenue ?? 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Total costs
+                      </p>
+                      <p className="text-xl font-semibold">
+                        GHS {(pnl?.totals.expense ?? 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Net profit
+                      </p>
+                      <p
+                        className={`text-xl font-semibold ${(pnl?.totals.profit ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}
+                      >
+                        GHS {(pnl?.totals.profit ?? 0).toFixed(2)}{" "}
+                        <span className="text-sm font-normal">
+                          ({(pnl?.totals.margin ?? 0).toFixed(1)}%)
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </section>
-          {(pnl?.exceptions?.length ?? 0) > 0 && <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><AlertTitle>Finance classification exceptions</AlertTitle><AlertDescription>These postings are assigned to Shared / Corporate until reviewed. {pnl?.exceptions.length} unresolved exception(s) are available.</AlertDescription><div className="mt-3 grid gap-3">{pnl?.exceptions.map((exception) => <div key={exception.transactionId} className="rounded-md border border-amber-300/70 bg-background p-3 text-foreground"><div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="font-medium">{exception.transactionId}</span><span>GHS {exception.amount.toFixed(2)} · {exception.status}</span></div>{resolvingException === exception.transactionId ? <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]"><Select value={resolutionSource} onValueChange={setResolutionSource}><SelectTrigger aria-label={`Source for ${exception.transactionId}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent></Select><input value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} placeholder="Reason for classification" className="h-10 rounded-md border bg-background px-3 text-sm" minLength={10} /><Button size="sm" onClick={() => void resolveException(exception.transactionId ?? "")} disabled={resolutionReason.trim().length < 10}>Save</Button></div> : <Button variant="outline" size="sm" className="mt-3" onClick={() => setResolvingException(exception.transactionId ?? null)}>Resolve classification</Button>}</div>)}</div></Alert>}
-          <Card aria-labelledby="exception-history-heading"><CardHeader><CardTitle id="exception-history-heading">Classification history</CardTitle><p className="text-sm text-muted-foreground">Audited source assignments, including the original classification and reason.</p></CardHeader><CardContent className="space-y-4"><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><input value={historyResolver} onChange={(event) => setHistoryResolver(event.target.value)} placeholder="Filter by resolver" className="h-10 rounded-md border bg-background px-3 text-sm" /><Select value={historySource} onValueChange={setHistorySource}><SelectTrigger aria-label="Filter assigned source"><SelectValue placeholder="Assigned source" /></SelectTrigger><SelectContent><SelectItem value="all">All assigned sources</SelectItem><SelectItem value="hotel">Hotel</SelectItem><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="event">Event Organization</SelectItem><SelectItem value="shared">Shared / Corporate</SelectItem></SelectContent></Select><input type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="History from date" className="h-10 rounded-md border bg-background px-3 text-sm" /><input type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="History to date" className="h-10 rounded-md border bg-background px-3 text-sm" /></div>{exceptionHistory.length === 0 ? <p className="text-sm text-muted-foreground">No resolved classifications match these filters.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="border-b text-left"><th className="p-2">Transaction</th><th className="p-2">Original</th><th className="p-2">Assigned</th><th className="p-2">Resolver</th><th className="p-2">Reason</th><th className="p-2">Resolved</th></tr></thead><tbody>{exceptionHistory.map((item) => <tr key={`${item.transactionId}-${item.resolvedAt}`} className="border-b last:border-0"><td className="p-2 font-medium">{item.transactionId}</td><td className="p-2 capitalize">{item.originalSource ?? "Unknown"}</td><td className="p-2 capitalize">{item.assignedSource ?? "—"}</td><td className="p-2">{item.resolver}</td><td className="max-w-[240px] truncate p-2" title={item.reason}>{item.reason}</td><td className="p-2">{new Date(item.resolvedAt).toLocaleDateString()}</td></tr>)}</tbody></table></div>}</CardContent></Card>
-          <section aria-labelledby="people-costs-heading" className="space-y-4">
-            <div><p className="text-sm font-medium text-primary">People costs and incentives</p><h2 id="people-costs-heading" className="text-2xl font-bold tracking-tight">Staff rewards</h2><p className="text-sm text-muted-foreground">Review verified staff performance before approving monetary rewards.</p></div>
-            <StaffRewardsPanel />
-          </section>
-          <section className="grid gap-4 sm:grid-cols-3" aria-label="Finance summary">
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Completed gross</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Revenue from completed hotel and restaurant transactions.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {totals.gross.toFixed(2)}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Settled payments</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Completed payments included in the current finance review.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.count}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Refunds issued</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Count and value of refund postings in the current register.</p></CardHeader><CardContent><p className="text-2xl font-bold">{totals.refunds}</p><p className="text-xs text-muted-foreground">GHS {totals.refundValue.toFixed(2)} reversed</p></CardContent></Card>
-  <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Complimentary waived</CardTitle><p className="text-xs leading-relaxed text-muted-foreground">Approved VIP/complimentary value used, sourced from authorization usage.</p></CardHeader><CardContent><p className="text-2xl font-bold">GHS {(pnl?.complimentary.waivedAmount ?? 0).toFixed(2)}</p><p className="text-xs text-muted-foreground">{pnl?.complimentary.usageCount ?? 0} applied exception(s)</p></CardContent></Card>
-          </section>
-          <Card id="transactions">
-            <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" aria-hidden="true" /> Recent transactions</CardTitle></CardHeader>
-            <CardContent>
-              {loading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : transactions.length === 0 ? <p className="text-sm text-muted-foreground">No transactions found.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left"><th className="p-3">Transaction</th><th className="p-3">Source</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3">Method</th><th className="p-3">Initiated by</th><th className="p-3">Approved by</th><th className="p-3">Created</th></tr></thead><tbody>{transactions.slice(0, 100).map((item, index) => { const metadata = item.metadata ?? {}; const itemSource = typeof metadata.source === "string" ? metadata.source : "unclassified"; const isRefund = item.status.toLowerCase() === "refunded" || itemSource === "refund"; return <tr className="border-b last:border-0" key={item.transaction_id ?? `${item.created_at}-${index}`}><td className="p-3 font-medium">{item.transaction_id ?? "—"}</td><td className="p-3 capitalize">{isRefund ? "Refund" : itemSource.replaceAll("_", " ")}</td><td className={`p-3 ${isRefund ? "text-destructive" : ""}`}>GHS {Number(item.amount || 0).toFixed(2)}</td><td className="p-3 capitalize">{item.status}</td><td className="p-3 capitalize">{item.payment_method ?? "—"}</td><td className="p-3">{item.performed_by_name ?? item.performed_by_email ?? "—"}{item.performed_by_role ? <span className="ml-1 text-xs text-muted-foreground">({item.performed_by_role})</span> : null}</td><td className="p-3">{item.approved_by_name ?? item.approved_by_email ?? "—"}{item.approved_by_role ? <span className="ml-1 text-xs text-muted-foreground">({item.approved_by_role})</span> : null}</td><td className="p-3">{new Date(item.created_at).toLocaleString()}</td></tr>; })}</tbody></table></div>}
+          {(pnl?.exceptions?.length ?? 0) > 0 && (
+            <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              <AlertTitle>Finance classification exceptions</AlertTitle>
+              <AlertDescription>
+                These postings are assigned to Shared / Corporate until
+                reviewed. {pnl?.exceptions.length} unresolved exception(s) are
+                available.
+              </AlertDescription>
+              <div className="mt-3 grid gap-3">
+                {pnl?.exceptions.map((exception) => (
+                  <div
+                    key={exception.transactionId}
+                    className="rounded-md border border-amber-300/70 bg-background p-3 text-foreground"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">
+                        {exception.transactionId}
+                      </span>
+                      <span>
+                        GHS {exception.amount.toFixed(2)} · {exception.status}
+                      </span>
+                    </div>
+                    {resolvingException === exception.transactionId ? (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">
+                        <Select
+                          value={resolutionSource}
+                          onValueChange={setResolutionSource}
+                        >
+                          <SelectTrigger
+                            aria-label={`Source for ${exception.transactionId}`}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hotel">Hotel</SelectItem>
+                            <SelectItem value="restaurant">
+                              Restaurant
+                            </SelectItem>
+                            <SelectItem value="event">
+                              Event Organization
+                            </SelectItem>
+                            <SelectItem value="shared">
+                              Shared / Corporate
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <input
+                          value={resolutionReason}
+                          onChange={(event) =>
+                            setResolutionReason(event.target.value)
+                          }
+                          placeholder="Reason for classification"
+                          className="h-10 rounded-md border bg-background px-3 text-sm"
+                          minLength={10}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            void resolveException(exception.transactionId ?? "")
+                          }
+                          disabled={resolutionReason.trim().length < 10}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() =>
+                          setResolvingException(exception.transactionId ?? null)
+                        }
+                      >
+                        Resolve classification
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Alert>
+          )}
+          <Card aria-labelledby="exception-history-heading">
+            <CardHeader>
+              <CardTitle id="exception-history-heading">
+                Classification history
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Audited source assignments, including the original
+                classification and reason.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <input
+                  value={historyResolver}
+                  onChange={(event) => setHistoryResolver(event.target.value)}
+                  placeholder="Filter by resolver"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+                <Select value={historySource} onValueChange={setHistorySource}>
+                  <SelectTrigger aria-label="Filter assigned source">
+                    <SelectValue placeholder="Assigned source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All assigned sources</SelectItem>
+                    <SelectItem value="hotel">Hotel</SelectItem>
+                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                    <SelectItem value="event">Event Organization</SelectItem>
+                    <SelectItem value="shared">Shared / Corporate</SelectItem>
+                  </SelectContent>
+                </Select>
+                <input
+                  type="date"
+                  value={historyFrom}
+                  onChange={(event) => setHistoryFrom(event.target.value)}
+                  aria-label="History from date"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+                <input
+                  type="date"
+                  value={historyTo}
+                  onChange={(event) => setHistoryTo(event.target.value)}
+                  aria-label="History to date"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+              {exceptionHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No resolved classifications match these filters.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2">Transaction</th>
+                        <th className="p-2">Original</th>
+                        <th className="p-2">Assigned</th>
+                        <th className="p-2">Resolver</th>
+                        <th className="p-2">Reason</th>
+                        <th className="p-2">Resolved</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exceptionHistory.map((item) => (
+                        <tr
+                          key={`${item.transactionId}-${item.resolvedAt}`}
+                          className="border-b last:border-0"
+                        >
+                          <td className="p-2 font-medium">
+                            {item.transactionId}
+                          </td>
+                          <td className="p-2 capitalize">
+                            {item.originalSource ?? "Unknown"}
+                          </td>
+                          <td className="p-2 capitalize">
+                            {item.assignedSource ?? "—"}
+                          </td>
+                          <td className="p-2">{item.resolver}</td>
+                          <td
+                            className="max-w-[240px] truncate p-2"
+                            title={item.reason}
+                          >
+                            {item.reason}
+                          </td>
+                          <td className="p-2">
+                            {new Date(item.resolvedAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4" aria-hidden="true" /> Finance access is limited to authorized roles.</div>
+          <section aria-labelledby="people-costs-heading" className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-primary">
+                People costs and incentives
+              </p>
+              <h2
+                id="people-costs-heading"
+                className="text-2xl font-bold tracking-tight"
+              >
+                Staff rewards
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Review verified staff performance before approving monetary
+                rewards.
+              </p>
+            </div>
+            <StaffRewardsPanel />
+          </section>
+          <section
+            className="grid gap-4 sm:grid-cols-3"
+            aria-label="Finance summary"
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Completed gross</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Revenue from completed hotel and restaurant transactions.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  GHS {totals.gross.toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Settled payments</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Completed payments included in the current finance review.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{totals.count}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Refunds issued</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Count and value of refund postings in the current register.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{totals.refunds}</p>
+                <p className="text-xs text-muted-foreground">
+                  GHS {totals.refundValue.toFixed(2)} reversed
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Complimentary waived</CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Approved VIP/complimentary value used, sourced from
+                  authorization usage.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  GHS {(pnl?.complimentary.waivedAmount ?? 0).toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pnl?.complimentary.usageCount ?? 0} applied exception(s)
+                </p>
+              </CardContent>
+            </Card>
+          </section>
+          <Card id="transactions">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard
+                  className="h-5 w-5 text-primary"
+                  aria-hidden="true"
+                />{" "}
+                Recent transactions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading transactions...
+                </p>
+              ) : transactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No transactions found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-3">Transaction</th>
+                        <th className="p-3">Source</th>
+                        <th className="p-3">Amount</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Method</th>
+                        <th className="p-3">Initiated by</th>
+                        <th className="p-3">Approved by</th>
+                        <th className="p-3">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.slice(0, 100).map((item, index) => {
+                        const metadata = item.metadata ?? {};
+                        const itemSource =
+                          typeof metadata.source === "string"
+                            ? metadata.source
+                            : "unclassified";
+                        const isRefund =
+                          item.status.toLowerCase() === "refunded" ||
+                          itemSource === "refund";
+                        return (
+                          <tr
+                            className="border-b last:border-0"
+                            key={
+                              item.transaction_id ??
+                              `${item.created_at}-${index}`
+                            }
+                          >
+                            <td className="p-3 font-medium">
+                              {item.transaction_id ?? "—"}
+                            </td>
+                            <td className="p-3 capitalize">
+                              {isRefund
+                                ? "Refund"
+                                : itemSource.replaceAll("_", " ")}
+                            </td>
+                            <td
+                              className={`p-3 ${isRefund ? "text-destructive" : ""}`}
+                            >
+                              GHS {Number(item.amount || 0).toFixed(2)}
+                            </td>
+                            <td className="p-3 capitalize">{item.status}</td>
+                            <td className="p-3 capitalize">
+                              {item.payment_method ?? "—"}
+                            </td>
+                            <td className="p-3">
+                              {item.performed_by_name ??
+                                item.performed_by_email ??
+                                "—"}
+                              {item.performed_by_role ? (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({item.performed_by_role})
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="p-3">
+                              {item.approved_by_name ??
+                                item.approved_by_email ??
+                                "—"}
+                              {item.approved_by_role ? (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({item.approved_by_role})
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="p-3">
+                              {new Date(item.created_at).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Dialog
+            open={Boolean(selectedDepartment)}
+            onOpenChange={(open) => !open && setSelectedDepartment(null)}
+          >
+            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedDepartment
+                    ? departmentLabels[selectedDepartment]
+                    : "Department"}{" "}
+                  transactions
+                </DialogTitle>
+                <DialogDescription>
+                  Recent postings mapped to this department from the canonical
+                  financial ledger.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    selectedDepartment && exportExcel(selectedDepartment)
+                  }
+                  disabled={!selectedDepartment || !transactions.length}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download Excel
+                </Button>
+              </div>
+              <div className="max-h-[50vh] overflow-auto rounded-md border">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-3">Transaction</th>
+                      <th className="p-3">Source</th>
+                      <th className="p-3">Amount</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions
+                      .filter((item) => {
+                        const value = String(
+                          item.metadata?.department ??
+                            item.metadata?.businessUnit ??
+                            item.metadata?.source ??
+                            "shared",
+                        ).toLowerCase();
+                        if (selectedDepartment === "event")
+                          return (
+                            value.includes("event") && !value.includes("shared")
+                          );
+                        if (selectedDepartment === "hotel")
+                          return ["hotel", "room", "accommodation"].includes(
+                            value,
+                          );
+                        if (selectedDepartment === "restaurant")
+                          return [
+                            "restaurant",
+                            "pos",
+                            "food_beverage",
+                            "food_and_beverage",
+                          ].includes(value);
+                        if (selectedDepartment === "shared_event")
+                          return value.includes("shared_event");
+                        return ![
+                          "hotel",
+                          "room",
+                          "accommodation",
+                          "restaurant",
+                          "pos",
+                          "food_beverage",
+                          "food_and_beverage",
+                          "event",
+                          "shared_event",
+                        ].includes(value);
+                      })
+                      .slice(0, 100)
+                      .map((item, index) => (
+                        <tr
+                          className="border-b last:border-0"
+                          key={
+                            item.transaction_id ?? `${item.created_at}-${index}`
+                          }
+                        >
+                          <td className="p-3 font-medium">
+                            {item.transaction_id ?? "—"}
+                          </td>
+                          <td className="p-3">
+                            {String(
+                              item.metadata?.source ?? "unclassified",
+                            ).replaceAll("_", " ")}
+                          </td>
+                          <td className="p-3">
+                            GHS {Number(item.amount || 0).toFixed(2)}
+                          </td>
+                          <td className="p-3 capitalize">{item.status}</td>
+                          <td className="p-3">
+                            {new Date(item.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <TrendingUp className="h-4 w-4" aria-hidden="true" /> Finance access
+            is limited to authorized roles.
+          </div>
         </div>
       </main>
     </RoleGuard>

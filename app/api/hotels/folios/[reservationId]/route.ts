@@ -3,6 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 const paramsSchema = z.object({
   reservationId: z.string().uuid({ message: "Invalid reservation id" }),
@@ -17,7 +18,10 @@ const addChargeSchema = z.object({
   description: z.string().max(255).optional(),
 });
 
-const chargeColumn: Record<z.infer<typeof addChargeSchema>["chargeType"], string> = {
+const chargeColumn: Record<
+  z.infer<typeof addChargeSchema>["chargeType"],
+  string
+> = {
   service: "service_charges",
   food: "food_charges",
   other: "other_charges",
@@ -26,7 +30,7 @@ const chargeColumn: Record<z.infer<typeof addChargeSchema>["chargeType"], string
 // Get a guest's folio (room/service/food/other charges + balance) for a reservation
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ reservationId: string }> }
+  context: { params: Promise<{ reservationId: string }> },
 ) {
   try {
     const { error: authError } = await requirePermission("guestFolio");
@@ -34,7 +38,10 @@ export async function GET(
 
     const paramsResult = paramsSchema.safeParse(await context.params);
     if (!paramsResult.success) {
-      return NextResponse.json({ error: "Invalid reservation id" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid reservation id" },
+        { status: 400 },
+      );
     }
     const { reservationId } = paramsResult.data;
 
@@ -71,7 +78,9 @@ export async function GET(
       [reservationId],
     );
 
-    const syncResult = await transaction((client) => syncOverdueRoomCharges(client, reservationId));
+    const syncResult = await transaction((client) =>
+      syncOverdueRoomCharges(client, reservationId),
+    );
     const result = await query(
       `
       SELECT gf.*, r.reservation_number, g.first_name, g.last_name, rm.room_number
@@ -81,7 +90,7 @@ export async function GET(
       LEFT JOIN rooms rm ON rm.id = r.room_id
       WHERE gf.reservation_id = $1
       `,
-      [reservationId]
+      [reservationId],
     );
 
     if (result.rows.length === 0) {
@@ -95,15 +104,19 @@ export async function GET(
        FROM guest_folio_items i
        LEFT JOIN users u ON u.id = i.created_by
        WHERE i.folio_id = (SELECT id FROM guest_folios WHERE reservation_id = $1) ORDER BY i.created_at ASC`,
-      [reservationId]
+      [reservationId],
     );
 
-    return NextResponse.json({ ...result.rows[0], items: items.rows, overdueStay: syncResult });
+    return NextResponse.json({
+      ...result.rows[0],
+      items: items.rows,
+      overdueStay: syncResult,
+    });
   } catch (error) {
     console.error("Error fetching guest folio:", error);
     return NextResponse.json(
       { error: "Failed to fetch guest folio" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -111,7 +124,7 @@ export async function GET(
 // Add a charge (service/food/other) to a guest's folio and recalculate totals/balance
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ reservationId: string }> }
+  context: { params: Promise<{ reservationId: string }> },
 ) {
   try {
     const { session, error: authError } = await requirePermission("guestFolio");
@@ -119,7 +132,10 @@ export async function PATCH(
 
     const paramsResult = paramsSchema.safeParse(await context.params);
     if (!paramsResult.success) {
-      return NextResponse.json({ error: "Invalid reservation id" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid reservation id" },
+        { status: 400 },
+      );
     }
     const { reservationId } = paramsResult.data;
 
@@ -127,8 +143,11 @@ export async function PATCH(
     const validationResult = addChargeSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: validationResult.error.issues[0]?.message || "Invalid charge data" },
-        { status: 400 }
+        {
+          error:
+            validationResult.error.issues[0]?.message || "Invalid charge data",
+        },
+        { status: 400 },
       );
     }
     const { chargeType, amount } = validationResult.data;
@@ -137,7 +156,7 @@ export async function PATCH(
     const result = await transaction(async (client) => {
       const folioResult = await client.query(
         `SELECT id FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
-        [reservationId]
+        [reservationId],
       );
       const folio = folioResult.rows[0];
       if (!folio) return null;
@@ -146,11 +165,52 @@ export async function PATCH(
         `INSERT INTO guest_folio_items
           (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, created_by)
          VALUES ($1, $2, $3, $4, 1, $5, $5, 'folio', $6)`,
-        [reservationId, folio.id, chargeType, validationResult.data.description || `${chargeType} charge`, amount, session.id]
+        [
+          reservationId,
+          folio.id,
+          chargeType,
+          validationResult.data.description || `${chargeType} charge`,
+          amount,
+          session.id,
+        ],
       );
 
       const chargeReference = `FOLIO-${reservationId}-${crypto.randomUUID()}`;
-      await client.query(`INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by) VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4) ON CONFLICT (transaction_reference) DO NOTHING`, [chargeReference, amount.toFixed(2), JSON.stringify({ source: "hotel-folio-charge", businessUnit: "shared", reservationId, chargeType, description: validationResult.data.description || `${chargeType} charge`, grossAmount: amount, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]);
+      const chargeMetadata = {
+        source: "hotel-folio-charge",
+        department: chargeType === "food" ? "restaurant" : "hotel",
+        reservationId,
+        chargeType,
+        description:
+          validationResult.data.description || `${chargeType} charge`,
+        grossAmount: amount,
+        performedBy: {
+          id: session.id,
+          name: session.name,
+          email: session.email,
+          role: session.role,
+        },
+      };
+      await client.query(
+        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by) VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4) ON CONFLICT (transaction_reference) DO NOTHING`,
+        [
+          chargeReference,
+          amount.toFixed(2),
+          JSON.stringify(chargeMetadata),
+          session.id,
+        ],
+      );
+      await recordFinancialLedgerEntry(client, {
+        eventKey: `folio-charge:${chargeReference}`,
+        amount,
+        direction: "credit",
+        status: "posted",
+        source: "hotel_folio",
+        paymentMethod: "guest-folio",
+        entityType: "reservation",
+        entityId: reservationId,
+        metadata: chargeMetadata,
+      });
 
       const updated = await client.query(
         `UPDATE guest_folios
@@ -159,7 +219,7 @@ export async function PATCH(
              balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0) + $1 - COALESCE(paid_amount, 0)),
              last_updated = NOW()
          WHERE reservation_id = $2 RETURNING *`,
-        [amount, reservationId]
+        [amount, reservationId],
       );
       return updated.rows[0] || null;
     });
@@ -173,7 +233,7 @@ export async function PATCH(
     console.error("Error updating guest folio:", error);
     return NextResponse.json(
       { error: "Failed to update guest folio" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

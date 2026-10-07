@@ -31,12 +31,27 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DoorOpen, DoorClosed, Search, ArrowLeft, Receipt, XCircle, Printer, Utensils, Minus, Plus, ShieldCheck } from "lucide-react";
+import {
+  DoorOpen,
+  DoorClosed,
+  Search,
+  ArrowLeft,
+  Receipt,
+  XCircle,
+  Printer,
+  Utensils,
+  Minus,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { printHotelReceipt } from "@/lib/hotel-receipt-print";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useSettings } from "@/components/settings-provider";
-import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
+import {
+  LiveSyncToolbar,
+  useHotelLiveSync,
+} from "@/components/hotels/live-sync";
 import { ComplimentaryAuthorizationsPanel } from "@/components/admin/complimentary-authorizations-panel";
 
 interface CheckInData {
@@ -111,48 +126,93 @@ interface GuestFolio {
 function CheckInPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<CheckInData[]>([]);
-  const [filteredReservations, setFilteredReservations] = useState<CheckInData[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<
+    CheckInData[]
+  >([]);
   const [checkedInGuests, setCheckedInGuests] = useState<CheckedInGuest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingCheckedIn, setLoadingCheckedIn] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [cancellingReservationId, setCancellingReservationId] = useState<string | null>(null);
+  const [cancellingReservationId, setCancellingReservationId] = useState<
+    string | null
+  >(null);
   const { toast } = useToast();
 
   // Room selection dialog state for check-in
-  const [selectedReservation, setSelectedReservation] = useState<CheckInData | null>(null);
+  const [selectedReservation, setSelectedReservation] =
+    useState<CheckInData | null>(null);
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Checkout dialog state
-  const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(null);
+  const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(
+    null,
+  );
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [checkoutDisclosure, setCheckoutDisclosure] = useState<{ grossSpent: number; complimentaryAmount: number; netSpent: number; items: Array<{ category: string; description: string; quantity: number; total_amount: number }> } | null>(null);
+  const [checkoutDisclosure, setCheckoutDisclosure] = useState<{
+    grossSpent: number;
+    complimentaryAmount: number;
+    netSpent: number;
+    items: Array<{
+      category: string;
+      description: string;
+      quantity: number;
+      total_amount: number;
+    }>;
+  } | null>(null);
 
   // Guest folio panel state
   const [folioGuest, setFolioGuest] = useState<CheckedInGuest | null>(null);
   const [folio, setFolio] = useState<GuestFolio | null>(null);
   const [loadingFolio, setLoadingFolio] = useState(false);
-  const [chargeType, setChargeType] = useState<"service" | "food" | "other">("service");
+  const [chargeType, setChargeType] = useState<"service" | "food" | "other">(
+    "service",
+  );
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeDescription, setChargeDescription] = useState("");
   const [addingCharge, setAddingCharge] = useState(false);
   const [latestReceiptId, setLatestReceiptId] = useState<string | null>(null);
-  const [latestHotelReceipt, setLatestHotelReceipt] = useState<{ orderNumber: string; guestName: string; roomNumber: string; items: Array<{ description: string; quantity: number; totalAmount: number }>; total: number; balance: number } | null>(null);
+  const [latestHotelReceipt, setLatestHotelReceipt] = useState<{
+    orderNumber: string;
+    guestName: string;
+    roomNumber: string;
+    items: Array<{
+      description: string;
+      quantity: number;
+      totalAmount: number;
+    }>;
+    total: number;
+    balance: number;
+  } | null>(null);
   const { settings: receiptSettings } = useReceiptSettings();
   const { settings: appSettings } = useSettings();
-  const hotelReceiptIdentity = { name: appSettings.account.restaurantName || "Hotel", email: appSettings.account.email, phone: appSettings.account.phone, address: appSettings.account.address, logo: appSettings.account.logo };
+  const hotelReceiptIdentity = {
+    name: appSettings.account.restaurantName || "Hotel",
+    email: appSettings.account.email,
+    phone: appSettings.account.phone,
+    address: appSettings.account.address,
+    logo: appSettings.account.logo,
+  };
   const [restaurantMenu, setRestaurantMenu] = useState<MenuItem[]>([]);
-  const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
+  const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>(
+    {},
+  );
   const [loadingRestaurantMenu, setLoadingRestaurantMenu] = useState(false);
   const [sendingRestaurantOrder, setSendingRestaurantOrder] = useState(false);
-  const [latestRestaurantOrder, setLatestRestaurantOrder] = useState<{ orderNumber: string; total: number; printRequested?: boolean } | null>(null);
+  const [latestRestaurantOrder, setLatestRestaurantOrder] = useState<{
+    orderNumber: string;
+    total: number;
+    printRequested?: boolean;
+  } | null>(null);
 
   const fetchReservations = async () => {
     try {
-      const response = await fetch("/api/hotels/reservations?status=confirmed", { cache: "no-store" });
+      const response = await fetch(
+        "/api/hotels/reservations?status=confirmed",
+        { cache: "no-store" },
+      );
       if (!response.ok) throw new Error("Failed to fetch reservations");
       const data = await response.json();
       setReservations(data);
@@ -171,7 +231,9 @@ function CheckInPage() {
 
   const fetchCheckedInGuests = async (): Promise<CheckedInGuest[]> => {
     try {
-      const response = await fetch(`/api/hotels/checked-in?t=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`/api/hotels/checked-in?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error("Failed to fetch checked-in guests");
       const data = await response.json();
       setCheckedInGuests(data);
@@ -201,7 +263,7 @@ function CheckInPage() {
       (res) =>
         res.reservation_number.toLowerCase().includes(value.toLowerCase()) ||
         res.first_name.toLowerCase().includes(value.toLowerCase()) ||
-        res.last_name.toLowerCase().includes(value.toLowerCase())
+        res.last_name.toLowerCase().includes(value.toLowerCase()),
     );
     setFilteredReservations(filtered);
   };
@@ -213,7 +275,7 @@ function CheckInPage() {
     try {
       const response = await fetch(
         `/api/hotels/rooms?status=available%2Cdirty%2Ccleaning&roomTypeId=${reservation.room_type_id}`,
-        { cache: "no-store" }
+        { cache: "no-store" },
       );
       if (!response.ok) throw new Error("Failed to fetch available rooms");
       const data = await response.json();
@@ -232,17 +294,36 @@ function CheckInPage() {
 
   const handleCancelReservation = async (reservation: CheckInData) => {
     if (processing || cancellingReservationId) return;
-    if (!window.confirm(`Cancel reservation ${reservation.reservation_number} for ${reservation.first_name} ${reservation.last_name}?`)) return;
+    if (
+      !window.confirm(
+        `Cancel reservation ${reservation.reservation_number} for ${reservation.first_name} ${reservation.last_name}?`,
+      )
+    )
+      return;
     setCancellingReservationId(reservation.id);
     try {
-      const response = await fetch(`/api/hotels/reservations/${reservation.id}`, { method: "DELETE" });
+      const response = await fetch(
+        `/api/hotels/reservations/${reservation.id}`,
+        { method: "DELETE" },
+      );
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Failed to cancel reservation");
+      if (!response.ok)
+        throw new Error(payload?.error || "Failed to cancel reservation");
       window.dispatchEvent(new Event("reservationUpdated"));
       await fetchReservations();
-      toast({ title: "Reservation cancelled", description: `${reservation.reservation_number} is no longer awaiting check-in.` });
+      toast({
+        title: "Reservation cancelled",
+        description: `${reservation.reservation_number} is no longer awaiting check-in.`,
+      });
     } catch (error) {
-      toast({ title: "Cancellation failed", description: error instanceof Error ? error.message : "Failed to cancel reservation", variant: "destructive" });
+      toast({
+        title: "Cancellation failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to cancel reservation",
+        variant: "destructive",
+      });
     } finally {
       setCancellingReservationId(null);
     }
@@ -252,13 +333,31 @@ function CheckInPage() {
     if (!selectedReservation || processing) return;
     setProcessing(true);
     try {
-      const response = await fetch(`/api/hotels/reservations/${selectedReservation.id}/payment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "cash" }) });
+      const response = await fetch(
+        `/api/hotels/reservations/${selectedReservation.id}/payment`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ method: "cash" }),
+        },
+      );
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Unable to record payment");
-      toast({ title: "Payment recorded", description: `GHS ${Number(payload.amount || 0).toFixed(2)} is settled before check-in.` });
+      if (!response.ok)
+        throw new Error(payload?.error || "Unable to record payment");
+      toast({
+        title: "Payment recorded",
+        description: `GHS ${Number(payload.amount || 0).toFixed(2)} is settled before check-in.`,
+      });
     } catch (error) {
-      toast({ title: "Payment failed", description: error instanceof Error ? error.message : "Unable to record payment", variant: "destructive" });
-    } finally { setProcessing(false); }
+      toast({
+        title: "Payment failed",
+        description:
+          error instanceof Error ? error.message : "Unable to record payment",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleCheckIn = async () => {
@@ -288,21 +387,59 @@ function CheckInPage() {
         throw new Error(payload?.error || "Failed to check in guest");
       }
 
-      const persistedItems = Array.isArray(payload?.receipt?.items) ? payload.receipt.items : [];
-      const checkInItems = persistedItems.length > 0
-        ? persistedItems.map((item: { description?: string; quantity?: number; total_amount?: number; totalAmount?: number }) => ({ description: item.description || "Hotel charge", quantity: Number(item.quantity || 1), totalAmount: Number(item.total_amount ?? item.totalAmount ?? 0) }))
-        : [{ description: "Room accommodation", quantity: 1, totalAmount: Number(payload?.roomCharge || 0) }];
-      const checkInReceipt = { orderNumber: payload?.orderNumber || selectedReservation.reservation_number, guestName: payload?.receipt?.guestName || `${selectedReservation.first_name} ${selectedReservation.last_name}`, roomNumber: payload?.receipt?.roomNumber || payload?.roomNumber || selectedRoomId, items: checkInItems, total: Number(payload?.receipt?.total ?? payload?.totalCharges ?? 0), balance: 0, bookedBy: payload?.receipt?.bookedBy, checkedInBy: payload?.receipt?.checkedInBy, checkedInAt: payload?.receipt?.checkedInAt || new Date().toISOString(), checkedOutBy: payload?.receipt?.checkedOutBy, checkedOutAt: payload?.receipt?.checkedOutAt };
+      const persistedItems = Array.isArray(payload?.receipt?.items)
+        ? payload.receipt.items
+        : [];
+      const checkInItems =
+        persistedItems.length > 0
+          ? persistedItems.map(
+              (item: {
+                description?: string;
+                quantity?: number;
+                total_amount?: number;
+                totalAmount?: number;
+              }) => ({
+                description: item.description || "Hotel charge",
+                quantity: Number(item.quantity || 1),
+                totalAmount: Number(item.total_amount ?? item.totalAmount ?? 0),
+              }),
+            )
+          : [
+              {
+                description: "Room accommodation",
+                quantity: 1,
+                totalAmount: Number(payload?.roomCharge || 0),
+              },
+            ];
+      const checkInReceipt = {
+        orderNumber:
+          payload?.orderNumber || selectedReservation.reservation_number,
+        guestName:
+          payload?.receipt?.guestName ||
+          `${selectedReservation.first_name} ${selectedReservation.last_name}`,
+        roomNumber:
+          payload?.receipt?.roomNumber || payload?.roomNumber || selectedRoomId,
+        items: checkInItems,
+        total: Number(payload?.receipt?.total ?? payload?.totalCharges ?? 0),
+        balance: 0,
+        bookedBy: payload?.receipt?.bookedBy,
+        checkedInBy: payload?.receipt?.checkedInBy,
+        checkedInAt: payload?.receipt?.checkedInAt || new Date().toISOString(),
+        checkedOutBy: payload?.receipt?.checkedOutBy,
+        checkedOutAt: payload?.receipt?.checkedOutAt,
+      };
       setLatestReceiptId(payload?.receiptId || null);
       setLatestHotelReceipt(checkInReceipt);
       setSelectedReservation(null);
       setSelectedRoomId("");
-  // Do not open a popup after the async check-in request. Browsers block that popup
-  // because it is no longer directly tied to the user's click. The receipt card below
-  // provides a direct user-initiated Print receipt action that can open the dialog.
-  toast({
+      // Do not open a popup after the async check-in request. Browsers block that popup
+      // because it is no longer directly tied to the user's click. The receipt card below
+      // provides a direct user-initiated Print receipt action that can open the dialog.
+      toast({
         title: "Success",
-        description: payload?.receiptId ? `Guest checked in. Order ${payload.orderNumber} is ready.` : "Guest checked in successfully",
+        description: payload?.receiptId
+          ? `Guest checked in. Order ${payload.orderNumber} is ready.`
+          : "Guest checked in successfully",
       });
 
       window.dispatchEvent(new Event("roomStatusUpdated"));
@@ -312,7 +449,10 @@ function CheckInPage() {
       console.error("Error checking in guest:", error);
       toast({
         title: "Check-in failed",
-        description: error instanceof Error ? error.message : "The guest could not be checked in. Please verify the reservation and room, then try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "The guest could not be checked in. Please verify the reservation and room, then try again.",
         variant: "destructive",
       });
     } finally {
@@ -341,7 +481,11 @@ function CheckInPage() {
     const paid = paymentAmount.trim() === "" ? 0 : Number(paymentAmount);
     const balance = Number(checkoutGuest.balance || 0);
     if (!Number.isFinite(paid) || paid < 0 || paid > balance) {
-      toast({ title: "Invalid payment", description: `Enter an amount from GHS 0.00 to GHS ${balance.toFixed(2)}.`, variant: "destructive" });
+      toast({
+        title: "Invalid payment",
+        description: `Enter an amount from GHS 0.00 to GHS ${balance.toFixed(2)}.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -362,7 +506,9 @@ function CheckInPage() {
         throw new Error(payload?.error || "Failed to check out guest");
       }
       if (payload?.persisted !== true) {
-        throw new Error("Checkout was not confirmed by the server. Please try again.");
+        throw new Error(
+          "Checkout was not confirmed by the server. Please try again.",
+        );
       }
       setCheckoutDisclosure(payload.folioDisclosure ?? null);
 
@@ -378,13 +524,17 @@ function CheckInPage() {
       setPaymentAmount("");
       toast({
         title: "Success",
-        description: paid > 0 ? "Guest checked out early or on schedule and incidental payment was recorded. No accommodation refund applies." : "Guest checked out early or on schedule. Accommodation was already settled at check-in and is non-refundable.",
+        description:
+          paid > 0
+            ? "Guest checked out early or on schedule and incidental payment was recorded. No accommodation refund applies."
+            : "Guest checked out early or on schedule. Accommodation was already settled at check-in and is non-refundable.",
       });
     } catch (error) {
       console.error("Error checking out guest:", error);
       toast({
         title: "Check-out failed",
-        description: error instanceof Error ? error.message : "Failed to check out guest",
+        description:
+          error instanceof Error ? error.message : "Failed to check out guest",
         variant: "destructive",
       });
     } finally {
@@ -398,9 +548,21 @@ function CheckInPage() {
     setLatestRestaurantOrder(null);
     setLoadingRestaurantMenu(true);
     fetch("/api/menu", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load menu")))
-      .then((items: MenuItem[]) => setRestaurantMenu(items.filter((item) => item.inStock)))
-      .catch(() => toast({ title: "Menu unavailable", description: "Active food and beverage items could not be loaded.", variant: "destructive" }))
+      .then((response) =>
+        response.ok
+          ? response.json()
+          : Promise.reject(new Error("Failed to load menu")),
+      )
+      .then((items: MenuItem[]) =>
+        setRestaurantMenu(items.filter((item) => item.inStock)),
+      )
+      .catch(() =>
+        toast({
+          title: "Menu unavailable",
+          description: "Active food and beverage items could not be loaded.",
+          variant: "destructive",
+        }),
+      )
       .finally(() => setLoadingRestaurantMenu(false));
     setFolio(null);
     setChargeType("service");
@@ -408,7 +570,9 @@ function CheckInPage() {
     setChargeDescription("");
     setLoadingFolio(true);
     try {
-      const response = await fetch(`/api/hotels/folios/${guest.id}`, { cache: "no-store" });
+      const response = await fetch(`/api/hotels/folios/${guest.id}`, {
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error("Failed to fetch folio");
       const data = await response.json();
       setFolio(data);
@@ -424,7 +588,10 @@ function CheckInPage() {
     }
   };
 
-  const restaurantTotal = restaurantMenu.reduce((total, item) => total + item.price * (restaurantCart[item.id] || 0), 0);
+  const restaurantTotal = restaurantMenu.reduce(
+    (total, item) => total + item.price * (restaurantCart[item.id] || 0),
+    0,
+  );
 
   const updateRestaurantQuantity = (itemId: string, delta: number) => {
     setRestaurantCart((current) => {
@@ -441,25 +608,46 @@ function CheckInPage() {
     setSendingRestaurantOrder(true);
     try {
       const requestId = `FO-${crypto.randomUUID()}`;
-      const response = await fetch(`/api/hotels/folios/${folioGuest.id}/restaurant-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          items: Object.entries(restaurantCart).map(([menuItemId, quantity]) => ({ menuItemId, quantity })),
-        }),
-      });
+      const response = await fetch(
+        `/api/hotels/folios/${folioGuest.id}/restaurant-order`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId,
+            items: Object.entries(restaurantCart).map(
+              ([menuItemId, quantity]) => ({ menuItemId, quantity }),
+            ),
+          }),
+        },
+      );
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Failed to send restaurant order");
+      if (!response.ok)
+        throw new Error(payload?.error || "Failed to send restaurant order");
       setFolio(payload.folio);
-      setLatestRestaurantOrder({ orderNumber: payload.orderNumber, total: payload.total, printRequested: print });
+      setLatestRestaurantOrder({
+        orderNumber: payload.orderNumber,
+        total: payload.total,
+        printRequested: print,
+      });
       setRestaurantCart({});
       await fetchCheckedInGuests();
       window.dispatchEvent(new Event("ordersUpdated"));
-      toast({ title: "Order sent to restaurant", description: `${payload.orderNumber} was charged to the guest folio.` });
-      if (print) setTimeout(() => window.print(), 250);
+      toast({
+        title: "Order sent to restaurant",
+        description: `${payload.orderNumber} was charged to the guest folio.`,
+      });
+      // The receipt dialog owns printing after the receipt data has rendered. Printing here
+      // raced the state update and could open a blank browser print surface.
     } catch (error) {
-      toast({ title: "Restaurant order failed", description: error instanceof Error ? error.message : "Could not create restaurant order", variant: "destructive" });
+      toast({
+        title: "Restaurant order failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not create restaurant order",
+        variant: "destructive",
+      });
     } finally {
       setSendingRestaurantOrder(false);
     }
@@ -489,7 +677,8 @@ function CheckInPage() {
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Failed to add charge");
+      if (!response.ok)
+        throw new Error(payload?.error || "Failed to add charge");
       setFolio(payload);
       setChargeAmount("");
       setChargeDescription("");
@@ -499,7 +688,8 @@ function CheckInPage() {
       console.error("Error adding charge:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add charge",
+        description:
+          error instanceof Error ? error.message : "Failed to add charge",
         variant: "destructive",
       });
     } finally {
@@ -523,16 +713,85 @@ function CheckInPage() {
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Check-In / Check-Out</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Check-In / Check-Out
+          </h2>
         </div>
-        <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
+        <LiveSyncToolbar
+          connected={liveSync.connected}
+          refreshing={liveSync.refreshing}
+          onRefresh={() => void liveSync.refresh()}
+        />
       </div>
 
-      <Dialog open={Boolean(latestRestaurantOrder?.printRequested)} onOpenChange={(open) => { if (!open) setLatestRestaurantOrder(null); }}>
+      <Dialog
+        open={Boolean(latestRestaurantOrder?.printRequested)}
+        onOpenChange={(open) => {
+          if (!open) setLatestRestaurantOrder(null);
+        }}
+      >
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Restaurant receipt</DialogTitle><DialogDescription>Order {latestRestaurantOrder?.orderNumber} has been charged to the guest folio.</DialogDescription></DialogHeader>
-          <div className="space-y-3 rounded-lg border p-4 text-sm"><div className="flex justify-between"><span>Order</span><span className="font-medium">{latestRestaurantOrder?.orderNumber}</span></div><div className="flex justify-between"><span>Total purchased</span><span className="font-semibold">GHS {Number(latestRestaurantOrder?.total || 0).toFixed(2)}</span></div><div className="border-t pt-3 text-muted-foreground">This amount is recorded in the guest folio and will be included in the checkout balance.</div></div>
-          <DialogFooter><Button type="button" variant="outline" onClick={() => void printHotelReceipt({ title: "Guest folio receipt", hotel: hotelReceiptIdentity, orderNumber: latestRestaurantOrder?.orderNumber || "FOLIO", guestName: folioGuest ? `${folioGuest.first_name} ${folioGuest.last_name}` : "Guest", roomNumber: folioGuest?.room_number || undefined, items: [{ description: "Restaurant purchase", quantity: 1, totalAmount: Number(latestRestaurantOrder?.total || 0) }], total: Number(latestRestaurantOrder?.total || 0), footer: receiptSettings.includeFooter ? "Charged to guest folio" : "" })}><Printer className="mr-2 h-4 w-4" /> Print receipt</Button><Button type="button" onClick={() => setLatestRestaurantOrder(null)}>Close</Button></DialogFooter>
+          <DialogHeader>
+            <DialogTitle>Restaurant receipt</DialogTitle>
+            <DialogDescription>
+              Order {latestRestaurantOrder?.orderNumber} has been charged to the
+              guest folio.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 rounded-lg border p-4 text-sm">
+            <div className="flex justify-between">
+              <span>Order</span>
+              <span className="font-medium">
+                {latestRestaurantOrder?.orderNumber}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Total purchased</span>
+              <span className="font-semibold">
+                GHS {Number(latestRestaurantOrder?.total || 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="border-t pt-3 text-muted-foreground">
+              This amount is recorded in the guest folio and will be included in
+              the checkout balance.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void printHotelReceipt({
+                  title: "Guest folio receipt",
+                  hotel: hotelReceiptIdentity,
+                  orderNumber: latestRestaurantOrder?.orderNumber || "FOLIO",
+                  guestName: folioGuest
+                    ? `${folioGuest.first_name} ${folioGuest.last_name}`
+                    : "Guest",
+                  roomNumber: folioGuest?.room_number || undefined,
+                  items: [
+                    {
+                      description: "Restaurant purchase",
+                      quantity: 1,
+                      totalAmount: Number(latestRestaurantOrder?.total || 0),
+                    },
+                  ],
+                  total: Number(latestRestaurantOrder?.total || 0),
+                  footer: receiptSettings.includeFooter
+                    ? "Charged to guest folio"
+                    : "",
+                })
+              }
+            >
+              <Printer className="mr-2 h-4 w-4" /> Print receipt
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setLatestRestaurantOrder(null)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -540,17 +799,54 @@ function CheckInPage() {
         <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="font-semibold text-emerald-900 dark:text-emerald-200">Check-in receipt created</p>
-              <p className="text-sm text-emerald-800 dark:text-emerald-300">The receipt is saved and can be downloaded if the printer is unavailable.</p>
+              <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Check-in receipt created
+              </p>
+              <p className="text-sm text-emerald-800 dark:text-emerald-300">
+                The receipt is saved and can be downloaded if the printer is
+                unavailable.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
-  <Button type="button" variant="outline" onClick={() => { setSelectedReservation(null); setSelectedRoomId(""); if (latestHotelReceipt) void printHotelReceipt({ title: "Hotel check-in receipt", ...latestHotelReceipt, hotel: hotelReceiptIdentity, footer: receiptSettings.includeFooter ? "Accommodation settled at check-in" : "" }); }}>
-  <Printer className="mr-2 h-4 w-4" /> Print receipt
-  </Button>
-  <Button type="button" variant="ghost" onClick={() => window.open(`/api/hotels/receipts/${latestReceiptId}`, "_blank", "noopener,noreferrer")}>
-  <Receipt className="mr-2 h-4 w-4" /> Download receipt
-  </Button>
-              <Button type="button" variant="ghost" onClick={() => setLatestReceiptId(null)}>Dismiss</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSelectedReservation(null);
+                  setSelectedRoomId("");
+                  if (latestHotelReceipt)
+                    void printHotelReceipt({
+                      title: "Hotel check-in receipt",
+                      ...latestHotelReceipt,
+                      hotel: hotelReceiptIdentity,
+                      footer: receiptSettings.includeFooter
+                        ? "Accommodation settled at check-in"
+                        : "",
+                    });
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" /> Print receipt
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  window.open(
+                    `/api/hotels/receipts/${latestReceiptId}`,
+                    "_blank",
+                    "noopener,noreferrer",
+                  )
+                }
+              >
+                <Receipt className="mr-2 h-4 w-4" /> Download receipt
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setLatestReceiptId(null)}
+              >
+                Dismiss
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -571,8 +867,12 @@ function CheckInPage() {
         <TabsContent value="check-in">
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
             <CardHeader className="space-y-1 px-4 py-5 sm:px-6 sm:py-6">
-              <CardTitle className="text-xl sm:text-2xl">Check-In Management</CardTitle>
-              <CardDescription className="text-sm sm:text-base">Process guest check-ins for reservations</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl">
+                Check-In Management
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base">
+                Process guest check-ins for reservations
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 px-4 pb-5 sm:px-6 sm:pb-6">
               <div className="flex w-full">
@@ -596,7 +896,9 @@ function CheckInPage() {
               ) : filteredReservations.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <DoorOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  {searchTerm ? "No reservations match your search" : "No pending reservations"}
+                  {searchTerm
+                    ? "No reservations match your search"
+                    : "No pending reservations"}
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -608,28 +910,44 @@ function CheckInPage() {
                       <CardContent className="p-4 sm:p-5 lg:p-6">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1.25fr_1.25fr_1fr_1.25fr_0.55fr_auto] lg:items-center lg:gap-6">
                           <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">Reservation</p>
-                            <p className="font-semibold">{res.reservation_number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Reservation
+                            </p>
+                            <p className="font-semibold">
+                              {res.reservation_number}
+                            </p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">Guest</p>
+                            <p className="text-xs text-muted-foreground">
+                              Guest
+                            </p>
                             <p className="truncate font-semibold">
                               {res.first_name} {res.last_name}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Check-In</p>
+                            <p className="text-xs text-muted-foreground">
+                              Check-In
+                            </p>
                             <p className="font-semibold">
                               {new Date(res.check_in_date).toLocaleDateString()}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Room Type</p>
-                            <p className="font-semibold">{res.room_type_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Room Type
+                            </p>
+                            <p className="font-semibold">
+                              {res.room_type_name}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Guests</p>
-                            <p className="font-semibold">{res.number_of_guests}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Guests
+                            </p>
+                            <p className="font-semibold">
+                              {res.number_of_guests}
+                            </p>
                           </div>
                           <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 sm:flex-row lg:col-span-1 lg:min-w-[220px]">
                             <Button
@@ -647,7 +965,9 @@ function CheckInPage() {
                               className="flex-1 rounded-lg border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
                             >
                               <XCircle className="h-4 w-4 mr-2" />
-                              {cancellingReservationId === res.id ? "Cancelling…" : "Cancel"}
+                              {cancellingReservationId === res.id
+                                ? "Cancelling…"
+                                : "Cancel"}
                             </Button>
                           </div>
                         </div>
@@ -665,7 +985,9 @@ function CheckInPage() {
             <CardHeader>
               <CardTitle>Check-Out Management</CardTitle>
               <CardDescription>
-                Guests may check out any time after check-in. Accommodation payments are non-refundable; collect only services, damage, or other extras at check-out.
+                Guests may check out any time after check-in. Accommodation
+                payments are non-refundable; collect only services, damage, or
+                other extras at check-out.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -692,27 +1014,46 @@ function CheckInPage() {
                         <CardContent className="p-4 sm:pt-6">
                           <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(72px,0.7fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(190px,auto)] lg:items-center lg:gap-4">
                             <div>
-                              <p className="text-xs text-muted-foreground">Room</p>
-                              <p className="font-semibold">{guest.room_number || "Unassigned"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Room
+                              </p>
+                              <p className="font-semibold">
+                                {guest.room_number || "Unassigned"}
+                              </p>
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs text-muted-foreground">Guest</p>
-                              <p className="truncate font-semibold" title={`${guest.first_name} ${guest.last_name}`}>
+                              <p className="text-xs text-muted-foreground">
+                                Guest
+                              </p>
+                              <p
+                                className="truncate font-semibold"
+                                title={`${guest.first_name} ${guest.last_name}`}
+                              >
                                 {guest.first_name} {guest.last_name}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground">Check-Out Due</p>
+                              <p className="text-xs text-muted-foreground">
+                                Check-Out Due
+                              </p>
                               <p className="font-semibold">
-                                {new Date(guest.check_out_date).toLocaleDateString()}
+                                {new Date(
+                                  guest.check_out_date,
+                                ).toLocaleDateString()}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground">Room Type</p>
-                              <p className="font-semibold">{guest.room_type_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Room Type
+                              </p>
+                              <p className="font-semibold">
+                                {guest.room_type_name}
+                              </p>
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground">Balance</p>
+                              <p className="text-xs text-muted-foreground">
+                                Balance
+                              </p>
                               <Badge
                                 className={
                                   balance > 0
@@ -770,11 +1111,18 @@ function CheckInPage() {
 
           <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white p-3 text-emerald-950 shadow-sm">
             <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+              <ShieldCheck
+                className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600"
+                aria-hidden="true"
+              />
               <div>
-                <p className="text-sm font-semibold">Manager approval protects room changes</p>
+                <p className="text-sm font-semibold">
+                  Manager approval protects room changes
+                </p>
                 <p className="mt-1 text-xs leading-5 text-emerald-800">
-                  Standard room assignments can be completed here. Any room-type upgrade, downgrade, or rate adjustment must be reviewed and approved by a Manager before completion.
+                  Standard room assignments can be completed here. Any room-type
+                  upgrade, downgrade, or rate adjustment must be reviewed and
+                  approved by a Manager before completion.
                 </p>
               </div>
             </div>
@@ -806,13 +1154,26 @@ function CheckInPage() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedReservation(null)} className="rounded-lg">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedReservation(null)}
+              className="rounded-lg"
+            >
               Cancel
             </Button>
-            <Button variant="secondary" onClick={handlePreCheckInPayment} disabled={processing || !selectedRoomId} className="rounded-2xl">
+            <Button
+              variant="secondary"
+              onClick={handlePreCheckInPayment}
+              disabled={processing || !selectedRoomId}
+              className="rounded-2xl"
+            >
               Record payment
             </Button>
-            <Button onClick={handleCheckIn} disabled={processing || !selectedRoomId} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50">
+            <Button
+              onClick={handleCheckIn}
+              disabled={processing || !selectedRoomId}
+              className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-white text-emerald-950 shadow-sm hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-50"
+            >
               {processing ? "Processing…" : "Confirm Check-In"}
             </Button>
           </DialogFooter>
@@ -820,7 +1181,15 @@ function CheckInPage() {
       </Dialog>
 
       {/* Checkout payment dialog */}
-      <Dialog open={!!checkoutGuest} onOpenChange={(open) => { if (!open && !processing) { setCheckoutGuest(null); setPaymentAmount(""); } }}>
+      <Dialog
+        open={!!checkoutGuest}
+        onOpenChange={(open) => {
+          if (!open && !processing) {
+            setCheckoutGuest(null);
+            setPaymentAmount("");
+          }
+        }}
+      >
         <DialogContent className="max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-2xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Confirm Check-Out</DialogTitle>
@@ -833,9 +1202,13 @@ function CheckInPage() {
           {checkoutGuest && (
             <div className="space-y-4">
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-<p className="font-semibold">Minimum short-stay period: 2 hours</p>
-  <p className="mt-1 text-blue-800">
-  A short-stay guest cannot check out before two hours have elapsed. Longer stays require the applicable room rate or an approved room-change/extension transaction before checkout.
+                <p className="font-semibold">
+                  Minimum short-stay period: 2 hours
+                </p>
+                <p className="mt-1 text-blue-800">
+                  A short-stay guest cannot check out before two hours have
+                  elapsed. Longer stays require the applicable room rate or an
+                  approved room-change/extension transaction before checkout.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -846,12 +1219,15 @@ function CheckInPage() {
                 <div>
                   <p className="text-muted-foreground">Extras Outstanding</p>
                   <p className="font-semibold">
-GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
+                    GHS{" "}
+                    {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
                   </p>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="payment-amount">Incidentals Payment at Check-Out</Label>
+                <Label htmlFor="payment-amount">
+                  Incidentals Payment at Check-Out
+                </Label>
                 <Input
                   id="payment-amount"
                   type="number"
@@ -863,10 +1239,19 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
                   placeholder="0.00"
                   aria-describedby="payment-amount-help"
                   inputMode="decimal"
-                  max={checkoutGuest?.extras_outstanding ? Number(checkoutGuest.extras_outstanding) : undefined}
+                  max={
+                    checkoutGuest?.extras_outstanding
+                      ? Number(checkoutGuest.extras_outstanding)
+                      : undefined
+                  }
                 />
-                <p id="payment-amount-help" className="text-xs text-muted-foreground">
-                  Leave blank or enter 0 when no extra charges are due. Maximum: GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}.
+                <p
+                  id="payment-amount-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Leave blank or enter 0 when no extra charges are due. Maximum:
+                  GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
+                  .
                 </p>
               </div>
             </div>
@@ -875,7 +1260,10 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
           <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
-              onClick={() => { setCheckoutGuest(null); setPaymentAmount(""); }}
+              onClick={() => {
+                setCheckoutGuest(null);
+                setPaymentAmount("");
+              }}
               disabled={processing}
               className="rounded-lg"
             >
@@ -883,7 +1271,14 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
             </Button>
             <Button
               onClick={handleCheckOut}
-              disabled={processing || !checkoutGuest || !Number.isFinite(Number(paymentAmount || 0)) || Number(paymentAmount || 0) < 0 || Number(paymentAmount || 0) > Number(checkoutGuest?.extras_outstanding ?? 0)}
+              disabled={
+                processing ||
+                !checkoutGuest ||
+                !Number.isFinite(Number(paymentAmount || 0)) ||
+                Number(paymentAmount || 0) < 0 ||
+                Number(paymentAmount || 0) >
+                  Number(checkoutGuest?.extras_outstanding ?? 0)
+              }
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >
               {processing ? "Processing…" : "Confirm Check-Out"}
@@ -892,10 +1287,68 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
         </DialogContent>
       </Dialog>
 
-      {checkoutDisclosure && <Dialog open={Boolean(checkoutDisclosure)} onOpenChange={(open) => !open && setCheckoutDisclosure(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Checkout amount disclosed</DialogTitle><DialogDescription>Final server-calculated spending summary for Admin and Hotel Reception.</DialogDescription></DialogHeader><div className="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-3"><div><p className="text-xs text-emerald-800">Services, food & beverages</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.grossSpent.toFixed(2)}</p></div><div><p className="text-xs text-emerald-800">Complimentary</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.complimentaryAmount.toFixed(2)}</p></div><div><p className="text-xs text-emerald-800">Net collected</p><p className="text-lg font-bold text-emerald-950">GHS {checkoutDisclosure.netSpent.toFixed(2)}</p></div></div><div className="space-y-2">{checkoutDisclosure.items.map((item, index) => <div key={`${item.description}-${index}`} className="flex justify-between gap-3 border-b py-2 text-sm"><span>{item.description} · {item.quantity} × {item.category}</span><span className="font-medium">GHS {Number(item.total_amount).toFixed(2)}</span></div>)}</div><DialogFooter><Button onClick={() => setCheckoutDisclosure(null)}>Close</Button></DialogFooter></DialogContent></Dialog>}
+      {checkoutDisclosure && (
+        <Dialog
+          open={Boolean(checkoutDisclosure)}
+          onOpenChange={(open) => !open && setCheckoutDisclosure(null)}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Checkout amount disclosed</DialogTitle>
+              <DialogDescription>
+                Final server-calculated spending summary for Admin and Hotel
+                Reception.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-emerald-800">
+                  Services, food & beverages
+                </p>
+                <p className="text-lg font-bold text-emerald-950">
+                  GHS {checkoutDisclosure.grossSpent.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-emerald-800">Complimentary</p>
+                <p className="text-lg font-bold text-emerald-950">
+                  GHS {checkoutDisclosure.complimentaryAmount.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-emerald-800">Net collected</p>
+                <p className="text-lg font-bold text-emerald-950">
+                  GHS {checkoutDisclosure.netSpent.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {checkoutDisclosure.items.map((item, index) => (
+                <div
+                  key={`${item.description}-${index}`}
+                  className="flex justify-between gap-3 border-b py-2 text-sm"
+                >
+                  <span>
+                    {item.description} · {item.quantity} × {item.category}
+                  </span>
+                  <span className="font-medium">
+                    GHS {Number(item.total_amount).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setCheckoutDisclosure(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Guest folio dialog */}
-      <Dialog open={!!folioGuest} onOpenChange={(open) => !open && setFolioGuest(null)}>
+      <Dialog
+        open={!!folioGuest}
+        onOpenChange={(open) => !open && setFolioGuest(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Guest Folio</DialogTitle>
@@ -912,35 +1365,54 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
               <Skeleton className="h-6 w-full" />
             </div>
           ) : folio ? (
-  <div className="space-y-4">
-  <div className="rounded-lg border border-orange-100 bg-orange-50/40 p-3 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
-  <p className="text-muted-foreground">Account</p>
-  <p className="font-semibold">{folio.items?.find((item) => item.performed_by_name || item.performed_by_email)?.performed_by_name || folio.items?.find((item) => item.performed_by_email)?.performed_by_email || "Unknown account"}</p>
-  </div>
-  <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
+            <div className="space-y-4">
+              <div className="rounded-lg border border-orange-100 bg-orange-50/40 p-3 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
+                <p className="text-muted-foreground">Account</p>
+                <p className="font-semibold">
+                  {folio.items?.find(
+                    (item) => item.performed_by_name || item.performed_by_email,
+                  )?.performed_by_name ||
+                    folio.items?.find((item) => item.performed_by_email)
+                      ?.performed_by_email ||
+                    "Unknown account"}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
-                  <p className="font-semibold">GHS {Number(folio.room_charge).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.room_charge).toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Service Charges</p>
-                  <p className="font-semibold">GHS {Number(folio.service_charges).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.service_charges).toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Food & Beverage</p>
-                  <p className="font-semibold">GHS {Number(folio.food_charges).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.food_charges).toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Other Charges</p>
-                  <p className="font-semibold">GHS {Number(folio.other_charges).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.other_charges).toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Charges</p>
-                  <p className="font-semibold">GHS {Number(folio.total_charges).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.total_charges).toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Paid</p>
-                  <p className="font-semibold">GHS {Number(folio.paid_amount).toFixed(2)}</p>
+                  <p className="font-semibold">
+                    GHS {Number(folio.paid_amount).toFixed(2)}
+                  </p>
                 </div>
                 <div className="col-span-2 border-t border-orange-100 dark:border-orange-900/40 pt-2">
                   <p className="text-muted-foreground">Outstanding Balance</p>
@@ -953,39 +1425,113 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
               <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3 dark:border-orange-900/50 dark:bg-orange-950/20">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="flex items-center gap-2 text-sm font-semibold"><Utensils className="h-4 w-4 text-orange-600" /> Add Food & Beverage Order</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Select active menu items, charge the folio, and send the order to the restaurant.</p>
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Utensils className="h-4 w-4 text-orange-600" /> Add Food
+                      & Beverage Order
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Select active menu items, charge the folio, and send the
+                      order to the restaurant.
+                    </p>
                   </div>
-                  <Badge variant="outline" className="shrink-0">GHS {restaurantTotal.toFixed(2)}</Badge>
+                  <Badge variant="outline" className="shrink-0">
+                    GHS {restaurantTotal.toFixed(2)}
+                  </Badge>
                 </div>
                 {loadingRestaurantMenu ? (
-                  <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
                 ) : restaurantMenu.length === 0 ? (
-                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">No active menu items are available.</p>
+                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                    No active menu items are available.
+                  </p>
                 ) : (
                   <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
                     {restaurantMenu.map((item) => {
                       const quantity = restaurantCart[item.id] || 0;
                       return (
-                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-2">
-                          <div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs text-muted-foreground">GHS {item.price.toFixed(2)} · {item.category}</p></div>
-                          <div className="flex shrink-0 items-center gap-1"><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, -1)} disabled={quantity === 0}><Minus className="h-3 w-3" /></Button><span className="w-6 text-center text-sm font-semibold">{quantity}</span><Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => updateRestaurantQuantity(item.id, 1)} disabled={!item.inStock}><Plus className="h-3 w-3" /></Button></div>
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border bg-background p-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              GHS {item.price.toFixed(2)} · {item.category}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() =>
+                                updateRestaurantQuantity(item.id, -1)
+                              }
+                              disabled={quantity === 0}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-sm font-semibold">
+                              {quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() =>
+                                updateRestaurantQuantity(item.id, 1)
+                              }
+                              disabled={!item.inStock}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-                {latestRestaurantOrder && <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">{latestRestaurantOrder.orderNumber} sent to restaurant and charged to folio.</p>}
+                {latestRestaurantOrder && (
+                  <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+                    {latestRestaurantOrder.orderNumber} sent to restaurant and
+                    charged to folio.
+                  </p>
+                )}
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button type="button" className="flex-1 rounded-lg bg-orange-600 text-white hover:bg-orange-700" onClick={() => handleRestaurantOrder(false)} disabled={sendingRestaurantOrder || restaurantTotal <= 0}>{sendingRestaurantOrder ? "Sending…" : "Charge & Send"}</Button>
-                  <Button type="button" variant="outline" className="flex-1 rounded-lg" onClick={() => handleRestaurantOrder(true)} disabled={sendingRestaurantOrder || restaurantTotal <= 0}><Printer className="mr-2 h-4 w-4" /> Charge, Send & Print</Button>
+                  <Button
+                    type="button"
+                    className="flex-1 rounded-lg bg-orange-600 text-white hover:bg-orange-700"
+                    onClick={() => handleRestaurantOrder(false)}
+                    disabled={sendingRestaurantOrder || restaurantTotal <= 0}
+                  >
+                    {sendingRestaurantOrder ? "Sending…" : "Charge & Send"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded-lg"
+                    onClick={() => handleRestaurantOrder(true)}
+                    disabled={sendingRestaurantOrder || restaurantTotal <= 0}
+                  >
+                    <Printer className="mr-2 h-4 w-4" /> Charge, Send & Print
+                  </Button>
                 </div>
               </div>
 
               <div className="space-y-3 rounded-lg border p-3">
                 <p className="text-sm font-medium">Add a Charge</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Select value={chargeType} onValueChange={(v) => setChargeType(v as typeof chargeType)}>
+                  <Select
+                    value={chargeType}
+                    onValueChange={(v) => setChargeType(v as typeof chargeType)}
+                  >
                     <SelectTrigger className="rounded-lg">
                       <SelectValue />
                     </SelectTrigger>
@@ -1021,11 +1567,17 @@ GHS {Number(checkoutGuest.extras_outstanding ?? 0).toFixed(2)}
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground py-4">No folio data available.</p>
+            <p className="text-sm text-muted-foreground py-4">
+              No folio data available.
+            </p>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFolioGuest(null)} className="rounded-lg">
+            <Button
+              variant="outline"
+              onClick={() => setFolioGuest(null)}
+              className="rounded-lg"
+            >
               Close
             </Button>
           </DialogFooter>
