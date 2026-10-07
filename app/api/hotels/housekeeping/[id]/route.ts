@@ -36,6 +36,8 @@ export async function PATCH(
       // If task is completed, set completed_at
       if (status === "completed") {
         sql += `, completed_at = NOW()`;
+      } else {
+        sql += `, completed_at = NULL`;
       }
     }
 
