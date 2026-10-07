@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
     const roomId = searchParams.get("roomId");
+    const includeCompleted = searchParams.get("includeCompleted") === "true";
 
     let sql = `
       SELECT ht.*, r.room_number, u.name as assigned_to_name
@@ -29,6 +30,10 @@ export async function GET(request: NextRequest) {
     if (roomId) {
       conditions.push(`ht.room_id = $${params.length + 1}`);
       params.push(roomId);
+    }
+
+    if (!includeCompleted && !status) {
+      conditions.push("ht.status IN ('pending', 'in_progress')");
     }
 
     if (conditions.length > 0) {
