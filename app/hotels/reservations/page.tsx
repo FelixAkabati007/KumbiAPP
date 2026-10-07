@@ -121,7 +121,7 @@ function ReservationsPage() {
     if (isShortStay && formData.checkInDate !== formData.checkOutDate) {
   toast({
   title: "Short stay booking rule",
-  description: "Short time bookings must use the same check-in and check-out date. The default short-stay duration remains two hours.",
+  description: "Short-stay bookings include two hours. Guests may check out anytime after check-in; each additional 2 hours 10 minutes adds another room-rate block.",
   variant: "destructive",
   });
   return;
@@ -441,6 +441,11 @@ className="rounded-lg appearance-auto [color-scheme:light]"
                     </option>
                   ))}
                 </select>
+                {isShortStayRoomType(roomTypes.find((roomType) => roomType.id === formData.roomTypeId)?.name) && (
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Includes 2 hours. Check out anytime after check-in; each additional 2 hours 10 minutes adds another room-rate block.
+                  </p>
+                )}
               </div>
             </div>
           </div>

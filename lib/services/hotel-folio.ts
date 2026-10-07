@@ -1,4 +1,60 @@
 import type { PoolClient } from "@neondatabase/serverless";
+import { SHORT_STAY_DURATION_MINUTES, isShortStayRoomType } from "@/lib/hotels/short-stay";
+
+export async function syncShortStayRoomCharges(client: PoolClient, reservationId: string) {
+  const reservation = await client.query<{
+    room_id: string | null;
+    check_in_date: string;
+    room_type_name: string | null;
+    room_rate: string | null;
+  }>(
+    `SELECT r.room_id, r.check_in_date, rt.name AS room_type_name,
+            COALESCE(rm.price, rt.base_price) AS room_rate
+     FROM reservations r
+     LEFT JOIN rooms rm ON rm.id = r.room_id
+     LEFT JOIN room_types rt ON rt.id = rm.room_type_id
+     WHERE r.id = $1 AND r.status = 'checked_in'
+     FOR UPDATE OF r`,
+    [reservationId],
+  );
+
+  const stay = reservation.rows[0];
+  if (!stay || !isShortStayRoomType(stay.room_type_name) || !stay.room_rate) {
+    return { addedBlocks: 0, billableBlocks: 0 };
+  }
+
+  const folio = await client.query<{ id: string }>(
+    `SELECT id FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+    [reservationId],
+  );
+  if (folio.rowCount !== 1) return { addedBlocks: 0, billableBlocks: 0 };
+
+  const elapsed = Math.max(0, Date.now() - new Date(stay.check_in_date).getTime());
+  const billableBlocks = Math.max(1, Math.ceil(elapsed / (SHORT_STAY_DURATION_MINUTES * 60_000)));
+  const inserted = await client.query(
+    `INSERT INTO guest_folio_items
+      (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
+     SELECT $1, $2, 'room', CONCAT('Short-stay room block ', block_number, ' (2 hours 10 minutes)'), 1, $3::numeric, $3::numeric, 'system', $1 || ':short-stay:' || block_number
+     FROM generate_series(2, $4::integer) AS blocks(block_number)
+     WHERE NOT EXISTS (
+       SELECT 1 FROM guest_folio_items existing
+       WHERE existing.reservation_id = $1 AND existing.source_type = 'system'
+         AND existing.source_id = $1 || ':short-stay:' || block_number
+     )
+     RETURNING id`,
+    [reservationId, folio.rows[0].id, stay.room_rate, billableBlocks],
+  );
+
+  await client.query(
+    `UPDATE guest_folios SET room_charge = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category IN ('room', 'room_extension')), 0),
+      total_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0),
+      balance = GREATEST(0, COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0) - COALESCE(paid_amount, 0)), last_updated = NOW()
+     WHERE id = $1`,
+    [folio.rows[0].id],
+  );
+
+  return { addedBlocks: inserted.rowCount ?? 0, billableBlocks };
+}
 
 export async function syncOverdueRoomCharges(client: PoolClient, reservationId: string) {
   const reservation = await client.query<{
