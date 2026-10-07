@@ -15,12 +15,19 @@ export async function GET(
 
     const result = await query(
       `
-      SELECT r.id, r.room_number, r.floor, r.building, r.status, r.notes,
+      SELECT r.id, r.room_number, r.floor, r.building,
+             CASE WHEN active_stay.id IS NOT NULL THEN 'occupied' WHEN r.status = 'occupied' THEN 'available' ELSE r.status END AS status,
+             r.notes,
              rt.name as room_type_name, rt.base_price,
              COALESCE(r.price, rt.base_price) as price,
              r.images, r.created_at, r.updated_at
       FROM rooms r
-      JOIN room_types rt ON r.room_type_id = rt.id
+      JOIN room_types rt ON r.room_type_id = rt.id AND rt.is_active = true
+      LEFT JOIN LATERAL (
+        SELECT id FROM reservations
+        WHERE room_id = r.id AND status = 'checked_in'
+        LIMIT 1
+      ) active_stay ON true
       WHERE r.id = $1 AND r.is_active = true
       `,
       [id]

@@ -14,7 +14,11 @@ export async function GET(request: NextRequest) {
 
     let sql = `
       SELECT r.id, r.room_number, r.floor, r.building,
-             CASE WHEN r.status = 'occupied' AND res.check_in_date IS NULL THEN 'available' ELSE r.status END AS status,
+             CASE
+               WHEN res.check_in_date IS NOT NULL THEN 'occupied'
+               WHEN r.status = 'occupied' THEN 'available'
+               ELSE r.status
+             END AS status,
              r.room_type_id, r.notes,
              CASE WHEN res.check_in_date IS NULL THEN NULL ELSE r.current_guest_id END AS current_guest_id,
              rt.name as room_type_name, rt.base_price,
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
              hk.assigned_to AS assigned_housekeeper_id,
              hu.name AS assigned_housekeeper_name
       FROM rooms r
-      JOIN room_types rt ON r.room_type_id = rt.id
+      JOIN room_types rt ON r.room_type_id = rt.id AND rt.is_active = true
       LEFT JOIN guests g ON g.id = r.current_guest_id
       LEFT JOIN LATERAL (
         SELECT check_in_date, check_out_date
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest) {
       const statuses = status.split(",").map((value) => value.trim()).filter(Boolean);
       if (statuses.length > 0) {
         const placeholders = statuses.map((_, index) => `$${params.length + index + 1}`);
-        sql += ` AND (CASE WHEN r.status = 'occupied' AND res.check_in_date IS NULL THEN 'available' ELSE r.status END) IN (${placeholders.join(", ")})`;
+        sql += ` AND (CASE WHEN res.check_in_date IS NOT NULL THEN 'occupied' WHEN r.status = 'occupied' THEN 'available' ELSE r.status END) IN (${placeholders.join(", ")})`;
         params.push(...statuses);
       }
     }

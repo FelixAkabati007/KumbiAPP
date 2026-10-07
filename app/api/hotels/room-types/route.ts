@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest) {
       `SELECT * FROM room_types WHERE is_active = true ORDER BY name ASC`
     );
     const response = NextResponse.json(result.rows);
-    response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400');
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     return response;
   } catch (error) {
     console.error("Error fetching room types:", error);
