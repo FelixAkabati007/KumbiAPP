@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
+import { syncOverdueRoomCharges, syncShortStayRoomCharges } from "@/lib/services/hotel-folio";
 
 // Check-out guest from room
 export async function POST(request: NextRequest) {
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`Reservation is ${currentReservation.status}; only checked-in guests can check out`);
       }
       await syncOverdueRoomCharges(client, reservationId);
+      await syncShortStayRoomCharges(client, reservationId);
 
       // Lock and validate all related rows before changing any state. This
       // prevents a late validation failure from rolling back the mutation

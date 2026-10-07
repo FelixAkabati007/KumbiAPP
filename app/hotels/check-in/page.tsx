@@ -1206,9 +1206,7 @@ function CheckInPage() {
                   Minimum short-stay period: 2 hours
                 </p>
                 <p className="mt-1 text-blue-800">
-                  A short-stay guest cannot check out before two hours have
-                  elapsed. Longer stays require the applicable room rate or an
-                  approved room-change/extension transaction before checkout.
+A short-stay booking includes two hours. Guests may check out at any time after check-in; each additional 2 hours 10 minutes adds one room-rate block to the bill.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
