@@ -196,6 +196,7 @@ function CheckInPage() {
     logo: appSettings.account.logo,
   };
   const [restaurantMenu, setRestaurantMenu] = useState<MenuItem[]>([]);
+  const [restaurantSearch, setRestaurantSearch] = useState("");
   const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>(
     {},
   );
@@ -587,6 +588,11 @@ function CheckInPage() {
       setLoadingFolio(false);
     }
   };
+
+  const filteredRestaurantMenu = restaurantMenu.filter((item) => {
+    const search = restaurantSearch.trim().toLowerCase();
+    return !search || `${item.name} ${item.category}`.toLowerCase().includes(search);
+  });
 
   const restaurantTotal = restaurantMenu.reduce(
     (total, item) => total + item.price * (restaurantCart[item.id] || 0),
@@ -1446,8 +1452,16 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     No active menu items are available.
                   </p>
                 ) : (
-                  <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-                    {restaurantMenu.map((item) => {
+                  <div className="space-y-2">
+                    <Input
+                      value={restaurantSearch}
+                      onChange={(event) => setRestaurantSearch(event.target.value)}
+                      placeholder="Search food and beverage items..."
+                      aria-label="Search food and beverage items"
+                      className="h-9 rounded-lg bg-background"
+                    />
+                    <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                    {filteredRestaurantMenu.map((item) => {
                       const quantity = restaurantCart[item.id] || 0;
                       return (
                         <div
@@ -1494,6 +1508,12 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                         </div>
                       );
                     })}
+                    {filteredRestaurantMenu.length === 0 && (
+                      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                        No menu items match that search.
+                      </p>
+                    )}
+                    </div>
                   </div>
                 )}
                 {latestRestaurantOrder && (
