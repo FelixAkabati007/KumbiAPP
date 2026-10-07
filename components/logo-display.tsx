@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { ImageIcon } from "lucide-react";
-import { fetchSettings } from "@/lib/settings";
+import { useSettings } from "@/components/settings-provider";
 
 interface LogoDisplayProps {
   size?: "sm" | "md" | "lg";
@@ -18,56 +18,33 @@ export function LogoDisplay({
   fallbackSrc = "/logo.jpg",
   loadSettings = true,
 }: LogoDisplayProps) {
-  const [logo, setLogo] = useState<string>(fallbackSrc);
+  const { settings } = useSettings();
+  const currentLogo = settings.account.logo?.trim() || fallbackSrc;
+  const [logo, setLogo] = useState<string>(currentLogo);
   const [isValidImage, setIsValidImage] = useState(true);
 
-  const loadLogo = useCallback(async () => {
-    try {
-      const settings = await Promise.race([
-        fetchSettings(),
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000)),
-      ]);
-      const currentLogo = settings?.account?.logo || "";
-      if (currentLogo) {
-        await new Promise<void>((resolve) => {
-          const image = new window.Image();
-          const finish = () => resolve();
-          image.onload = finish;
-          image.onerror = finish;
-          image.src = currentLogo;
-        });
-        setLogo(currentLogo);
-        setIsValidImage(true);
-      }
-
-      // Keep the browser icon on the same server-backed route as the logo.
-      document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
-        (link as HTMLLinkElement).href = `/favicon.ico?v=${Date.now()}`;
-      });
-    } catch (error) {
-      console.error("[v0] Logo loading failed; keeping fallback logo", error);
-    }
+  const validateLogo = useCallback(async (source: string) => {
+    await new Promise<void>((resolve) => {
+      const image = new window.Image();
+      const finish = () => resolve();
+      image.onload = finish;
+      image.onerror = finish;
+      image.src = source;
+    });
+    setLogo(source);
+    setIsValidImage(true);
   }, []);
 
   useEffect(() => {
-    if (!loadSettings) return;
-    loadLogo();
-
-    // Listen for storage changes to update logo across tabs
-    const handleUpdate = () => {
-      loadLogo();
-    };
-
-    window.addEventListener("storage", handleUpdate);
-
-    // Also listen for custom events when settings are saved
-    window.addEventListener("settingsUpdated", handleUpdate);
-
-    return () => {
-      window.removeEventListener("storage", handleUpdate);
-      window.removeEventListener("settingsUpdated", handleUpdate);
-    };
-  }, [loadLogo]);
+    if (!loadSettings) {
+      setLogo(fallbackSrc);
+      return;
+    }
+    void validateLogo(currentLogo);
+    document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
+      (link as HTMLLinkElement).href = `/favicon.ico?v=${encodeURIComponent(currentLogo.slice(0, 32))}`;
+    });
+  }, [currentLogo, fallbackSrc, loadSettings, validateLogo]);
 
   const sizeClasses = {
     sm: "h-6 w-6 sm:h-8 sm:w-8",
