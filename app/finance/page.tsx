@@ -35,12 +35,14 @@ type Transaction = {
   status: string;
   payment_method?: string;
   metadata?: Record<string, unknown>;
+  source?: string | null;
   created_at: string;
   performed_by_name?: string | null;
   performed_by_account_name?: string | null;
   performed_by_email?: string | null;
   performed_by_role?: string | null;
   approved_by_name?: string | null;
+  approved_by_account_name?: string | null;
   approved_by_email?: string | null;
   approved_by_role?: string | null;
 };
@@ -72,6 +74,7 @@ type PnlResponse = {
     status: string;
     createdAt: string;
     source?: string | null;
+    classification?: string | null;
   }>;
 };
 type ExceptionHistoryItem = {
@@ -90,6 +93,23 @@ const departmentLabels = {
   shared_event: "Shared Event",
   shared: "Shared / Corporate",
 } as const;
+
+function classifyTransaction(item: Pick<Transaction, "metadata" | "source">) {
+  const metadata = item.metadata ?? {};
+  const raw = String(
+    metadata.department ??
+      metadata.businessUnit ??
+      metadata.source ??
+      item.source ??
+      "shared",
+  ).toLowerCase().replaceAll("_", "-");
+  if (raw === "event-booking" || raw.includes("event")) {
+    return raw.includes("shared") ? "shared_event" : "event";
+  }
+  if (["hotel", "room", "accommodation", "hotel-pre-checkin", "hotel-pre-check-in", "hotel-folio", "hotel-payment"].includes(raw) || raw.startsWith("hotel-")) return "hotel";
+  if (["restaurant", "pos", "food-beverage", "restaurant-order", "pos-order-completion", "hotel-folio-restaurant"].includes(raw) || raw.startsWith("restaurant-")) return "restaurant";
+  return raw === "shared-event" ? "shared_event" : "shared";
+}
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -228,37 +248,7 @@ export default function FinancePage() {
   const exportExcel = (departmentFilter?: DepartmentResult["department"]) => {
     const exportTransactions = departmentFilter
       ? transactions.filter((item) => {
-          const value = String(
-            item.metadata?.department ??
-              item.metadata?.businessUnit ??
-              item.metadata?.source ??
-              item.metadata?.sourceType ??
-              "shared",
-          ).toLowerCase();
-          return departmentFilter === "event"
-            ? value.includes("event") && !value.includes("shared")
-            : departmentFilter === "hotel"
-              ? ["hotel", "room", "accommodation"].includes(value)
-              : departmentFilter === "restaurant"
-                ? [
-                    "restaurant",
-                    "pos",
-                    "food_beverage",
-                    "food_and_beverage",
-                  ].includes(value)
-                : departmentFilter === "shared_event"
-                  ? value.includes("shared_event")
-                  : ![
-                      "hotel",
-                      "room",
-                      "accommodation",
-                      "restaurant",
-                      "pos",
-                      "food_beverage",
-                      "food_and_beverage",
-                      "event",
-                      "shared_event",
-                    ].includes(value);
+          return departmentFilter ? classifyTransaction(item) === departmentFilter : true;
         })
       : transactions;
     const rows = [
@@ -682,9 +672,10 @@ export default function FinancePage() {
             <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
               <AlertTitle>Finance classification exceptions</AlertTitle>
               <AlertDescription>
-                These postings are assigned to Shared / Corporate until
-                reviewed. {pnl?.exceptions.length} unresolved exception(s) are
-                available.
+                These postings could not be confidently mapped from their
+                source or department metadata, so they are temporarily assigned
+                to Shared / Corporate. Review the source below and assign the
+                correct department with an auditable reason. {pnl?.exceptions.length} unresolved exception(s) are available.
               </AlertDescription>
               <div className="mt-3 grid gap-3">
                 {pnl?.exceptions.map((exception) => (
@@ -1071,47 +1062,20 @@ export default function FinancePage() {
                       <th className="p-3">Source</th>
                       <th className="p-3">Amount</th>
                       <th className="p-3">Status</th>
+                      <th className="p-3">Performed by</th>
+                      <th className="p-3">Approved by</th>
                       <th className="p-3">Created</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions
-                      .filter((item) => {
-                        const value = String(
-                          item.metadata?.department ??
-                            item.metadata?.businessUnit ??
-                            item.metadata?.source ??
-                            "shared",
-                        ).toLowerCase();
-                        if (selectedDepartment === "event")
-                          return (
-                            value.includes("event") && !value.includes("shared")
-                          );
-                        if (selectedDepartment === "hotel")
-                          return ["hotel", "room", "accommodation"].includes(
-                            value,
-                          );
-                        if (selectedDepartment === "restaurant")
-                          return [
-                            "restaurant",
-                            "pos",
-                            "food_beverage",
-                            "food_and_beverage",
-                          ].includes(value);
-                        if (selectedDepartment === "shared_event")
-                          return value.includes("shared_event");
-                        return ![
-                          "hotel",
-                          "room",
-                          "accommodation",
-                          "restaurant",
-                          "pos",
-                          "food_beverage",
-                          "food_and_beverage",
-                          "event",
-                          "shared_event",
-                        ].includes(value);
-                      })
+                    {transactions.filter((item) => classifyTransaction(item) === selectedDepartment).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-sm text-muted-foreground">
+                          No ledger postings match this department. Refresh to load the latest canonical ledger entries.
+                        </td>
+                      </tr>
+                    ) : transactions
+                      .filter((item) => classifyTransaction(item) === selectedDepartment)
                       .slice(0, 100)
                       .map((item, index) => (
                         <tr
@@ -1125,13 +1089,19 @@ export default function FinancePage() {
                           </td>
                           <td className="p-3">
                             {String(
-                              item.metadata?.source ?? "unclassified",
+                              item.metadata?.source ?? item.source ?? "unclassified",
                             ).replaceAll("_", " ")}
                           </td>
                           <td className="p-3">
                             GHS {Number(item.amount || 0).toFixed(2)}
                           </td>
                           <td className="p-3 capitalize">{item.status}</td>
+                          <td className="p-3">
+                            {item.performed_by_account_name ?? item.performed_by_name ?? item.performed_by_email ?? "—"}
+                          </td>
+                          <td className="p-3">
+                            {item.approved_by_account_name ?? item.approved_by_name ?? item.approved_by_email ?? "—"}
+                          </td>
                           <td className="p-3">
                             {new Date(item.created_at).toLocaleString()}
                           </td>
