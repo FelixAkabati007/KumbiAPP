@@ -759,7 +759,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Dialog
+                        {currentRole === "admin" && <Dialog
                           open={editingStaff?.id === member.id}
                           onOpenChange={(open) => {
                             if (!open) setEditingStaff(null);
@@ -947,9 +947,9 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                               </Button>
                             </DialogFooter>
                           </DialogContent>
-                        </Dialog>
+                          </Dialog>}
 
-                        {canResetTarget(member) && (
+                          {canResetTarget(member) && (
                           <Dialog
                             open={resetTarget?.id === member.id}
                             onOpenChange={(open) => {

@@ -5,16 +5,9 @@ import { hashPassword } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
 import { validatePasswordComplexity } from "@/lib/password-manager";
 import { v4 as uuidv4 } from "uuid";
+import { isUserRole } from "@/lib/roles";
 
-const VALID_ROLES = [
-  "admin",
-  "manager",
-  "finance",
-  "staff",
-  "kitchen",
-  "frontDesk",
-  "housekeeping",
-];
+const VALID_ROLES = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "staff", "kitchen", "frontDesk", "housekeeping"] as const;
 
 // GET - List all staff members
 export async function GET(request: NextRequest) {
@@ -152,7 +145,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Hire date must use YYYY-MM-DD format" }, { status: 400 });
     }
 
-    if (!VALID_ROLES.includes(role)) {
+    if (!isUserRole(role) || !VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
