@@ -710,7 +710,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   POS Terminal
                 </CardTitle>
                 <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -719,7 +719,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Sales
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Process orders and payments
                 </p>
               </CardContent>
@@ -739,7 +739,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Kitchen Display
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -775,7 +775,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Orders
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   {toggles.kitchen_display
                     ? "Manage kitchen operations"
                     : "Disabled by administrator"}
@@ -797,7 +797,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Order Board
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -831,7 +831,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Live Grid
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   {toggles.order_board
                     ? "Real-time order tracking"
                     : "Disabled by administrator"}
@@ -853,7 +853,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Menu Management
                 </CardTitle>
                 <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -862,7 +862,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Menu
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Manage menu items and pricing
                 </p>
               </CardContent>
@@ -882,7 +882,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Inventory
                 </CardTitle>
                 <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -891,7 +891,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Stock
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Track inventory and supplies
                 </p>
               </CardContent>
@@ -911,7 +911,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Technical Operations
                 </CardTitle>
                 <Wrench
@@ -923,7 +923,7 @@ function DashboardContent() {
                 <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Maintenance
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Coordinate hotel and restaurant technical issues
                 </p>
               </CardContent>
@@ -943,7 +943,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Finance Desk
                 </CardTitle>
                 <CreditCard
@@ -955,7 +955,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Finance
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Canonical ledger view for posted sales, refunds, expenses, and
                   exceptions.
                 </p>
@@ -979,7 +979,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Reports
                 </CardTitle>
                 <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -988,7 +988,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Analytics
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Sales reports and analytics
                 </p>
               </CardContent>
@@ -1008,7 +1008,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Refund Management
                 </CardTitle>
                 <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1017,7 +1017,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Refunds
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Manage and request customer refunds
                 </p>
               </CardContent>
@@ -1037,7 +1037,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Payments
                 </CardTitle>
                 <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1046,7 +1046,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Transactions
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Payment history and methods
                 </p>
               </CardContent>
@@ -1066,7 +1066,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Receipt Preview
                 </CardTitle>
                 <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1106,7 +1106,7 @@ function DashboardContent() {
                     register.
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Search and print only persisted transaction receipts.
                 </p>
               </CardContent>
@@ -1126,7 +1126,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   System Monitoring
                 </CardTitle>
                 <Monitor className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1135,7 +1135,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Monitor
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Hardware status and system health
                 </p>
               </CardContent>
@@ -1155,7 +1155,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Reservations
                 </CardTitle>
                 <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1164,7 +1164,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Bookings
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Manage guest reservations and bookings
                 </p>
               </CardContent>
@@ -1184,7 +1184,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Rooms
                 </CardTitle>
                 <Home className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1193,7 +1193,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Rooms
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Track room status and availability
                 </p>
               </CardContent>
@@ -1213,7 +1213,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Housekeeping
                 </CardTitle>
                 <CheckSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1222,7 +1222,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Tasks
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Room cleaning and maintenance tasks
                 </p>
               </CardContent>
@@ -1242,7 +1242,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
                   Check-In/Out
                 </CardTitle>
                 <DoorOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -1251,7 +1251,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Front Desk
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Guest check-in and check-out management
                 </p>
               </CardContent>
@@ -1297,7 +1297,7 @@ function DashboardContent() {
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                           {module.title}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-base leading-6 text-muted-foreground">
                           {module.description}
                         </p>
                       </div>
