@@ -22,12 +22,16 @@ export async function GET(request: Request) {
   try {
     await query(`UPDATE canonical_financial_ledger
       SET metadata = CASE
-        WHEN LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' THEN metadata || '{"department":"Shared","businessUnit":"Corporate","classificationRule":"f0-corporate","classificationResolvedAt":"now"}'::jsonb
-        WHEN LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'vip-authorization%' THEN metadata || '{"department":"Shared Event","businessUnit":"Shared Event","classificationRule":"vip-authorization-shared-event","classificationResolvedAt":"now"}'::jsonb
-        WHEN LOWER(COALESCE(source, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'event-payment:%' THEN metadata || '{"department":"Event Organization","businessUnit":"Event Organization","classificationRule":"event-payment-event-organization","classificationResolvedAt":"now"}'::jsonb
+        WHEN LOWER(COALESCE(event_key, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' THEN metadata || jsonb_build_object('department','Shared','businessUnit','Corporate','classificationRule','f0-corporate','classificationResolvedAt',now())
+        WHEN LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'vip-authorization%' THEN metadata || jsonb_build_object('department','Shared Event','businessUnit','Shared Event','classificationRule','vip-authorization-shared-event','classificationResolvedAt',now())
+        WHEN LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(source, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'event-payment:%' THEN metadata || jsonb_build_object('department','Event Organization','businessUnit','Event Organization','classificationRule','event-payment-event-organization','classificationResolvedAt',now())
         ELSE metadata
-      END
-      WHERE LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%'
+      END,
+      payment_method = CASE WHEN COALESCE((metadata->>'complimentary')::boolean, false) THEN 'complimentary-waived' ELSE payment_method END
+      WHERE LOWER(COALESCE(event_key, '')) LIKE 'f0-%'
+         OR LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%'
+         OR LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%'
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%'
          OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%'
          OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%'`, []);
     await query(`
@@ -43,7 +47,17 @@ export async function GET(request: Request) {
         END,
         t.method, 'legacy_transaction', t.id,
         'operational',
-        jsonb_set(COALESCE(t.metadata, '{}'::jsonb), '{performedBy,accountName}', to_jsonb(COALESCE(u.name, u.email, t.performed_by::text)), true),
+        jsonb_set(
+          jsonb_set(
+            COALESCE(t.metadata, '{}'::jsonb),
+            '{performedBy}',
+            jsonb_build_object('id', t.performed_by, 'accountName', COALESCE(u.name, u.email, t.performed_by::text)),
+            true
+          ),
+          '{approvedBy}',
+          COALESCE(t.metadata->'approvedBy', 'null'::jsonb),
+          true
+        ),
         COALESCE(t.created_at, now())
       FROM transactions t
       LEFT JOIN users u ON u.id = t.performed_by
@@ -77,7 +91,7 @@ export async function GET(request: Request) {
     const byDepartment = departments.map((department) => rows.find((row) => row.department === department) ?? { department, revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0, margin: 0 });
     const totals = byDepartment.reduce((summary, row) => ({ revenue: summary.revenue + row.revenue, refundAmount: summary.refundAmount + row.refundAmount, grossRevenue: summary.grossRevenue + row.grossRevenue, expense: summary.expense + row.expense, profit: summary.profit + row.profit }), { revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0 });
     const exceptionResult = await query(`SELECT event_key, amount, status, occurred_at, source, payment_method, metadata FROM canonical_financial_ledger WHERE LOWER(status) IN ('posted','completed','paid','succeeded') AND COALESCE(metadata->>'classificationResolvedAt', '') = '' AND source <> 'event_booking' AND (${departmentSql}) = 'shared' AND NOT (
-    LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(source, '')) LIKE 'event-payment:%'
+    LOWER(COALESCE(event_key, '')) LIKE 'f0-%' OR LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(source, '')) LIKE 'event-payment:%'
     OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'event-payment:%'
     OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'event-payment:%'
     OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'event-payment:%'
