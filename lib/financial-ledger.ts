@@ -1,4 +1,5 @@
 import type { DatabaseClient } from "@/lib/db";
+import { financeClassificationMetadata } from "@/lib/finance-classification";
 
 export type FinancialLedgerEntry = {
   eventKey: string;
@@ -35,6 +36,10 @@ export async function recordFinancialLedgerEntry(
     ? "posted"
     : entry.status;
   const metadata = { ...(entry.metadata ?? {}) };
+  const sourceClassification = financeClassificationMetadata(entry.source, typeof metadata.department === "string" ? metadata.department : null);
+  if (sourceClassification.classificationRule) {
+    Object.assign(metadata, sourceClassification);
+  }
   for (const key of ["performedBy", "approvedBy"]) {
     const value = metadata[key];
     if (value && typeof value === "object" && !Array.isArray(value)) {
