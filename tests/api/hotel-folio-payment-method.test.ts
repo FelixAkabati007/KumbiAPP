@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 describe("hotel folio restaurant payment contract", () => {
-  it("persists guest-folio for both kitchen and finance transactions", async () => {
+  it("records restaurant payment at order time without charging the room folio", async () => {
     const testDirectory = path.dirname(fileURLToPath(import.meta.url));
     const [routeSource, schemaSource] = await Promise.all([
       readFile(path.resolve(testDirectory, "../../app/api/hotels/folios/[reservationId]/restaurant-order/route.ts"), "utf8"),
@@ -19,8 +19,10 @@ describe("hotel folio restaurant payment contract", () => {
     expect(routeSource).toContain("valid_from, valid_until, folio_waived");
     expect(routeSource).toContain('businessUnit: "shared"');
     expect(routeSource).toContain('grossAmount: total');
-    expect(routeSource.match(/'guest-folio'/g)).toHaveLength(3);
-    expect(routeSource).not.toContain("folio-charge");
+    expect(routeSource).toContain("'paid-at-order'");
+    expect(routeSource).toContain('paidAtOrder: true');
+    expect(routeSource).not.toContain("INSERT INTO guest_folio_items");
+    expect(routeSource).not.toContain("SET food_charges =");
     expect(schemaSource).toContain("'guest-folio'");
 
     const folioServiceSource = await readFile(path.resolve(testDirectory, "../../lib/services/hotel-folio.ts"), "utf8");
