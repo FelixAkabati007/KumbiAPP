@@ -296,13 +296,18 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const isAttendanceExempt = user.role === "admin" || user.role === "manager";
-  const attendanceDenied =
+  const isStaff = user.role === "staff";
+  const isAttendanceExempt = user.role === "admin" || user.role === "manager" || user.role === "operationsManager";
+  const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
+  const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified";
+  const dashboardAccess: Record<AppSection, boolean> =
+    isStaff && !attendanceApproved
+      ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)
+      : access;
+  const attendanceRestricted =
     attendanceLoaded &&
-    !isAttendanceExempt &&
-    ["rejected", "denied"].includes(
-      String(attendanceRecord?.verification_status ?? "").toLowerCase(),
-    );
+    isStaff &&
+    !attendanceApproved;
   const categorySectionMap: Record<
     (typeof DASHBOARD_CATEGORIES)[number][0],
     AppSection[]
@@ -339,7 +344,7 @@ function DashboardContent() {
   };
 
   const operationalModules = [
-    access.pos && {
+    dashboardAccess.pos && {
       title: "Point of Sale System",
       description: "Capture orders, payments, and service hand-offs",
       href: "/pos",
@@ -347,7 +352,7 @@ function DashboardContent() {
         <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.kitchen && {
+    dashboardAccess.kitchen && {
       title: "Kitchen Management",
       description: "Track preparation status and keep service moving",
       href: "/kitchen",
@@ -355,7 +360,7 @@ function DashboardContent() {
         <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.reports && {
+    dashboardAccess.reports && {
       title: "Analytics & Reports",
       description: "Reconcile sales, payments, and operating performance",
       href: "/reports",
@@ -363,7 +368,7 @@ function DashboardContent() {
         <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.menu && {
+    dashboardAccess.menu && {
       title: "Menu Management",
       description: "Manage menu items, pricing, and recipe availability",
       href: "/menu",
@@ -371,7 +376,7 @@ function DashboardContent() {
         <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.inventory && {
+    dashboardAccess.inventory && {
       title: "Inventory",
       description: "Track live stock levels and supplies",
       href: "/inventory",
@@ -379,7 +384,7 @@ function DashboardContent() {
         <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.reservations && {
+    dashboardAccess.reservations && {
       title: "Reservations",
       description: "Manage guest bookings and room availability",
       href: "/hotels/reservations",
@@ -387,7 +392,7 @@ function DashboardContent() {
         <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
       ),
     },
-    access.finance && {
+    dashboardAccess.finance && {
       title: "Finance Desk",
       description: "Reconcile payments, waivers, and transaction activity",
       href: "/finance",
@@ -438,7 +443,7 @@ function DashboardContent() {
               </span>
             </div>
             <div className="order-2 hidden min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
-              {access.pos && access.kitchen && (
+              {dashboardAccess.pos && dashboardAccess.kitchen && (
                 <Link
                   className="shrink-0"
                   href="/split-workspace"
@@ -457,7 +462,7 @@ function DashboardContent() {
                   </Button>
                 </Link>
               )}
-              {access.reservations && access.checkIn && (
+              {dashboardAccess.reservations && dashboardAccess.checkIn && (
                 <Link
                   className="shrink-0"
                   href="/hotel-split-workspace"
@@ -474,7 +479,7 @@ function DashboardContent() {
                   </Button>
                 </Link>
               )}
-              {access.menu && access.inventory && (
+              {dashboardAccess.menu && dashboardAccess.inventory && (
                 <Link
                   className="shrink-0"
                   href="/menu-inventory-split-workspace"
@@ -571,7 +576,7 @@ function DashboardContent() {
             </p>
           </div>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
-            {!attendanceDenied && canSwitchDashboardCategories && (
+            {!attendanceRestricted && canSwitchDashboardCategories && (
               <div
                 className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0"
                 role="group"
@@ -595,7 +600,7 @@ function DashboardContent() {
                 ))}
               </div>
             )}
-            {!attendanceDenied && (
+            {!attendanceRestricted && (
               <Link
                 href={roleDashboard.primaryHref}
                 className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
@@ -635,7 +640,7 @@ function DashboardContent() {
         <style>{`[data-attendance-only="true"] > *:not([data-attendance-card="true"]) { display: none !important; } [data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
         <div
           data-dashboard-category-filter={activeDashboardCategory}
-          data-attendance-only={attendanceDenied ? "true" : "false"}
+          data-attendance-only={attendanceRestricted ? "true" : "false"}
           className="dashboard-category-grid responsive-grid"
         >
           <div data-dashboard-category="all" className="min-w-0">
@@ -674,7 +679,7 @@ function DashboardContent() {
               </Link>
             </CardContent>
           </Card>
-          {access.events && (
+          {dashboardAccess.events && (
             <Card
               data-dashboard-category="events"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -703,7 +708,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
           )}
-          {access.pos && (
+          {dashboardAccess.pos && (
             <Card
               data-dashboard-category="restaurant"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -732,7 +737,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.kitchen && (
+          {dashboardAccess.kitchen && (
             <Card
               data-dashboard-category="restaurant"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -790,7 +795,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.orderBoard && (
+          {dashboardAccess.orderBoard && (
             <Card
               data-dashboard-category="restaurant"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -846,7 +851,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.menu && (
+          {dashboardAccess.menu && (
             <Card
               data-dashboard-category="restaurant"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -875,7 +880,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.inventory && (
+          {dashboardAccess.inventory && (
             <Card
               data-dashboard-category="restaurant"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -904,7 +909,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.operations && (
+          {dashboardAccess.operations && (
             <Card
               data-dashboard-category="technical"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -936,7 +941,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.finance && (
+          {dashboardAccess.finance && (
             <Card
               data-dashboard-category="finance"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -972,7 +977,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.reports && (
+          {dashboardAccess.reports && (
             <Card
               data-dashboard-category="finance"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1001,7 +1006,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.refunds && (
+          {dashboardAccess.refunds && (
             <Card
               data-dashboard-category="finance"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1030,7 +1035,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.payments && (
+          {dashboardAccess.payments && (
             <Card
               data-dashboard-category="finance"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1059,7 +1064,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.receipt && (
+          {dashboardAccess.receipt && (
             <Card
               data-dashboard-category="finance"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1119,7 +1124,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.system && (
+          {dashboardAccess.system && (
             <Card
               data-dashboard-category="administration"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1148,7 +1153,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.reservations && (
+          {dashboardAccess.reservations && (
             <Card
               data-dashboard-category="hotel"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1177,7 +1182,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.rooms && !isHousekeeping && (
+          {dashboardAccess.rooms && !isHousekeeping && (
             <Card
               data-dashboard-category="hotel"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1206,7 +1211,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {(access.housekeeping || isHousekeeping) && (
+          {(dashboardAccess.housekeeping || isHousekeeping) && (
             <Card
               data-dashboard-category="hotel"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1235,7 +1240,7 @@ function DashboardContent() {
               </CardFooter>
             </Card>
           )}
-          {access.checkIn && (
+          {dashboardAccess.checkIn && (
             <Card
               data-dashboard-category="hotel"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
