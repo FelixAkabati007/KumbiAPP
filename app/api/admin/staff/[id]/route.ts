@@ -10,6 +10,8 @@ const VALID_ROLES = [
   "staff",
   "kitchen",
   "frontDesk",
+  "restaurantFrontDesk",
+  "waiterWaitress",
   "housekeeping",
 ];
 

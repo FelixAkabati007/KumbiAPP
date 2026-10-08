@@ -11,7 +11,7 @@ import {
 describe("RBAC System", () => {
   it("routes every role to an area it can access", () => {
     const destinations: Record<UserRole, string> = {
-      admin: "/system", manager: "/operations", hotelManager: "/hotels/rooms", restaurantManager: "/pos", operationsManager: "/operations", finance: "/finance", staff: "/pos", kitchen: "/kitchen", frontDesk: "/hotels/check-in", housekeeping: "/hotels/housekeeping",
+      admin: "/system", manager: "/operations", hotelManager: "/hotels/rooms", restaurantManager: "/pos", operationsManager: "/operations", finance: "/finance", staff: "/pos", kitchen: "/kitchen", frontDesk: "/hotels/check-in", restaurantFrontDesk: "/pos", waiterWaitress: "/pos", housekeeping: "/hotels/housekeeping",
     };
     Object.entries(destinations).forEach(([role, route]) => expect(getDefaultRouteForRole(role)).toBe(route));
   });

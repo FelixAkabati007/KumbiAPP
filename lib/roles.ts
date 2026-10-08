@@ -9,6 +9,8 @@ export type UserRole =
   | "staff"
   | "kitchen"
   | "frontDesk"
+  | "restaurantFrontDesk"
+  | "waiterWaitress"
   | "housekeeping";
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
@@ -16,7 +18,9 @@ export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManag
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
   { value: "staff", label: "Staff", description: "Operational staff access; duties are defined by the access profile." },
   { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
-  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and front-desk service." },
+  { value: "frontDesk", label: "Reception", description: "Manage reservations, check-in/out, guest folios, and hotel front-desk service." },
+  { value: "restaurantFrontDesk", label: "Front Desk (Restaurant)", description: "Open restaurant service, manage table orders, cashier handoff, and guest service." },
+  { value: "waiterWaitress", label: "Waiter/Waitress", description: "Manage assigned tables, enter orders, and update service status." },
   { value: "housekeeping", label: "Housekeeping", description: "Manage room-cleaning tasks and housekeeping status." },
   { value: "finance", label: "Finance", description: "Review payments, expenses, payroll, refunds, and financial reports." },
   { value: "operationsManager", label: "Operations Manager", description: "Coordinate maintenance and operational tasks across departments." },
@@ -36,6 +40,8 @@ export const roleDisplayNames: Record<UserRole, string> = {
   staff: "Staff",
   kitchen: "Chef",
   frontDesk: "Reception",
+  restaurantFrontDesk: "Front Desk (Restaurant)",
+  waiterWaitress: "Waiter/Waitress",
   housekeeping: "Housekeeping",
 };
 
@@ -164,13 +170,15 @@ export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
   staff: ["staff", "restaurant"],
   kitchen: ["staff", "restaurant"],
   frontDesk: ["hotel"],
+  restaurantFrontDesk: ["restaurant"],
+  waiterWaitress: ["restaurant", "staff"],
   housekeeping: ["hotel"],
 };
 
 export const classificationRoleHints: Record<StaffClassification, UserRole[]> = {
   reception: ["frontDesk", "hotelManager", "manager", "admin"],
-  restaurantPos: ["staff", "restaurantManager", "manager", "admin"],
-  waiterWaitress: ["staff", "restaurantManager", "manager", "admin"],
+  restaurantPos: ["restaurantFrontDesk", "restaurantManager", "manager", "admin"],
+  waiterWaitress: ["waiterWaitress", "restaurantManager", "manager", "admin"],
   chef: ["kitchen", "restaurantManager", "manager", "admin"],
   housekeeping: ["housekeeping", "hotelManager", "manager", "admin"],
   security: ["operationsManager", "manager", "admin"],
@@ -370,6 +378,17 @@ export const roleCapabilities: Record<
       manage: false,
     },
   },
+  restaurantFrontDesk: {
+    pos: { view: true, create: true, edit: true, delete: false, manage: false },
+    orderBoard: { view: true, create: false, edit: true, delete: false, manage: false },
+    payments: { view: true, create: true, edit: false, delete: false, manage: false },
+    receipt: { view: true, create: true, edit: false, delete: false, manage: false },
+  },
+  waiterWaitress: {
+    pos: { view: true, create: true, edit: true, delete: false, manage: false },
+    orderBoard: { view: true, create: false, edit: true, delete: false, manage: false },
+    receipt: { view: true, create: true, edit: false, delete: false, manage: false },
+  },
   housekeeping: {
     housekeeping: {
       view: true,
@@ -557,6 +576,52 @@ export const rolePermissions = {
     events: true,
     eventPricing: false,
   },
+  restaurantFrontDesk: {
+    pos: true,
+    kitchen: false,
+    orderBoard: true,
+    menu: false,
+    inventory: false,
+    reports: false,
+    finance: false,
+    payments: true,
+    receipt: true,
+    system: false,
+    refunds: false,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: false,
+    operations: false,
+    guestFolio: false,
+    events: true,
+    eventPricing: false,
+  },
+  waiterWaitress: {
+    pos: true,
+    kitchen: false,
+    orderBoard: true,
+    menu: false,
+    inventory: false,
+    reports: false,
+    finance: false,
+    payments: false,
+    receipt: true,
+    system: false,
+    refunds: false,
+    rooms: false,
+    reservations: false,
+    checkIn: false,
+    checkOut: false,
+    housekeeping: false,
+    maintenance: false,
+    operations: false,
+    guestFolio: false,
+    events: false,
+    eventPricing: false,
+  },
   housekeeping: {
     pos: false,
     kitchen: false,
@@ -704,6 +769,22 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     categories: ["hotel"],
     visibilityNote: "Guest-service information needed for the current shift.",
   },
+  restaurantFrontDesk: {
+    summary: "Restaurant front desk",
+    focus: "Open service, coordinate table orders, and support restaurant cashier handoff.",
+    primaryAction: "Open POS",
+    primaryHref: "/pos",
+    categories: ["restaurant"],
+    visibilityNote: "Restaurant service and payment handoff only.",
+  },
+  waiterWaitress: {
+    summary: "Table service workspace",
+    focus: "Enter table orders, follow service progress, and close assigned guest receipts.",
+    primaryAction: "Open POS",
+    primaryHref: "/pos",
+    categories: ["restaurant"],
+    visibilityNote: "Assigned table-service work only; no menu, inventory, or finance administration.",
+  },
   housekeeping: {
     summary: "Room readiness desk",
     focus: "Complete assigned rooms, report maintenance, and keep room status accurate.",
@@ -741,7 +822,7 @@ export function canPerformAction(
 }
 
 export const roleRouteFallbacks: Record<UserRole, string[]> = {
-  admin: ["/system", "/operations"], manager: ["/operations", "/events", "/reports"], hotelManager: ["/hotels/rooms", "/hotels/reservations"], restaurantManager: ["/pos", "/kitchen", "/menu"], operationsManager: ["/operations", "/hotels/maintenance"], finance: ["/finance", "/payments", "/reports"], staff: ["/pos", "/receipt"], kitchen: ["/kitchen", "/order-display"], frontDesk: ["/hotels/check-in", "/hotels/reservations"], housekeeping: ["/hotels/housekeeping", "/hotels/maintenance"],
+  admin: ["/system", "/operations"], manager: ["/operations", "/events", "/reports"], hotelManager: ["/hotels/rooms", "/hotels/reservations"], restaurantManager: ["/pos", "/kitchen", "/menu"], operationsManager: ["/operations", "/hotels/maintenance"], finance: ["/finance", "/payments", "/reports"], staff: ["/pos", "/receipt"], kitchen: ["/kitchen", "/order-display"], frontDesk: ["/hotels/check-in", "/hotels/reservations"], restaurantFrontDesk: ["/pos", "/receipt"], waiterWaitress: ["/pos", "/receipt"], housekeeping: ["/hotels/housekeeping", "/hotels/maintenance"],
 };
 
 export function getDefaultRouteForRole(role: string | null | undefined): string {
