@@ -160,15 +160,15 @@ export async function POST(request: NextRequest) {
              'checkedInBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text),
              'checkedInAt', NOW()::text,
              'performedBy', jsonb_build_object('id', $2::text, 'name', u.name, 'email', u.email, 'role', u.role::text)
-           ), $2::uuid
+           ), $3::uuid
          FROM reservations r
          JOIN guests g ON g.id = r.guest_id
          JOIN rooms rm ON rm.id = r.room_id
          JOIN guest_folios gf ON gf.reservation_id = r.id
-         JOIN users u ON u.id = $2::uuid
+         JOIN users u ON u.id = $3::uuid
          LEFT JOIN users rb ON rb.id = r.created_by
          WHERE r.id = $1::uuid RETURNING id, snapshot`,
-        [reservationId, session.id]
+        [reservationId, String(session.id), session.id]
       );
 
       const folioResult = await client.query(`SELECT total_charges, balance, room_charge FROM guest_folios WHERE reservation_id = $1::uuid`, [reservationId]);
