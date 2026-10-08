@@ -31,10 +31,12 @@ export async function PATCH(request: Request) {
       [body.id, body.status, session.id]
     );
     if (!result.rowCount) return NextResponse.json({ error: "Attendance record is already resolved" }, { status: 409 });
-    if (body.status === "verified") await query(`INSERT INTO performance_events (staff_id, source_type, source_id, points, verification_status, verified_by, metadata) VALUES ($1, 'attendance_check_in', $2, 1, 'verified', $3, $4) ON CONFLICT DO NOTHING`, [result.rows[0].staff_id, body.id, session.id, JSON.stringify({ source: "register" })]);
+    if (body.status === "verified") await query(`INSERT INTO performance_events (staff_id, source_type, source_id, points, verification_status, verified_by, metadata)
+      SELECT $1, 'attendance_verified', $2, 1, 'verified', $3, $4::jsonb
+      WHERE NOT EXISTS (SELECT 1 FROM performance_events WHERE source_id = $2 AND source_type = 'attendance_verified')`, [result.rows[0].staff_id, body.id, session.id, JSON.stringify({ source: "attendance_approval" })]);
     await query(
       `INSERT INTO notifications (recipient_user_id, title, message, type)
-       VALUES ($1, $2, $3, 'attendance_decision')`,
+       VALUES ((SELECT COALESCE(user_id, $1) FROM staff_profiles WHERE id = $1 OR user_id = $1 LIMIT 1), $2, $3, 'attendance_decision')`,
       [result.rows[0].staff_id, `Attendance ${body.status}`, `Your attendance check-in was ${body.status} by ${session.email}.`,],
     );
     return NextResponse.json({ record: result.rows[0] });
