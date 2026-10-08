@@ -157,7 +157,7 @@ export async function POST(request: Request) {
         const guestParts = guestName.trim().split(/\s+/);
         const guest = await client.query(
           `INSERT INTO guests (first_name, last_name, is_vip) VALUES ($1, $2, true) RETURNING id`,
-          [guestParts[0], guestParts.slice(1).join(" ") || null],
+          [guestParts[0], guestParts.slice(1).join(" ") || ""],
         );
         const checkIn = new Date();
         const checkOut = new Date(checkIn.getTime() + nights * 86400000);
