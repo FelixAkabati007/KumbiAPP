@@ -38,7 +38,8 @@ export async function requireSession(): Promise<AuthResult> {
  * etc.) so the server enforces the same rule the UI's RoleGuard shows.
  */
 async function hasApprovedAttendance(session: ApiSession) {
-  if (session.role !== "staff") return true;
+  // Admin and General Manager are the only roles exempt from the attendance gate.
+  if (session.role === "admin" || session.role === "manager") return true;
   const result = await query(
     `SELECT 1
      FROM attendance_records
