@@ -1,6 +1,16 @@
 export const SHORT_STAY_DURATION_MINUTES = 130;
 export const SHORT_STAY_REMINDER_MINUTES = 20;
 
+export const SHORT_STAY_ROOM_NUMBERS = new Set(["19", "20"]);
+
+export function isShortStayRoomNumber(roomNumber: string | number | null | undefined) {
+  return SHORT_STAY_ROOM_NUMBERS.has(String(roomNumber ?? "").trim());
+}
+
+export function isShortStayRoom(roomNumber: string | number | null | undefined, roomTypeName: string | null | undefined) {
+  return isShortStayRoomNumber(roomNumber) && /short time|short stay/i.test(roomTypeName ?? "");
+}
+
 export function isShortStayRoomType(name: string | null | undefined) {
   return /short time|short stay/i.test(name ?? "");
 }
