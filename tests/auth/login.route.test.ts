@@ -14,6 +14,7 @@ vi.mock("../../lib/auth", () => ({
 
 vi.mock("../../lib/rate-limit", () => ({
   recordSignupAttempt: vi.fn(),
+  recordAndCheckLoginAttempt: vi.fn(() => false),
   isRateLimited: vi.fn(() => false),
 }));
 
