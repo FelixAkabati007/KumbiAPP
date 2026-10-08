@@ -239,13 +239,6 @@ export const roleCapabilities: Record<
     },
   },
   manager: {
-  system: {
-  view: true,
-  create: false,
-  edit: true,
-  delete: false,
-  manage: true,
-  },
   reports: {
   view: true,
       create: true,
@@ -482,7 +475,7 @@ export const rolePermissions = {
   finance: true,
   payments: true,
   receipt: true,
-  system: true,
+  system: false,
     refunds: true,
     rooms: true,
     reservations: true,

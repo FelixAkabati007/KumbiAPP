@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
 
@@ -153,39 +153,26 @@ export async function PATCH(
       };
     }
 
-    // Update staff profile
-    await query(
-      `UPDATE staff_profiles 
-       SET first_name = COALESCE($1, first_name),
-           last_name = COALESCE($2, last_name),
-           phone = COALESCE($3, phone),
-           department = COALESCE($4, department),
-           position = COALESCE($5, position),
-           job_classification = COALESCE($6, job_classification),
-           employment_status = COALESCE($7, employment_status),
-           manager_scope = CASE WHEN $9::text IS NULL THEN manager_scope ELSE $9::text END,
-           updated_at = NOW()
-       WHERE id = $8`,
-      [
-        firstName || null,
-        lastName || null,
-        phone || null,
-        department || null,
-        position || null,
-        jobClassification || null,
-        employmentStatus || null,
-        id,
-        managerScope || null,
-      ]
-    );
+    await transaction(async (client) => {
+      await client.query(
+        `UPDATE staff_profiles
+         SET first_name = COALESCE($1, first_name),
+             last_name = COALESCE($2, last_name),
+             phone = COALESCE($3, phone),
+             department = COALESCE($4, department),
+             position = COALESCE($5, position),
+             job_classification = COALESCE($6, job_classification),
+             employment_status = COALESCE($7, employment_status),
+             manager_scope = CASE WHEN $9::text IS NULL THEN manager_scope ELSE $9::text END,
+             updated_at = NOW()
+         WHERE id = $8`,
+        [firstName || null, lastName || null, phone || null, department || null, position || null, jobClassification || null, employmentStatus || null, id, managerScope || null],
+      );
 
-    // Update the linked user account's role (access level) if changed
-    if (role) {
-      await query(`UPDATE users SET role = $1 WHERE id = $2`, [
-        role,
-        currentStaff.user_id,
-      ]);
-    }
+      if (role) {
+        await client.query(`UPDATE users SET role = $1 WHERE id = $2`, [role, currentStaff.user_id]);
+      }
+    });
 
     // Log to audit trail
     await createAuditLog({
