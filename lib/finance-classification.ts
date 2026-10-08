@@ -1,7 +1,7 @@
 export type FinanceDepartment = "hotel" | "restaurant" | "event" | "shared_event" | "shared";
 
 export const financeDepartmentSql = `CASE
-  WHEN LOWER(COALESCE(event_key, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' THEN 'shared'
+  WHEN LOWER(COALESCE(event_key, '')) LIKE 'f0-%' OR LOWER(COALESCE(event_key, '')) LIKE 'fo-%' OR LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'fo-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' THEN 'shared'
   WHEN LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'vip-authorization%' THEN 'shared_event'
   WHEN LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(source, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'event-payment:%' THEN 'event'
   WHEN source = 'event_booking' THEN 'event'
@@ -14,7 +14,7 @@ END`;
 
 export const financeClassificationMetadata = (source: string, department?: string | null) => {
   const normalized = source.trim().toLowerCase();
-  if (normalized.startsWith("f0-")) return { department: "Shared", businessUnit: "Corporate", classificationRule: "f0-corporate" };
+  if (normalized.startsWith("f0-") || normalized.startsWith("fo-")) return { department: "Shared", businessUnit: "Corporate", classificationRule: "fo-corporate" };
   if (normalized.startsWith("vip-authorization")) return { department: "Shared Event", businessUnit: "Shared Event", classificationRule: "vip-authorization-shared-event" };
   if (normalized.startsWith("event-payment:")) return { department: "Event Organization", businessUnit: "Event Organization", classificationRule: "event-payment-event-organization" };
   return { department: department ?? "Shared" };

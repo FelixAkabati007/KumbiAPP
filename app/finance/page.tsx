@@ -102,10 +102,10 @@ const departmentLabels = {
 function classifyTransaction(item: Pick<Transaction, "transaction_id" | "metadata" | "source">) {
   const metadata = item.metadata ?? {};
   const raw = [item.transaction_id, item.source, metadata.source, metadata.department, metadata.businessUnit]
-    .find((value): value is string => typeof value === "string" && /^(f0-|vip-authorization|event-payment:)/i.test(value))
+    .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:)/i.test(value))
     ?.toLowerCase()
     .replaceAll("_", "-") ?? String(metadata.department ?? metadata.businessUnit ?? metadata.source ?? item.source ?? "shared").toLowerCase().replaceAll("_", "-");
-  if (raw.startsWith("f0-")) return "shared";
+  if (raw.startsWith("f0-") || raw.startsWith("fo-")) return "shared";
   if (raw.startsWith("vip-authorization")) return "shared_event";
   if (raw.startsWith("event-payment:")) return "event";
   if (raw === "event-booking" || raw.includes("event")) {
