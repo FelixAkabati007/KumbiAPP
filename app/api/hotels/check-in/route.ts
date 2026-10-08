@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (vipRoom) {
-        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1::uuid, $2::uuid, $3::uuid, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2::uuid`, [vipRoom.id, reservationId, session?.id || null]);
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1::uuid, $2::uuid, $3::uuid, 'hotel', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2::uuid`, [vipRoom.id, reservationId, session?.id || null]);
       }
 
       await client.query(
