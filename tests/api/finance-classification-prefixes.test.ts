@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { financeClassificationMetadata } from "@/lib/finance-classification";
 
 describe("finance classification prefixes", () => {
-  it("maps F0 transactions to Shared / Corporate", () => {
+  it("maps F0 and FO transactions to Shared / Corporate", () => {
     expect(financeClassificationMetadata("F0-123")).toMatchObject({ department: "Shared", businessUnit: "Corporate" });
+    expect(financeClassificationMetadata("FO-8191f970-889b-4d35-8877-37f5f16dc1e9")).toMatchObject({ department: "Shared", businessUnit: "Corporate" });
   });
 
   it("maps VIP authorization transactions to Shared Event", () => {
