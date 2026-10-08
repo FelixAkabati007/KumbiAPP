@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { z } from "zod";
-import { isShortStayRoomType } from "@/lib/hotels/short-stay";
+import { isShortStayRoomType, SHORT_STAY_ROOM_NUMBERS } from "@/lib/hotels/short-stay";
 
 let shortStaySchemaReady: Promise<void> | null = null;
 
@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
     const roomTypeNameResult = await query<{ name: string }>(`SELECT name FROM room_types WHERE id = $1 AND is_active = true`, [roomTypeId]);
     const roomTypeName = roomTypeNameResult.rows[0]?.name;
     const isShortStay = parsed.data.stayType === "short_stay" || isShortStayRoomType(roomTypeName);
+    const shortStayRoomNumbers = Array.from(SHORT_STAY_ROOM_NUMBERS);
     if (isShortStay && checkInDay !== checkOutDay) {
       return NextResponse.json({ error: "Short time bookings must use the same check-in and check-out date." }, { status: 400 });
     }
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest) {
         ? `SELECT COUNT(*) AS available
            FROM rooms r
            WHERE r.room_type_id = $1
+             AND r.room_number = ANY($2::text[])
              AND COALESCE(r.is_active, true) = true
              AND (
                LOWER(TRIM(COALESCE(r.status, ''))) = 'available'
@@ -158,7 +160,7 @@ export async function GET(request: NextRequest) {
                  AND existing.check_in_date < $2
                  AND existing.check_out_date > $1
              )`,
-      isShortStay ? [roomTypeId] : [checkInDate, checkOutDate, roomTypeId]
+      isShortStay ? [roomTypeId, shortStayRoomNumbers] : [checkInDate, checkOutDate, roomTypeId]
     );
     if (Number(availability.rows[0]?.available ?? 0) <= 0) {
       return NextResponse.json(

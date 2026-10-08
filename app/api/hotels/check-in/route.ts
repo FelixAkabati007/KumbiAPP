@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { isShortStayRoomNumber } from "@/lib/hotels/short-stay";
 
 // Check-in guest to room
 export async function POST(request: NextRequest) {
@@ -20,18 +21,21 @@ export async function POST(request: NextRequest) {
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
       const reservationRoomResult = await client.query(
-        `SELECT room_type_id FROM reservations WHERE id = $1::uuid AND status IN ('confirmed', 'pending') FOR UPDATE`,
+        `SELECT room_type_id, stay_type FROM reservations WHERE id = $1::uuid AND status IN ('confirmed', 'pending') FOR UPDATE`,
         [reservationId],
       );
       if (reservationRoomResult.rowCount === 0) throw new Error("Reservation not found or already checked in");
 
       const selectedRoomTypeResult = await client.query(
-        `SELECT room_type_id FROM rooms WHERE id = $1::uuid AND is_active = true`,
+        `SELECT r.room_type_id, r.room_number FROM rooms r WHERE r.id = $1::uuid AND r.is_active = true`,
         [roomId],
       );
       if (selectedRoomTypeResult.rowCount === 0) throw new Error("Room is no longer available");
       if (selectedRoomTypeResult.rows[0].room_type_id !== reservationRoomResult.rows[0].room_type_id) {
         throw new Error("Selected room does not match the reservation room type");
+      }
+      if (reservationRoomResult.rows[0].stay_type === "short_stay" && !isShortStayRoomNumber(selectedRoomTypeResult.rows[0].room_number)) {
+        throw new Error("Short-stay reservations may only be assigned to Room 19 or Room 20");
       }
       const paymentResult = await client.query(
         `SELECT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1::text AND status = 'completed') AS paid,

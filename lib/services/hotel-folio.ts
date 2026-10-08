@@ -1,14 +1,15 @@
 import type { PoolClient } from "@neondatabase/serverless";
-import { SHORT_STAY_DURATION_MINUTES, isShortStayRoomType } from "@/lib/hotels/short-stay";
+import { SHORT_STAY_DURATION_MINUTES, isShortStayRoom } from "@/lib/hotels/short-stay";
 
 export async function syncShortStayRoomCharges(client: PoolClient, reservationId: string) {
   const reservation = await client.query<{
     room_id: string | null;
     check_in_date: string;
     room_type_name: string | null;
+    room_number: string | null;
     room_rate: string | null;
   }>(
-    `SELECT r.room_id, r.check_in_date, rt.name AS room_type_name,
+    `SELECT r.room_id, r.check_in_date, rm.room_number, rt.name AS room_type_name,
             COALESCE(rm.price, rt.base_price) AS room_rate
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
@@ -19,7 +20,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   );
 
   const stay = reservation.rows[0];
-  if (!stay || !isShortStayRoomType(stay.room_type_name) || !stay.room_rate) {
+  if (!stay || !isShortStayRoom(stay.room_number, stay.room_type_name) || !stay.room_rate) {
     return { addedBlocks: 0, billableBlocks: 0 };
   }
 
