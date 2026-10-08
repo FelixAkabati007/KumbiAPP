@@ -154,6 +154,8 @@ export default function FinancePage() {
   const [selectedDepartment, setSelectedDepartment] = useState<
     DepartmentResult["department"] | null
   >(null);
+  const [departmentTransactions, setDepartmentTransactions] = useState<Transaction[]>([]);
+  const [departmentTransactionsLoading, setDepartmentTransactionsLoading] = useState(false);
 
   const loadExceptionHistory = async () => {
     const params = new URLSearchParams();
@@ -201,6 +203,29 @@ export default function FinancePage() {
     }, 15000);
     return () => window.clearInterval(timer);
   }, [source]);
+
+  useEffect(() => {
+    if (!selectedDepartment) {
+      setDepartmentTransactions([]);
+      return;
+    }
+    let cancelled = false;
+    setDepartmentTransactionsLoading(true);
+    fetch(`/api/transactions?limit=1000&source=${selectedDepartment}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        if (!cancelled) setDepartmentTransactions(Array.isArray(data) ? data : data.transactions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setDepartmentTransactions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDepartmentTransactionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDepartment]);
 
   useEffect(() => {
     const loadPnl = () => {
@@ -1081,8 +1106,12 @@ export default function FinancePage() {
                   <Download className="mr-2 h-4 w-4" /> Download Excel
                 </Button>
               </div>
-              <div className="max-h-[50vh] overflow-auto rounded-md border">
-                <table className="w-full min-w-[640px] text-sm">
+  <div className="mb-3 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
+  <span>Canonical ledger postings: {departmentTransactions.length}</span>
+  <span className="font-semibold">Total GHS {departmentTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)}</span>
+  </div>
+  <div className="max-h-[50vh] overflow-auto rounded-md border">
+  <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-3">Transaction</th>
@@ -1095,14 +1124,13 @@ export default function FinancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.filter((item) => classifyTransaction(item) === selectedDepartment).length === 0 ? (
+                    {departmentTransactionsLoading || departmentTransactions.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-6 text-center text-sm text-muted-foreground">
-                          No ledger postings match this department. Refresh to load the latest canonical ledger entries.
+                          {departmentTransactionsLoading ? "Loading canonical ledger entries…" : "No canonical ledger postings match this department."}
                         </td>
                       </tr>
-                    ) : transactions
-                      .filter((item) => classifyTransaction(item) === selectedDepartment)
+                    ) : departmentTransactions
                       .slice(0, 100)
                       .map((item, index) => (
                         <tr
