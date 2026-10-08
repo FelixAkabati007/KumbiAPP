@@ -83,7 +83,15 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings?tab=account" aria-label="Open Settings">
+          <Link href="/account" aria-label="Open My Account">
+            <span className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4" aria-hidden="true" />
+              My Account
+            </span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/settings" aria-label="Open Settings">
             <span className="flex items-center gap-2">
               <Settings className="h-4 w-4" aria-hidden="true" />
               Settings
