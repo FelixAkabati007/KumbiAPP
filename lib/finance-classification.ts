@@ -3,6 +3,7 @@ export type FinanceDepartment = "hotel" | "restaurant" | "event" | "shared_event
 export const financeDepartmentSql = `CASE
   WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%' THEN 'shared'
   WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%' THEN 'shared_event'
+  WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%' THEN 'event'
   WHEN source = 'event_booking' THEN 'event'
   WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('hotel','room','accommodation','hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') OR source IN ('hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') THEN 'hotel'
   WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion','restaurant-order','hotel-folio-restaurant') OR source IN ('pos-order-completion','restaurant-order','hotel-folio-restaurant') THEN 'restaurant'
@@ -15,6 +16,7 @@ export const financeClassificationMetadata = (source: string, department?: strin
   const normalized = source.trim().toLowerCase();
   if (normalized.startsWith("f0-")) return { department: "Shared", businessUnit: "Corporate", classificationRule: "f0-corporate" };
   if (normalized.startsWith("vip-authorization")) return { department: "Shared Event", businessUnit: "Shared Event", classificationRule: "vip-authorization-shared-event" };
+  if (normalized.startsWith("event-payment:")) return { department: "Event Organization", businessUnit: "Event Organization", classificationRule: "event-payment-event-organization" };
   return { department: department ?? "Shared" };
 };
 
