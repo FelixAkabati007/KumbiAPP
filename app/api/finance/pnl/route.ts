@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
+import { financeDepartmentSql } from "@/lib/finance-classification";
 
 type Department = "hotel" | "restaurant" | "event" | "shared_event" | "shared";
 
-const departmentSql = `CASE
-  WHEN source = 'event_booking' THEN 'event'
-  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('hotel','room','accommodation','hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') OR source IN ('hotel-pre-checkin','hotel-pre-check-in','hotel_folio','hotel-folio','hotel-payment') THEN 'hotel'
-  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion','restaurant-order','hotel-folio-restaurant') OR source IN ('pos-order-completion','restaurant-order','hotel-folio-restaurant') THEN 'restaurant'
-  WHEN LOWER(COALESCE(metadata->>'sharedEvent', metadata->>'shared_event', 'false')) = 'true' OR LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, '')) IN ('shared_event','shared_events','event_shared') THEN 'shared_event'
-  WHEN LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) IN ('event','events','event_organization') THEN 'event'
-  ELSE 'shared'
-END`;
+const departmentSql = financeDepartmentSql;
 
 export async function GET(request: Request) {
   const auth = await requireFinanceAccess();
@@ -26,6 +20,14 @@ export async function GET(request: Request) {
   if (endDate) { filters.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
   if (requestedDepartment && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(requestedDepartment)) { filters.push(`${departmentSql} = $${params.length + 1}`); params.push(requestedDepartment); }
   try {
+    await query(`UPDATE canonical_financial_ledger
+      SET metadata = CASE
+        WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%' THEN metadata || '{"department":"Shared","businessUnit":"Corporate","classificationRule":"f0-corporate"}'::jsonb
+        WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%' THEN metadata || '{"department":"Shared Event","businessUnit":"Shared Event","classificationRule":"vip-authorization-shared-event"}'::jsonb
+        ELSE metadata
+      END
+      WHERE LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%'
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%'`, []);
     await query(`
       INSERT INTO canonical_financial_ledger
         (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, journal_type, metadata, occurred_at)
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
     const rows = result.rows.map((row) => ({ department: row.department as Department, revenue: Number(row.revenue || 0), refundAmount: Number(row.refund_amount || 0), grossRevenue: Number(row.gross_revenue || 0), expense: Number(row.expense || 0), profit: Number(row.profit || 0), margin: Number(row.margin || 0) }));
     const byDepartment = departments.map((department) => rows.find((row) => row.department === department) ?? { department, revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0, margin: 0 });
     const totals = byDepartment.reduce((summary, row) => ({ revenue: summary.revenue + row.revenue, refundAmount: summary.refundAmount + row.refundAmount, grossRevenue: summary.grossRevenue + row.grossRevenue, expense: summary.expense + row.expense, profit: summary.profit + row.profit }), { revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0 });
-    const exceptionResult = await query(`SELECT event_key, amount, status, occurred_at, source, metadata FROM canonical_financial_ledger WHERE LOWER(status) IN ('posted','completed','paid','succeeded') AND COALESCE(metadata->>'classificationResolvedAt', '') = '' AND source <> 'event_booking' AND LOWER(COALESCE(metadata->>'department', metadata->>'businessUnit', source, 'shared')) = 'shared' ORDER BY occurred_at DESC LIMIT 25`);
+    const exceptionResult = await query(`SELECT event_key, amount, status, occurred_at, source, metadata FROM canonical_financial_ledger WHERE LOWER(status) IN ('posted','completed','paid','succeeded') AND COALESCE(metadata->>'classificationResolvedAt', '') = '' AND source <> 'event_booking' AND (${departmentSql}) = 'shared' ORDER BY occurred_at DESC LIMIT 25`);
     const complimentaryResult = await query(`SELECT COALESCE(SUM(amount_used), 0) waived_amount, COUNT(*)::int usage_count FROM complimentary_authorization_usage WHERE ($1::date IS NULL OR applied_at >= $1::date) AND ($2::date IS NULL OR applied_at < ($2::date + INTERVAL '1 day'))`, [startDate, endDate]);
     return NextResponse.json({ departments: byDepartment, totals: { ...totals, margin: totals.revenue ? Number(((totals.profit / totals.revenue) * 100).toFixed(2)) : 0 }, complimentary: { waivedAmount: Number(complimentaryResult.rows[0]?.waived_amount || 0), usageCount: Number(complimentaryResult.rows[0]?.usage_count || 0) }, accountingBasis: { revenue: "Canonical posted credit journal entries", refunds: "Linked canonical debit reversals", expenses: "Canonical approved expense/payroll debit entries" }, exceptions: exceptionResult.rows.map((row) => ({ transactionId: row.event_key, amount: Number(row.amount || 0), status: row.status, createdAt: row.occurred_at, source: row.source })), actingAuthority: Boolean(auth.actingAuthority) });
   } catch (error) {
