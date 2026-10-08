@@ -648,8 +648,8 @@ function DashboardContent() {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-              <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                Staff Attendance Register
+<CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
+                  Staff Attendance Register
               </CardTitle>
               <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </CardHeader>
@@ -657,8 +657,8 @@ function DashboardContent() {
               <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                 Attendance
               </div>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Check in before your scheduled start, check out at or after your
+<p className="text-base leading-6 text-muted-foreground">
+                  Check in before your scheduled start, check out at or after your
                 scheduled end, and wait for a manager approval before opening
                 other workspaces.
               </p>
@@ -681,7 +681,7 @@ function DashboardContent() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
               <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-                <CardTitle className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
                   Event Organization
                 </CardTitle>
                 <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -690,7 +690,7 @@ function DashboardContent() {
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   Events
                 </div>
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-base leading-6 text-muted-foreground">
                   Plan events, coordinate venues, manage guests, assign delivery
                   teams, and prepare quotations through the Pricing desk.
                 </p>
