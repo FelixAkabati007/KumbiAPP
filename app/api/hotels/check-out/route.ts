@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
                 LIMIT 1
               ) AS checked_in_at
          FROM reservations r
-         WHERE r.id = $1
+         WHERE r.id = $1::uuid
          FOR UPDATE`,
         [reservationId]
       );
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
                   COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0)
                   - GREATEST(0, COALESCE(paid_amount, 0) - COALESCE(room_charge, 0))
                 ) AS extras_outstanding
-         FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+         FROM guest_folios WHERE reservation_id = $1::uuid FOR UPDATE`,
         [reservationId]
       );
       if (folioResult.rowCount !== 1) throw new Error("Guest folio not found");
@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
       }
 
       if (paid > 0) {
-        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = NOW() WHERE reservation_id = $2`, [paid, reservationId]);
+        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = NOW() WHERE reservation_id = $2::uuid`, [paid, reservationId]);
       }
 
       const resResult = await client.query(
         `UPDATE reservations SET status = 'checked_out', updated_at = NOW()
-         WHERE id = $1 AND status = 'checked_in' RETURNING *`,
+         WHERE id = $1::uuid AND status = 'checked_in' RETURNING *`,
         [reservationId]
       );
       if (resResult.rowCount !== 1) throw new Error("Reservation is no longer checked in");
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       const checkedOutRoomId = resResult.rows[0].room_id || roomId;
       const roomResult = await client.query(
         `UPDATE rooms SET status = 'dirty', current_guest_id = NULL, updated_at = NOW()
-         WHERE id = $1 RETURNING id`,
+         WHERE id = $1::uuid RETURNING id`,
         [checkedOutRoomId]
       );
       if (roomResult.rowCount !== 1) throw new Error("Room was not found");
@@ -106,14 +106,14 @@ export async function POST(request: NextRequest) {
          SELECT $1, 'cleaning', 'normal', $2
          WHERE NOT EXISTS (
            SELECT 1 FROM housekeeping_tasks
-           WHERE room_id = $1 AND task_type = 'cleaning'
+           WHERE room_id = $1::uuid AND task_type = 'cleaning'
              AND status IN ('pending', 'in_progress')
          )`,
         [checkedOutRoomId, `Automatic cleaning task created after checkout ${reservationId}`],
       );
 
       const verified = await client.query(
-        `SELECT id, status, room_id, guest_id FROM reservations WHERE id = $1 AND status = 'checked_out'`,
+        `SELECT id, status, room_id, guest_id FROM reservations WHERE id = $1::uuid AND status = 'checked_out'`,
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");

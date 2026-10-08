@@ -13,7 +13,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
      LEFT JOIN room_types rt ON rt.id = rm.room_type_id
-     WHERE r.id = $1 AND r.status = 'checked_in'
+     WHERE r.id = $1::uuid AND r.status = 'checked_in'
      FOR UPDATE OF r`,
     [reservationId],
   );
@@ -24,7 +24,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   }
 
   const folio = await client.query<{ id: string }>(
-    `SELECT id FROM guest_folios WHERE reservation_id = $1 FOR UPDATE`,
+    `SELECT id FROM guest_folios WHERE reservation_id = $1::uuid FOR UPDATE`,
     [reservationId],
   );
   if (folio.rowCount !== 1) return { addedBlocks: 0, billableBlocks: 0 };
@@ -38,7 +38,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
      FROM generate_series(2, $4::integer) AS blocks(block_number)
      WHERE NOT EXISTS (
        SELECT 1 FROM guest_folio_items existing
-       WHERE existing.reservation_id = $1 AND existing.source_type = 'system'
+       WHERE existing.reservation_id = $1::uuid AND existing.source_type = 'system'
          AND existing.source_id = $1 || ':short-stay:' || block_number
      )
      RETURNING id`,
@@ -66,7 +66,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
     `SELECT r.room_id, r.check_in_date, r.check_out_date, rm.price AS room_rate
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
-     WHERE r.id = $1 AND r.status = 'checked_in'
+     WHERE r.id = $1::uuid AND r.status = 'checked_in'
      FOR UPDATE OF r`,
     [reservationId]
   );
@@ -103,7 +103,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
      SET unit_amount = 0,
          total_amount = 0,
          description = CASE WHEN item.description LIKE '% · Complimentary%' THEN item.description ELSE item.description || ' · Complimentary' END
-     WHERE item.reservation_id = $1
+     WHERE item.reservation_id = $1::uuid
        AND item.source_type = 'restaurant_order'
        AND EXISTS (
          SELECT 1 FROM complimentary_authorizations ca
