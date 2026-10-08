@@ -7,7 +7,7 @@ import { validatePasswordComplexity } from "@/lib/password-manager";
 import { v4 as uuidv4 } from "uuid";
 import { isUserRole } from "@/lib/roles";
 
-const VALID_ROLES = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "staff", "kitchen", "frontDesk", "housekeeping"] as const;
+const VALID_ROLES = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping"] as const;
 
 // GET - List all staff members
 export async function GET(request: NextRequest) {
