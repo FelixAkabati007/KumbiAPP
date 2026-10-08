@@ -74,7 +74,10 @@ type PnlResponse = {
     status: string;
     createdAt: string;
     source?: string | null;
+    paymentMethod?: string | null;
     classification?: string | null;
+    initiatedBy?: string | { name?: string | null; accountName?: string | null; email?: string | null } | null;
+    approvedBy?: string | { name?: string | null; accountName?: string | null; email?: string | null } | null;
   }>;
 };
 type ExceptionHistoryItem = {
@@ -96,13 +99,10 @@ const departmentLabels = {
 
 function classifyTransaction(item: Pick<Transaction, "metadata" | "source">) {
   const metadata = item.metadata ?? {};
-  const raw = String(
-    metadata.department ??
-      metadata.businessUnit ??
-      metadata.source ??
-      item.source ??
-      "shared",
-  ).toLowerCase().replaceAll("_", "-");
+  const raw = [item.source, metadata.source, metadata.department, metadata.businessUnit]
+    .find((value): value is string => typeof value === "string" && /^(f0-|vip-authorization|event-payment:)/i.test(value))
+    ?.toLowerCase()
+    .replaceAll("_", "-") ?? String(metadata.department ?? metadata.businessUnit ?? metadata.source ?? item.source ?? "shared").toLowerCase().replaceAll("_", "-");
   if (raw.startsWith("f0-")) return "shared";
   if (raw.startsWith("vip-authorization")) return "shared_event";
   if (raw.startsWith("event-payment:")) return "event";
@@ -684,10 +684,7 @@ export default function FinancePage() {
             <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
               <AlertTitle>Finance classification exceptions</AlertTitle>
               <AlertDescription>
-                These postings could not be confidently mapped from their
-                source or department metadata, so they are temporarily assigned
-                to Shared / Corporate. Review the source below and assign the
-                correct department with an auditable reason. {pnl?.exceptions.length} unresolved exception(s) are available.
+  These postings still need manual review because no canonical Finance rule matched their source or department metadata. Recognized F0-, VIP authorization, and event-payment postings are mapped automatically and do not appear here. {pnl?.exceptions.length} unresolved exception(s) are available.
               </AlertDescription>
               <div className="mt-3 grid gap-3">
                 {pnl?.exceptions.map((exception) => (
@@ -699,11 +696,17 @@ export default function FinancePage() {
                       <span className="font-medium">
                         {exception.transactionId}
                       </span>
-                      <span>
-                        GHS {exception.amount.toFixed(2)} · {exception.status}
-                      </span>
-                    </div>
-                    {resolvingException === exception.transactionId ? (
+  <span>
+  GHS {exception.amount.toFixed(2)} · {exception.status}
+  </span>
+  </div>
+  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+  <span>Source: {exception.source ?? "Unknown"}</span>
+  {exception.paymentMethod === "complimentary-waived" && <span>Complimentary waived</span>}
+  {exception.initiatedBy && <span>Initiated by: {typeof exception.initiatedBy === "string" ? exception.initiatedBy : exception.initiatedBy.accountName ?? exception.initiatedBy.name ?? exception.initiatedBy.email ?? "Unknown account"}</span>}
+  {exception.approvedBy && <span>Approved by: {typeof exception.approvedBy === "string" ? exception.approvedBy : exception.approvedBy.accountName ?? exception.approvedBy.name ?? exception.approvedBy.email ?? "Unknown account"}</span>}
+  </div>
+  {resolvingException === exception.transactionId ? (
                       <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">
                         <Select
                           value={resolutionSource}
