@@ -33,6 +33,8 @@ type Transaction = {
   transaction_id?: string;
   amount: number | string;
   status: string;
+  direction?: string | null;
+  journal_type?: string | null;
   payment_method?: string;
   metadata?: Record<string, unknown>;
   source?: string | null;
@@ -156,6 +158,16 @@ export default function FinancePage() {
   >(null);
   const [departmentTransactions, setDepartmentTransactions] = useState<Transaction[]>([]);
   const [departmentTransactionsLoading, setDepartmentTransactionsLoading] = useState(false);
+
+  const departmentRevenue = useMemo(
+    () => departmentTransactions.reduce((sum, item) => {
+      const amount = Number(item.amount || 0);
+      if (item.direction === "credit" && !["refund", "reversal", "adjustment"].includes(item.journal_type ?? "")) return sum + amount;
+      if (item.direction === "debit" && ["refund", "reversal", "adjustment"].includes(item.journal_type ?? "")) return sum - amount;
+      return sum;
+    }, 0),
+    [departmentTransactions],
+  );
 
   const loadExceptionHistory = async () => {
     const params = new URLSearchParams();
@@ -1108,7 +1120,7 @@ export default function FinancePage() {
               </div>
   <div className="mb-3 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
   <span>Canonical ledger postings: {departmentTransactions.length}</span>
-  <span className="font-semibold">Total GHS {departmentTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)}</span>
+  <span className="font-semibold">Net revenue GHS {departmentRevenue.toFixed(2)}</span>
   </div>
   <div className="max-h-[50vh] overflow-auto rounded-md border">
   <table className="w-full min-w-[640px] text-sm">
