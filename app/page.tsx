@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -81,6 +82,7 @@ const DASHBOARD_CATEGORIES = [
 
 function DashboardContent() {
   const { user, logout } = useAuth();
+  const searchParams = useSearchParams();
   const { settings } = useSettings();
   const { toast } = useToast();
 
@@ -111,8 +113,16 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const requestedCategory = searchParams.get("category") as (typeof DASHBOARD_CATEGORIES)[number][0] | null;
   const [activeDashboardCategory, setActiveDashboardCategory] =
-    useState<(typeof DASHBOARD_CATEGORIES)[number][0]>("all");
+    useState<(typeof DASHBOARD_CATEGORIES)[number][0]>(requestedCategory || "all");
+
+  useEffect(() => {
+    if (requestedCategory && DASHBOARD_CATEGORIES.some(([category]) => category === requestedCategory)) {
+      setActiveDashboardCategory(requestedCategory);
+    }
+  }, [requestedCategory]);
+
   const [attendanceRecord, setAttendanceRecord] = useState<{
     verification_status?: string;
     check_in_at?: string | null;
@@ -319,6 +329,15 @@ function DashboardContent() {
         categorySectionMap[category].some((section) => access[section])),
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
+
+  const selectDashboardCategory = (category: (typeof DASHBOARD_CATEGORIES)[number][0]) => {
+    setActiveDashboardCategory(category);
+    const url = new URL(window.location.href);
+    if (category === "all") url.searchParams.delete("category");
+    else url.searchParams.set("category", category);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  };
+
   const operationalModules = [
     access.pos && {
       title: "Point of Sale System",
@@ -568,7 +587,7 @@ function DashboardContent() {
                         ? "default"
                         : "outline"
                     }
-                    onClick={() => setActiveDashboardCategory(category)}
+                    onClick={() => selectDashboardCategory(category)}
                     className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700"
                   >
                     {label}
