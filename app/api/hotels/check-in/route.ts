@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         throw new Error("Selected room does not match the reservation room type");
       }
       const paymentResult = await client.query(
-        `SELECT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1 AND status = 'completed') AS paid,
+        `SELECT EXISTS (SELECT 1 FROM transactions WHERE transaction_reference = $1::text AND status = 'completed') AS paid,
                 EXISTS (SELECT 1 FROM complimentary_authorizations WHERE reservation_id = $2::uuid AND status = 'active' AND valid_from <= now() AND valid_until > now() AND room_waived = true) AS is_vip`,
         [`HOTEL-PRECHECKIN-${reservationId}`, reservationId],
       );
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (vipRoom) {
-        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1, $2, $3, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2`, [vipRoom.id, reservationId, session?.id || null]);
+        await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) SELECT $1::uuid, $2::uuid, $3::uuid, 'room_stay', rt.base_price, 'Room charge waived at VIP check-in' FROM reservations r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = $2::uuid`, [vipRoom.id, reservationId, session?.id || null]);
       }
 
       await client.query(
