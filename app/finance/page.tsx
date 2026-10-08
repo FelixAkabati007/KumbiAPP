@@ -103,6 +103,9 @@ function classifyTransaction(item: Pick<Transaction, "metadata" | "source">) {
       item.source ??
       "shared",
   ).toLowerCase().replaceAll("_", "-");
+  if (raw.startsWith("f0-")) return "shared";
+  if (raw.startsWith("vip-authorization")) return "shared_event";
+  if (raw.startsWith("event-payment:")) return "event";
   if (raw === "event-booking" || raw.includes("event")) {
     return raw.includes("shared") ? "shared_event" : "event";
   }

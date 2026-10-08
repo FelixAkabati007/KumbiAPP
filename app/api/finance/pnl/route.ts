@@ -24,10 +24,12 @@ export async function GET(request: Request) {
       SET metadata = CASE
         WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%' THEN metadata || '{"department":"Shared","businessUnit":"Corporate","classificationRule":"f0-corporate"}'::jsonb
         WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%' THEN metadata || '{"department":"Shared Event","businessUnit":"Shared Event","classificationRule":"vip-authorization-shared-event"}'::jsonb
+        WHEN LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%' THEN metadata || '{"department":"Event Organization","businessUnit":"Event Organization","classificationRule":"event-payment-event-organization"}'::jsonb
         ELSE metadata
       END
       WHERE LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%'
-         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%'`, []);
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%'
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%'`, []);
     await query(`
       INSERT INTO canonical_financial_ledger
         (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, journal_type, metadata, occurred_at)
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
         CASE
           WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('hotel','room','accommodation') THEN 'hotel-payment'
           WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion') THEN 'pos-order-completion'
+          WHEN LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event-payment:%' THEN 'event-payment'
           ELSE COALESCE(t.metadata->>'source', 'legacy-transaction')
         END,
         t.method, 'legacy_transaction', t.id,
