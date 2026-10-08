@@ -40,7 +40,6 @@ export default function AttendancePage() {
     const status = statusResponse.ok ? await statusResponse.json() : null;
     setAccessDenied(false);
     setRecord(status?.record ?? null);
-    await fetch("/api/attendance/reconcile", { method: "POST" });
     const review = await fetch("/api/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {

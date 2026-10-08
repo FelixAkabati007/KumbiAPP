@@ -46,7 +46,7 @@ export async function GET(request: Request) {
           ELSE 'Present'
         END AS attendance_result
       FROM attendance_records ar
-      LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id
+      LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id OR sp.user_id = ar.staff_id
       LEFT JOIN staff_shifts ss ON ss.id = ar.shift_id
       WHERE ar.verification_status = 'verified'
         AND COALESCE(ss.shift_date, ar.created_at::date) >= CURRENT_DATE - ($1::int - 1)
