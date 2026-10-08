@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       // as the dirty-room transition, so the room and task cannot drift apart.
       await client.query(
         `INSERT INTO housekeeping_tasks (room_id, task_type, priority, notes)
-         SELECT $1, 'cleaning', 'normal', $2
+         SELECT $1::uuid, 'cleaning', 'normal', $2::text
          WHERE NOT EXISTS (
            SELECT 1 FROM housekeeping_tasks
            WHERE room_id = $1::uuid AND task_type = 'cleaning'

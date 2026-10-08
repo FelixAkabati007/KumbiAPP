@@ -34,7 +34,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   const inserted = await client.query(
     `INSERT INTO guest_folio_items
       (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
-     SELECT $1, $2, 'room', CONCAT('Short-stay room block ', block_number, ' (2 hours 10 minutes)'), 1, $3::numeric, $3::numeric, 'system', $1 || ':short-stay:' || block_number
+     SELECT $1::uuid, $2::uuid, 'room', CONCAT('Short-stay room block ', block_number, ' (2 hours 10 minutes)'), 1, $3::numeric, $3::numeric, 'system', $1::uuid::text || ':short-stay:' || block_number
      FROM generate_series(2, $4::integer) AS blocks(block_number)
      WHERE NOT EXISTS (
        SELECT 1 FROM guest_folio_items existing
@@ -85,7 +85,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
      FROM reservations r
      JOIN guest_folios gf ON gf.reservation_id = r.id
      CROSS JOIN LATERAL generate_series(r.check_out_date, CURRENT_DATE - 1, INTERVAL '1 day') AS nights(night_date)
-     WHERE r.id = $1
+     WHERE r.id = $1::uuid
        AND r.status = 'checked_in'
        AND CURRENT_DATE > r.check_out_date
        AND NOT EXISTS (
@@ -132,7 +132,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
 
   const overdue = await client.query<{ count: string }>(
     `SELECT GREATEST(0, CURRENT_DATE - check_out_date)::text AS count
-     FROM reservations WHERE id = $1`,
+     FROM reservations WHERE id = $1::uuid`,
     [reservationId]
   );
 
