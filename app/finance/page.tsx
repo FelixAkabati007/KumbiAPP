@@ -97,9 +97,9 @@ const departmentLabels = {
   shared: "Shared / Corporate",
 } as const;
 
-function classifyTransaction(item: Pick<Transaction, "metadata" | "source">) {
+function classifyTransaction(item: Pick<Transaction, "transaction_id" | "metadata" | "source">) {
   const metadata = item.metadata ?? {};
-  const raw = [item.source, metadata.source, metadata.department, metadata.businessUnit]
+  const raw = [item.transaction_id, item.source, metadata.source, metadata.department, metadata.businessUnit]
     .find((value): value is string => typeof value === "string" && /^(f0-|vip-authorization|event-payment:)/i.test(value))
     ?.toLowerCase()
     .replaceAll("_", "-") ?? String(metadata.department ?? metadata.businessUnit ?? metadata.source ?? item.source ?? "shared").toLowerCase().replaceAll("_", "-");
@@ -112,6 +112,17 @@ function classifyTransaction(item: Pick<Transaction, "metadata" | "source">) {
   if (["hotel", "room", "accommodation", "hotel-pre-checkin", "hotel-pre-check-in", "hotel-folio", "hotel-payment"].includes(raw) || raw.startsWith("hotel-")) return "hotel";
   if (["restaurant", "pos", "food-beverage", "restaurant-order", "pos-order-completion", "hotel-folio-restaurant"].includes(raw) || raw.startsWith("restaurant-")) return "restaurant";
   return raw === "shared-event" ? "shared_event" : "shared";
+}
+
+function transactionDestination(item: Pick<Transaction, "transaction_id" | "metadata" | "source">) {
+  return departmentLabels[classifyTransaction(item) as keyof typeof departmentLabels];
+}
+
+function actorName(item: Transaction, kind: "performed" | "approved") {
+  const accountName = kind === "performed" ? item.performed_by_account_name : item.approved_by_account_name;
+  const name = kind === "performed" ? item.performed_by_name : item.approved_by_name;
+  const email = kind === "performed" ? item.performed_by_email : item.approved_by_email;
+  return accountName ?? name ?? email ?? "—";
 }
 
 export default function FinancePage() {
@@ -1011,12 +1022,10 @@ export default function FinancePage() {
                             </td>
                             <td className="p-3 capitalize">{item.status}</td>
                             <td className="p-3 capitalize">
-                              {item.payment_method ?? "—"}
+                              {item.payment_method === "complimentary-waived" ? "Complimentary waived" : item.payment_method ?? "—"}
                             </td>
                             <td className="p-3">
-                              {item.performed_by_name ??
-                                item.performed_by_email ??
-                                "—"}
+                              {actorName(item, "performed")}
                               {item.performed_by_role ? (
                                 <span className="ml-1 text-xs text-muted-foreground">
                                   ({item.performed_by_role})
@@ -1024,9 +1033,7 @@ export default function FinancePage() {
                               ) : null}
                             </td>
                             <td className="p-3">
-                              {item.approved_by_name ??
-                                item.approved_by_email ??
-                                "—"}
+                              {actorName(item, "approved")}
                               {item.approved_by_role ? (
                                 <span className="ml-1 text-xs text-muted-foreground">
                                   ({item.approved_by_role})
@@ -1108,9 +1115,8 @@ export default function FinancePage() {
                             {item.transaction_id ?? "—"}
                           </td>
                           <td className="p-3">
-                            {String(
-                              item.metadata?.source ?? item.source ?? "unclassified",
-                            ).replaceAll("_", " ")}
+                            <div>{String(item.metadata?.source ?? item.source ?? "unclassified").replaceAll("_", " ")}</div>
+                            <div className="text-xs text-muted-foreground">{transactionDestination(item)}</div>
                           </td>
                           <td className="p-3">
                             GHS {Number(item.amount || 0).toFixed(2)}
