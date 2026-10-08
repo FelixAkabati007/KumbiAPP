@@ -36,7 +36,10 @@ export async function recordFinancialLedgerEntry(
     ? "posted"
     : entry.status;
   const metadata = { ...(entry.metadata ?? {}) };
-  const sourceClassification = financeClassificationMetadata(entry.source, typeof metadata.department === "string" ? metadata.department : null);
+  const classificationSource = [entry.source, metadata.source, metadata.department, metadata.businessUnit]
+    .find((value): value is string => typeof value === "string" && /^(f0-|vip-authorization|event-payment:)/i.test(value))
+    ?? entry.source;
+  const sourceClassification = financeClassificationMetadata(classificationSource, typeof metadata.department === "string" ? metadata.department : null);
   if (sourceClassification.classificationRule) {
     Object.assign(metadata, sourceClassification);
   }

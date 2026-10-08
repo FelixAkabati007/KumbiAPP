@@ -13,4 +13,10 @@ describe("finance classification prefixes", () => {
   it("maps event payments to Event Organization", () => {
     expect(financeClassificationMetadata("event-payment:123")).toMatchObject({ department: "Event Organization", businessUnit: "Event Organization" });
   });
+
+  it("keeps the classification independent from an existing department", () => {
+    expect(financeClassificationMetadata("F0-123", "Restaurant")).toMatchObject({ department: "Shared", businessUnit: "Corporate" });
+    expect(financeClassificationMetadata("vip-authorization-123", "Hotel")).toMatchObject({ department: "Shared Event", businessUnit: "Shared Event" });
+    expect(financeClassificationMetadata("event-payment:123", "Restaurant")).toMatchObject({ department: "Event Organization", businessUnit: "Event Organization" });
+  });
 });
