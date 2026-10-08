@@ -37,6 +37,28 @@ export async function requireSession(): Promise<AuthResult> {
  * routes tied to a specific role-gated feature (rooms, refunds, kitchen,
  * etc.) so the server enforces the same rule the UI's RoleGuard shows.
  */
+async function hasApprovedAttendance(session: ApiSession) {
+  if (session.role !== "staff") return true;
+  const result = await query(
+    `SELECT 1
+     FROM attendance_records
+     WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+       AND created_at::date = CURRENT_DATE
+       AND verification_status = 'verified'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [session.id],
+  );
+  return result.rows.length > 0;
+}
+
+function attendanceGateError() {
+  return NextResponse.json(
+    { error: "Manager approval is required before operational access is available", code: "ATTENDANCE_APPROVAL_REQUIRED" },
+    { status: 403 },
+  );
+}
+
 export async function requirePermission(
   section: AppSection
 ): Promise<AuthResult> {
@@ -56,6 +78,9 @@ export async function requirePermission(
       ),
     };
   }
+  if (!(await hasApprovedAttendance(session as ApiSession))) {
+    return { session: null, error: attendanceGateError() };
+  }
   return { session: session as ApiSession, error: null };
 }
 
@@ -64,6 +89,9 @@ export async function requireCapability(section: AppSection, action: CrudAction)
   if (!session) return { session: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   if (!canPerformAction(session.role as UserRole, section, action)) {
     return { session: null, error: NextResponse.json({ error: `Forbidden: ${action} access is restricted` }, { status: 403 }) };
+  }
+  if (!(await hasApprovedAttendance(session as ApiSession))) {
+    return { session: null, error: attendanceGateError() };
   }
   return { session: session as ApiSession, error: null };
 }

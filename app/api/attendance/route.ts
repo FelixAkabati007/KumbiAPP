@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireRole } from "@/lib/api-auth";
 import { query } from "@/lib/db";
+import { registerAttendance } from "@/lib/attendance-service";
 
 export async function GET(request: Request) {
+  const staffAccess = await requireRole("staff");
+  if (!staffAccess.error && staffAccess.session) {
+    const result = await query(
+      `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
+       FROM attendance_records
+       WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+         AND created_at::date = CURRENT_DATE
+       ORDER BY created_at DESC LIMIT 1`,
+      [staffAccess.session.id],
+    );
+    const record = result.rows[0] ?? null;
+    return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
+  }
   const { error } = await requirePermission("events");
   if (error) return error;
   const eventId = new URL(request.url).searchParams.get("eventId");
@@ -15,6 +29,24 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const staffAccess = await requireRole("staff");
+  if (!staffAccess.error && staffAccess.session) {
+    const body = await request.json();
+    const action = body.action === "check_out" ? "check_out" : "check_in";
+    try {
+      const result = await registerAttendance(staffAccess.session, action, String(body.notes ?? ""));
+      return NextResponse.json(result, { status: 200 });
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
+      const messages: Record<string, string> = {
+        ALREADY_CHECKED_IN: "You are already checked in.",
+        CHECK_IN_REQUIRED: "Check in before checking out.",
+        CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
+        ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
+      };
+      return NextResponse.json({ error: messages[code] ?? "Unable to update attendance", code }, { status: 409 });
+    }
+  }
   const { session, error } = await requirePermission("events");
   if (error) return error;
   const body = await request.json();
