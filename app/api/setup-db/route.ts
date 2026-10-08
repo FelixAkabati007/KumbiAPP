@@ -10,6 +10,11 @@ export async function GET() {
     // Enable UUID extension
     await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
+    // Keep the database role enum aligned with the Staff Accounts access-role catalog.
+    // PostgreSQL enum additions are idempotent and preserve all existing role values.
+    await query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'restaurantFrontDesk'`);
+    await query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'waiterWaitress'`);
+
     // Canonical financial ledger: every money movement is written here once.
     await query(`
       CREATE TABLE IF NOT EXISTS canonical_financial_ledger (
