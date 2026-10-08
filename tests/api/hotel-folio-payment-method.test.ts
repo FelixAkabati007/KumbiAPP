@@ -23,6 +23,7 @@ describe("hotel folio restaurant payment contract", () => {
     expect(routeSource).toContain('paidAtOrder: true');
     expect(routeSource).not.toContain("INSERT INTO guest_folio_items");
     expect(routeSource).not.toContain("SET food_charges =");
+    expect(schemaSource).toContain("'paid-at-order'");
     expect(schemaSource).toContain("'guest-folio'");
 
     const folioServiceSource = await readFile(path.resolve(testDirectory, "../../lib/services/hotel-folio.ts"), "utf8");
