@@ -9,6 +9,8 @@ describe("hotel check-in SQL parameter contracts", () => {
     expect(source).toContain("transaction_reference = $1::text");
     expect(source).toContain("SELECT $1::uuid, $2::uuid, $3::uuid");
     expect(source).toContain("WHERE r.id = $2::uuid");
+    expect(source).toContain("$3::uuid, 'hotel'");
+    expect(source).not.toContain("'room_stay'");
     expect(source).toContain("JOIN users u ON u.id = $3::uuid");
     expect(source).toContain("), $3::uuid");
   });
