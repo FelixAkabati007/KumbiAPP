@@ -124,7 +124,7 @@ export async function POST(
       const authorizationResult = await client.query(`SELECT id, status, valid_from, valid_until, folio_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id::text = $1::text AND ca.status = 'active' AND ca.valid_from <= NOW() AND ca.valid_until > NOW() AND ca.folio_waived = true AND ca.scope IN ('restaurant', 'both') ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [params.data.reservationId]);
       const authorization = authorizationResult.rows[0];
       const isWaived = Boolean(authorization && new Date(authorization.valid_until) > new Date() && Number(authorization.approved_amount) - Number(authorization.used_amount) >= taxedTotal);
-      const billableTotal = isWaived ? 0 : taxedTotal;
+      const paidAtOrderTotal = isWaived ? 0 : taxedTotal;
       const orderNumber = orderNumberForMovement;
       const customerName = `${folioDetails.first_name} ${folioDetails.last_name}`;
       const orderItems = selected.map((item) => ({
@@ -141,14 +141,14 @@ export async function POST(
         ? await client.query(
             `INSERT INTO kitchenorders
               (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items, performed_by)
-             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5::jsonb, $6)
+             VALUES ($1, $2, 'room-service', $3, $4, 'paid-at-order', 'normal', NULL, 'pending', $5::jsonb, $6)
              RETURNING id, ordernumber`,
             [orderNumber, taxedTotal.toFixed(2), folioDetails.room_number, customerName, JSON.stringify(orderItems), session.id]
           )
         : await client.query(
             `INSERT INTO kitchenorders
               (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
-             VALUES ($1, $2, 'room-service', $3, $4, 'guest-folio', 'normal', NULL, 'pending', $5)
+             VALUES ($1, $2, 'room-service', $3, $4, 'paid-at-order', 'normal', NULL, 'pending', $5)
              RETURNING id, ordernumber`,
             [orderNumber, taxedTotal.toFixed(2), folioDetails.room_number, customerName, session.id]
           );
@@ -163,12 +163,6 @@ export async function POST(
         );
       }
 
-      await client.query(
-        `INSERT INTO guest_folio_items
-          (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
-         VALUES ($1, $2, 'food', $3, 1, $4, $4, 'restaurant_order', $5)`,
-        [params.data.reservationId, folio.id, `Restaurant order ${orderNumber}${isWaived ? " · Complimentary" : ""}`, billableTotal.toFixed(2), orderId]
-      );
       if (isWaived) {
         await client.query(`INSERT INTO complimentary_authorization_usage (authorization_id, transaction_id, applied_by, transaction_type, amount_used, note) VALUES ($1,$2,$3,'restaurant_order',$4,$5)`, [authorization.id, String(orderId), session.id, total.toFixed(2), `Restaurant order ${orderNumber} waived through VIP authorization`]);
       }
@@ -176,22 +170,12 @@ export async function POST(
       if (!finance.rowCount) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4)`,
-          [orderNumber, billableTotal.toFixed(2), JSON.stringify({ source: "hotel-folio-restaurant", businessUnit: "shared", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, complimentary: isWaived, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
+           VALUES (NULL, $1, $2, 'GHS', 'paid-at-order', 'completed', $3::jsonb, $4)`,
+          [orderNumber, paidAtOrderTotal.toFixed(2), JSON.stringify({ source: "hotel-restaurant-paid-at-order", businessUnit: "shared", orderNumber, orderId, items: orderItems, orderType: "room-service", tableNumber: folioDetails.room_number, customerName, reservationId: params.data.reservationId, kitchenOrderId: orderId, grossAmount: total, paidAtOrder: true, complimentary: isWaived, performedBy: { id: session.id, name: session.name, email: session.email, role: session.role } }), session.id]
         );
       }
 
-      const updatedFolio = await client.query(
-        `UPDATE guest_folios
-         SET food_charges = COALESCE(food_charges, 0) + $1,
-             total_charges = COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0),
-             balance = GREATEST(0, COALESCE(room_charge, 0) + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + $1 + COALESCE(other_charges, 0) - COALESCE(paid_amount, 0)),
-             last_updated = NOW()
-         WHERE id = $2 RETURNING *`,
-        [billableTotal.toFixed(2), folio.id]
-      );
-
-      return { orderId, orderNumber, total, folio: updatedFolio.rows[0], idempotent: false };
+      return { orderId, orderNumber, total, folio, idempotent: false, paidAtOrder: true };
     });
 
     if (!result.idempotent) {

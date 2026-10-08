@@ -1434,8 +1434,8 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                       & Beverage Order
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Select active menu items, charge the folio, and send the
-                      order to the restaurant.
+Select active menu items, take payment immediately, and send the
+  order to the restaurant. Food and beverage never enters the room folio.
                     </p>
                   </div>
                   <Badge variant="outline" className="shrink-0">
@@ -1519,7 +1519,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                 {latestRestaurantOrder && (
                   <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
                     {latestRestaurantOrder.orderNumber} sent to restaurant and
-                    charged to folio.
+                    paid at order time; the room folio is unchanged.
                   </p>
                 )}
                 <div className="flex flex-col gap-2 sm:flex-row">
