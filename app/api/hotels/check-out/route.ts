@@ -135,21 +135,25 @@ export async function POST(request: NextRequest) {
       return { ...verified.rows[0], receiptId: receiptResult.rows[0]?.id ?? null, receipt: receiptResult.rows[0]?.snapshot ?? null, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
 
-    await query(
-      `INSERT INTO notifications (recipient_user_id, title, message, type)
-       SELECT u.id, $1, $2, 'housekeeping'
-       FROM users u
-       WHERE u.role = 'housekeeping' AND u.is_active = true
-         AND NOT EXISTS (
-           SELECT 1 FROM notifications n
-           WHERE n.recipient_user_id = u.id AND n.type = 'housekeeping'
-             AND n.title = $1 AND n.created_at > NOW() - INTERVAL '10 minutes'
-         )`,
-      [
-        `Room ${result.room_id} needs cleaning`,
-        `Room ${result.room_id} is dirty after checkout and is ready for cleaning.`,
-      ],
-    );
+    try {
+      await query(
+        `INSERT INTO notifications (recipient_user_id, title, message, type)
+         SELECT u.id, $1::text, $2::text, 'housekeeping'
+         FROM users u
+         WHERE u.role = 'housekeeping' AND u.is_active = true
+           AND NOT EXISTS (
+             SELECT 1 FROM notifications n
+             WHERE n.recipient_user_id = u.id AND n.type = 'housekeeping'
+               AND n.title = $1::text AND n.created_at > NOW() - INTERVAL '10 minutes'
+           )`,
+        [
+          `Room ${result.room_id} needs cleaning`,
+          `Room ${result.room_id} is dirty after checkout and is ready for cleaning.`,
+        ],
+      );
+    } catch (notificationError) {
+      console.error("Checkout succeeded but housekeeping notification failed:", notificationError);
+    }
 
     return NextResponse.json(
       { ...result, persisted: true, status: "checked_out" },
