@@ -26,7 +26,6 @@ import {
   PhoneIcon as MobilePhone,
   Plus,
   QrCode,
-  RotateCcw,
   Save,
   Search,
   ShoppingCart,
@@ -99,7 +98,6 @@ function POSContent() {
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [sessionItemQuantities, setSessionItemQuantities] = useState<Record<string, number>>({});
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   type OrderType = (typeof ORDER_TYPES)[number];
   const [orderType, setOrderType] = useState<OrderType>("dine-in");
@@ -923,44 +921,12 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   })()}
   </div>
   {(sessionItemQuantities[item.id] ?? 0) > 0 && (
-    <Button
-      type="button"
-      variant="secondary"
-      size="icon"
-      aria-label={`Adjust ${item.name} quantity`}
-      className="absolute right-2 top-2 z-30 h-8 w-8 rounded-full border-2 border-background bg-background/90 shadow-md"
-      onClick={(event) => {
-        event.stopPropagation();
-        setEditingItemId((current) => (current === item.id ? null : item.id));
-      }}
-    >
-      <RotateCcw className="h-4 w-4 text-orange-600" />
-    </Button>
-  )}
-  {(sessionItemQuantities[item.id] ?? 0) > 0 && (
     <Badge
       aria-label={`${sessionItemQuantities[item.id]} selected`}
       className="absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-background bg-orange-600 px-2 text-sm font-bold text-white shadow-md"
     >
       {sessionItemQuantities[item.id]}
     </Badge>
-  )}
-  {editingItemId === item.id && (
-    <div
-      className="absolute right-2 top-12 z-30 flex items-center gap-1 rounded-full border border-orange-200 bg-background/95 p-1 shadow-lg"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Decrease ${item.name}`} onClick={() => updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1)}>
-        <Minus className="h-3 w-3" />
-      </Button>
-      <span className="min-w-6 text-center text-sm font-semibold">{sessionItemQuantities[item.id] ?? 0}</span>
-      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Increase ${item.name}`} onClick={() => addItemToOrder(item)}>
-        <Plus className="h-3 w-3" />
-      </Button>
-      <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label={`Remove ${item.name}`} onClick={() => { updateItemQuantity(item.id, 0); setEditingItemId(null); }}>
-        <Trash className="h-3 w-3" />
-      </Button>
-    </div>
   )}
   {!isItemAvailable(item) && (
   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
@@ -1324,7 +1290,6 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   onClick={() => {
                     setCurrentOrder([]);
                     setSessionItemQuantities({});
-                    setEditingItemId(null);
                     setPaymentMethod("cash");
                     setTableNumber("");
                     setCustomerName("");
