@@ -335,11 +335,16 @@ function POSContent() {
   };
 
   // Calculate order total
+  const getDiscountedUnitPrice = (item: OrderItem) => {
+    const discount = Math.min(100, Math.max(0, Number(item.discountPercent || 0)));
+    return item.price * (1 - discount / 100);
+  };
+
   const calculateTotal = () => {
-    return currentOrder.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    );
+  return currentOrder.reduce(
+    (total, item) => total + getDiscountedUnitPrice(item) * item.quantity,
+    0
+  );
   };
 
   // Get prep time for item category
@@ -429,9 +434,10 @@ function POSContent() {
             items: currentOrder.map((item) => ({
               id: item.id,
               name: item.name,
-              price: item.price,
-              category: item.category,
-              quantity: item.quantity,
+  price: item.price,
+  category: item.category,
+  quantity: item.quantity,
+  discountPercent: item.discountPercent || 0,
               notes: item.notes,
               prepTime: getPrepTimeForItem(item.category),
             })),
@@ -1050,6 +1056,23 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                         {item.description}
                       </p>
+                      <div className="mb-2 flex items-center gap-2">
+                        <Label htmlFor={`discount-${item.id}`} className="text-xs text-orange-700 dark:text-orange-300">Discount %</Label>
+                        <Input
+                          id={`discount-${item.id}`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={item.discountPercent ?? ""}
+                          onChange={(event) => {
+                            const value = Math.min(100, Math.max(0, Number(event.target.value) || 0));
+                            setCurrentOrder((previous) => previous.map((orderItem) => orderItem.id === item.id ? { ...orderItem, discountPercent: value } : orderItem));
+                          }}
+                          className="h-8 w-20"
+                          aria-label={`Discount percentage for ${item.name}`}
+                        />
+                      </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Button
@@ -1078,10 +1101,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">
-                            ₵{(item.price * item.quantity).toFixed(2)}
+                            ₵{(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            ₵{item.price.toFixed(2)} each
+                            ₵{getDiscountedUnitPrice(item).toFixed(2)} each{item.discountPercent ? ` · ${item.discountPercent}% off` : ""}
                           </p>
                         </div>
                       </div>

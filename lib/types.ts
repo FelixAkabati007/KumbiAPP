@@ -24,6 +24,7 @@ export interface OrderItem extends MenuItem {
   notes?: string; // Item-specific notes
   orderId?: string; // Unique order ID for this specific product
   orderNumber?: string; // Unique order number for this specific product
+  discountPercent?: number;
 }
 
 export interface InventoryItem {
