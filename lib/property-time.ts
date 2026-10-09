@@ -1,3 +1,5 @@
+import { query } from "@/lib/db";
+
 export const PROPERTY_TIME_ZONE = "Africa/Accra";
 export const HOTEL_BOOKING_WINDOW_HOURS = 24;
 
@@ -40,6 +42,26 @@ export async function getAuthoritativeNow() {
 
 export async function propertyNowIso() {
   return (await getAuthoritativeNow()).toISOString();
+}
+
+/**
+ * Canonical transaction clock for every server-side business event.
+ * Callers may retain their client timestamp as metadata, but persisted
+ * transaction timestamps must come from this authoritative property clock.
+ */
+export async function getCanonicalTransactionTimestamp() {
+  const result = await query<{ time_zone: string; source: string; version: number }>(
+    `SELECT time_zone, source, version
+     FROM public.canonical_clock_config
+     WHERE config_key = $1
+     LIMIT 1`,
+    ["property"],
+  );
+  const config = result.rows[0];
+  if (!config || config.time_zone !== PROPERTY_TIME_ZONE || config.source !== "dashboard-live-clock" || config.version !== 1) {
+    throw new Error("Canonical property clock contract is missing or invalid");
+  }
+  return propertyNowIso();
 }
 
 export { AISENSE_TIME_ENDPOINT };

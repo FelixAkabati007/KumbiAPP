@@ -1,5 +1,6 @@
 import { transaction, type DatabaseClient } from "@/lib/db";
 import { financeClassificationMetadata } from "@/lib/finance-classification";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export type FinancialLedgerEntry = {
   eventKey: string;
@@ -36,6 +37,10 @@ export async function recordFinancialLedgerEntry(
     ? "posted"
     : entry.status;
   const metadata = { ...(entry.metadata ?? {}) };
+  const canonicalOccurredAt = await getCanonicalTransactionTimestamp();
+  if (entry.occurredAt) metadata.clientOccurredAt = entry.occurredAt instanceof Date ? entry.occurredAt.toISOString() : entry.occurredAt;
+  metadata.clockSource = "kumbi-property-authoritative-clock";
+  metadata.timeZone = "Africa/Accra";
   const classificationSource = [entry.source, metadata.source, metadata.department, metadata.businessUnit]
     .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:)/i.test(value))
     ?? entry.source;
@@ -70,7 +75,7 @@ export async function recordFinancialLedgerEntry(
       entry.journalType ?? "operational",
       entry.sourceEventId ?? entry.eventKey,
       JSON.stringify(metadata),
-      entry.occurredAt ?? null,
+      canonicalOccurredAt,
     ],
   );
 
