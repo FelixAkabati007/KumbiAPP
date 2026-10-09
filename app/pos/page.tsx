@@ -88,6 +88,8 @@ function POSContent() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
+  const [menuView, setMenuView] = useState<"auto" | "compact" | "comfortable" | "large">("auto");
+  const [cartDrawnLeft, setCartDrawnLeft] = useState(false);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
@@ -778,6 +780,22 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               </div>
             </div>
 
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <Label htmlFor="menu-view" className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                Menu view
+              </Label>
+              <Select value={menuView} onValueChange={(value) => setMenuView(value as typeof menuView)}>
+                <SelectTrigger id="menu-view" className="h-9 w-44 rounded-xl bg-white/70 dark:bg-gray-800/70">
+                  <SelectValue placeholder="Auto grid" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto optimized</SelectItem>
+                  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
+                  <SelectItem value="comfortable">Comfortable · 4 × 3</SelectItem>
+                  <SelectItem value="large">Large images · 3 × 3</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="flex w-max min-w-full gap-1 overflow-x-auto bg-white/70 p-1 backdrop-blur-sm border border-orange-200 dark:bg-gray-800/70 dark:border-orange-700 rounded-full sm:grid sm:w-full sm:grid-cols-6">
                 <TabsTrigger
@@ -820,8 +838,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             </Tabs>
           </div>
 
-  <ScrollArea className="min-h-0 flex-1 p-2 sm:p-4">
-  <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+  <ScrollArea className="list-scroll-container min-h-0 flex-1 p-2 sm:p-4">
+  <div className={`grid gap-2 sm:gap-4 ${menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"}`}>
               {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
               {!menuLoading && filteredItems.map((item) => (
                 <Card
@@ -926,7 +944,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         </div>
 
         {/* Order Section */}
-        <div className="flex w-full min-w-0 flex-col border-t border-orange-200 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 dark:border-orange-700 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10 lg:w-[24rem] lg:shrink-0 lg:border-t-0 xl:w-1/3">
+        <div
+          onMouseEnter={() => setCartDrawnLeft(true)}
+          onMouseLeave={() => setCartDrawnLeft(false)}
+          className={`relative flex w-full min-w-0 flex-col border-t border-orange-200 bg-gradient-to-b from-orange-50/30 via-amber-50/30 to-yellow-50/30 transition-transform duration-300 dark:border-orange-700 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10 lg:max-h-full lg:overflow-hidden lg:border-t-0 lg:border-l lg:w-[24rem] lg:shrink-0 xl:w-1/3 ${cartDrawnLeft ? "lg:-translate-x-6" : ""}`}>
           <div className="p-4 border-b border-orange-200 dark:border-orange-700">
             <h2 className="font-semibold text-lg mb-2 text-orange-800 dark:text-orange-200">
               Current Order
@@ -1029,7 +1050,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="list-scroll-container min-h-0 flex-1 p-4">
             {currentOrder.length > 0 ? (
               <div className="space-y-4">
                 {currentOrder.map((item) => (
@@ -1290,7 +1311,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               )}
 
               {/* Receipt Content */}
-              <Card className="receipt-print-area bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl p-4 mb-4 relative overflow-hidden">
+              <Card className="list-scroll-container receipt-print-area max-h-[28rem] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl p-4 mb-4 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-orange-50/20 via-amber-50/20 to-yellow-50/20 dark:from-orange-900/10 dark:via-amber-900/10 dark:to-yellow-900/10"></div>
                 <div
                   ref={receiptRef}
