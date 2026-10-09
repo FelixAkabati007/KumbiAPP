@@ -845,7 +845,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               {!menuLoading && filteredItems.map((item) => (
                 <Card
                   key={item.id}
-  className={`relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
+  className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
   onClick={() => addItemToOrder(item)}
   aria-disabled={!isItemAvailable(item)}
                 >
@@ -869,7 +869,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                               src={item.image}
                               alt={item.name}
                               fill
-                              className="object-cover"
+                              className="object-contain p-1"
                               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                               onLoad={(e) => {
                                 const imgEl =
@@ -892,7 +892,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                           alt={item.name}
                           fill
                           unoptimized
-                          className="object-cover"
+                          className="object-contain p-1"
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           onLoad={(e) => {
                             const imgEl = e.currentTarget as HTMLImageElement;
@@ -909,12 +909,12 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   </div>
   )}
   </div>
-                  <CardHeader className="p-2 relative z-10 sm:p-3">
+                  <CardHeader className="relative z-10 p-2 pb-1 sm:p-3 sm:pb-1">
                     <CardTitle className="text-sm line-clamp-2">
                       {item.name}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="hidden p-3 pt-0 relative z-10 sm:block">
+                  <CardContent className="relative z-10 hidden px-2 py-1 sm:block sm:px-3 sm:py-1">
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {item.description}
                     </p>
@@ -964,7 +964,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         <div
           onMouseEnter={() => setCartPanelOpen(true)}
           onMouseLeave={() => setCartPanelOpen(false)}
-          className={`fixed inset-y-0 right-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
+          className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
             <Button type="button" variant="ghost" size="icon" aria-label="Hide cart and receipt" onClick={() => setCartPanelOpen(false)}>
