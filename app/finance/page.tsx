@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RoleGuard } from "@/components/role-guard";
 import Link from "next/link";
 import {
@@ -134,6 +135,10 @@ export default function FinancePage() {
   const [pnl, setPnl] = useState<PnlResponse | null>(null);
   const [source, setSource] = useState("all");
   const [department, setDepartment] = useState("all");
+  const [discountMenuItem, setDiscountMenuItem] = useState("");
+  const [discountStaff, setDiscountStaff] = useState("");
+  const [minDiscount, setMinDiscount] = useState("");
+  const [maxDiscount, setMaxDiscount] = useState("");
   const [loading, setLoading] = useState(true);
   const [pnlLoading, setPnlLoading] = useState(true);
   const [authority, setAuthority] = useState<{
@@ -194,11 +199,17 @@ export default function FinancePage() {
     void loadExceptionHistory();
   }, [historyResolver, historySource, historyFrom, historyTo]);
 
-  const loadTransactions = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/transactions?limit=1000${source !== "all" ? `&source=${source}` : ""}`,
+    const loadTransactions = async () => {
+  setLoading(true);
+  try {
+  const params = new URLSearchParams({ limit: "1000" });
+  if (source !== "all") params.set("source", source);
+  if (discountMenuItem.trim()) params.set("menuItem", discountMenuItem.trim());
+  if (discountStaff.trim()) params.set("staff", discountStaff.trim());
+  if (minDiscount) params.set("minDiscount", minDiscount);
+  if (maxDiscount) params.set("maxDiscount", maxDiscount);
+  const response = await fetch(
+    `/api/transactions?${params.toString()}`,
         { cache: "no-store" },
       );
       if (response.ok) {
@@ -216,7 +227,7 @@ export default function FinancePage() {
       if (document.visibilityState === "visible") void loadTransactions();
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [source]);
+  }, [source, discountMenuItem, discountStaff, minDiscount, maxDiscount]);
 
   useEffect(() => {
     if (!selectedDepartment) {
@@ -1002,10 +1013,17 @@ export default function FinancePage() {
                   aria-hidden="true"
                 />{" "}
                 Recent transactions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
+  </CardTitle>
+  <p className="text-sm text-muted-foreground">Immutable transaction and discount audit log.</p>
+  <div className="grid gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+    <Input aria-label="Filter by menu item" placeholder="Menu item" value={discountMenuItem} onChange={(event) => setDiscountMenuItem(event.target.value)} />
+    <Input aria-label="Filter by staff member" placeholder="Staff member or email" value={discountStaff} onChange={(event) => setDiscountStaff(event.target.value)} />
+    <Input aria-label="Minimum discount" type="number" min="0" step="0.01" placeholder="Min discount (GHS)" value={minDiscount} onChange={(event) => setMinDiscount(event.target.value)} />
+    <Input aria-label="Maximum discount" type="number" min="0" step="0.01" placeholder="Max discount (GHS)" value={maxDiscount} onChange={(event) => setMaxDiscount(event.target.value)} />
+  </div>
+  </CardHeader>
+  <CardContent>
+  {loading ? (
                 <p className="text-sm text-muted-foreground">
                   Loading transactions...
                 </p>
