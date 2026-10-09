@@ -71,9 +71,30 @@ export function useReceiptStats() {
   // Refetch when version changes and keep the dashboard current when another terminal creates a receipt.
   useEffect(() => {
     if (!user) return;
-    if (ordersVersion) fetchStats();
-    const timer = window.setInterval(fetchStats, 15000);
-    return () => window.clearInterval(timer);
+    let timer: number | null = null;
+    const poll = () => {
+      if (!document.hidden) void fetchStats();
+    };
+    const start = () => {
+      if (timer === null) timer = window.setInterval(poll, 15000);
+    };
+    const stop = () => {
+      if (timer !== null) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+    if (ordersVersion && !document.hidden) void fetchStats();
+    const handleVisibilityChange = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [ordersVersion, fetchStats, user]);
 
   return { stats, loading, error, refetch: fetchStats };
