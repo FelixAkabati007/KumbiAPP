@@ -6,6 +6,9 @@ import { createAuditLog } from "@/lib/audit-logger";
 const VALID_ROLES = [
   "admin",
   "manager",
+  "hotelManager",
+  "restaurantManager",
+  "operationsManager",
   "finance",
   "staff",
   "kitchen",
@@ -101,7 +104,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
     }
 
-    if (managerScope && !["hotel", "restaurant", "general"].includes(managerScope)) {
+    if (managerScope && !["hotel", "restaurant", "general", "events", "staff"].includes(managerScope)) {
       return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
     }
 
