@@ -968,7 +968,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         <div
           onMouseEnter={() => setCartDrawnLeft(true)}
           onMouseLeave={() => setCartDrawnLeft(false)}
-          className={`fixed inset-y-0 right-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"} ${cartDrawnLeft ? "pos-cart-drawn-left" : ""}`}>
+          className={`fixed inset-y-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-[left,right,transform] duration-300 dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartDrawnLeft ? "left-0 right-auto border-r" : "right-0 border-l"} ${cartPanelOpen ? "translate-x-0" : cartDrawnLeft ? "-translate-x-full" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
             <Button type="button" variant="ghost" size="icon" aria-label="Hide cart and receipt" onClick={() => setCartPanelOpen(false)}>

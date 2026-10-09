@@ -68,12 +68,6 @@
   }
 
   /* Canonical list containers: keep scrolling functional while hiding chrome. */
-  @media (min-width: 1024px) {
-    .pos-cart-drawn-left {
-      transform: translateX(calc(-100vw + 100%));
-    }
-  }
-
   .list-scroll-container {
     max-height: 21rem;
     max-width: 100%;
