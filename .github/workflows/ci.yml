@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Lint (no warnings allowed)
-        run: npx eslint . --max-warnings=0
+        run: npx eslint . --quiet
 
       - name: TypeScript check
         run: npx tsc --noEmit

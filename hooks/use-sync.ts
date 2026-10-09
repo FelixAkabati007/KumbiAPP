@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 interface SyncEvent {
   id: string;
   event_type: string;
-  payload: any;
+  payload: unknown;
   created_at: string;
 }
 
@@ -53,7 +53,7 @@ export function useSync(intervalMs = 5000) {
   }, [intervalMs, router]);
 }
 
-function handleEvent(event: SyncEvent, router: any) {
+function handleEvent(event: SyncEvent, router: { refresh: () => void }) {
   switch (event.event_type) {
     case "SETTINGS_UPDATE":
       toast.info("System settings updated by administrator.");

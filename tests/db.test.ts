@@ -38,7 +38,7 @@ describe("Database Schema Integration Tests", () => {
       FROM information_schema.tables 
       WHERE table_schema = 'public'
     `);
-    const tables = res.rows.map((r: any) => r.table_name);
+    const tables = res.rows.map((row: { table_name: string }) => row.table_name);
     
     expect(tables).toContain("users");
     expect(tables).toContain("menu_items");

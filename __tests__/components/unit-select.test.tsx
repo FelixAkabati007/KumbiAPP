@@ -61,10 +61,9 @@ describe("UnitSelect", () => {
   });
 
   it("renders correctly", async () => {
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      json: async () => mockCategories,
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockCategories), { status: 200 }),
+    );
 
     render(<UnitSelect onChange={() => {}} />);
 
@@ -78,10 +77,9 @@ describe("UnitSelect", () => {
   });
 
   it("fetches and displays units", async () => {
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      json: async () => mockCategories,
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(mockCategories), { status: 200 }),
+    );
 
     render(<UnitSelect onChange={() => {}} />);
 
