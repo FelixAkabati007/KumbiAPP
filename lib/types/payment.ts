@@ -18,9 +18,24 @@ export interface Customer {
   address?: string;
 }
 
+export const CANONICAL_PAYMENT_METHODS = [
+  "cash",
+  "card",
+  "mobile",
+  "mobile_money",
+  "bank_transfer",
+  "room_charge",
+  "complimentary",
+  "other",
+  "guest-folio",
+  "paid-at-order",
+] as const;
+
+export type CanonicalPaymentMethod = (typeof CANONICAL_PAYMENT_METHODS)[number];
+
 export interface PaymentDetails {
   amount: number;
-  method: "cash" | "card" | "mobile";
+  method: CanonicalPaymentMethod;
   currency: string;
   cardDetails?: {
     last4: string;

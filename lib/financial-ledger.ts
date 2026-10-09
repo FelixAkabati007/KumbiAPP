@@ -1,4 +1,4 @@
-import type { DatabaseClient } from "@/lib/db";
+import { transaction, type DatabaseClient } from "@/lib/db";
 import { financeClassificationMetadata } from "@/lib/finance-classification";
 
 export type FinancialLedgerEntry = {
@@ -75,6 +75,21 @@ export async function recordFinancialLedgerEntry(
   );
 
   return result.rows[0]?.id ?? null;
+}
+
+export async function recordPaymentLedgerEntry(
+  entry: Omit<FinancialLedgerEntry, "direction" | "status" | "journalType"> & {
+    source: "pos" | "hotel_check_in" | "hotel_folio" | "event";
+    paymentMethod: NonNullable<FinancialLedgerEntry["paymentMethod"]>;
+    status?: string;
+  },
+) {
+  return transaction((client) => recordFinancialLedgerEntry(client, {
+    ...entry,
+    direction: "credit",
+    status: entry.status ?? "posted",
+    journalType: "operational",
+  }));
 }
 
 export async function getPostedEntityBalance(

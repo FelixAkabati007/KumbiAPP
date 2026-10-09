@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { transaction } from "@/lib/db";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 import { updateSystemState } from "@/lib/system-sync";
 import { requirePermission } from "@/lib/api-auth";
+import { CANONICAL_PAYMENT_METHODS } from "@/lib/types/payment";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +30,10 @@ export async function POST(req: Request) {
     const transactionId =
       id || `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const currency = "GHS";
+    const canonicalPaymentMethod = paymentMethod || "other";
+    if (!CANONICAL_PAYMENT_METHODS.includes(canonicalPaymentMethod as (typeof CANONICAL_PAYMENT_METHODS)[number])) {
+      return NextResponse.json({ error: "Choose a valid payment method" }, { status: 400 });
+    }
 
     // Merge orderId and type into metadata if not present
     const finalMetadata = {
@@ -37,21 +43,37 @@ export async function POST(req: Request) {
       type,
     };
 
-    await query(
-      `INSERT INTO transaction_logs 
-       (transaction_id, amount, currency, status, payment_method, customer_id, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        transactionId,
-        amount,
+    await transaction(async (client) => {
+      await client.query(
+        `INSERT INTO transaction_logs
+         (transaction_id, amount, currency, status, payment_method, customer_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          transactionId,
+          amount,
+          currency,
+          status,
+          canonicalPaymentMethod,
+          customerId || null,
+          JSON.stringify(finalMetadata),
+          timestamp || new Date().toISOString(),
+        ]
+      );
+
+      await recordFinancialLedgerEntry(client, {
+        eventKey: `pos-payment:${transactionId}`,
+        amount: Number(amount),
         currency,
+        direction: "credit",
         status,
-        paymentMethod || "unknown",
-        customerId || null,
-        JSON.stringify(finalMetadata),
-        timestamp || new Date().toISOString(),
-      ]
-    );
+        source: "pos",
+        paymentMethod: canonicalPaymentMethod,
+        entityType: "order",
+        entityId: orderId || transactionId,
+        metadata: finalMetadata,
+        occurredAt: timestamp || undefined,
+      });
+    });
 
     // Trigger system sync for orders/transactions
     await updateSystemState("orders");

@@ -5,8 +5,9 @@ import {
   getPostedEntityCredits,
   recordFinancialLedgerEntry,
 } from "@/lib/financial-ledger";
+import { CANONICAL_PAYMENT_METHODS } from "@/lib/types/payment";
 
-const allowedMethods = new Set(["cash", "card", "mobile"]);
+const allowedMethods = new Set(CANONICAL_PAYMENT_METHODS);
 
 export async function POST(
   request: Request,
