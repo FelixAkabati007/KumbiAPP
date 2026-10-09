@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,10 +94,13 @@ function POSContent() {
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
-  const [orderType, setOrderType] = useState("dine-in");
-  const handleOrderTypeChange = (value: string) => {
-    setOrderType((current) => (current === value ? current : value));
-  };
+const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
+  type OrderType = (typeof ORDER_TYPES)[number];
+  const [orderType, setOrderType] = useState<OrderType>("dine-in");
+  const handleOrderTypeChange = useCallback((value: string) => {
+    if (!ORDER_TYPES.includes(value as OrderType)) return;
+    setOrderType((current) => (current === value ? current : (value as OrderType)));
+  }, []);
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerNameRefused, setCustomerNameRefused] = useState(false);
