@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    const whereClause = whereConditions.join(" AND ");
+    const whereClause = whereConditions.length > 0 ? whereConditions.join(" AND ") : "TRUE";
 
     const result = await query(
       `SELECT 
