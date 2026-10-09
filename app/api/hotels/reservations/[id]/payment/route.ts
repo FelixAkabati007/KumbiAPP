@@ -9,7 +9,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error) return error;
     const { id: reservationId } = await params;
     const body = await request.json().catch(() => ({}));
-    const method = typeof body.method === "string" ? body.method : "cash";
+    const method = typeof body.method === "string" ? body.method : "";
+    const allowedMethods = ["cash", "card", "mobile"] as const;
+    if (!allowedMethods.includes(method as (typeof allowedMethods)[number])) {
+      return NextResponse.json({ error: "Choose a valid payment method" }, { status: 400 });
+    }
     const result = await transaction(async (client) => {
       const reservation = await client.query(
         `SELECT r.id, r.reservation_number, r.status, rt.base_price, EXISTS (
