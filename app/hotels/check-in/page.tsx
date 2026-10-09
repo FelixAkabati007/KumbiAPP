@@ -144,6 +144,7 @@ function CheckInPage() {
     useState<CheckInData | null>(null);
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [preCheckInPaymentMethod, setPreCheckInPaymentMethod] = useState<"cash" | "card" | "mobile" | "">("");
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Checkout dialog state
@@ -272,6 +273,7 @@ function CheckInPage() {
   const openRoomSelection = async (reservation: CheckInData) => {
     setSelectedReservation(reservation);
     setSelectedRoomId("");
+    setPreCheckInPaymentMethod("");
     setLoadingRooms(true);
     try {
       const response = await fetch(
@@ -331,7 +333,7 @@ function CheckInPage() {
   };
 
   const handlePreCheckInPayment = async () => {
-    if (!selectedReservation || processing) return;
+    if (!selectedReservation || processing || !preCheckInPaymentMethod) return;
     setProcessing(true);
     try {
       const response = await fetch(
@@ -339,7 +341,7 @@ function CheckInPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ method: "cash" }),
+          body: JSON.stringify({ method: preCheckInPaymentMethod }),
         },
       );
       const payload = await response.json().catch(() => null);
@@ -1159,6 +1161,28 @@ function CheckInPage() {
             </div>
           )}
 
+          <div className="space-y-2">
+            <Label htmlFor="pre-checkin-payment-method">Payment method</Label>
+            <Select
+              value={preCheckInPaymentMethod}
+              onValueChange={(value) =>
+                setPreCheckInPaymentMethod(value as "cash" | "card" | "mobile")
+              }
+            >
+              <SelectTrigger id="pre-checkin-payment-method" className="rounded-lg">
+                <SelectValue placeholder="Choose a payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="card">Card</SelectItem>
+                <SelectItem value="mobile">Mobile money</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Select a method before recording the pre-check-in payment.
+            </p>
+          </div>
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -1170,7 +1194,7 @@ function CheckInPage() {
             <Button
               variant="secondary"
               onClick={handlePreCheckInPayment}
-              disabled={processing || !selectedRoomId}
+              disabled={processing || !selectedRoomId || !preCheckInPaymentMethod}
               className="rounded-2xl"
             >
               Record payment
