@@ -35,15 +35,15 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   const inserted = await client.query(
     `INSERT INTO guest_folio_items
       (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
-     SELECT $1::uuid, $2::uuid, 'room', CONCAT('Short-stay room block ', block_number, ' (2 hours 10 minutes)'), 1, $3::numeric, $3::numeric, 'system', $1::uuid::text || ':short-stay:' || block_number
+     SELECT $1::uuid, $2::uuid, 'room', CONCAT('Short-stay room block ', block_number, ' (2 hours 10 minutes)'), 1, $3::numeric, $3::numeric, 'system', $5::text || ':short-stay:' || block_number
      FROM generate_series(2, $4::integer) AS blocks(block_number)
      WHERE NOT EXISTS (
        SELECT 1 FROM guest_folio_items existing
        WHERE existing.reservation_id = $1::uuid AND existing.source_type = 'system'
-         AND existing.source_id = ($1::uuid)::text || ':short-stay:' || block_number
+         AND existing.source_id = $5::text || ':short-stay:' || block_number
      )
      RETURNING id`,
-    [reservationId, folio.rows[0].id, stay.room_rate, billableBlocks],
+    [reservationId, folio.rows[0].id, stay.room_rate, billableBlocks, reservationId],
   );
 
   await client.query(
