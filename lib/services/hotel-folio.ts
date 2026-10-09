@@ -40,7 +40,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
      WHERE NOT EXISTS (
        SELECT 1 FROM guest_folio_items existing
        WHERE existing.reservation_id = $1::uuid AND existing.source_type = 'system'
-         AND existing.source_id = $1 || ':short-stay:' || block_number
+         AND existing.source_id = ($1::uuid)::text || ':short-stay:' || block_number
      )
      RETURNING id`,
     [reservationId, folio.rows[0].id, stay.room_rate, billableBlocks],
