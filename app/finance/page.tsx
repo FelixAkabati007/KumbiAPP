@@ -1021,6 +1021,7 @@ export default function FinancePage() {
                         <th className="p-3">Transaction</th>
                         <th className="p-3">Source</th>
                         <th className="p-3">Amount</th>
+                        <th className="p-3">Discount</th>
                         <th className="p-3">Status</th>
                         <th className="p-3">Method</th>
                         <th className="p-3">Initiated by</th>
@@ -1058,6 +1059,15 @@ export default function FinancePage() {
                               className={`p-3 ${isRefund ? "text-destructive" : ""}`}
                             >
                               GHS {Number(item.amount || 0).toFixed(2)}
+                            </td>
+                            <td className="p-3">
+                              {Number(item.discount_count || 0) > 0 ? (
+                                <span className="font-medium text-orange-700 dark:text-orange-300">
+                                  GHS {Number(item.discount_amount || 0).toFixed(2)} ({item.discount_count} item{item.discount_count === 1 ? "" : "s"})
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </td>
                             <td className="p-3 capitalize">{item.status}</td>
                             <td className="p-3 capitalize">
