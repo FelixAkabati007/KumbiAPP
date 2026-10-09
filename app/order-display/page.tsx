@@ -63,13 +63,8 @@ function OrderDisplayContent() {
     };
   }, [refreshOrders]);
 
+  // The board is a read-only canonical-ledger view: arrival time is the queue authority.
   const activeOrders = useMemo(() => {
-    const priorityOrder: Record<Priority, number> = {
-      urgent: 4,
-      high: 3,
-      normal: 2,
-      low: 1,
-    };
     return orders
       .filter((order) => {
         // Filter out completed orders
@@ -91,12 +86,9 @@ function OrderDisplayContent() {
         return true;
       })
       .sort((a, b) => {
-        const aPriority = priorityOrder[a.priority] || 0;
-        const bPriority = priorityOrder[b.priority] || 0;
-        if (aPriority !== bPriority) return bPriority - aPriority;
-        return (
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        const arrivalOrder = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (arrivalOrder !== 0) return arrivalOrder;
+        return a.id.localeCompare(b.id);
       });
   }, [orders]);
 
@@ -263,11 +255,11 @@ function OrderDisplayContent() {
 
         <ScrollArea className="h-[calc(100dvh-9.5rem)] min-h-[24rem]">
           {activeOrders.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {activeOrders.map((order) => (
-                <Card
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+{activeOrders.map((order, index) => (
+  <Card
                   key={order.id}
-                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-2xl shadow-xl relative overflow-hidden hover:scale-[1.02] transition-all duration-500 hover:shadow-2xl"
+                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-lg shadow-sm relative overflow-hidden hover:shadow-md transition-shadow duration-200"
                 >
                   {/* Animated background gradient */}
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/30 via-amber-100/30 to-yellow-100/30 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 animate-pulse"></div>
@@ -279,11 +271,12 @@ function OrderDisplayContent() {
                     )}`}
                   ></div>
 
-                  <CardHeader className="pb-2 p-4 relative z-10">
+                  <CardHeader className="relative z-10 p-3 pb-1.5">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
-                        <Utensils className="h-4 w-4" />
-                        {order.orderNumber}
+<CardTitle className="text-sm font-bold text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
+  <Badge variant="outline" className="px-1.5 py-0 text-[10px]">#{index + 1}</Badge>
+  <Utensils className="h-3.5 w-3.5" />
+  {order.orderNumber}
                       </CardTitle>
                       <div className="flex items-center gap-2">
                         <Badge
