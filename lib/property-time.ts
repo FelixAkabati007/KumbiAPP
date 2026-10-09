@@ -42,4 +42,13 @@ export async function propertyNowIso() {
   return (await getAuthoritativeNow()).toISOString();
 }
 
+/**
+ * Canonical transaction clock for every server-side business event.
+ * Callers may retain their client timestamp as metadata, but persisted
+ * transaction timestamps must come from this authoritative property clock.
+ */
+export async function getCanonicalTransactionTimestamp() {
+  return propertyNowIso();
+}
+
 export { AISENSE_TIME_ENDPOINT };

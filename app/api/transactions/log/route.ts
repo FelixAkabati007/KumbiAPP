@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 import { updateSystemState } from "@/lib/system-sync";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 import { requirePermission } from "@/lib/api-auth";
 import { CANONICAL_PAYMENT_METHODS } from "@/lib/types/payment";
 
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
     const transactionId =
       id || `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const currency = "GHS";
+    const canonicalTimestamp = await getCanonicalTransactionTimestamp();
     const canonicalPaymentMethod = paymentMethod || "other";
     if (!CANONICAL_PAYMENT_METHODS.includes(canonicalPaymentMethod as (typeof CANONICAL_PAYMENT_METHODS)[number])) {
       return NextResponse.json({ error: "Choose a valid payment method" }, { status: 400 });
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
           canonicalPaymentMethod,
           customerId || null,
           JSON.stringify(finalMetadata),
-          timestamp || new Date().toISOString(),
+          canonicalTimestamp,
         ]
       );
 
@@ -70,8 +72,13 @@ export async function POST(req: Request) {
         paymentMethod: canonicalPaymentMethod,
         entityType: "order",
         entityId: orderId || transactionId,
-        metadata: finalMetadata,
-        occurredAt: timestamp || undefined,
+        metadata: {
+          ...finalMetadata,
+          ...(timestamp ? { clientOccurredAt: timestamp } : {}),
+          clockSource: "kumbi-property-authoritative-clock",
+          timeZone: "Africa/Accra",
+        },
+        occurredAt: canonicalTimestamp,
       });
     });
 
