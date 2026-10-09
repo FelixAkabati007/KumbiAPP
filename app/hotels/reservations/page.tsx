@@ -277,7 +277,7 @@ function ReservationsPage() {
             </div>
           ) : (
             <div
-              className="max-h-[21rem] overflow-auto rounded-xl border border-orange-100 dark:border-orange-800"
+              className="list-scroll-container rounded-xl border border-orange-100 dark:border-orange-800"
               aria-label="Reservation list"
             >
               <table className="w-full min-w-[760px] text-sm">
