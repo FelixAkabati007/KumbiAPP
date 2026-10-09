@@ -68,6 +68,11 @@
   }
 
   /* Canonical list containers: keep scrolling functional while hiding chrome. */
+  .inventory-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
+  }
+
   .list-scroll-container {
     max-height: 21rem;
     max-width: 100%;

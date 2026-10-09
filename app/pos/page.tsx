@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ import {
   PhoneIcon as MobilePhone,
   Plus,
   QrCode,
+  RotateCcw,
   Save,
   Search,
   ShoppingCart,
@@ -87,14 +88,35 @@ function POSContent() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
+
   const [menuLoading, setMenuLoading] = useState(true);
-  const [menuView, setMenuView] = useState<"auto" | "compact" | "comfortable" | "large">("auto");
+  const [menuView, setMenuView] = useState<"auto" | "two" | "compact" | "comfortable" | "large">("auto");
   const [cartPanelOpen, setCartPanelOpen] = useState(false);
+  const [orderTypeSelectOpen, setOrderTypeSelectOpen] = useState(false);
+  const orderTypeSelectOpenRef = useRef(false);
+  const cartCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
-  const [orderType, setOrderType] = useState("dine-in");
+  const [sessionItemQuantities, setSessionItemQuantities] = useState<Record<string, number>>({});
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
+  type OrderType = (typeof ORDER_TYPES)[number];
+  const [orderType, setOrderType] = useState<OrderType>("dine-in");
+  const handleOrderTypeChange = useCallback((value: string) => {
+    if (!ORDER_TYPES.includes(value as OrderType)) return;
+    setOrderType((current) => (current === value ? current : (value as OrderType)));
+  }, []);
+  const keepCartPanelOpen = useCallback(() => {
+    if (cartCloseTimerRef.current) clearTimeout(cartCloseTimerRef.current);
+    setCartPanelOpen(true);
+  }, []);
+  const scheduleCartPanelClose = useCallback(() => {
+    if (cartCloseTimerRef.current) clearTimeout(cartCloseTimerRef.current);
+    cartCloseTimerRef.current = setTimeout(() => {
+      if (!orderTypeSelectOpenRef.current) setCartPanelOpen(false);
+    }, 180);
+  }, []);
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerNameRefused, setCustomerNameRefused] = useState(false);
@@ -140,7 +162,6 @@ function POSContent() {
         if (items.length > 0 || attempt === 2) {
           if (!cancelled) {
             setMenuItems(items);
-            setFilteredItems(items);
             setMenuLoading(false);
           }
           return;
@@ -164,7 +185,7 @@ function POSContent() {
   useEffect(() => {
     if (lastEvent?.topic === "menu.updated") {
       setMenuLoading(true);
-      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); setMenuLoading(false); });
+      void getMenuItems().then((items) => { setMenuItems(items); setMenuLoading(false); });
     }
   }, [lastEvent]);
 
@@ -214,24 +235,14 @@ function POSContent() {
   // Reload menu items periodically or when triggered (via polling if needed)
   // We can add a refresh button or poll. For now, initial load is enough.
 
-  // Filter items based on search and category
-  useEffect(() => {
-    let filtered = menuItems;
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply category filter
-    if (activeTab !== "all") {
-      filtered = filtered.filter((item) => item.category === activeTab);
-    }
-
-    setFilteredItems(filtered);
-  }, [searchQuery, activeTab, menuItems]);
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    return menuItems.filter((item) => {
+      const matchesSearch = !normalizedSearch || item.name.toLowerCase().includes(normalizedSearch);
+      const matchesCategory = activeTab === "all" || item.category === activeTab;
+      return matchesSearch && matchesCategory;
+    });
+  }, [activeTab, menuItems, searchQuery]);
 
   // Handle barcode scan
   const handleBarcodeScan = async () => {
@@ -287,8 +298,9 @@ function POSContent() {
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
       return;
     }
-    setCurrentOrder((prev) => {
-      const existingItem = prev.find((orderItem) => orderItem.id === item.id);
+  setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
+  setCurrentOrder((prev) => {
+  const existingItem = prev.find((orderItem) => orderItem.id === item.id);
 
       if (existingItem) {
         return prev.map((orderItem) =>
@@ -321,10 +333,16 @@ function POSContent() {
       toast({ title: "Out of Stock", description: `${orderItem.name} is no longer available.`, variant: "destructive" });
       return;
     }
-    if (newQuantity <= 0) {
-      setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
-    } else {
-      setCurrentOrder((prev) =>
+  setSessionItemQuantities((prev) => {
+    const next = { ...prev };
+    if (newQuantity <= 0) delete next[itemId];
+    else next[itemId] = newQuantity;
+    return next;
+  });
+  if (newQuantity <= 0) {
+  setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
+  } else {
+  setCurrentOrder((prev) =>
         prev.map((item) =>
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
@@ -791,7 +809,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">Auto optimized</SelectItem>
-                  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
+                  <SelectItem value="two">Focused · 2 × 2</SelectItem>
+  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
                   <SelectItem value="comfortable">Comfortable · 4 × 3</SelectItem>
                   <SelectItem value="large">Large images · 3 × 3</SelectItem>
                 </SelectContent>
@@ -840,17 +859,17 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </div>
 
   <ScrollArea className="list-scroll-container min-h-0 flex-1 p-2 sm:p-4">
-  <div className={`grid auto-rows-max gap-2 sm:gap-4 ${menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
+  <div className={`grid auto-rows-max gap-2 sm:gap-4 ${menuView === "two" ? "grid-cols-2" : menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
               {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
               {!menuLoading && filteredItems.map((item) => (
                 <Card
                   key={item.id}
-  className={`relative overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
+  className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
   onClick={() => addItemToOrder(item)}
   aria-disabled={!isItemAvailable(item)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-                  <div className="relative aspect-[5/3] w-full bg-muted overflow-hidden rounded-t-2xl sm:rounded-t-3xl">
+                  <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-t-2xl bg-muted sm:rounded-t-3xl">
   <div className={!isItemAvailable(item) ? "grayscale" : undefined}>
   {(() => {
   if (!item.image) {
@@ -869,7 +888,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                               src={item.image}
                               alt={item.name}
                               fill
-                              className="object-cover"
+                              className="object-contain p-1"
                               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                               onLoad={(e) => {
                                 const imgEl =
@@ -892,7 +911,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                           alt={item.name}
                           fill
                           unoptimized
-                          className="object-cover"
+                          className="object-contain p-1"
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           onLoad={(e) => {
                             const imgEl = e.currentTarget as HTMLImageElement;
@@ -903,18 +922,58 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       );
   })()}
   </div>
+  {(sessionItemQuantities[item.id] ?? 0) > 0 && (
+    <Button
+      type="button"
+      variant="secondary"
+      size="icon"
+      aria-label={`Adjust ${item.name} quantity`}
+      className="absolute right-2 top-2 z-30 h-8 w-8 rounded-full border-2 border-background bg-background/90 shadow-md"
+      onClick={(event) => {
+        event.stopPropagation();
+        setEditingItemId((current) => (current === item.id ? null : item.id));
+      }}
+    >
+      <RotateCcw className="h-4 w-4 text-orange-600" />
+    </Button>
+  )}
+  {(sessionItemQuantities[item.id] ?? 0) > 0 && (
+    <Badge
+      aria-label={`${sessionItemQuantities[item.id]} selected`}
+      className="absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-background bg-orange-600 px-2 text-sm font-bold text-white shadow-md"
+    >
+      {sessionItemQuantities[item.id]}
+    </Badge>
+  )}
+  {editingItemId === item.id && (
+    <div
+      className="absolute right-2 top-12 z-30 flex items-center gap-1 rounded-full border border-orange-200 bg-background/95 p-1 shadow-lg"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Decrease ${item.name}`} onClick={() => updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1)}>
+        <Minus className="h-3 w-3" />
+      </Button>
+      <span className="min-w-6 text-center text-sm font-semibold">{sessionItemQuantities[item.id] ?? 0}</span>
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Increase ${item.name}`} onClick={() => addItemToOrder(item)}>
+        <Plus className="h-3 w-3" />
+      </Button>
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label={`Remove ${item.name}`} onClick={() => { updateItemQuantity(item.id, 0); setEditingItemId(null); }}>
+        <Trash className="h-3 w-3" />
+      </Button>
+    </div>
+  )}
   {!isItemAvailable(item) && (
   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
   <Badge variant="destructive" className="rounded-full px-3 py-1 text-sm">Out of Stock</Badge>
   </div>
   )}
   </div>
-                  <CardHeader className="p-2 relative z-10 sm:p-3">
+                  <CardHeader className="relative z-10 p-2 pb-1 sm:p-3 sm:pb-1">
                     <CardTitle className="text-sm line-clamp-2">
                       {item.name}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="hidden p-3 pt-0 relative z-10 sm:block">
+                  <CardContent className="relative z-10 hidden px-2 py-1 sm:block sm:px-3 sm:py-1">
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {item.description}
                     </p>
@@ -962,16 +1021,16 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </Button>
         </div>
         <div
-          onMouseEnter={() => setCartPanelOpen(true)}
-          onMouseLeave={() => setCartPanelOpen(false)}
-          className={`fixed inset-y-0 right-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
+          onMouseEnter={keepCartPanelOpen}
+          onMouseLeave={scheduleCartPanelClose}
+          className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex h-dvh max-h-dvh w-[min(92vw,28rem)] min-w-0 flex-col overflow-y-auto border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
             <Button type="button" variant="ghost" size="icon" aria-label="Hide cart and receipt" onClick={() => setCartPanelOpen(false)}>
               <PanelRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="p-4 border-b border-orange-200 dark:border-orange-700">
+          <div className="min-h-0 shrink-0 border-b border-orange-200 p-3 dark:border-orange-700 sm:p-4">
             <h2 className="font-semibold text-lg mb-2 text-orange-800 dark:text-orange-200">
               Current Order
             </h2>
@@ -983,7 +1042,16 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 >
                   Order Type
                 </Label>
-                <Select value={orderType} onValueChange={setOrderType}>
+                <Select
+                  value={orderType}
+                  open={orderTypeSelectOpen}
+                  onOpenChange={(open) => {
+                    orderTypeSelectOpenRef.current = open;
+                    setOrderTypeSelectOpen(open);
+                    if (open) keepCartPanelOpen();
+                  }}
+                  onValueChange={handleOrderTypeChange}
+                >
                   <SelectTrigger
                     id="order-type"
                     className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
@@ -1255,9 +1323,13 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   variant="outline"
                   onClick={() => {
                     setCurrentOrder([]);
+                    setSessionItemQuantities({});
+                    setEditingItemId(null);
                     setPaymentMethod("cash");
                     setTableNumber("");
                     setCustomerName("");
+                    setCustomerNameRefused(false);
+                    setOrderType("dine-in");
                   }}
                   disabled={currentOrder.length === 0}
                   className="rounded-2xl border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 bg-transparent h-12 text-base font-medium"

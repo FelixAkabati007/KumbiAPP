@@ -11,15 +11,17 @@ const releaseChanges = [
 ];
 
 export async function GET() {
-  const build = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_URL || "development";
+  const commitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.COMMIT_SHA;
+  const branch = process.env.VERCEL_GIT_COMMIT_REF || process.env.GITHUB_REF_NAME || process.env.GIT_BRANCH || "local";
+  const build = commitSha || process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_URL || "development";
   return NextResponse.json(
     {
       version: packageJson.version,
       build,
-      branch: process.env.VERCEL_GIT_COMMIT_REF || "local",
+      branch,
       deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
       changes: releaseChanges,
-      source: process.env.VERCEL_GIT_COMMIT_SHA ? "Vercel deployment metadata" : "local runtime metadata",
+      source: commitSha ? "deployment commit metadata" : "local runtime metadata",
     },
     { headers: { "Cache-Control": "no-store" } },
   );
