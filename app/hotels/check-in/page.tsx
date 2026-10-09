@@ -990,16 +990,16 @@ function CheckInPage() {
         </TabsContent>
 
         <TabsContent value="check-out">
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-orange-200 dark:border-orange-700 rounded-3xl">
-            <CardHeader>
-              <CardTitle>Check-Out Management</CardTitle>
+          <Card className="min-w-0 overflow-hidden rounded-2xl border-orange-200 bg-white/70 backdrop-blur-sm dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl">
+            <CardHeader className="space-y-2 px-4 py-4 sm:px-6 sm:py-6">
+              <CardTitle className="text-xl sm:text-2xl">Check-Out Management</CardTitle>
               <CardDescription>
                 Guests may check out any time after check-in. Accommodation
                 payments are non-refundable; collect only services, damage, or
                 other extras at check-out.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 px-3 pb-4 sm:space-y-4 sm:px-6 sm:pb-6">
               {loadingCheckedIn ? (
                 <div className="space-y-4">
                   {[...Array(3)].map((_, i) => (
@@ -1020,8 +1020,8 @@ function CheckInPage() {
                         key={guest.id}
                         className="bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700 rounded-2xl"
                       >
-                        <CardContent className="p-4 sm:pt-6">
-                          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(72px,0.7fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(190px,auto)] lg:items-center lg:gap-4">
+                        <CardContent className="p-3 sm:p-4 sm:pt-6">
+                          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(72px,0.7fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(190px,auto)] lg:items-center lg:gap-4">
                             <div>
                               <p className="text-xs text-muted-foreground">
                                 Room
@@ -1045,7 +1045,7 @@ function CheckInPage() {
                               <p className="text-xs text-muted-foreground">
                                 Check-In / Check-Out
                               </p>
-                              <p className="font-semibold">
+                              <p className="break-words font-semibold text-sm sm:text-base">
                                 {guest.check_in_at
                                   ? new Date(guest.check_in_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
                                   : new Date(guest.check_in_date).toLocaleDateString()}
@@ -1323,7 +1323,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
           open={Boolean(checkoutDisclosure)}
           onOpenChange={(open) => !open && setCheckoutDisclosure(null)}
         >
-          <DialogContent className="max-w-lg">
+<DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Checkout amount disclosed</DialogTitle>
               <DialogDescription>
@@ -1408,7 +1408,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     "Unknown account"}
                 </p>
               </div>
-              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
                   <p className="font-semibold">
@@ -1445,7 +1445,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     GHS {Number(folio.paid_amount).toFixed(2)}
                   </p>
                 </div>
-                <div className="border-t border-orange-100 pt-2 dark:border-orange-900/40 md:col-span-2">
+                <div className="border-t border-orange-100 pt-3 dark:border-orange-900/40">
                   <p className="text-muted-foreground">Outstanding Balance</p>
                   <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
                     GHS {Number(folio.balance).toFixed(2)}
