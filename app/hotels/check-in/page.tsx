@@ -83,6 +83,7 @@ interface CheckedInGuest {
   first_name: string;
   last_name: string;
   check_in_date: string;
+  check_in_at?: string | null;
   check_out_date: string;
   total_charges: string | null;
   paid_amount: string | null;
@@ -1042,12 +1043,14 @@ function CheckInPage() {
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">
-                                Check-Out Due
+                                Check-In / Check-Out
                               </p>
                               <p className="font-semibold">
-                                {new Date(
-                                  guest.check_out_date,
-                                ).toLocaleDateString()}
+                                {guest.check_in_at
+                                  ? new Date(guest.check_in_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
+                                  : new Date(guest.check_in_date).toLocaleDateString()}
+                                <span className="text-muted-foreground"> → </span>
+                                {new Date(guest.check_out_date).toLocaleDateString()}
                               </p>
                             </div>
                             <div>
@@ -1405,7 +1408,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     "Unknown account"}
                 </p>
               </div>
-              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40 md:grid-cols-2">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
                   <p className="font-semibold">
@@ -1442,7 +1445,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     GHS {Number(folio.paid_amount).toFixed(2)}
                   </p>
                 </div>
-                <div className="col-span-2 border-t border-orange-100 dark:border-orange-900/40 pt-2">
+                <div className="border-t border-orange-100 pt-2 dark:border-orange-900/40 md:col-span-2">
                   <p className="text-muted-foreground">Outstanding Balance</p>
                   <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
                     GHS {Number(folio.balance).toFixed(2)}

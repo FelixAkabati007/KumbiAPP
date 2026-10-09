@@ -63,13 +63,8 @@ function OrderDisplayContent() {
     };
   }, [refreshOrders]);
 
+  // The board is a read-only canonical-ledger view: arrival time is the queue authority.
   const activeOrders = useMemo(() => {
-    const priorityOrder: Record<Priority, number> = {
-      urgent: 4,
-      high: 3,
-      normal: 2,
-      low: 1,
-    };
     return orders
       .filter((order) => {
         // Filter out completed orders
@@ -91,12 +86,9 @@ function OrderDisplayContent() {
         return true;
       })
       .sort((a, b) => {
-        const aPriority = priorityOrder[a.priority] || 0;
-        const bPriority = priorityOrder[b.priority] || 0;
-        if (aPriority !== bPriority) return bPriority - aPriority;
-        return (
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        const arrivalOrder = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (arrivalOrder !== 0) return arrivalOrder;
+        return a.id.localeCompare(b.id);
       });
   }, [orders]);
 
@@ -263,11 +255,11 @@ function OrderDisplayContent() {
 
         <ScrollArea className="h-[calc(100dvh-9.5rem)] min-h-[24rem]">
           {activeOrders.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 {activeOrders.map((order, index) => (
   <Card
                   key={order.id}
-                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-xl shadow-md relative overflow-hidden hover:shadow-lg transition-shadow duration-200"
+                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-lg shadow-sm relative overflow-hidden hover:shadow-md transition-shadow duration-200"
                 >
                   {/* Animated background gradient */}
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/30 via-amber-100/30 to-yellow-100/30 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 animate-pulse"></div>
