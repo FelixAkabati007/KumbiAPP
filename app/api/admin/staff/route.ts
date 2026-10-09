@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     const department = url.searchParams.get("department");
     const status = url.searchParams.get("status");
 
-    const whereConditions = ["sp.is_active = true", "u.is_active = true"];
+    // Staff Accounts is an administrative directory: hidden/inactive records remain
+    // visible so administrators can restore, audit, or manage them explicitly.
+    const whereConditions: string[] = [];
     const params: (string | number)[] = [];
     let paramCount = 1;
 
@@ -61,6 +63,8 @@ export async function GET(request: NextRequest) {
         sp.hire_date,
         sp.manager_scope,
         u.role,
+        sp.is_active AS staff_is_active,
+        u.is_active AS user_is_active,
         sp.created_at,
         sp.updated_at
        FROM staff_profiles sp

@@ -1113,7 +1113,7 @@ function InventoryContent() {
                       <Input id="costPerContainer" type="number" min="0" step="0.01" value={editingItem.costPerContainer || ""} onChange={(e) => { const costPerContainer = e.target.value; const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1); const count = Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, costPerContainer, costPerItem: perItem.toFixed(2), cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0) }); }} />
                     </div>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.unit}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
+                  <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.containerUnit || editingItem.unit || "units"}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
                   <p className="mb-1 text-sm font-medium text-orange-800 dark:text-orange-200">How chefs use this item</p>
@@ -1136,7 +1136,7 @@ function InventoryContent() {
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Example: stock unit <strong>{editingItem.unit}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.conversionRatio || "1"}</strong>. One {editingItem.unit} supplies that many recipe units.
+                    Example: stock unit <strong>{editingItem.containerUnit || editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.conversionRatio || "1"}</strong>. One {editingItem.containerUnit || editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
