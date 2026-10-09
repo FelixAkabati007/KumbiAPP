@@ -97,6 +97,7 @@ function POSContent() {
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
+  const [sessionItemQuantities, setSessionItemQuantities] = useState<Record<string, number>>({});
 const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   type OrderType = (typeof ORDER_TYPES)[number];
   const [orderType, setOrderType] = useState<OrderType>("dine-in");
@@ -295,8 +296,9 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
       return;
     }
-    setCurrentOrder((prev) => {
-      const existingItem = prev.find((orderItem) => orderItem.id === item.id);
+  setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
+  setCurrentOrder((prev) => {
+  const existingItem = prev.find((orderItem) => orderItem.id === item.id);
 
       if (existingItem) {
         return prev.map((orderItem) =>
@@ -329,10 +331,11 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       toast({ title: "Out of Stock", description: `${orderItem.name} is no longer available.`, variant: "destructive" });
       return;
     }
-    if (newQuantity <= 0) {
-      setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
-    } else {
-      setCurrentOrder((prev) =>
+  setSessionItemQuantities((prev) => ({ ...prev, [itemId]: Math.max(prev[itemId] ?? 0, newQuantity) }));
+  if (newQuantity <= 0) {
+  setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
+  } else {
+  setCurrentOrder((prev) =>
         prev.map((item) =>
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
@@ -912,6 +915,14 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       );
   })()}
   </div>
+  {(sessionItemQuantities[item.id] ?? 0) > 0 && (
+    <Badge
+      aria-label={`${sessionItemQuantities[item.id]} selected`}
+      className="absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-background bg-orange-600 px-2 text-sm font-bold text-white shadow-md"
+    >
+      {sessionItemQuantities[item.id]}
+    </Badge>
+  )}
   {!isItemAvailable(item) && (
   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
   <Badge variant="destructive" className="rounded-full px-3 py-1 text-sm">Out of Stock</Badge>
