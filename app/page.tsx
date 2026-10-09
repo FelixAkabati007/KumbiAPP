@@ -147,15 +147,33 @@ function DashboardContent() {
     };
 
     void syncTime();
-    const tickTimer = window.setInterval(
-      () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
-      1000,
-    );
-    const syncTimer = window.setInterval(syncTime, 30_000);
+    let tickTimer: number | null = null;
+    let syncTimer: number | null = null;
+    const startTimers = () => {
+      if (tickTimer === null) {
+        tickTimer = window.setInterval(
+          () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
+          1000,
+        );
+      }
+      if (syncTimer === null) syncTimer = window.setInterval(syncTime, 30_000);
+    };
+    const stopTimers = () => {
+      if (tickTimer !== null) window.clearInterval(tickTimer);
+      if (syncTimer !== null) window.clearInterval(syncTimer);
+      tickTimer = null;
+      syncTimer = null;
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopTimers();
+      else startTimers();
+    };
+    startTimers();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       cancelled = true;
-      window.clearInterval(tickTimer);
-      window.clearInterval(syncTimer);
+      stopTimers();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
