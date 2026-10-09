@@ -65,9 +65,17 @@ export async function POST(req: Request) {
         await client.query(
           `INSERT INTO kitchen_orderitems (kitchenorderid, name, price, category, quantity, status, preptime, notes)
            VALUES ($1,$2,$3,$4,$5,'pending',$6,$7)`,
-          [orderId, item.name, item.price, item.category || "other", item.quantity, item.prepTime || 0, item.notes || null]
-        );
-        const row = byId.get(String(item.id));
+  [orderId, item.name, item.price, item.category || "other", item.quantity, item.prepTime || 0, item.notes || null]
+  );
+  if (item.discountPercent > 0) {
+    const originalUnitPrice = item.price / (1 - item.discountPercent / 100);
+    await client.query(
+      `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [orderId, item.name, originalUnitPrice, item.price, item.discountPercent, item.quantity, session.id, "POS item discount"],
+    );
+  }
+  const row = byId.get(String(item.id));
         if (row?.inventory_mode === "direct" && row.direct_inventory_id) {
           const deduction = Number(row.direct_units_per_sale || 1) * Number(item.quantity);
           const updated = await client.query(`UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`, [deduction, row.direct_inventory_id]);

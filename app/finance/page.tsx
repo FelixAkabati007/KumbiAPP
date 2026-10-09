@@ -37,6 +37,8 @@ type Transaction = {
   journal_type?: string | null;
   payment_method?: string;
   metadata?: Record<string, unknown>;
+  discount_amount?: number;
+  discount_count?: number;
   source?: string | null;
   created_at: string;
   performed_by_name?: string | null;
