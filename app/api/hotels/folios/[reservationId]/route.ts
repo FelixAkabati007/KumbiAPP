@@ -3,6 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
+import { getAuthoritativeNow } from "@/lib/property-time";
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 const paramsSchema = z.object({
@@ -78,9 +79,10 @@ export async function GET(
       [reservationId],
     );
 
-    const syncResult = await transaction((client) =>
-      syncOverdueRoomCharges(client, reservationId),
-    );
+  const authoritativeNow = await getAuthoritativeNow();
+  const syncResult = await transaction((client) =>
+    syncOverdueRoomCharges(client, reservationId, authoritativeNow),
+  );
     const result = await query(
       `
       SELECT gf.*, r.reservation_number, g.first_name, g.last_name, rm.room_number

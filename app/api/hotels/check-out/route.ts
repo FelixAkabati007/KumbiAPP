@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges, syncShortStayRoomCharges } from "@/lib/services/hotel-folio";
+import { getAuthoritativeNow } from "@/lib/property-time";
 
 // Check-out guest from room
 export async function POST(request: NextRequest) {
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use the same authoritative clock displayed on the dashboard for checkout billing.
+    const authoritativeNow = await getAuthoritativeNow();
+
     // Use transaction to ensure all operations succeed
     const result = await transaction(async (client) => {
       // Serialize this reservation transition and lock the exact row first.
@@ -47,8 +51,8 @@ export async function POST(request: NextRequest) {
       if (currentReservation.status !== "checked_in") {
         throw new Error(`Reservation is ${currentReservation.status}; only checked-in guests can check out`);
       }
-      await syncOverdueRoomCharges(client, reservationId);
-      await syncShortStayRoomCharges(client, reservationId);
+      await syncOverdueRoomCharges(client, reservationId, authoritativeNow);
+      await syncShortStayRoomCharges(client, reservationId, authoritativeNow);
 
       // Lock and validate all related rows before changing any state. This
       // prevents a late validation failure from rolling back the mutation

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { isShortStayRoomNumber } from "@/lib/hotels/short-stay";
+import { getAuthoritativeNow } from "@/lib/property-time";
 
 // Check-in guest to room
 export async function POST(request: NextRequest) {
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Use the same authoritative clock displayed on the dashboard for persisted stay timing.
+    const authoritativeNow = await getAuthoritativeNow();
 
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
@@ -67,11 +71,11 @@ export async function POST(request: NextRequest) {
 
       const resResult = await client.query(
         `UPDATE reservations
-         SET status = 'checked_in', room_id = $1::uuid, check_in_at = NOW(),
-             checkout_due_at = CASE WHEN stay_type = 'short_stay' THEN NOW() + interval '130 minutes' ELSE NULL END,
-             reminder_sent_at = NULL, overstay_started_at = NULL, updated_at = NOW()
+         SET status = 'checked_in', room_id = $1::uuid, check_in_at = $3::timestamptz,
+             checkout_due_at = CASE WHEN stay_type = 'short_stay' THEN $3::timestamptz + interval '130 minutes' ELSE NULL END,
+             reminder_sent_at = NULL, overstay_started_at = NULL, updated_at = $3::timestamptz
          WHERE id = $2::uuid AND status IN ('confirmed', 'pending') RETURNING *`,
-        [roomId, reservationId]
+        [roomId, reservationId, authoritativeNow.toISOString()]
       );
 
       if (resResult.rowCount === 0) {
