@@ -32,8 +32,9 @@ async function verifyIntegrity() {
         try {
             const countRes = await client.query(`SELECT COUNT(*) as count FROM "${table}"`);
             console.log(`✅ Table Access '${table}': OK (Rows: ${countRes.rows[0].count})`);
-        } catch (e: any) {
-            console.error(`❌ Table Access '${table}' Failed: ${e.message}`);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`❌ Table Access '${table}' Failed: ${message}`);
         }
     }
 

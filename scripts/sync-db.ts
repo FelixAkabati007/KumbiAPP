@@ -74,8 +74,9 @@ async function syncDatabase() {
                     const alterQuery = `ALTER TABLE "${table.name}" ADD COLUMN "${col.name}" ${col.type} ${col.nullable ? '' : 'NOT NULL DEFAULT ' + getDefaultValue(col.type)}`;
                     await client.query(alterQuery);
                     console.log(`✅ Added column: ${table.name}.${col.name}`);
-                } catch (e: any) {
-                    driftReport.push(`❌ Failed to add column ${table.name}.${col.name}: ${e.message}`);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    driftReport.push(`❌ Failed to add column ${table.name}.${col.name}: ${message}`);
                 }
             } else {
                 // Type verification (loose check)

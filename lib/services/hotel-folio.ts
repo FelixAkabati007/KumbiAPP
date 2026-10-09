@@ -1,7 +1,7 @@
 import type { PoolClient } from "@neondatabase/serverless";
 import { SHORT_STAY_DURATION_MINUTES, isShortStayRoom } from "@/lib/hotels/short-stay";
 
-export async function syncShortStayRoomCharges(client: PoolClient, reservationId: string) {
+export async function syncShortStayRoomCharges(client: PoolClient, reservationId: string, authoritativeNow: Date) {
   const reservation = await client.query<{
     room_id: string | null;
     check_in_date: string;
@@ -13,13 +13,13 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   }>(
     `SELECT r.room_id, r.check_in_date, r.check_in_at, rm.room_number, rt.name AS room_type_name,
             COALESCE(rm.price, rt.base_price) AS room_rate,
-            GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - COALESCE(r.check_in_at, r.check_in_date::timestamptz))) * 1000) AS elapsed_ms
+            GREATEST(0, EXTRACT(EPOCH FROM ($2::timestamptz - COALESCE(r.check_in_at, r.check_in_date::timestamptz))) * 1000) AS elapsed_ms
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
      LEFT JOIN room_types rt ON rt.id = rm.room_type_id
      WHERE r.id = $1::uuid AND r.status = 'checked_in'
      FOR UPDATE OF r`,
-    [reservationId],
+    [reservationId, authoritativeNow.toISOString()],
   );
 
   const stay = reservation.rows[0];
@@ -61,7 +61,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   return { addedBlocks: inserted.rowCount ?? 0, billableBlocks };
 }
 
-export async function syncOverdueRoomCharges(client: PoolClient, reservationId: string) {
+export async function syncOverdueRoomCharges(client: PoolClient, reservationId: string, authoritativeNow: Date) {
   const reservation = await client.query<{
     room_id: string | null;
     check_in_date: string;
@@ -89,10 +89,10 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
             1, $2::numeric, $2::numeric, 'system', r.id::text || ':' || night_date::text
      FROM reservations r
      JOIN guest_folios gf ON gf.reservation_id = r.id
-     CROSS JOIN LATERAL generate_series(r.check_out_date, CURRENT_DATE - 1, INTERVAL '1 day') AS nights(night_date)
+     CROSS JOIN LATERAL generate_series(r.check_out_date, $3::date - 1, INTERVAL '1 day') AS nights(night_date)
      WHERE r.id = $1::uuid
        AND r.status = 'checked_in'
-       AND CURRENT_DATE > r.check_out_date
+       AND $3::date > r.check_out_date
        AND NOT EXISTS (
          SELECT 1 FROM guest_folio_items existing
          WHERE existing.reservation_id = r.id
@@ -100,7 +100,7 @@ export async function syncOverdueRoomCharges(client: PoolClient, reservationId: 
            AND existing.source_id = r.id::text || ':' || night_date::text
        )
      RETURNING id`,
-    [reservationId, stay.room_rate]
+    [reservationId, stay.room_rate, authoritativeNow.toISOString()]
   );
 
   await client.query(

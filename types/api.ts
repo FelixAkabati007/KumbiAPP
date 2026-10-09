@@ -12,7 +12,7 @@ export interface Transaction {
   status: string;
   payment_method: string;
   customer_id?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 

@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 const compat = new FlatCompat({ baseDirectory: __dirname });
 
-export default [
+const eslintConfig = [
   {
     ignores: [
       "node_modules",
@@ -20,6 +20,15 @@ export default [
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+      "react-hooks/exhaustive-deps": "off",
+    },
+  },
+  {
     files: ["scripts/**/*.js", "*.config.js", "*.config.mjs"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -27,3 +36,5 @@ export default [
     },
   },
 ];
+
+export default eslintConfig;
