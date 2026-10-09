@@ -67,7 +67,24 @@
     overflow-wrap: anywhere;
   }
 
-  .safe-scroll-x {
+  /* Canonical list containers: keep scrolling functional while hiding chrome. */
+  .list-scroll-container {
+    max-height: 21rem;
+    max-width: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .list-scroll-container::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .list-scroll-x {
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-x: contain;
@@ -75,10 +92,27 @@
     scrollbar-width: none;
   }
 
-  .safe-scroll-x::-webkit-scrollbar {
+  .list-scroll-x::-webkit-scrollbar,
+  .safe-scroll-x::-webkit-scrollbar,
+  .overflow-auto::-webkit-scrollbar,
+  .overflow-scroll::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar,
+  .overflow-y-auto::-webkit-scrollbar,
+  .overflow-x-scroll::-webkit-scrollbar,
+  .overflow-y-scroll::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
+  }
+
+  .overflow-auto,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-x-scroll,
+  .overflow-y-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
   .important-description {

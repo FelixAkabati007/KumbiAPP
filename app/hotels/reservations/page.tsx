@@ -276,9 +276,12 @@ function ReservationsPage() {
               No reservations found
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div
+              className="list-scroll-container rounded-xl border border-orange-100 dark:border-orange-800"
+              aria-label="Reservation list"
+            >
               <table className="w-full min-w-[760px] text-sm">
-                <thead className="border-b">
+                <thead className="sticky top-0 z-10 border-b bg-white dark:bg-gray-800">
                   <tr>
                     <th className="text-left py-2 px-4">Reservation #</th>
                     <th className="text-left py-2 px-4">Guest Name</th>

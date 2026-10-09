@@ -74,7 +74,7 @@ export function GlobalSearch({ role }: { role?: string | null }) {
             <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workspaces..." className="h-11 rounded-2xl pl-9" aria-label="Search workspaces" />
           </div>
-          <div className="mt-3 max-h-72 overflow-y-auto" role="listbox" aria-label="Search results">
+          <div className="list-scroll-container mt-3 max-h-72" role="listbox" aria-label="Search results">
             {results.length ? results.map((item) => <button key={item.section} type="button" className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-orange-50 focus-visible:bg-orange-50 focus-visible:outline-none dark:hover:bg-orange-950/40 dark:focus-visible:bg-orange-950/40" onClick={() => navigate(item.href)}><span><span className="block font-medium">{item.label}</span><span className="block text-sm text-muted-foreground">{item.description}</span></span><ArrowRight className="h-4 w-4 text-orange-600" aria-hidden="true" /></button>) : <p className="px-3 py-8 text-center text-sm text-muted-foreground">No permitted workspaces match your search.</p>}
           </div>
         </div>
