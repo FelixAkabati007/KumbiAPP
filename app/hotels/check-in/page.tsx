@@ -1405,7 +1405,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                     "Unknown account"}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm rounded-lg border border-orange-100 dark:border-orange-900/40 p-3">
+              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40 sm:grid-cols-2">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
                   <p className="font-semibold">

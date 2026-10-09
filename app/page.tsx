@@ -350,8 +350,8 @@ function DashboardContent() {
   const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(
     ([category]) =>
       category === "all" ||
-      (roleDashboard.categories.includes(category) &&
-        categorySectionMap[category].some((section) => access[section])),
+      (!attendanceRestricted && roleDashboard.categories.includes(category) &&
+        categorySectionMap[category].some((section) => dashboardAccess[section])),
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
 
