@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,14 +87,17 @@ function POSContent() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
+
   const [menuLoading, setMenuLoading] = useState(true);
-  const [menuView, setMenuView] = useState<"auto" | "compact" | "comfortable" | "large">("auto");
+  const [menuView, setMenuView] = useState<"auto" | "two" | "compact" | "comfortable" | "large">("auto");
   const [cartPanelOpen, setCartPanelOpen] = useState(false);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState("dine-in");
+  const handleOrderTypeChange = (value: string) => {
+    setOrderType((current) => (current === value ? current : value));
+  };
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerNameRefused, setCustomerNameRefused] = useState(false);
@@ -140,7 +143,6 @@ function POSContent() {
         if (items.length > 0 || attempt === 2) {
           if (!cancelled) {
             setMenuItems(items);
-            setFilteredItems(items);
             setMenuLoading(false);
           }
           return;
@@ -164,7 +166,7 @@ function POSContent() {
   useEffect(() => {
     if (lastEvent?.topic === "menu.updated") {
       setMenuLoading(true);
-      void getMenuItems().then((items) => { setMenuItems(items); setFilteredItems(items); setMenuLoading(false); });
+      void getMenuItems().then((items) => { setMenuItems(items); setMenuLoading(false); });
     }
   }, [lastEvent]);
 
@@ -214,24 +216,14 @@ function POSContent() {
   // Reload menu items periodically or when triggered (via polling if needed)
   // We can add a refresh button or poll. For now, initial load is enough.
 
-  // Filter items based on search and category
-  useEffect(() => {
-    let filtered = menuItems;
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply category filter
-    if (activeTab !== "all") {
-      filtered = filtered.filter((item) => item.category === activeTab);
-    }
-
-    setFilteredItems(filtered);
-  }, [searchQuery, activeTab, menuItems]);
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    return menuItems.filter((item) => {
+      const matchesSearch = !normalizedSearch || item.name.toLowerCase().includes(normalizedSearch);
+      const matchesCategory = activeTab === "all" || item.category === activeTab;
+      return matchesSearch && matchesCategory;
+    });
+  }, [activeTab, menuItems, searchQuery]);
 
   // Handle barcode scan
   const handleBarcodeScan = async () => {
@@ -791,7 +783,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">Auto optimized</SelectItem>
-                  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
+                  <SelectItem value="two">Focused · 2 × 2</SelectItem>
+  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
                   <SelectItem value="comfortable">Comfortable · 4 × 3</SelectItem>
                   <SelectItem value="large">Large images · 3 × 3</SelectItem>
                 </SelectContent>
@@ -840,7 +833,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </div>
 
   <ScrollArea className="list-scroll-container min-h-0 flex-1 p-2 sm:p-4">
-  <div className={`grid auto-rows-max gap-2 sm:gap-4 ${menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
+  <div className={`grid auto-rows-max gap-2 sm:gap-4 ${menuView === "two" ? "grid-cols-2" : menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
               {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
               {!menuLoading && filteredItems.map((item) => (
                 <Card
@@ -850,7 +843,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   aria-disabled={!isItemAvailable(item)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-                  <div className="relative aspect-[5/3] w-full bg-muted overflow-hidden rounded-t-2xl sm:rounded-t-3xl">
+                  <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-t-2xl bg-muted sm:rounded-t-3xl">
   <div className={!isItemAvailable(item) ? "grayscale" : undefined}>
   {(() => {
   if (!item.image) {
@@ -964,14 +957,14 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         <div
           onMouseEnter={() => setCartPanelOpen(true)}
           onMouseLeave={() => setCartPanelOpen(false)}
-          className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex w-[min(92vw,28rem)] min-w-0 flex-col border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
+          className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex h-dvh max-h-dvh w-[min(92vw,28rem)] min-w-0 flex-col overflow-y-auto border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
             <Button type="button" variant="ghost" size="icon" aria-label="Hide cart and receipt" onClick={() => setCartPanelOpen(false)}>
               <PanelRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="p-4 border-b border-orange-200 dark:border-orange-700">
+          <div className="min-h-0 shrink-0 border-b border-orange-200 p-3 dark:border-orange-700 sm:p-4">
             <h2 className="font-semibold text-lg mb-2 text-orange-800 dark:text-orange-200">
               Current Order
             </h2>
@@ -983,7 +976,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 >
                   Order Type
                 </Label>
-                <Select value={orderType} onValueChange={setOrderType}>
+                <Select value={orderType} onValueChange={handleOrderTypeChange}>
                   <SelectTrigger
                     id="order-type"
                     className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
