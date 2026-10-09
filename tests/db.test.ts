@@ -8,7 +8,7 @@ dotenv.config();
 
 neonConfig.webSocketConstructor = ws;
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL ?? process.env.KUMRESH_DB_DATABASE_URL;
 
 describe("Database Schema Integration Tests", () => {
   let pool: Pool;
@@ -21,7 +21,7 @@ describe("Database Schema Integration Tests", () => {
   });
 
   afterAll(async () => {
-    await pool.end();
+    await pool?.end();
   });
 
   it("should connect to the database", async () => {
