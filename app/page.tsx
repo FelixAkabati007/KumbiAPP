@@ -129,7 +129,7 @@ function DashboardContent() {
     check_out_at?: string | null;
   } | null>(null);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +148,7 @@ function DashboardContent() {
 
     void syncTime();
     const tickTimer = window.setInterval(
-      () => setCurrentTime((value) => new Date(value.getTime() + 1000)),
+      () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
       1000,
     );
     const syncTimer = window.setInterval(syncTime, 30_000);
@@ -159,14 +159,16 @@ function DashboardContent() {
     };
   }, []);
 
-  const accraTime = new Intl.DateTimeFormat("en-GH", {
-    timeZone: "Africa/Accra",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  }).format(currentTime);
-  const [clockTime, clockPeriod] = accraTime.split(" ");
+  const accraTime = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: "Africa/Accra",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(currentTime)
+    : "—";
+  const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
