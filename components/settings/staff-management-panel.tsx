@@ -80,6 +80,8 @@ interface StaffMember {
   role: StaffRole;
   manager_scope: "hotel" | "restaurant" | "general";
   event_scope: "restaurant" | "events" | "restaurant_events";
+  staff_is_active?: boolean;
+  user_is_active?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -758,10 +760,13 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                         }
                         className="capitalize"
                       >
-                        {member.employment_status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
+  {member.employment_status}
+  </Badge>
+  <Badge variant={member.staff_is_active === false || member.user_is_active === false ? "destructive" : "outline"} className="ml-2">
+    {member.staff_is_active === false || member.user_is_active === false ? "Hidden / inactive" : "Visible"}
+  </Badge>
+  </TableCell>
+  <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {currentRole === "admin" && <Dialog
                           open={editingStaff?.id === member.id}
