@@ -5,12 +5,15 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   const reservation = await client.query<{
     room_id: string | null;
     check_in_date: string;
+    check_in_at: string | null;
     room_type_name: string | null;
     room_number: string | null;
     room_rate: string | null;
+    elapsed_ms: string;
   }>(
-    `SELECT r.room_id, r.check_in_date, rm.room_number, rt.name AS room_type_name,
-            COALESCE(rm.price, rt.base_price) AS room_rate
+    `SELECT r.room_id, r.check_in_date, r.check_in_at, rm.room_number, rt.name AS room_type_name,
+            COALESCE(rm.price, rt.base_price) AS room_rate,
+            GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - COALESCE(r.check_in_at, r.check_in_date::timestamptz))) * 1000) AS elapsed_ms
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
      LEFT JOIN room_types rt ON rt.id = rm.room_type_id
@@ -30,7 +33,8 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   );
   if (folio.rowCount !== 1) return { addedBlocks: 0, billableBlocks: 0 };
 
-  const elapsed = Math.max(0, Date.now() - new Date(stay.check_in_date).getTime());
+  // Neon is the single clock for both check-in and checkout billing.
+  const elapsed = Number(stay.elapsed_ms || 0);
   const billableBlocks = Math.max(1, Math.ceil(elapsed / (SHORT_STAY_DURATION_MINUTES * 60_000)));
   const inserted = await client.query(
     `INSERT INTO guest_folio_items
