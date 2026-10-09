@@ -91,6 +91,9 @@ function POSContent() {
   const [menuLoading, setMenuLoading] = useState(true);
   const [menuView, setMenuView] = useState<"auto" | "two" | "compact" | "comfortable" | "large">("auto");
   const [cartPanelOpen, setCartPanelOpen] = useState(false);
+  const [orderTypeSelectOpen, setOrderTypeSelectOpen] = useState(false);
+  const orderTypeSelectOpenRef = useRef(false);
+  const cartCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
@@ -100,6 +103,16 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   const handleOrderTypeChange = useCallback((value: string) => {
     if (!ORDER_TYPES.includes(value as OrderType)) return;
     setOrderType((current) => (current === value ? current : (value as OrderType)));
+  }, []);
+  const keepCartPanelOpen = useCallback(() => {
+    if (cartCloseTimerRef.current) clearTimeout(cartCloseTimerRef.current);
+    setCartPanelOpen(true);
+  }, []);
+  const scheduleCartPanelClose = useCallback(() => {
+    if (cartCloseTimerRef.current) clearTimeout(cartCloseTimerRef.current);
+    cartCloseTimerRef.current = setTimeout(() => {
+      if (!orderTypeSelectOpenRef.current) setCartPanelOpen(false);
+    }, 180);
   }, []);
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -958,8 +971,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </Button>
         </div>
         <div
-          onMouseEnter={() => setCartPanelOpen(true)}
-          onMouseLeave={() => setCartPanelOpen(false)}
+          onMouseEnter={keepCartPanelOpen}
+          onMouseLeave={scheduleCartPanelClose}
           className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex h-dvh max-h-dvh w-[min(92vw,28rem)] min-w-0 flex-col overflow-y-auto border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
@@ -979,7 +992,16 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                 >
                   Order Type
                 </Label>
-                <Select value={orderType} onValueChange={handleOrderTypeChange}>
+                <Select
+                  value={orderType}
+                  open={orderTypeSelectOpen}
+                  onOpenChange={(open) => {
+                    orderTypeSelectOpenRef.current = open;
+                    setOrderTypeSelectOpen(open);
+                    if (open) keepCartPanelOpen();
+                  }}
+                  onValueChange={handleOrderTypeChange}
+                >
                   <SelectTrigger
                     id="order-type"
                     className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
