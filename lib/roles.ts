@@ -33,7 +33,22 @@ const attendanceExcludedRoles = new Set(["admin", "administrator", "manager", "g
 
 export function canUseAttendanceRegister(role?: string | null): boolean {
   const normalizedRole = String(role ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-  return isUserRole(role) && !attendanceExcludedRoles.has(normalizedRole) && attendanceParticipantRoles.includes(role as UserRole);
+  if (attendanceExcludedRoles.has(normalizedRole)) return false;
+  const roleAliases: Record<string, UserRole> = {
+    chef: "kitchen",
+    reception: "frontDesk",
+    hotelreception: "frontDesk",
+    restaurantfrontdesk: "restaurantFrontDesk",
+    waiter: "waiterWaitress",
+    waitress: "waiterWaitress",
+    operationalmanager: "operationsManager",
+    operationsmanager: "operationsManager",
+    restaurantmanager: "restaurantManager",
+    hotelmanager: "hotelManager",
+    financemanager: "finance",
+  };
+  const canonicalRole = roleAliases[normalizedRole] ?? role;
+  return isUserRole(canonicalRole) && attendanceParticipantRoles.includes(canonicalRole);
 }
 
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
