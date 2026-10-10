@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, LogIn, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 
 interface AttendanceRecord {
@@ -136,8 +136,8 @@ export default function StaffPage() {
 
   if (isLoading || !user || user.role !== "staff") return null;
 
-  const open = nextAction === "check_out";
   const canCheckIn = nextAction === "check_in";
+  const isWaitingForAutomaticCheckout = nextAction === "check_out";
   return (
     <main className="min-h-screen bg-muted/30 p-4 text-foreground sm:p-8">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -166,7 +166,7 @@ export default function StaffPage() {
           <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4 text-sm"><span className="text-muted-foreground">Today&apos;s status</span><span className="mx-2 text-muted-foreground">·</span><span className="font-semibold">{attendanceStatus(record, nextAction)}</span><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground"><span>Checked in: {formatTime(record?.check_in_at)}</span><span>Checked out: {formatTime(record?.check_out_at)}</span></div></div>
           <div className="mt-5">
             {canCheckIn && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>}
-            {open && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>}
+            {isWaitingForAutomaticCheckout && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm font-semibold text-amber-900">Checked in — checkout follows the approved schedule automatically</div>}
             {nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-800">Attendance completed for today</div>}
           </div>
           {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}
