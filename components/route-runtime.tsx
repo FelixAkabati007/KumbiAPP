@@ -21,7 +21,7 @@ export function RouteRuntime({ children }: { children: ReactNode }) {
   return (
     <RealtimeProvider>
       <SystemSyncListener />
-      {children}
+      <div className="workspace-surface">{children}</div>
       <InstallAppPrompt />
     </RealtimeProvider>
   );

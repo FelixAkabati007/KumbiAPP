@@ -6,6 +6,7 @@
 
 @layer components {
   .enterprise-card {
+    contain: layout paint;
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
   }
 
@@ -15,9 +16,6 @@
     border-color: hsl(var(--ring) / 0.45);
   }
 
-  .enterprise-interactive:hover {
-    will-change: transform, box-shadow;
-  }
 }
 
 @layer utilities {
@@ -67,6 +65,15 @@
     overflow-wrap: anywhere;
   }
 
+  .workspace-surface {
+    min-width: 0;
+    contain: layout style;
+  }
+
+  .workspace-surface > * {
+    min-width: 0;
+  }
+
   /* Canonical list containers: keep scrolling functional while hiding chrome. */
   .inventory-items-grid {
     display: grid;
@@ -74,6 +81,8 @@
   }
 
   .list-scroll-container {
+    content-visibility: auto;
+    contain: content;
     max-height: 21rem;
     max-width: 100%;
     overflow: auto;
