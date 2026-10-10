@@ -233,22 +233,26 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    void fetch("/api/attendance", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { record?: typeof attendanceRecord } | null) => {
-        if (!cancelled) {
-          setAttendanceRecord(data?.record ?? null);
-          setAttendanceLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setAttendanceLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+  if (!user) return;
+  let cancelled = false;
+  const syncAttendance = async () => {
+  try {
+  const response = await fetch("/api/v1/attendance", { cache: "no-store" });
+  const data = response.ok ? await response.json() : null;
+  if (!cancelled) {
+  setAttendanceRecord(data?.record ?? null);
+  setAttendanceLoaded(true);
+  }
+  } catch {
+  if (!cancelled) setAttendanceLoaded(true);
+  }
+  };
+  void syncAttendance();
+  const timer = window.setInterval(() => void syncAttendance(), 10000);
+  return () => {
+  cancelled = true;
+  window.clearInterval(timer);
+  };
   }, [user]);
 
   // Load receipt stats from Neon
