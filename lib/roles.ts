@@ -15,7 +15,7 @@ export type UserRole =
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
-/** Every role that can check in; only Administrator and General Manager are excluded. */
+/** Operational roles that use the attendance register; management roles are dashboard-exempt. */
 export const attendanceParticipantRoles: readonly UserRole[] = [
   "staff",
   "kitchen",
@@ -24,12 +24,18 @@ export const attendanceParticipantRoles: readonly UserRole[] = [
   "waiterWaitress",
   "housekeeping",
   "finance",
-  "operationsManager",
-  "restaurantManager",
-  "hotelManager",
 ];
 
-const attendanceExcludedRoles = new Set(["admin", "administrator", "manager", "generalmanager"]);
+const attendanceExcludedRoles = new Set([
+  "admin",
+  "administrator",
+  "manager",
+  "generalmanager",
+  "operationsmanager",
+  "operationalmanager",
+  "hotelmanager",
+  "restaurantmanager",
+]);
 
 export function canUseAttendanceRegister(role?: string | null): boolean {
   const normalizedRole = String(role ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
