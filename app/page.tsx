@@ -60,6 +60,7 @@ import {
   UserRole,
   AppSection,
   getRoleDisplayName,
+  canUseAttendanceRegister,
 } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
@@ -662,13 +663,13 @@ function DashboardContent() {
           data-attendance-only={attendanceRestricted ? "true" : "false"}
           className="dashboard-category-grid responsive-grid"
         >
-          <div data-dashboard-category="all" className="min-w-0">
+          <div data-dashboard-category="all" className="order-2 min-w-0">
             <AnnouncementCard />
           </div>
           <Card
             data-dashboard-category="all"
             data-attendance-card="true"
-            className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+            className="order-first hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
@@ -682,9 +683,9 @@ function DashboardContent() {
                 Attendance
               </div>
 <p className="text-base leading-6 text-muted-foreground">
-Check in when you arrive and wait for manager verification before opening
-              other workspaces. Checkout is completed automatically from the
-              approved staff schedule.
+Check in here when you arrive. Your attendance stays pending until Admin or
+              General Manager approval. Checkout is completed automatically from
+              the approved staff schedule.
               </p>
               <Link
                 href={
@@ -692,9 +693,11 @@ Check in when you arrive and wait for manager verification before opening
                 }
                 className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
               >
-                {user.role === "staff"
-                  ? "Open staff attendance"
-                  : "Open attendance register"}
+                {canUseAttendanceRegister(user.role)
+                  ? attendanceRecord?.check_in_at
+                    ? "View attendance status"
+                    : "Check In"
+                  : "Open attendance controls"}
               </Link>
             </CardContent>
           </Card>
