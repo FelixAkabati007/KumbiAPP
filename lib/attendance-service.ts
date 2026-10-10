@@ -2,9 +2,7 @@ import { transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
 import { propertyDayExpression } from "@/lib/operational-day";
 
-export type AttendanceAction = "check_in";
-
-export async function registerAttendance(session: ApiSession, action: AttendanceAction, notes?: string) {
+export async function registerAttendance(session: ApiSession, notes?: string) {
   return transaction(async (client) => {
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
@@ -15,7 +13,7 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     );
     const record = current.rows[0];
 
-    if (action === "check_in") {
+    {
       if (record?.check_in_at && !record.check_out_at) throw new Error("ALREADY_CHECKED_IN");
       const schedule = await client.query(
         `SELECT s.start_time, s.end_time, COALESCE(s.reminder_minutes, 20) AS reminder_minutes
@@ -52,7 +50,5 @@ export async function registerAttendance(session: ApiSession, action: Attendance
       );
       return { record: row, nextAction: "waiting" as const };
     }
-
-    throw new Error("Unsupported attendance action");
   });
 }
