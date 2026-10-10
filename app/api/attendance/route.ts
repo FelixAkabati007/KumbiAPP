@@ -3,14 +3,14 @@ import { requirePermission, requireRole, requireSession } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
-import { attendanceParticipantRoles, canUseAttendanceRegister } from "@/lib/roles";
+import { canUseAttendanceRegister } from "@/lib/roles";
 
 export async function GET(request: Request) {
   const sessionAccess = await requireSession();
   if (!sessionAccess.error && sessionAccess.session && !canUseAttendanceRegister(sessionAccess.session.role)) {
     return NextResponse.json({ record: null, canCheckIn: false, nextAction: "not_applicable" });
   }
-  const staffAccess = await requireRole(...attendanceParticipantRoles);
+  const staffAccess = await requireSession();
   if (!staffAccess.error && staffAccess.session) {
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
@@ -36,8 +36,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staffAccess = await requireRole(...attendanceParticipantRoles);
-  if (!staffAccess.error && staffAccess.session) {
+  const staffAccess = await requireSession();
+  if (!staffAccess.error && staffAccess.session && canUseAttendanceRegister(staffAccess.session.role)) {
     const body = await request.json();
     const action = body.action === "check_out" ? "check_out" : "check_in";
     try {

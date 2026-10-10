@@ -26,7 +26,9 @@ export const attendanceParticipantRoles: readonly UserRole[] = [
 ];
 
 export function canUseAttendanceRegister(role?: string | null): boolean {
-  return Boolean(role && attendanceParticipantRoles.includes(role as UserRole));
+  const normalizedRole = String(role ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const managementExclusions = new Set(["admin", "manager"]);
+  return isUserRole(role) && !managementExclusions.has(normalizedRole);
 }
 
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
