@@ -497,8 +497,9 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         // Instead, redirect back to the Sales Terminal (POS) page
         // router.replace("/pos");
 
-        // Reset order
+        // Start a fresh order only after payment and order completion both succeed.
         setCurrentOrder([]);
+        setSessionItemQuantities({});
         setCustomerName("");
         setCustomerNameRefused(false);
         setTableNumber("");
