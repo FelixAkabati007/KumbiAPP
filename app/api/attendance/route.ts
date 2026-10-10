@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staffAccess = await requireRole("staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping");
+  const staffAccess = await requireRole(...attendanceParticipantRoles);
   if (!staffAccess.error && staffAccess.session) {
     const body = await request.json();
     const action = body.action === "check_out" ? "check_out" : "check_in";
