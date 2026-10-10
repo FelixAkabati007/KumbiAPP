@@ -39,9 +39,11 @@ export async function POST(request: Request) {
   const staffAccess = await requireSession();
   if (!staffAccess.error && staffAccess.session && canUseAttendanceRegister(staffAccess.session.role)) {
     const body = await request.json();
-    const action = body.action === "check_out" ? "check_out" : "check_in";
+    if (body.action !== "check_in") {
+      return NextResponse.json({ error: "Manual checkout is permanently disabled. Checkout is completed automatically from the approved schedule.", code: "MANUAL_CHECKOUT_DISABLED" }, { status: 410 });
+    }
     try {
-      const result = await registerAttendance(staffAccess.session, action, String(body.notes ?? ""));
+      const result = await registerAttendance(staffAccess.session, "check_in", String(body.notes ?? ""));
       return NextResponse.json(result, { status: 200 });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
