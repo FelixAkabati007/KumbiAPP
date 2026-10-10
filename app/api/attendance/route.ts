@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePermission, requireRole } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
+import { propertyDayExpression } from "@/lib/operational-day";
 
 export async function GET(request: Request) {
   const staffAccess = await requireRole("staff");
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
        WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
-         AND created_at::date = CURRENT_DATE
+         AND created_at::date = ${propertyDayExpression()}
        ORDER BY created_at DESC LIMIT 1`,
       [staffAccess.session.id],
     );
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECK_IN_REQUIRED: "Check in before checking out.",
         CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
-        CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available from 20 minutes before your scheduled start until the scheduled end time.",
+        CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",
+        MANUAL_CHECKOUT_DISABLED: "Check-out is completed automatically from the approved Staff schedule.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
       };
       return NextResponse.json({ error: messages[code] ?? "Unable to update attendance", code }, { status: 409 });
