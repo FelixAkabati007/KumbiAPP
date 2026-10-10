@@ -5,7 +5,7 @@ import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
 
 export async function GET(request: Request) {
-  const staffAccess = await requireRole("staff");
+  const staffAccess = await requireRole("staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping");
   if (!staffAccess.error && staffAccess.session) {
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staffAccess = await requireRole("staff");
+  const staffAccess = await requireRole("staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping");
   if (!staffAccess.error && staffAccess.session) {
     const body = await request.json();
     const action = body.action === "check_out" ? "check_out" : "check_in";
