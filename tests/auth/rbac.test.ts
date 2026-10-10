@@ -18,7 +18,7 @@ describe("RBAC System", () => {
   });
 
   it("centralizes attendance participation by department role", () => {
-    ["staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping", "hotelManager", "restaurantManager", "operationsManager", "finance"].forEach((role) => {
+    ["staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping", "hotelManager", "restaurantManager", "operationsManager", "finance", "chef", "hotel reception", "restaurant front desk", "waiter", "waitress", "operational manager", "finance manager"].forEach((role) => {
       expect(canUseAttendanceRegister(role)).toBe(true);
     });
     ["admin", "Administrator", "manager", "General Manager", "unknown"].forEach((role) => {
