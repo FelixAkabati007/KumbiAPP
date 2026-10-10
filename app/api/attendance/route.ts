@@ -39,18 +39,17 @@ export async function POST(request: Request) {
   const staffAccess = await requireSession();
   if (!staffAccess.error && staffAccess.session && canUseAttendanceRegister(staffAccess.session.role)) {
     const body = await request.json();
-    const action = body.action === "check_out" ? "check_out" : "check_in";
+    if (body.action !== "check_in") {
+      return NextResponse.json({ error: "Manual checkout is permanently disabled. Checkout is completed automatically from the approved schedule.", code: "MANUAL_CHECKOUT_DISABLED" }, { status: 410 });
+    }
     try {
-      const result = await registerAttendance(staffAccess.session, action, String(body.notes ?? ""));
+      const result = await registerAttendance(staffAccess.session, String(body.notes ?? ""));
       return NextResponse.json(result, { status: 200 });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
         ALREADY_CHECKED_IN: "You are already checked in.",
-        CHECK_IN_REQUIRED: "Check in before checking out.",
-        CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
         CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",
-        MANUAL_CHECKOUT_DISABLED: "Check-out is completed automatically from the approved Staff schedule.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
       };
       return NextResponse.json({ error: messages[code] ?? "Unable to update attendance", code }, { status: 409 });
