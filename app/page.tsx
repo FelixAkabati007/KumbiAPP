@@ -317,7 +317,7 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const requiresAttendanceApproval = user.role !== "admin" && user.role !== "manager";
+  const requiresAttendanceApproval = canUseAttendanceRegister(user.role);
   const isAttendanceExempt = !requiresAttendanceApproval;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified" || attendanceStatus === "late";

@@ -21,7 +21,7 @@ describe("RBAC System", () => {
     ["staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping", "hotelManager", "restaurantManager", "operationsManager", "finance"].forEach((role) => {
       expect(canUseAttendanceRegister(role)).toBe(true);
     });
-    ["admin", "manager", "unknown"].forEach((role) => {
+    ["admin", "Administrator", "manager", "General Manager", "unknown"].forEach((role) => {
       expect(canUseAttendanceRegister(role)).toBe(false);
     });
   });

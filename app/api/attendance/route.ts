@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       [staffAccess.session.id],
     );
     const record = result.rows[0] ?? null;
-    const isAttendanceParticipant = !["admin", "manager"].includes(String(staffAccess.session.role));
+    const isAttendanceParticipant = canUseAttendanceRegister(staffAccess.session.role);
     return NextResponse.json({ record, canCheckIn: isAttendanceParticipant, nextAction: isAttendanceParticipant ? (!record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete") : "not_applicable" });
   }
   const { error } = await requirePermission("events");
