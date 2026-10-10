@@ -693,11 +693,7 @@ Check in here when you arrive. Your attendance stays pending until Admin or
                 }
                 className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
               >
-                {canUseAttendanceRegister(user.role)
-                  ? attendanceRecord?.check_in_at
-                    ? "View attendance status"
-                    : "Check In"
-                  : "Open attendance controls"}
+                Open attendance register
               </Link>
   </CardContent>
   </Card>}
