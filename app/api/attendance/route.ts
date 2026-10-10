@@ -3,26 +3,32 @@ import { requirePermission, requireRole, requireSession } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
-import { canUseAttendanceRegister } from "@/lib/roles";
+import { resolveAttendanceIdentity, attendanceStaffIds } from "@/lib/attendance-identity";
 
 export async function GET(request: Request) {
   const sessionAccess = await requireSession();
-  if (!sessionAccess.error && sessionAccess.session && !canUseAttendanceRegister(sessionAccess.session.role)) {
-    return NextResponse.json({ record: null, canCheckIn: false, nextAction: "not_applicable" });
-  }
-  const staffAccess = await requireSession();
-  if (!staffAccess.error && staffAccess.session) {
+  if (!sessionAccess.error && sessionAccess.session) {
+    const identity = await resolveAttendanceIdentity(sessionAccess.session);
+    if (!identity.canCheckIn) {
+      return NextResponse.json({ record: null, canCheckIn: false, nextAction: "not_applicable" });
+    }
+    const staffIds = attendanceStaffIds(identity);
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
-       WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+       WHERE staff_id = ANY($1::uuid[])
          AND created_at::date = ${propertyDayExpression()}
        ORDER BY created_at DESC LIMIT 1`,
-      [staffAccess.session.id],
+      [staffIds],
     );
     const record = result.rows[0] ?? null;
-    const isAttendanceParticipant = canUseAttendanceRegister(staffAccess.session.role);
-    return NextResponse.json({ record, canCheckIn: isAttendanceParticipant, nextAction: isAttendanceParticipant ? (!record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete") : "not_applicable" });
+    return NextResponse.json({
+      record,
+      canCheckIn: true,
+      nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete",
+      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, displayName: identity.displayName },
+      sourceOfTruth: "users.role + staff_profiles + attendance_records",
+    });
   }
   const { error } = await requirePermission("events");
   if (error) return error;
@@ -37,7 +43,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const staffAccess = await requireSession();
-  if (!staffAccess.error && staffAccess.session && canUseAttendanceRegister(staffAccess.session.role)) {
+  if (!staffAccess.error && staffAccess.session) {
+    const identity = await resolveAttendanceIdentity(staffAccess.session);
+    if (!identity.canCheckIn) {
+      return NextResponse.json({ error: "Attendance is not applicable to this account", code: "ATTENDANCE_NOT_APPLICABLE" }, { status: 403 });
+    }
     const body = await request.json();
     if (body.action !== "check_in") {
       return NextResponse.json({ error: "Manual checkout is permanently disabled. Checkout is completed automatically from the approved schedule.", code: "MANUAL_CHECKOUT_DISABLED" }, { status: 410 });
@@ -48,6 +58,7 @@ export async function POST(request: Request) {
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
+        ATTENDANCE_NOT_APPLICABLE: "Administrator and General Manager accounts do not use the staff attendance register.",
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
