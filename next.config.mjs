@@ -7,6 +7,7 @@ const nextConfig = {
   // Allow the preview hosts so CSS and client chunks are served instead of raw HTML.
   allowedDevOrigins: ["*.vercel.run", "*.v0.build"],
   productionBrowserSourceMaps: false,
+  optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
