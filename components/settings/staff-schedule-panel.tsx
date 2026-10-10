@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface Schedule { id: string; name: string; job_classification: string; department: string; start_time: string; end_time: string; reminder_minutes: number }
 const DEPARTMENTS = ["Hotel", "Restaurant", "Operations"];
-const CLASSIFICATIONS = ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Security", "Labour", "Other"];
+const CLASSIFICATIONS = ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Operations", "Hotel Manager", "Restaurant Manager", "Security", "Labour", "Other"];
 const EMPTY_FORM = { name: "", department: "", jobClassification: "", startTime: "08:00", endTime: "17:00", reminderMinutes: "20" };
 
 type ComboProps = { id: string; label: string; value: string; options: string[]; placeholder: string; onChange: (value: string) => void };
