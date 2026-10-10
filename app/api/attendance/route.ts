@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { requirePermission, requireRole } from "@/lib/api-auth";
+import { requirePermission, requireRole, requireSession } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
 
 export async function GET(request: Request) {
+  const sessionAccess = await requireSession();
+  if (!sessionAccess.error && sessionAccess.session && ["admin", "manager"].includes(String(sessionAccess.session.role))) {
+    return NextResponse.json({ record: null, canCheckIn: false, nextAction: "not_applicable" });
+  }
   const staffAccess = await requireRole("staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping");
   if (!staffAccess.error && staffAccess.session) {
     const result = await query(
@@ -16,7 +20,8 @@ export async function GET(request: Request) {
       [staffAccess.session.id],
     );
     const record = result.rows[0] ?? null;
-    return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
+    const isAttendanceParticipant = !["admin", "manager"].includes(String(staffAccess.session.role));
+    return NextResponse.json({ record, canCheckIn: isAttendanceParticipant, nextAction: isAttendanceParticipant ? (!record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete") : "not_applicable" });
   }
   const { error } = await requirePermission("events");
   if (error) return error;
