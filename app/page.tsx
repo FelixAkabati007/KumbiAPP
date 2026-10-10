@@ -129,6 +129,7 @@ function DashboardContent() {
     check_in_at?: string | null;
     check_out_at?: string | null;
   } | null>(null);
+  const [attendanceCanCheckIn, setAttendanceCanCheckIn] = useState(true);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
@@ -241,6 +242,7 @@ function DashboardContent() {
   const data = response.ok ? await response.json() : null;
   if (!cancelled) {
   setAttendanceRecord(data?.record ?? null);
+  setAttendanceCanCheckIn(data?.canCheckIn !== false);
   setAttendanceLoaded(true);
   }
   } catch {
@@ -321,7 +323,7 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const requiresAttendanceApproval = canUseAttendanceRegister(user.role);
+  const requiresAttendanceApproval = attendanceCanCheckIn && canUseAttendanceRegister(user.role);
   const isAttendanceExempt = !requiresAttendanceApproval;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified" || attendanceStatus === "late";

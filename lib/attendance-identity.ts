@@ -6,6 +6,7 @@ export type AttendanceIdentity = {
   userId: string;
   staffProfileId: string | null;
   role: string;
+  classification: string | null;
   displayName: string;
   email: string | null;
   canCheckIn: boolean;
@@ -17,7 +18,8 @@ export async function resolveAttendanceIdentity(session: ApiSession): Promise<At
             COALESCE(NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member'),
               NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')), ''),
               NULLIF(TRIM(u.email), ''), u.id::text) AS display_name,
-            sp.id AS staff_profile_id
+            sp.id AS staff_profile_id,
+            COALESCE(sp.job_classification, sp.position) AS classification
      FROM users u
      LEFT JOIN staff_profiles sp ON sp.user_id = u.id
      WHERE u.id = $1
@@ -26,13 +28,15 @@ export async function resolveAttendanceIdentity(session: ApiSession): Promise<At
   );
   const row = result.rows[0];
   const role = String(row?.role ?? session.role);
+  const classification = row?.classification ? String(row.classification) : null;
   return {
     userId: String(row?.user_id ?? session.id),
     staffProfileId: row?.staff_profile_id ? String(row.staff_profile_id) : null,
     role,
+    classification,
     displayName: String(row?.display_name ?? session.name ?? session.email ?? session.id),
     email: row?.email ? String(row.email) : session.email ?? null,
-    canCheckIn: canUseAttendanceRegister(role),
+    canCheckIn: canUseAttendanceRegister(role, classification),
   };
 }
 

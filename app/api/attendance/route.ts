@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       record,
       canCheckIn: true,
       nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete",
-      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, displayName: identity.displayName },
+      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, classification: identity.classification, displayName: identity.displayName },
       sourceOfTruth: "users.role + staff_profiles + attendance_records",
     });
   }
