@@ -682,9 +682,9 @@ function DashboardContent() {
                 Attendance
               </div>
 <p className="text-base leading-6 text-muted-foreground">
-                  Check in before your scheduled start, check out at or after your
-                scheduled end, and wait for a manager approval before opening
-                other workspaces.
+Check in when you arrive and wait for manager verification before opening
+              other workspaces. Checkout is completed automatically from the
+              approved staff schedule.
               </p>
               <Link
                 href={

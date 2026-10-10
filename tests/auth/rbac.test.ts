@@ -6,6 +6,7 @@ import {
   AppSection,
   canPerformAction,
   getDefaultRouteForRole,
+  canUseAttendanceRegister,
 } from "../../lib/roles";
 
 describe("RBAC System", () => {
@@ -14,6 +15,15 @@ describe("RBAC System", () => {
       admin: "/system", manager: "/operations", hotelManager: "/hotels/rooms", restaurantManager: "/pos", operationsManager: "/operations", finance: "/finance", staff: "/pos", kitchen: "/kitchen", frontDesk: "/hotels/check-in", restaurantFrontDesk: "/pos", waiterWaitress: "/pos", housekeeping: "/hotels/housekeeping",
     };
     Object.entries(destinations).forEach(([role, route]) => expect(getDefaultRouteForRole(role)).toBe(route));
+  });
+
+  it("centralizes attendance participation by department role", () => {
+    ["staff", "kitchen", "frontDesk", "restaurantFrontDesk", "waiterWaitress", "housekeeping"].forEach((role) => {
+      expect(canUseAttendanceRegister(role)).toBe(true);
+    });
+    ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "unknown"].forEach((role) => {
+      expect(canUseAttendanceRegister(role)).toBe(false);
+    });
   });
 
   it("allows department roles to perform their assigned mutations", () => {
