@@ -100,7 +100,7 @@ export async function PATCH(
       managerScope,
     } = body;
 
-    if (jobClassification && !["reception", "restaurantPos", "waiterWaitress", "chef", "housekeeping", "security", "labour", "other"].includes(jobClassification)) {
+    if (jobClassification && !["reception", "restaurantPos", "waiterWaitress", "chef", "housekeeping", "security", "labour", "operations", "accountsFinance", "other"].includes(jobClassification)) {
       return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
     }
 
