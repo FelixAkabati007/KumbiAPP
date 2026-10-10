@@ -2,10 +2,12 @@ import { transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
 import { resolveAttendanceIdentity } from "@/lib/attendance-identity";
 import { propertyDayExpression } from "@/lib/operational-day";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function registerAttendance(session: ApiSession, notes?: string) {
   const identity = await resolveAttendanceIdentity(session);
   if (!identity.canCheckIn) throw new Error("ATTENDANCE_NOT_APPLICABLE");
+  const canonicalNow = await getCanonicalTransactionTimestamp();
   return transaction(async (client) => {
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
@@ -45,8 +47,8 @@ export async function registerAttendance(session: ApiSession, notes?: string) {
              (SELECT NULLIF(TRIM(email), '') FROM users WHERE id = $1),
              $1::text
            ),
-           now(), 'pending_verification', 'pending', $2) RETURNING *`,
-        [identity.userId, notes?.slice(0, 500) ?? null],
+           $2::timestamptz, 'pending_verification', 'pending', $3) RETURNING *`,
+        [identity.userId, canonicalNow, notes?.slice(0, 500) ?? null],
       );
       const row = inserted.rows[0];
       await client.query(
