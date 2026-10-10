@@ -27,6 +27,7 @@ export async function registerAttendance(session: ApiSession, notes?: string) {
       );
       const scheduledStart = schedule.rows[0]?.start_time;
       const scheduledEnd = schedule.rows[0]?.end_time;
+      const reminderMinutes = Number(schedule.rows[0]?.reminder_minutes ?? 20);
       // Check-in is always available for standard staff. Schedule data is used
       // for reminders and automated checkout, never to block a late arrival.
       void scheduledStart;
@@ -48,7 +49,12 @@ export async function registerAttendance(session: ApiSession, notes?: string) {
          ON CONFLICT (idempotency_key) DO NOTHING`,
         [row.id, `attendance:${row.id}:checked_in`, JSON.stringify({ attendanceRecordId: row.id, staffId: session.id })],
       );
-      return { record: row, nextAction: "waiting" as const };
+      return {
+        record: row,
+        nextAction: "waiting" as const,
+        schedule: { startTime: scheduledStart ?? null, endTime: scheduledEnd ?? null, reminderMinutes },
+        checkout: { mode: "automatic" as const },
+      };
     }
   });
 }

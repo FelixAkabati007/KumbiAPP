@@ -31,7 +31,7 @@ export default function AttendancePage() {
 
   async function load() {
     setLoading(true);
-    const statusResponse = await fetch("/api/attendance");
+    const statusResponse = await fetch("/api/v1/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
       setMessage("Administrators and General Managers do not record attendance here. Staff check in from this register; checkout is completed automatically from the approved schedule.");
@@ -42,7 +42,7 @@ export default function AttendancePage() {
     setAccessDenied(false);
     setRecord(status?.record ?? null);
     setCanCheckIn(status?.canCheckIn !== false);
-    const review = await fetch("/api/attendance/manager");
+    const review = await fetch("/api/v1/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {
       const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
@@ -65,14 +65,14 @@ export default function AttendancePage() {
 
   async function register(action: "check_in") {
     setBusy(true); setMessage("");
-    const response = await fetch("/api/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const response = await fetch("/api/v1/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const data = await response.json();
     setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in with an authorized staff account to use the attendance register." : data.error ?? "Unable to update register");
     setAccessDenied(response.status === 401 || response.status === 403);
     setBusy(false); if (response.ok) void load();
   }
   async function decide(id: string, status: "verified" | "late" | "rejected") {
-    await fetch("/api/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/v1/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
