@@ -24,7 +24,7 @@ describe("RBAC System", () => {
     ["admin", "Administrator", "manager", "General Manager", "operationsManager", "Operational Manager", "hotelManager", "Hotel Manager", "restaurantManager", "Restaurant Manager", "unknown"].forEach((role) => {
       expect(canUseAttendanceRegister(role)).toBe(false);
     });
-    ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Security", "Labour", "Other"].forEach((classification) => {
+    ["Reception", "Restaurant Front Desk / POS", "Waiter/Waitress", "Chef", "Housekeeping", "Security", "Labour", "Accounts/Finance", "Finance", "Other"].forEach((classification) => {
       expect(canUseAttendanceRegister("staff", classification)).toBe(false);
     });
   });
