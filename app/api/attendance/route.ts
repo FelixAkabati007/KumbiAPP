@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECK_IN_REQUIRED: "Check in before checking out.",
         CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
+        CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available from 20 minutes before your scheduled start until the scheduled end time.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
       };
       return NextResponse.json({ error: messages[code] ?? "Unable to update attendance", code }, { status: 409 });
