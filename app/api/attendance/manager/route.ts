@@ -9,7 +9,7 @@ export async function GET() {
   if (error) return error;
   try {
     const [pending, summary, frequency] = await Promise.all([
-      query(`SELECT ar.id, ar.staff_id, COALESCE(NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member'), NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')), ''), NULLIF(TRIM(u.email), ''), ar.staff_id::text) AS staff_name, sp.position, sp.job_classification, sp.department, u.email AS staff_email, COALESCE(u.role::text, 'staff') AS staff_role, ar.check_in_at, ar.check_out_at, ar.status, ar.verification_status, ar.created_at, CASE WHEN ss.scheduled_start IS NULL THEN 'Unscheduled' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 10 THEN 'Early' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 14 THEN 'Mid' ELSE 'Late' END AS shift_period FROM attendance_records ar LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id OR sp.user_id = ar.staff_id LEFT JOIN users u ON u.id = sp.user_id OR u.id = ar.staff_id LEFT JOIN staff_shifts ss ON ss.id = ar.shift_id WHERE ar.verification_status = 'pending'
+      query(`SELECT ar.id, ar.staff_id, ar.account_name, COALESCE(NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member'), NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')), ''), NULLIF(TRIM(u.email), ''), ar.staff_id::text) AS staff_name, sp.position, sp.job_classification, sp.department, u.email AS staff_email, COALESCE(u.role::text, 'staff') AS staff_role, ar.check_in_at, ar.check_out_at, ar.status, ar.verification_status, ar.created_at, CASE WHEN ss.scheduled_start IS NULL THEN 'Unscheduled' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 10 THEN 'Early' WHEN EXTRACT(HOUR FROM ss.scheduled_start AT TIME ZONE 'Africa/Accra') < 14 THEN 'Mid' ELSE 'Late' END AS shift_period FROM attendance_records ar LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id OR sp.user_id = ar.staff_id LEFT JOIN users u ON u.id = sp.user_id OR u.id = ar.staff_id LEFT JOIN staff_shifts ss ON ss.id = ar.shift_id WHERE ar.verification_status = 'pending'
          AND ar.created_at::date = CURRENT_DATE
        ORDER BY ar.check_in_at ASC LIMIT 100`),
       query(`SELECT COUNT(*) FILTER (WHERE check_in_at IS NOT NULL) AS present, COUNT(*) FILTER (WHERE verification_status = 'pending') AS pending, COUNT(*) FILTER (WHERE check_in_at IS NULL) AS absent FROM attendance_records WHERE created_at::date = CURRENT_DATE
@@ -30,7 +30,23 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     if (!body.id || !["verified", "rejected", "late"].includes(body.status)) return NextResponse.json({ error: "Invalid attendance decision" }, { status: 400 });
     const result = await query(
-      `UPDATE attendance_records SET verification_status = $2, status = $2, verified_by = $3, verified_at = now(), updated_at = now() WHERE id = $1 AND verification_status = 'pending' RETURNING *`,
+      `UPDATE attendance_records ar
+       SET verification_status = $2,
+           status = $2,
+           verified_by = $3,
+           verified_at = now(),
+           updated_at = now(),
+           account_name = COALESCE(
+             NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member'),
+             NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')), ''),
+             NULLIF(TRIM(u.email), ''),
+             ar.staff_id::text
+           )
+       FROM staff_profiles sp
+       LEFT JOIN users u ON u.id = sp.user_id OR u.id = ar.staff_id
+       WHERE ar.id = $1 AND ar.verification_status = 'pending'
+       AND (sp.id = ar.staff_id OR sp.user_id = ar.staff_id)
+       RETURNING ar.*`,
       [body.id, body.status, session.id]
     );
     if (!result.rowCount) return NextResponse.json({ error: "Attendance record is already resolved" }, { status: 409 });
