@@ -1323,7 +1323,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
           open={Boolean(checkoutDisclosure)}
           onOpenChange={(open) => !open && setCheckoutDisclosure(null)}
         >
-          <DialogContent className="max-w-lg">
+<DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:w-[calc(100%-2rem)] sm:p-6">
             <DialogHeader>
               <DialogTitle>Checkout amount disclosed</DialogTitle>
               <DialogDescription>
@@ -1397,7 +1397,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
             </div>
           ) : folio ? (
             <div className="space-y-4">
-              <div className="rounded-lg border border-orange-100 bg-orange-50/40 p-3 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
+              <div className="min-w-0 rounded-lg border border-orange-100 bg-orange-50/40 p-3 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
                 <p className="text-muted-foreground">Account</p>
                 <p className="font-semibold">
                   {folio.items?.find(
@@ -1411,7 +1411,7 @@ A short-stay booking includes two hours. Guests may check out at any time after 
               <div className="grid min-w-0 grid-cols-1 gap-3 rounded-lg border border-orange-100 p-3 text-sm dark:border-orange-900/40">
                 <div>
                   <p className="text-muted-foreground">Room Charges</p>
-                  <p className="font-semibold">
+                  <p className="break-words font-semibold">
                     GHS {Number(folio.room_charge).toFixed(2)}
                   </p>
                 </div>
@@ -1487,13 +1487,13 @@ Select active menu items, take payment immediately, and send the
                       aria-label="Search food and beverage items"
                       className="h-9 rounded-lg bg-background"
                     />
-                    <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                    <div className="max-h-52 min-w-0 space-y-2 overflow-y-auto pr-1">
                     {filteredRestaurantMenu.map((item) => {
                       const quantity = restaurantCart[item.id] || 0;
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border bg-background p-2"
+                          className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-background p-2"
                         >
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">
