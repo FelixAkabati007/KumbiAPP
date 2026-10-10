@@ -54,6 +54,8 @@ export function canUseAttendanceRegister(role?: string | null, classification?: 
     "labour",
     "labor",
     "labourer",
+    "accountsfinance",
+    "finance",
     "other",
   ]);
   if (attendanceExcludedRoles.has(normalizedRole) || attendanceExemptClassifications.has(normalizedClassification)) return false;
