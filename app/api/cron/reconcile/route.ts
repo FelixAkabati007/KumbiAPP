@@ -25,7 +25,18 @@ export async function GET(request: Request) {
              SELECT 1
              FROM staff_profiles sp
              LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression()} AND a.status <> 'cancelled'
-             LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
+             LEFT JOIN LATERAL (
+               SELECT ws.*
+               FROM work_schedules ws
+               WHERE ws.is_active = true
+                 AND (ws.id = a.schedule_id OR (
+                   a.schedule_id IS NULL
+                   AND LOWER(REGEXP_REPLACE(ws.job_classification, '[^a-z0-9]+', '', 'g')) = LOWER(REGEXP_REPLACE(COALESCE(sp.job_classification, sp.position, ''), '[^a-z0-9]+', '', 'g'))
+                   AND LOWER(ws.department) = LOWER(COALESCE(sp.department, ws.department))
+                 ))
+               ORDER BY CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END
+               LIMIT 1
+             ) s ON true
              WHERE (sp.id = attendance_records.staff_id OR sp.user_id = attendance_records.staff_id)
                AND COALESCE(s.end_time, CASE
                  WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) IN ('reception', 'front desk', 'frontdesk', 'housekeeping') THEN '19:00'::time
