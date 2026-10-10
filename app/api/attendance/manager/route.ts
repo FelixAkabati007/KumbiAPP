@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/api-auth";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { error } = await requireRole("admin", "manager", "operationsManager");
+  const { error } = await requireRole("admin", "manager");
   if (error) return error;
   try {
     const [pending, summary, frequency] = await Promise.all([
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const { session, error } = await requireRole("admin", "manager", "operationsManager");
+  const { session, error } = await requireRole("admin", "manager");
   if (error) return error;
   try {
     const body = await request.json();

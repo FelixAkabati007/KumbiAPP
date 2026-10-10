@@ -33,7 +33,7 @@ export default function AttendancePage() {
     const statusResponse = await fetch("/api/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
-      setMessage("Administrators do not use the staff attendance register. Return to the dashboard to continue.");
+      setMessage("Administrator and General Manager accounts use attendance controls from the dashboard. Staff accounts can use this register to check in and check out.");
       setLoading(false);
       return;
     }
@@ -65,7 +65,7 @@ export default function AttendancePage() {
     setBusy(true); setMessage("");
     const response = await fetch("/api/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const data = await response.json();
-    setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in with a staff account to use the attendance register." : data.error ?? "Unable to update register");
+    setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in with an authorized staff account to use the attendance register." : data.error ?? "Unable to update register");
     setAccessDenied(response.status === 401 || response.status === 403);
     setBusy(false); if (response.ok) void load();
   }
