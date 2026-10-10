@@ -37,9 +37,26 @@ const attendanceExcludedRoles = new Set([
   "restaurantmanager",
 ]);
 
-export function canUseAttendanceRegister(role?: string | null): boolean {
+export function canUseAttendanceRegister(role?: string | null, classification?: string | null): boolean {
   const normalizedRole = String(role ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-  if (attendanceExcludedRoles.has(normalizedRole)) return false;
+  const normalizedClassification = String(classification ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const attendanceExemptClassifications = new Set([
+    "reception",
+    "restaurantfrontdeskpos",
+    "restaurantfrontdesk",
+    "restaurantpos",
+    "waiterwaitress",
+    "waiter",
+    "waitress",
+    "chef",
+    "housekeeping",
+    "security",
+    "labour",
+    "labor",
+    "labourer",
+    "other",
+  ]);
+  if (attendanceExcludedRoles.has(normalizedRole) || attendanceExemptClassifications.has(normalizedClassification)) return false;
   const roleAliases: Record<string, UserRole> = {
     chef: "kitchen",
     reception: "frontDesk",
