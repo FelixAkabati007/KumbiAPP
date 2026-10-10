@@ -15,6 +15,20 @@ export type UserRole =
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
+/** Roles that participate in the staff attendance register. */
+export const attendanceParticipantRoles: readonly UserRole[] = [
+  "staff",
+  "kitchen",
+  "frontDesk",
+  "restaurantFrontDesk",
+  "waiterWaitress",
+  "housekeeping",
+];
+
+export function canUseAttendanceRegister(role?: string | null): boolean {
+  return Boolean(role && attendanceParticipantRoles.includes(role as UserRole));
+}
+
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
   { value: "staff", label: "Staff", description: "Operational staff access; duties are defined by the access profile." },
   { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },
