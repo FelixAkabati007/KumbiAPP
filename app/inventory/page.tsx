@@ -850,7 +850,7 @@ function InventoryContent() {
                         )}
                     <div
                       key={`${item.id}-row`}
-                      className={`flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border bg-white/50 p-2 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:flex-nowrap sm:gap-3 sm:p-3 ${
+                      className={`grid min-w-0 grid-cols-1 gap-2 rounded-xl border bg-white/50 p-2 transition-colors hover:bg-orange-50 dark:bg-gray-800/50 dark:hover:bg-orange-900/10 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:p-3 ${
                         isLowStock(item)
                           ? "border-red-400 dark:border-red-600 animate-pulse"
                           : "border-orange-100 dark:border-orange-800"
@@ -882,7 +882,7 @@ function InventoryContent() {
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:shrink-0 sm:justify-end sm:gap-4">
                         <div className="text-left sm:text-right">
                           <div
                             className={`flex items-center justify-end gap-1 text-sm font-bold sm:text-base ${
@@ -903,7 +903,7 @@ function InventoryContent() {
                             ₵{Number.parseFloat(item.cost).toFixed(2)}
                           </div>
                         </div>
-  <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">
+  <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
   <AlertTriangle className="h-4 w-4" />
   </Button>
   {canTopUpStock && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
