@@ -321,13 +321,12 @@ function DashboardContent() {
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified";
   const dashboardAccess: Record<AppSection, boolean> =
-    requiresAttendanceApproval && !attendanceApproved
+    requiresAttendanceApproval && (!attendanceLoaded || !attendanceApproved)
       ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)
       : access;
   const attendanceRestricted =
-    attendanceLoaded &&
     requiresAttendanceApproval &&
-    !attendanceApproved;
+    (!attendanceLoaded || !attendanceApproved);
   const categorySectionMap: Record<
     (typeof DASHBOARD_CATEGORIES)[number][0],
     AppSection[]
@@ -1331,7 +1330,7 @@ function DashboardContent() {
                 </div>
               </CardContent>
             </Card>
-            {user.role !== "staff" && (
+            {!requiresAttendanceApproval && (
               <Card className="min-w-0 md:col-span-2 lg:col-span-3 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
                 <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">

@@ -17,6 +17,26 @@ export async function registerAttendance(session: ApiSession, action: Attendance
 
     if (action === "check_in") {
       if (record?.check_in_at && !record.check_out_at) throw new Error("ALREADY_CHECKED_IN");
+      const schedule = await client.query(
+        `SELECT s.start_time, s.end_time, COALESCE(s.reminder_minutes, 20) AS reminder_minutes
+         FROM staff_profiles sp
+         LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression()} AND a.status <> 'cancelled'
+         LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
+         WHERE sp.user_id = $1 OR sp.id = $1
+         ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
+         LIMIT 1`,
+        [session.id],
+      );
+      const scheduledStart = schedule.rows[0]?.start_time;
+      const scheduledEnd = schedule.rows[0]?.end_time;
+      if (scheduledStart && scheduledEnd) {
+        const windowCheck = await client.query(
+          `SELECT (CURRENT_TIME AT TIME ZONE 'Africa/Accra') >= ($1::time - make_interval(mins => $3::int))
+             AND (CURRENT_TIME AT TIME ZONE 'Africa/Accra') < $2::time AS allowed`,
+          [scheduledStart, scheduledEnd, schedule.rows[0].reminder_minutes],
+        );
+        if (!windowCheck.rows[0]?.allowed) throw new Error("CHECKIN_OUTSIDE_SCHEDULE");
+      }
       const inserted = await client.query(
         `INSERT INTO attendance_records (staff_id, check_in_at, status, verification_status, notes)
          VALUES ($1, now(), 'pending_verification', 'pending', $2) RETURNING *`,
