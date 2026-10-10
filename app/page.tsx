@@ -666,9 +666,9 @@ function DashboardContent() {
           <div data-dashboard-category="all" className="order-2 min-w-0">
             <AnnouncementCard />
           </div>
-          <Card
-            data-dashboard-category="all"
-            data-attendance-card="true"
+  {canUseAttendanceRegister(user.role) && <Card
+  data-dashboard-category="all"
+  data-attendance-card="true"
             className="order-first hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
@@ -689,7 +689,7 @@ Check in here when you arrive. Your attendance stays pending until Admin or
               </p>
               <Link
                 href={
-                  user.role === "staff" ? "/staff/attendance" : "/attendance"
+                  "/attendance"
                 }
                 className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
               >
@@ -699,9 +699,9 @@ Check in here when you arrive. Your attendance stays pending until Admin or
                     : "Check In"
                   : "Open attendance controls"}
               </Link>
-            </CardContent>
-          </Card>
-          {dashboardAccess.events && (
+  </CardContent>
+  </Card>}
+  {dashboardAccess.events && (
             <Card
               data-dashboard-category="events"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
