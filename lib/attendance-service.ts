@@ -33,8 +33,16 @@ export async function registerAttendance(session: ApiSession, notes?: string) {
       void scheduledStart;
       void scheduledEnd;
       const inserted = await client.query(
-        `INSERT INTO attendance_records (staff_id, check_in_at, status, verification_status, notes)
-         VALUES ($1, now(), 'pending_verification', 'pending', $2) RETURNING *`,
+        `INSERT INTO attendance_records (staff_id, account_name, check_in_at, status, verification_status, notes)
+         VALUES ($1,
+           COALESCE(
+             (SELECT NULLIF(NULLIF(TRIM(name), ''), 'Staff member') FROM users WHERE id = $1),
+             (SELECT NULLIF(CONCAT_WS(' ', NULLIF(TRIM(first_name), ''), NULLIF(TRIM(last_name), '')),
+               '') FROM staff_profiles WHERE user_id = $1 OR id = $1 LIMIT 1),
+             (SELECT NULLIF(TRIM(email), '') FROM users WHERE id = $1),
+             $1::text
+           ),
+           now(), 'pending_verification', 'pending', $2) RETURNING *`,
         [session.id, notes?.slice(0, 500) ?? null],
       );
       const row = inserted.rows[0];
