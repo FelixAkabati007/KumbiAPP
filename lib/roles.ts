@@ -29,8 +29,6 @@ export const attendanceParticipantRoles: readonly UserRole[] = [
 const attendanceExcludedRoles = new Set([
   "admin",
   "administrator",
-  "manager",
-  "generalmanager",
   "operationsmanager",
   "operationalmanager",
   "hotelmanager",
