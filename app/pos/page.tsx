@@ -1475,10 +1475,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                               {item.quantity}
                             </span>
                             <span className="w-12 text-right">
-                              ₵{item.price.toFixed(2)}
+                              ₵{getDiscountedUnitPrice(item).toFixed(2)}
                             </span>
                             <span className="w-16 text-right font-semibold">
-                              ₵{(item.price * item.quantity).toFixed(2)}
+                              ₵{(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}
                             </span>
                           </div>
                         ))
