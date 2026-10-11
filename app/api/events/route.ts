@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
 import { query } from "@/lib/db";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function GET() {
   const { error } = await requirePermission("events");
@@ -89,6 +90,7 @@ export async function PATCH(request: Request) {
     );
   }
 
+  const canonicalNow = await getCanonicalTransactionTimestamp();
   const current = await query(
     "SELECT id, status, starts_at, ends_at FROM events WHERE id = $1",
     [eventId],
@@ -102,13 +104,13 @@ export async function PATCH(request: Request) {
       { status: 409 },
     );
   }
-  if (nextStatus === "completed" && event.ends_at && new Date(event.ends_at) > new Date()) {
+  if (nextStatus === "completed" && event.ends_at && new Date(event.ends_at) > new Date(canonicalNow)) {
     return NextResponse.json(
       { error: "An event can only be completed after its scheduled end" },
       { status: 400 },
     );
   }
-  if (nextStatus === "in_progress" && new Date(event.starts_at) > new Date()) {
+  if (nextStatus === "in_progress" && new Date(event.starts_at) > new Date(canonicalNow)) {
     return NextResponse.json(
       { error: "An event cannot be in progress before its scheduled start" },
       { status: 400 },
@@ -116,12 +118,12 @@ export async function PATCH(request: Request) {
   }
 
   const updated = await query(
-    "UPDATE events SET status = $1, updated_at = now() WHERE id = $2 RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes, receipt_id",
-    [nextStatus, eventId],
+    "UPDATE events SET status = $1, updated_at = $3::timestamptz WHERE id = $2 RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes, receipt_id",
+    [nextStatus, eventId, canonicalNow],
   );
   await query(
     `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, amount, currency, description, metadata, occurred_at, created_by)
-     VALUES ('status_updated', 'event', $1, 0, 'GHS', $2, $3::jsonb, now(), $4)`,
+     VALUES ('status_updated', 'event', $1, 0, 'GHS', $2, $3::jsonb, $5::timestamptz, $4)`,
     [
       eventId,
       `Event status changed to ${nextStatus}`,
@@ -131,6 +133,7 @@ export async function PATCH(request: Request) {
         source: "event_workspace",
       }),
       session.id,
+      canonicalNow,
     ],
   );
   return NextResponse.json({ event: updated.rows[0], changedBy: session.id });

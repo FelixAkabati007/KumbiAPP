@@ -7,6 +7,7 @@ export interface AuditLogParams {
   details?: Record<string, unknown>;
   performedBy?: string;
   ipAddress?: string;
+  occurredAt?: string;
 }
 
 /**
@@ -19,6 +20,7 @@ export async function logAudit({
   details,
   performedBy,
   ipAddress,
+  occurredAt,
 }: AuditLogParams): Promise<void> {
   try {
     await query(
@@ -27,9 +29,10 @@ export async function logAudit({
         entity_type, 
         entity_id, 
         details, 
-        user_id, 
-        ip_address
-      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        user_id,
+        ip_address,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::timestamptz, CURRENT_TIMESTAMP))`,
       [
         action,
         entityType,
@@ -37,6 +40,7 @@ export async function logAudit({
         details ? JSON.stringify(details) : null,
         performedBy || null,
         ipAddress || null,
+        occurredAt || null,
       ]
     );
   } catch (error) {

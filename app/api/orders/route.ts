@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 import { propertyDayExpression } from "@/lib/operational-day";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
     const { session, error } = await requirePermission("pos");
     if (error) return error;
 
+    const canonicalNow = await getCanonicalTransactionTimestamp();
     const body = await req.json();
     const idempotencyKey = req.headers.get("idempotency-key")?.trim() || (typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "");
     if (idempotencyKey.length > 160) return NextResponse.json({ error: "Invalid idempotency key" }, { status: 400 });
@@ -139,9 +141,9 @@ export async function POST(req: Request) {
 
       const orderResult = await client.query(
         `INSERT INTO kitchenorders (
-          ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9) RETURNING id`,
-        [orderNumber, billableTotal, orderType, tableNumber, customerName, paymentMethod, priority || "normal", estimatedTime, session.id]
+          ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10::timestamptz, $10::timestamptz) RETURNING id`,
+        [orderNumber, billableTotal, orderType, tableNumber, customerName, paymentMethod, priority || "normal", estimatedTime, session.id, canonicalNow]
       );
       const createdOrderId = orderResult.rows[0].id;
 

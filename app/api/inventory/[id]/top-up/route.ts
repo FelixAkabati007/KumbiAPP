@@ -4,6 +4,7 @@ import { transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 import { canTopUpInventory } from "@/lib/roles";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 const priceRoles = new Set(["admin", "manager", "restaurantManager", "kitchen", "frontDesk"]);
 
@@ -54,6 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const idempotencyKey = String(body.idempotencyKey || req.headers.get("Idempotency-Key") || crypto.randomUUID()).trim();
     if (!idempotencyKey || idempotencyKey.length > 120) return NextResponse.json({ error: "Invalid idempotency key", code: "INVALID_IDEMPOTENCY_KEY" }, { status: 400 });
 
+    const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await transaction(async (client) => {
       const existing = await client.query(`SELECT id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata FROM inventory_top_up_audit WHERE idempotency_key = $1`, [idempotencyKey]);
       if (existing.rowCount) return { audit: existing.rows[0], duplicate: true };
@@ -67,8 +69,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const updated = await client.query(`UPDATE inventory SET quantity = quantity + $1, cost_per_container = $2, cost_per_item = $3, last_updated = NOW() WHERE id = $4 RETURNING id, name, quantity, unit, cost_per_container, cost_per_item`, [quantityAdded, priceAfter, costPerItem, id]);
       const after = Number(updated.rows[0].quantity);
       const metadata = { eventType: hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", reason, staffName: session.name || session.email, staffRole: session.role, priceField: "Purchase Packaging", purchasePackagingPriceBefore: priceBefore, purchasePackagingPriceAfter: priceAfter };
-      const audit = await client.query(`INSERT INTO inventory_top_up_audit (inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, idempotency_key, source, request_metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata`, [id, before, quantityAdded, after, session.id, idempotencyKey, hasPriceChange ? "manual_top_up_price_change" : "manual_top_up", JSON.stringify(metadata)]);
-      await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, purchase_packaging_price_before, purchase_packaging_price_after, cost_per_item_before, cost_per_item_after, reason, staff_id, staff_name, staff_role, correlation_id, idempotency_key, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, [id, hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", before, quantityAdded, after, priceBefore, priceAfter, Number(item.rows[0].cost_per_item ?? 0), costPerItem, reason, session.id, session.name || session.email || session.id, session.role, idempotencyKey, idempotencyKey, JSON.stringify(metadata)]);
+      const audit = await client.query(`INSERT INTO inventory_top_up_audit (inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, idempotency_key, source, request_metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, inventory_item_id, quantity_before, quantity_added, quantity_after, performed_by, performed_at, source, request_metadata`, [id, before, quantityAdded, after, session.id, idempotencyKey, hasPriceChange ? "manual_top_up_price_change" : "manual_top_up", JSON.stringify(metadata), canonicalNow]);
+      await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, purchase_packaging_price_before, purchase_packaging_price_after, cost_per_item_before, cost_per_item_after, reason, staff_id, staff_name, staff_role, correlation_id, idempotency_key, metadata, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::timestamptz)`, [id, hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", before, quantityAdded, after, priceBefore, priceAfter, Number(item.rows[0].cost_per_item ?? 0), costPerItem, reason, session.id, session.name || session.email || session.id, session.role, idempotencyKey, idempotencyKey, JSON.stringify(metadata)]);
       return { item: updated.rows[0], audit: audit.rows[0], duplicate: false };
     });
     if (!result.duplicate) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { isShortStayRoomNumber } from "@/lib/hotels/short-stay";
-import { getAuthoritativeNow } from "@/lib/property-time";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 // Check-in guest to room
 export async function POST(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use the same authoritative clock displayed on the dashboard for persisted stay timing.
-    const authoritativeNow = await getAuthoritativeNow();
+    const canonicalNow = await getCanonicalTransactionTimestamp();
 
     // Use transaction to ensure both operations succeed
     const result = await transaction(async (client) => {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
              checkout_due_at = CASE WHEN stay_type = 'short_stay' THEN $3::timestamptz + interval '130 minutes' ELSE NULL END,
              reminder_sent_at = NULL, overstay_started_at = NULL, updated_at = $3::timestamptz
          WHERE id = $2::uuid AND status IN ('confirmed', 'pending') RETURNING *`,
-        [roomId, reservationId, authoritativeNow.toISOString()]
+        [roomId, reservationId, canonicalNow]
       );
 
       if (resResult.rowCount === 0) {
