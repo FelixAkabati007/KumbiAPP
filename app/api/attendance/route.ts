@@ -2,17 +2,20 @@ import { NextResponse } from "next/server";
 import { requirePermission, requireRole } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
+import { propertyDayExpression } from "@/lib/operational-day";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function GET(request: Request) {
   const staffAccess = await requireRole("staff");
   if (!staffAccess.error && staffAccess.session) {
+    const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
        WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
-         AND created_at::date = CURRENT_DATE
+         AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
        ORDER BY created_at DESC LIMIT 1`,
-      [staffAccess.session.id],
+      [staffAccess.session.id, canonicalNow],
     );
     const record = result.rows[0] ?? null;
     return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
