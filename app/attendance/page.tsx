@@ -42,7 +42,7 @@ export default function AttendancePage() {
     const status = statusResponse.ok ? await statusResponse.json() : null;
     setAccessDenied(false);
     setRecord(status?.record ?? null);
-    setCanCheckIn(status?.canCheckIn !== false);
+    setCanCheckIn(true);
     const review = await fetch("/api/v1/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {
