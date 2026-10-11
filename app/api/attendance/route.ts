@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
-        ATTENDANCE_NOT_APPLICABLE: "Administrators and manager accounts do not use the staff attendance register.",
+        ATTENDANCE_NOT_APPLICABLE: "Administrator accounts do not use the attendance register.",
         ATTENDANCE_PROFILE_INCOMPLETE: "Your staff profile is missing an attendance classification. Ask a manager to update it.",
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",

@@ -35,7 +35,7 @@ export default function AttendancePage() {
     const statusResponse = await fetch("/api/v1/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
-      setMessage("Administrators, manager accounts, and Finance classifications do not record attendance here. Remaining operational staff check in from this register; checkout is completed automatically from the approved schedule.");
+      setMessage("Administrators do not record attendance here. Eligible staff and managers check in from this register; checkout is completed automatically from the approved schedule.");
       setLoading(false);
       return;
     }
