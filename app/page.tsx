@@ -125,6 +125,7 @@ function DashboardContent() {
 
   const [attendanceRecord, setAttendanceRecord] = useState<{
     verification_status?: string;
+    lifecycleStatus?: string;
     check_in_at?: string | null;
     check_out_at?: string | null;
   } | null>(null);
@@ -234,7 +235,7 @@ function DashboardContent() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    void fetch("/api/attendance", { cache: "no-store" })
+    void fetch("/api/v2/attendance", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { record?: typeof attendanceRecord } | null) => {
         if (!cancelled) {
@@ -316,8 +317,9 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const requiresAttendanceApproval = user.role !== "admin" && user.role !== "manager";
-  const isAttendanceExempt = !requiresAttendanceApproval;
+  const attendanceExemptRoles = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager"];
+  const isAttendanceExempt = attendanceExemptRoles.includes(user.role);
+  const requiresAttendanceApproval = !isAttendanceExempt;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified";
   const dashboardAccess: Record<AppSection, boolean> =
