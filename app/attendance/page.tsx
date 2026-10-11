@@ -41,7 +41,7 @@ export default function AttendancePage() {
     const status = statusResponse.ok ? await statusResponse.json() : null;
     setAccessDenied(false);
     setRecord(status?.record ?? null);
-    const review = await fetch("/api/attendance/manager");
+    const review = await fetch("/api/v2/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {
       const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
@@ -71,7 +71,7 @@ export default function AttendancePage() {
     setBusy(false); if (response.ok) void load();
   }
   async function decide(id: string, status: "verified" | "late" | "rejected") {
-    await fetch("/api/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/v2/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
