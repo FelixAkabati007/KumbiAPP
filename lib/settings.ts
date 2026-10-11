@@ -254,7 +254,7 @@ const defaultSettings: AppSettings = {
 export async function fetchSettings(): Promise<AppSettings> {
   if (typeof window === "undefined") return defaultSettings;
   try {
-    const res = await fetch("/api/settings");
+    const res = await fetch("/api/v1/settings");
     if (!res.ok) {
       if (res.status === 404 || res.status === 401 || res.status === 403) {
         return defaultSettings;
@@ -313,7 +313,7 @@ export function getSettings(_useDefaults = false): AppSettings {
 
 export async function saveSettings(settings: AppSettings): Promise<{ success: true; version?: number }> {
   const { version, ...persistedSettings } = settings;
-  const response = await fetch("/api/settings", {
+  const response = await fetch("/api/v1/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...persistedSettings, expectedVersion: version }),

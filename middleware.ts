@@ -74,8 +74,31 @@ const apiPermissions: Record<string, string[]> = {
   // the route handler itself enforces admin-only writes (POST).
 };
 
+const CURRENT_API_VERSION = "v1";
+const LEGACY_API_SUNSET = "2027-10-11T00:00:00Z";
+
+function withApiLifecycleHeaders(response: NextResponse, version: string, deprecated = false) {
+  response.headers.set("X-API-Version", version);
+  response.headers.set("Vary", "X-API-Version");
+  if (deprecated) {
+    response.headers.set("Deprecation", "true");
+    response.headers.set("Sunset", LEGACY_API_SUNSET);
+    response.headers.set("Link", `</api/v1>; rel="successor-version"`);
+  }
+  return response;
+}
+
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const originalPathname = req.nextUrl.pathname;
+  const versionedApiPrefix = `/api/${CURRENT_API_VERSION}`;
+  const isVersionedApi = originalPathname === versionedApiPrefix || originalPathname.startsWith(`${versionedApiPrefix}/`);
+  const isLegacyApi = originalPathname.startsWith("/api/") && !isVersionedApi;
+  const pathname = isVersionedApi
+    ? originalPathname.slice(versionedApiPrefix.length) || "/"
+    : originalPathname;
+
+  // Versioned routes use the existing handlers after authentication and RBAC;
+  // the rewrite is applied only at the end of this middleware.
 
   // 1. Exclude Public API Routes.
   // Signup is the exception: account creation must be admin-gated, so it
@@ -85,7 +108,9 @@ export async function middleware(req: NextRequest) {
     (pathname.startsWith("/api/auth") && pathname !== "/api/auth/signup") ||
     pathname.startsWith("/api/public")
   ) {
-    return NextResponse.next();
+    return isLegacyApi
+      ? withApiLifecycleHeaders(NextResponse.next(), "legacy", true)
+      : NextResponse.next();
   }
 
   // API handlers enforce the exact capability for each method. Middleware only
@@ -158,6 +183,16 @@ export async function middleware(req: NextRequest) {
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
+  }
+
+  if (isVersionedApi) {
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = `/api${pathname}`;
+    return withApiLifecycleHeaders(NextResponse.rewrite(rewriteUrl), CURRENT_API_VERSION);
+  }
+
+  if (isLegacyApi) {
+    return withApiLifecycleHeaders(NextResponse.next(), "legacy", true);
   }
 
   return NextResponse.next();

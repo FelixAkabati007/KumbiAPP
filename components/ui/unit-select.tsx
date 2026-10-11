@@ -126,7 +126,7 @@ export function UnitSelect({
     setFetchError(null);
     try {
       if (!inFlightFetch) {
-        inFlightFetch = fetch("/api/units")
+        inFlightFetch = fetch("/api/v1/units")
           .then((response) => {
             if (!response.ok) throw new Error("Failed to fetch units");
             return response.json();

@@ -36,7 +36,7 @@ class TransactionLogger {
 
   private async persistTransaction(log: TransactionLog): Promise<void> {
     try {
-      const response = await fetch("/api/transactions/log", {
+      const response = await fetch("/api/v1/transactions/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(log),
