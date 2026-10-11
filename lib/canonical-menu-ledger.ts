@@ -20,7 +20,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
   const result = await query(`
     SELECT mi.id, mi.name, mi.description, mi.price, mi.is_available,
            mi.availability_mode, mi.inventory_mode, mi.direct_inventory_id,
-           mi.direct_units_per_sale, di.quantity AS direct_quantity,
+           mi.direct_units_per_sale, mi.created_at, di.quantity AS direct_quantity,
            legacy_i.quantity AS legacy_quantity, c.slug AS category_slug,
            COALESCE(json_agg(json_build_object(
              'name', i.name, 'requiredQuantity', ri.quantity,
@@ -34,7 +34,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
     LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
     LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
     LEFT JOIN inventory i ON i.id = ri.inventory_item_id
-    GROUP BY mi.id, c.slug, di.quantity, legacy_i.quantity
+    GROUP BY mi.id, mi.created_at, c.slug, di.quantity, legacy_i.quantity
     ORDER BY mi.created_at DESC
   `);
 
