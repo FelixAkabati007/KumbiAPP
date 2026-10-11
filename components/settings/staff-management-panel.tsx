@@ -161,7 +161,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
     jobClassification: "reception" as StaffClassification,
     employmentStatus: "active",
     role: "staff" as StaffRole,
-    operationalScope: "general" as "hotel" | "restaurant" | "general" | "events",
+operationalScope: "general" as "hotel" | "restaurant" | "general" | "events" | "staff" | "operations",
   });
 
   const loadStaff = useCallback(async () => {
