@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { query, transaction } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 const sourceSchema = z.object({
   transactionId: z.string().trim().min(1),
@@ -38,6 +39,7 @@ export async function PATCH(request: Request) {
   const { transactionId, source, reason } = parsed.data;
 
   try {
+    const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await transaction(async (client) => {
       const current = await client.query(`SELECT transaction_id, metadata FROM transaction_logs WHERE transaction_id = $1 FOR UPDATE`, [transactionId]);
       if (!current.rows[0]) return null;
@@ -51,7 +53,7 @@ export async function PATCH(request: Request) {
         originalSource: typeof metadata.originalSource === "string" ? metadata.originalSource : typeof metadata.source === "string" ? metadata.source : null,
       };
       await client.query(`UPDATE transaction_logs SET metadata = $1::jsonb WHERE transaction_id = $2`, [JSON.stringify(nextMetadata), transactionId]);
-      await client.query(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES ($1, 'RESOLVE_FINANCE_CLASSIFICATION', 'TRANSACTION', $2, $3::jsonb)`, [access.session.id, transactionId, JSON.stringify({ transactionId, assignedSource: source, reason, originalSource: nextMetadata.originalSource })]);
+      await client.query(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES ($1, 'RESOLVE_FINANCE_CLASSIFICATION', 'TRANSACTION', $2, $3::jsonb)`, [access.session.id, transactionId, JSON.stringify({ transactionId, assignedSource: source, reason, originalSource: nextMetadata.originalSource, resolvedAt: canonicalNow })]);
       return { transactionId, source, reason };
     });
     if (!result) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
