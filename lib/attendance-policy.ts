@@ -1,6 +1,6 @@
 import type { AttendanceIdentity } from "@/lib/attendance-identity";
 
-const EXEMPT_ROLES = new Set(["admin", "administrator", "general_manager", "general manager"]);
+const EXEMPT_ROLES = new Set(["admin", "administrator"]);
 
 function normalize(value: string | null | undefined) {
   return value?.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || null;
@@ -15,13 +15,14 @@ export function evaluateAttendanceEligibility(input: {
   const role = normalize(input.role) ?? "unknown";
   const classification = normalize(input.classification);
   const inactive = input.isActive === false || ["inactive", "terminated", "suspended"].includes(normalize(input.employmentStatus) ?? "");
-  const exempt = EXEMPT_ROLES.has(role) || (role.includes("manager") && !["restaurant_manager", "front_desk_manager"].includes(role));
-  const eligibleForStaffAttendance = !inactive && !exempt && Boolean(classification);
+  const exempt = EXEMPT_ROLES.has(role);
+  const managerWithoutClassification = role === "manager" || role === "general_manager";
+  const eligibleForStaffAttendance = !inactive && !exempt && (Boolean(classification) || managerWithoutClassification);
   return {
     eligibleForStaffAttendance,
     role,
     classification,
-    reason: inactive ? "INACTIVE_EMPLOYMENT" : exempt ? "EXEMPT_ROLE" : !classification ? "MISSING_CLASSIFICATION" : null,
+    reason: inactive ? "INACTIVE_EMPLOYMENT" : exempt ? "EXEMPT_ROLE" : !classification && !managerWithoutClassification ? "MISSING_CLASSIFICATION" : null,
   } as const;
 }
 

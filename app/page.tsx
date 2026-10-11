@@ -669,7 +669,7 @@ function DashboardContent() {
           <div data-dashboard-category="all" className="order-2 min-w-0">
             <AnnouncementCard />
           </div>
-  {canUseAttendanceRegister(user.role) && <Card
+  {(canUseAttendanceRegister(user.role) || ["manager", "generalmanager", "general_manager"].includes(String(user.role ?? "").replace(/[^a-z0-9_]/gi, "").toLowerCase())) && <Card
   data-dashboard-category="all"
   data-attendance-card="true"
             className="order-first hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
