@@ -84,13 +84,13 @@ export async function POST(request: NextRequest) {
       }
 
       if (paid > 0) {
-        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = NOW() WHERE reservation_id = $2::uuid`, [paid, reservationId]);
+        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = $3::timestamptz WHERE reservation_id = $2::uuid`, [paid, reservationId, canonicalNow]);
       }
 
       const resResult = await client.query(
-        `UPDATE reservations SET status = 'checked_out', updated_at = NOW()
+        `UPDATE reservations SET status = 'checked_out', updated_at = $2::timestamptz
          WHERE id = $1::uuid AND status = 'checked_in' RETURNING *`,
-        [reservationId]
+        [reservationId, canonicalNow]
       );
       if (resResult.rowCount !== 1) throw new Error("Reservation is no longer checked in");
 
@@ -98,9 +98,9 @@ export async function POST(request: NextRequest) {
       // The client may have rendered an older room_id during live refresh.
       const checkedOutRoomId = resResult.rows[0].room_id || roomId;
       const roomResult = await client.query(
-        `UPDATE rooms SET status = 'dirty', current_guest_id = NULL, updated_at = NOW()
+        `UPDATE rooms SET status = 'dirty', current_guest_id = NULL, updated_at = $2::timestamptz
          WHERE id = $1::uuid RETURNING id`,
-        [checkedOutRoomId]
+        [checkedOutRoomId, canonicalNow]
       );
       if (roomResult.rowCount !== 1) throw new Error("Room was not found");
 
@@ -126,10 +126,10 @@ export async function POST(request: NextRequest) {
       const receiptResult = await client.query(
         `UPDATE hotel_receipts
          SET version = version + 1,
-             snapshot = snapshot || jsonb_build_object('checkedOutBy', $2::jsonb, 'checkedOutAt', NOW()::text, 'balance', 0, 'paymentStatus', 'paid')
+             snapshot = snapshot || jsonb_build_object('checkedOutBy', $2::jsonb, 'checkedOutAt', $4::text, 'balance', 0, 'paymentStatus', 'paid')
          WHERE reservation_id = $1::uuid AND folio_id = $3::uuid
          RETURNING id, snapshot`,
-        [reservationId, JSON.stringify(checkoutActor), folio.id]
+        [reservationId, JSON.stringify(checkoutActor), folio.id, canonicalNow]
       );
       await client.query(
         `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)

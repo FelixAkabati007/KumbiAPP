@@ -3,6 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { z } from "zod";
 import { isShortStayRoomType, SHORT_STAY_ROOM_NUMBERS } from "@/lib/hotels/short-stay";
+import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 let shortStaySchemaReady: Promise<void> | null = null;
 
@@ -169,22 +170,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await transaction(async (client) => {
       await client.query(`SELECT pg_advisory_xact_lock(hashtext('kumbiapp-reservation-number'))`);
-      const reservationNumberResult = await client.query(`SELECT 'RES' || TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || LPAD((COUNT(*) + 1)::text, 5, '0') AS number FROM reservations WHERE created_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Accra')::date`);
+      const reservationNumberResult = await client.query(`SELECT 'RES' || TO_CHAR($1::timestamptz AT TIME ZONE 'Africa/Accra', 'YYYYMMDD') || LPAD((COUNT(*) + 1)::text, 5, '0') AS number FROM reservations WHERE created_at::date = ($1::timestamptz AT TIME ZONE 'Africa/Accra')::date`, [canonicalNow]);
       const reservationNumber = reservationNumberResult.rows[0]?.number;
       if (!reservationNumber) throw new Error("Unable to generate reservation number");
 
       const inserted = await client.query(
-        `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, stay_type, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'confirmed') RETURNING *`,
-        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, session.id, isShortStay ? "short_stay" : "overnight"]
+        `INSERT INTO reservations (reservation_number, guest_id, room_type_id, check_in_date, check_out_date, number_of_guests, total_price, special_requests, source, promo_code, discount_percent, created_by, stay_type, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'confirmed', $14::timestamptz, $14::timestamptz) RETURNING *`,
+        [reservationNumber, guestId, roomTypeId, checkInDate, checkOutDate, numberOfGuests || 1, totalPrice || 0, specialRequests || null, source || "walk_in", promoCode || null, discountPercent || 0, session.id, isShortStay ? "short_stay" : "overnight", canonicalNow]
       );
 
       await client.query(
-        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, amount, description, metadata)
-         VALUES ('booking_created', 'reservation', $1, $1, $2, $3, $4, $5)`,
-        [String(inserted.rows[0].id), inserted.rows[0].guest_id, Number(inserted.rows[0].total_price) || 0, `Booking ${reservationNumber} created`, JSON.stringify({ source: "hotel", reservationNumber, sourceChannel: source || "walk_in" })]
+        `INSERT INTO hotel_activity_ledger (event_type, entity_type, entity_id, reservation_id, guest_id, amount, description, metadata, created_at)
+         VALUES ('booking_created', 'reservation', $1, $1, $2, $3, $4, $5, $6::timestamptz)`,
+        [String(inserted.rows[0].id), inserted.rows[0].guest_id, Number(inserted.rows[0].total_price) || 0, `Booking ${reservationNumber} created`, JSON.stringify({ source: "hotel", reservationNumber, sourceChannel: source || "walk_in" }), canonicalNow]
       );
       return inserted.rows[0];
     });

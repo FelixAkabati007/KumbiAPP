@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
       // Update room status to occupied
       const updatedRoomResult = await client.query(
-        `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1::uuid), updated_at = NOW()
+        `UPDATE rooms SET status = 'occupied', current_guest_id = (SELECT guest_id FROM reservations WHERE id = $1::uuid), updated_at = $3::timestamptz
          WHERE id = $2::uuid
            AND (
              status IN ('available', 'dirty', 'cleaning')
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
                )
              )
            )`,
-        [reservationId, roomId]
+        [reservationId, roomId, canonicalNow]
       );
       if (updatedRoomResult.rowCount === 0) {
         throw new Error("Room is no longer available");
