@@ -551,7 +551,7 @@ function CheckInPage() {
     setRestaurantCart({});
     setLatestRestaurantOrder(null);
     setLoadingRestaurantMenu(true);
-    fetch("/api/menu", { cache: "no-store" })
+    fetch("/api/v2/hotels/folios/menu", { cache: "no-store" })
       .then((response) =>
         response.ok
           ? response.json()
