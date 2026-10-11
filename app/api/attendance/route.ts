@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { requirePermission, requireRole } from "@/lib/api-auth";
+import { requirePermission, requireSession } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function GET(request: Request) {
-  const staffAccess = await requireRole("staff");
-  if (!staffAccess.error && staffAccess.session) {
+  const sessionAccess = await requireSession();
+  if (!sessionAccess.error && sessionAccess.session) {
     const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await query(
       `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
        WHERE user_id = $1
          AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
        ORDER BY created_at DESC LIMIT 1`,
-      [staffAccess.session.id, canonicalNow],
+      [sessionAccess.session.id, canonicalNow],
     );
     const record = result.rows[0] ?? null;
     return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
@@ -32,12 +32,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staffAccess = await requireRole("staff");
-  if (!staffAccess.error && staffAccess.session) {
+  const sessionAccess = await requireSession();
+  if (!sessionAccess.error && sessionAccess.session) {
     const body = await request.json();
     const action = body.action === "check_out" ? "check_out" : "check_in";
     try {
-      const result = await registerAttendance(staffAccess.session, action, String(body.notes ?? ""));
+      const result = await registerAttendance(sessionAccess.session, action, String(body.notes ?? ""));
       return NextResponse.json(result, { status: 200 });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
