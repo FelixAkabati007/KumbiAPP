@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { canPerformAction, hasPermission, isAdmin, type AppSection, type CrudAction, type UserRole } from "@/lib/roles";
+import {
+  canPerformAction,
+  canUseAttendanceRegister,
+  hasPermission,
+  isAdmin,
+  type AppSection,
+  type CrudAction,
+  type UserRole,
+} from "@/lib/roles";
 
 export type ApiSession = {
   id: string;
@@ -38,14 +46,27 @@ export async function requireSession(): Promise<AuthResult> {
  * etc.) so the server enforces the same rule the UI's RoleGuard shows.
  */
 async function hasApprovedAttendance(session: ApiSession) {
-  // Admin and General Manager are the only roles exempt from the attendance gate.
-  if (session.role === "admin" || session.role === "manager") return true;
+  const identity = await query(
+    `SELECT COALESCE(sp.job_classification, sp.position) AS classification
+     FROM users u
+     LEFT JOIN staff_profiles sp ON sp.user_id = u.id
+     WHERE u.id = $1
+     LIMIT 1`,
+    [session.id],
+  );
+  const classification = identity.rows[0]?.classification
+    ? String(identity.rows[0].classification)
+    : null;
+
+  // Use the same role/classification policy as the attendance register and dashboard.
+  if (!canUseAttendanceRegister(session.role, classification)) return true;
+
   const result = await query(
     `SELECT 1
      FROM attendance_records
      WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
        AND created_at::date = CURRENT_DATE
-       AND verification_status = 'verified'
+       AND verification_status IN ('verified', 'late')
      ORDER BY created_at DESC
      LIMIT 1`,
     [session.id],
