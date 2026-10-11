@@ -10,9 +10,9 @@ export async function GET(request: Request) {
   if (!staffAccess.error && staffAccess.session) {
     const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await query(
-      `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
+      `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
-       WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+       WHERE user_id = $1
          AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
        ORDER BY created_at DESC LIMIT 1`,
       [staffAccess.session.id, canonicalNow],
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
+        STAFF_PROFILE_REQUIRED: "Your account is not linked to an active staff assignment. Contact a manager.",
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECK_IN_REQUIRED: "Check in before checking out.",
         CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",

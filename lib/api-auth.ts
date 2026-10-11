@@ -44,7 +44,7 @@ async function hasApprovedAttendance(session: ApiSession) {
   const result = await query(
     `SELECT 1
      FROM attendance_records
-     WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+     WHERE user_id = $1
        AND created_at::date = ${propertyDayExpression()}
        AND verification_status = 'verified'
      ORDER BY created_at DESC
