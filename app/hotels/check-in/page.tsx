@@ -558,7 +558,9 @@ function CheckInPage() {
           : Promise.reject(new Error("Failed to load menu")),
       )
       .then((items: MenuItem[]) =>
-        setRestaurantMenu(items.filter((item) => item.inStock)),
+        setRestaurantMenu(
+          items.filter((item) => item.isAvailable && item.inStock),
+        ),
       )
       .catch(() =>
         toast({
