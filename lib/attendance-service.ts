@@ -11,16 +11,16 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     const identity = await client.query<{ staff_id: string }>(
       `SELECT id AS staff_id
        FROM staff_profiles
-       WHERE id = $1 OR user_id = $1
-       ORDER BY CASE WHEN user_id = $1 THEN 0 ELSE 1 END
+       WHERE user_id = $1 AND is_active = true
        LIMIT 1`,
       [session.id],
     );
-    const staffId = identity.rows[0]?.staff_id ?? session.id;
+    const staffId = identity.rows[0]?.staff_id;
+    if (!staffId) throw new Error("STAFF_PROFILE_REQUIRED");
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
        FROM attendance_records
-       WHERE staff_id = $1 AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
+       WHERE user_id = $1 AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
       [staffId, canonicalNow],
     );
@@ -29,9 +29,9 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     if (action === "check_in") {
       if (record?.check_in_at && !record.check_out_at) throw new Error("ALREADY_CHECKED_IN");
       const inserted = await client.query(
-        `INSERT INTO attendance_records (staff_id, check_in_at, status, verification_status, notes)
-         VALUES ($1, $2::timestamptz, 'pending_verification', 'pending', $3) RETURNING *`,
-        [staffId, canonicalNow, notes?.slice(0, 500) ?? null],
+`INSERT INTO attendance_records (user_id, staff_id, check_in_at, status, verification_status, notes)
+       VALUES ($1, $2, $3::timestamptz, 'pending_verification', 'pending', $4) RETURNING *`,
+      [session.id, staffId, canonicalNow, notes?.slice(0, 500) ?? null],
       );
       const row = inserted.rows[0];
       await client.query(
@@ -60,8 +60,7 @@ export async function registerAttendance(session: ApiSession, action: Attendance
        FROM staff_profiles sp
        LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression("$2::timestamptz")} AND a.status <> 'cancelled'
        LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
-       WHERE sp.user_id = $1 OR sp.id = $1
-       ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
+       WHERE sp.user_id = $1 AND sp.is_active = true
        LIMIT 1`,
       [session.id, canonicalNow],
     );
