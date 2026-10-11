@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
     const messages: Record<string, string> = {
       STAFF_PROFILE_REQUIRED: "Your account is not linked to an active staff assignment. Contact a manager.",
-      ALREADY_CHECKED_IN: "You already have an attendance session for today.",
+      ALREADY_CHECKED_IN: "You already have an attendance session for the current scheduled day.",
       CHECK_IN_REQUIRED: "Check in before checking out.",
       CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
       ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
@@ -58,8 +58,3 @@ export async function POST(request: Request) {
 export function OPTIONS() {
   return NextResponse.json({ apiVersion: "2", status: "ok" }, { headers });
 }
-
-export { statusLabel };
-
-export const deprecatedLegacyEndpoint = "/api/attendance";
-export const migrationGuidance = "Use /api/v2/attendance. The legacy endpoint remains backward-compatible during migration.";

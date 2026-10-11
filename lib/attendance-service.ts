@@ -20,7 +20,8 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
        FROM attendance_records
-       WHERE user_id = $1 AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
+       WHERE staff_id = $1
+         AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
       [staffId, canonicalNow],
     );

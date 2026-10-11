@@ -64,9 +64,9 @@ export default function AttendancePage() {
 
   async function register(action: "check_in" | "check_out") {
     setBusy(true); setMessage("");
-    const response = await fetch("/api/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const response = await fetch("/api/v2/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const data = await response.json();
-    setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in to use the attendance register." : data.error ?? "Unable to update register");
+    setMessage(response.ok ? (action === "check_in" ? "Check-In recorded. Waiting for approval." : "Check-Out recorded for today.") : response.status === 401 || response.status === 403 ? "Sign in to use the attendance register." : data.error ?? "Unable to update register");
     setAccessDenied(response.status === 401 || response.status === 403);
     setBusy(false); if (response.ok) void load();
   }
