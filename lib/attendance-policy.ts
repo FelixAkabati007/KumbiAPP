@@ -16,7 +16,7 @@ export function evaluateAttendanceEligibility(input: {
   const classification = normalize(input.classification);
   const inactive = input.isActive === false || ["inactive", "terminated", "suspended"].includes(normalize(input.employmentStatus) ?? "");
   const exempt = EXEMPT_ROLES.has(role);
-  const managerWithoutClassification = role === "manager" || role === "general_manager";
+  const managerWithoutClassification = ["manager", "general_manager", "generalmanager"].includes(role);
   const eligibleForStaffAttendance = !inactive && !exempt && (Boolean(classification) || managerWithoutClassification);
   return {
     eligibleForStaffAttendance,
