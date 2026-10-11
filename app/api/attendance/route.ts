@@ -9,9 +9,6 @@ export async function GET(request: Request) {
   const sessionAccess = await requireSession();
   if (!sessionAccess.error && sessionAccess.session) {
     const identity = await resolveAttendanceIdentity(sessionAccess.session);
-    if (!identity.canCheckIn) {
-      return NextResponse.json({ record: null, canCheckIn: false, nextAction: "not_applicable", code: identity.eligibilityReason ?? "NOT_ATTENDANCE_ELIGIBLE" });
-    }
     const staffIds = attendanceStaffIds(identity);
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
@@ -45,9 +42,6 @@ export async function POST(request: Request) {
   const staffAccess = await requireSession();
   if (!staffAccess.error && staffAccess.session) {
     const identity = await resolveAttendanceIdentity(staffAccess.session);
-    if (!identity.canCheckIn) {
-      return NextResponse.json({ error: "Attendance is not applicable to this account", code: "ATTENDANCE_NOT_APPLICABLE" }, { status: 403 });
-    }
     const body = await request.json();
     if (body.action !== "check_in") {
       return NextResponse.json({ error: "Manual checkout is permanently disabled. Checkout is completed automatically from the approved schedule.", code: "MANUAL_CHECKOUT_DISABLED" }, { status: 410 });
@@ -58,8 +52,6 @@ export async function POST(request: Request) {
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
-        ATTENDANCE_NOT_APPLICABLE: "Administrator accounts do not use the attendance register.",
-        ATTENDANCE_PROFILE_INCOMPLETE: "Your staff profile is missing an attendance classification. Ask a manager to update it.",
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",

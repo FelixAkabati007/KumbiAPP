@@ -6,7 +6,6 @@ import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function registerAttendance(session: ApiSession, notes?: string) {
   const identity = await resolveAttendanceIdentity(session);
-  if (!identity.canCheckIn) throw new Error(identity.eligibilityReason === "MISSING_CLASSIFICATION" ? "ATTENDANCE_PROFILE_INCOMPLETE" : "ATTENDANCE_NOT_APPLICABLE");
   const canonicalNow = await getCanonicalTransactionTimestamp();
 
   return transaction(async (client) => {
