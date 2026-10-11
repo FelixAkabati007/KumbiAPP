@@ -56,7 +56,7 @@ export default function AttendanceReportsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetch(`/api/attendance/reports?range=${range}`, { cache: "no-store" })
+    fetch(`/api/v1/attendance/reports?range=${range}`, { cache: "no-store" })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "Unable to load report");

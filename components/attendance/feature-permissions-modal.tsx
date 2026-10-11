@@ -50,7 +50,7 @@ export function FeaturePermissionsModal({
     const loadPermissions = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/attendance/feature-permissions?staffId=${staffId}`);
+        const res = await fetch(`/api/v1/attendance/feature-permissions?staffId=${staffId}`);
         if (!res.ok) throw new Error("Failed to load permissions");
         const data = await res.json();
         setPermissions(data.permissions);
@@ -81,7 +81,7 @@ export function FeaturePermissionsModal({
 
     setSaving(true);
     try {
-      const res = await fetch("/api/attendance/feature-permissions", {
+      const res = await fetch("/api/v1/attendance/feature-permissions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

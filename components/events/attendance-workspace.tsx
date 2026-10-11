@@ -9,7 +9,7 @@ export function AttendanceWorkspace({ eventId }: { eventId: string }) {
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
-    const response = await fetch(`/api/attendance?eventId=${encodeURIComponent(eventId)}`, { cache: "no-store" });
+    const response = await fetch(`/api/v1/attendance?eventId=${encodeURIComponent(eventId)}`, { cache: "no-store" });
     const data = await response.json();
     setRecords(data.attendance ?? []);
   };
@@ -24,7 +24,7 @@ export function AttendanceWorkspace({ eventId }: { eventId: string }) {
         navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 3000 });
       });
       const payload = { eventId, action, attendanceId, latitude: position?.coords.latitude ?? null, longitude: position?.coords.longitude ?? null };
-      const response = await fetch("/api/attendance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetch("/api/v1/attendance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error("Attendance request failed");
       setQueued(false);
       await load();
