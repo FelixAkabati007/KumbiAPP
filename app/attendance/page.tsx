@@ -6,13 +6,14 @@ import { ArrowLeft, CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } fr
 import { FeaturePermissionsModal } from "@/components/attendance/feature-permissions-modal";
 import { BulkFeaturePermissions, type StaffPermissionRow } from "@/components/attendance/bulk-feature-permissions";
 
-interface RecordRow { id: string; staff_id?: string; staff_name?: string; position?: string; job_classification?: string; department?: string; staff_email?: string; staff_role?: string; check_in_at?: string; check_out_at?: string; status: string; verification_status: string; verified_at?: string; shift_period?: string }
+interface RecordRow { id: string; staff_id?: string; staff_name?: string; position?: string; job_classification?: string; department?: string; staff_email?: string; staff_role?: string; check_in_at?: string; check_out_at?: string; status: string; verification_status: string; lifecycleStatus?: string; verified_at?: string; shift_period?: string }
 interface ManagerData { pending: RecordRow[]; summary?: { present: string; pending: string; absent: string }; frequency: { staff_id: string; verified_days: string; recorded_days: string }[] }
 interface AttendanceException { id: string; staff_name?: string; attendance_date: string; status: string; manager_message?: string; staff_reply?: string }
 interface PermissionRequest { id: string; staff_name?: string; start_date: string; end_date: string; reason: string; handover_notes?: string; status: string; reviewer_message?: string }
 interface LeaveRequest { id: string; staff_name?: string; leave_type: string; start_date: string; end_date: string; reason: string; status: string; medical_report_path?: string; reviewer_message?: string }
 
 function formatTime(value?: string) { return value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"; }
+function formatLifecycleStatus(value?: string) { return ({ waiting_for_approval: "Waiting for approval", approved: "Approved", approved_late: "Approved (late)", rejected: "Rejected", completed: "Completed", not_checked_in: "Not checked in" } as Record<string, string>)[value ?? ""] ?? value ?? "Not checked in"; }
 
 export default function AttendancePage() {
   const [record, setRecord] = useState<RecordRow | null>(null);
@@ -30,7 +31,7 @@ export default function AttendancePage() {
 
   async function load() {
     setLoading(true);
-    const statusResponse = await fetch("/api/attendance");
+    const statusResponse = await fetch("/api/v2/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
       setMessage("Sign in to record your attendance for today.");
@@ -100,7 +101,7 @@ export default function AttendancePage() {
         <div><p className="text-sm font-medium text-primary">Workforce operations</p><h1 className="responsive-heading font-bold tracking-tight">Register</h1><p className="important-description mt-2 text-sm">Record your shift attendance and keep the monthly performance score accurate.</p></div>
       </header>
       <section className="rounded-2xl border border-border bg-background p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-muted-foreground">Check-in is timestamped immediately and confirmed by a manager before attendance points are awarded.</p><p className="mt-3 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{loading ? "Loading…" : record?.verification_status ?? "Not checked in"}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div>{!accessDenied && <div className="w-full lg:w-auto">{!accessDenied && nextAction === "check_in" && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogIn className="h-4 w-4" />Check In</button>}{!accessDenied && nextAction === "check_out" && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogOut className="h-4 w-4" />Check Out</button>}{!accessDenied && nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">Completed for today</div>}</div>}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-muted-foreground">Check-in is timestamped immediately and confirmed by a manager before attendance points are awarded.</p><p className="mt-3 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{loading ? "Loading…" : formatLifecycleStatus(record?.lifecycleStatus ?? record?.verification_status)}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div>{!accessDenied && <div className="w-full lg:w-auto">{!accessDenied && nextAction === "check_in" && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogIn className="h-4 w-4" />Check In</button>}{!accessDenied && nextAction === "check_out" && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogOut className="h-4 w-4" />Check Out</button>}{!accessDenied && nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">Completed for today</div>}</div>}
         </div>
         {message && <div role="status" className={`mt-4 rounded-xl border p-3 text-sm ${accessDenied ? "border-amber-200 bg-amber-50 text-amber-900" : "border-border bg-muted text-foreground"}`}>{message}</div>}
       </section>
