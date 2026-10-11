@@ -5,8 +5,14 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enums (Create if not exists pattern)
 DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'manager', 'staff', 'kitchen');
+  EXCEPTION
+  WHEN duplicate_object THEN null;
+  END $$;
+
+DO $$ BEGIN
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'operationsManager';
 EXCEPTION
-WHEN duplicate_object THEN null;
+  WHEN duplicate_object THEN null;
 END $$;
 DO $$ BEGIN CREATE TYPE order_status AS ENUM (
     'pending',
