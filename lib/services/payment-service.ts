@@ -256,7 +256,7 @@ export class PaymentService {
 
       // Log cash transaction to DB
       try {
-        await fetch("/api/transactions/log", {
+        await fetch("/api/v1/transactions/log", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(logData),
@@ -298,7 +298,7 @@ export class PaymentService {
 
       // Log transaction to DB
       try {
-        await fetch("/api/transactions/log", {
+        await fetch("/api/v1/transactions/log", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(logData),
