@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
        WHERE staff_id = ANY($1::uuid[])
-         AND created_at::date = ${propertyDayExpression()}
+         AND ${propertyDayExpression("created_at")} = ${propertyDayExpression()}
        ORDER BY created_at DESC LIMIT 1`,
       [staffIds],
     );
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       record,
       canCheckIn: true,
       nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete",
-      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, classification: identity.classification, displayName: identity.displayName },
+      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, classification: identity.classification, displayName: identity.displayName, eligibilityReason: identity.eligibilityReason },
       sourceOfTruth: "users.role + staff_profiles + attendance_records",
     });
   }

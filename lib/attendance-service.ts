@@ -25,12 +25,12 @@ export async function registerAttendance(session: ApiSession, notes?: string) {
       `SELECT ss.id AS shift_id, ss.scheduled_start, ss.scheduled_end,
               20 AS reminder_minutes
        FROM staff_shifts ss
-       WHERE ss.staff_id = $1
+       WHERE ss.staff_id = ANY($1::uuid[])
          AND ss.shift_date = ${propertyDayExpression()}::date
          AND ss.status <> 'cancelled'
        ORDER BY ss.scheduled_start NULLS LAST
        LIMIT 1`,
-      [identity.staffProfileId ?? identity.userId],
+      [[identity.userId, identity.staffProfileId].filter(Boolean)],
     );
     const scheduled = shift.rows[0] ?? null;
     const lateMinutes = scheduled?.scheduled_start
