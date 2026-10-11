@@ -33,7 +33,7 @@ export default function AttendancePage() {
     const statusResponse = await fetch("/api/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
-      setMessage("Administrators do not use the staff attendance register. Return to the dashboard to continue.");
+      setMessage("Sign in to record your attendance for today.");
       setLoading(false);
       return;
     }
