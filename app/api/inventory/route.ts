@@ -16,6 +16,7 @@ import {
   normalizeInventoryUnit,
 } from "@/lib/inventory-units";
 import { getInventoryCostValidationError } from "@/lib/inventory-cost";
+import { getCanonicalInventoryMenuLedger } from "@/lib/canonical-menu-ledger";
 
 export async function GET() {
   try {
@@ -24,6 +25,8 @@ export async function GET() {
     const res = await query(
       `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode FROM inventory i LEFT JOIN menu_items mi ON mi.id = i.menu_item_id ORDER BY i.last_updated DESC`,
     );
+    const canonicalMenuLedger = await getCanonicalInventoryMenuLedger();
+    const availabilityByInventoryName = new Map(canonicalMenuLedger.map((item) => [item.name, item]));
     return NextResponse.json(
       res.rows.map((r: Record<string, unknown>) => ({
         id: r.id,
@@ -46,6 +49,7 @@ export async function GET() {
         recipeUnit: r.recipe_unit ?? undefined,
         conversionRatio: String(r.conversion_ratio ?? ""),
         conversionType: r.conversion_type ?? "standard",
+        canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
       })),
     );
   } catch (error) {
