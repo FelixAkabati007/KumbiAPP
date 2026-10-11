@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
     }
 
-    if (role === "manager" && !["hotel", "restaurant", "general"].includes(managerScope)) {
+    if (!["hotel", "restaurant", "general", "events", "staff", "operations"].includes(managerScope)) {
       return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
     }
 
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
           session.id,
           "active",
           true,
-          staffRole === "manager" ? managerScope : "general",
+          managerScope,
           eventScope,
         ]
       );
