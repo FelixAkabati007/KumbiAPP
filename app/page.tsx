@@ -327,13 +327,10 @@ function DashboardContent() {
   const isAttendanceExempt = !requiresAttendanceApproval;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified" || attendanceStatus === "late";
-  const dashboardAccess: Record<AppSection, boolean> =
-    requiresAttendanceApproval && (!attendanceLoaded || !attendanceApproved)
-      ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)
-      : access;
-  const attendanceRestricted =
-    requiresAttendanceApproval &&
-    (!attendanceLoaded || !attendanceApproved);
+  // Attendance approval controls attendance actions only. Other authorized
+  // application sections must remain usable while approval is pending.
+  const dashboardAccess: Record<AppSection, boolean> = access;
+  const attendanceRestricted = false;
   const categorySectionMap: Record<
     (typeof DASHBOARD_CATEGORIES)[number][0],
     AppSection[]
