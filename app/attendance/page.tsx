@@ -46,7 +46,7 @@ export default function AttendancePage() {
     const review = await fetch("/api/v1/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {
-      const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
+      const staffResponse = await fetch("/api/v1/attendance/feature-permissions", { cache: "no-store" });
       if (staffResponse.ok) {
         const staffData = await staffResponse.json();
         const rows = (staffData.permissions ?? []).filter((item: { staff_id?: string }) => item.staff_id) as StaffPermissionRow[];
@@ -54,11 +54,11 @@ export default function AttendancePage() {
         setStaffAccounts(rows.map((item) => ({ id: item.staff_id, name: item.staff_name || "Staff member", email: "", leave: item.leave_requests_enabled !== false, planned: item.planned_absence_enabled !== false, exceptions: item.attendance_exceptions_enabled !== false })));
       }
     }
-    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
+    const exceptionResponse = await fetch("/api/v1/attendance/exceptions", { cache: "no-store" });
     if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
-    const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
+    const permissionResponse = await fetch("/api/v1/attendance/permissions", { cache: "no-store" });
     if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
-    const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
+    const leaveResponse = await fetch("/api/v1/attendance/leave", { cache: "no-store" });
     if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
     setLoading(false);
   }
@@ -90,17 +90,17 @@ export default function AttendancePage() {
   }
 
   async function decideLeave(id: string, status: "approved" | "denied") {
-    await fetch("/api/attendance/leave", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/v1/attendance/leave", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
   async function decidePermission(id: string, status: "approved" | "denied") {
-    await fetch("/api/attendance/permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/v1/attendance/permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
   async function decideException(id: string, status: "approved" | "denied" | "resumed") {
-    await fetch("/api/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/v1/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
