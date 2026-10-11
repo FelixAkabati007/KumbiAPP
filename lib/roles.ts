@@ -15,65 +15,6 @@ export type UserRole =
 
 export const managementRoles: UserRole[] = ["admin", "manager", "restaurantManager", "hotelManager", "finance", "operationsManager"];
 
-/** Operational roles that use the attendance register; management roles are dashboard-exempt. */
-export const attendanceParticipantRoles: readonly UserRole[] = [
-  "staff",
-  "kitchen",
-  "frontDesk",
-  "restaurantFrontDesk",
-  "waiterWaitress",
-  "housekeeping",
-  "finance",
-];
-
-const attendanceExcludedRoles = new Set([
-  "admin",
-  "administrator",
-  "operationsmanager",
-  "operationalmanager",
-  "hotelmanager",
-  "restaurantmanager",
-]);
-
-export function canUseAttendanceRegister(role?: string | null, classification?: string | null): boolean {
-  const normalizedRole = String(role ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const normalizedClassification = String(classification ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const attendanceExemptClassifications = new Set([
-    "reception",
-    "restaurantfrontdeskpos",
-    "restaurantfrontdesk",
-    "restaurantpos",
-    "waiterwaitress",
-    "waiter",
-    "waitress",
-    "chef",
-    "housekeeping",
-    "security",
-    "labour",
-    "labor",
-    "labourer",
-    "accountsfinance",
-    "finance",
-    "other",
-  ]);
-  if (attendanceExcludedRoles.has(normalizedRole) || attendanceExemptClassifications.has(normalizedClassification)) return false;
-  const roleAliases: Record<string, UserRole> = {
-    chef: "kitchen",
-    reception: "frontDesk",
-    hotelreception: "frontDesk",
-    restaurantfrontdesk: "restaurantFrontDesk",
-    waiter: "waiterWaitress",
-    waitress: "waiterWaitress",
-    operationalmanager: "operationsManager",
-    operationsmanager: "operationsManager",
-    restaurantmanager: "restaurantManager",
-    hotelmanager: "hotelManager",
-    financemanager: "finance",
-  };
-  const canonicalRole = roleAliases[normalizedRole] ?? role;
-  return isUserRole(canonicalRole) && attendanceParticipantRoles.includes(canonicalRole);
-}
-
 export const roleOptions: { value: UserRole; label: string; description: string }[] = [
   { value: "staff", label: "Staff", description: "Operational staff access; duties are defined by the access profile." },
   { value: "kitchen", label: "Chef", description: "Prepare and complete kitchen orders with limited operational stock visibility." },

@@ -566,7 +566,7 @@ export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="space-y-1"><Label htmlFor="staff-classification">Role or job classification</Label><p className="text-xs text-muted-foreground">Choose Operations for cross-department staff. This synchronizes the department and position defaults; access is controlled by the access role.</p></div>
+                  <div className="space-y-1"><Label htmlFor="staff-classification">Job classification</Label><p className="text-xs text-muted-foreground">Your day-to-day function. This guides defaults; access is controlled by the access role.</p></div>
                   <Select
                     value={createForm.jobClassification}
                     onValueChange={(value) => {

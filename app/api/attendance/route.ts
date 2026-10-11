@@ -1,31 +1,21 @@
 import { NextResponse } from "next/server";
-import { requirePermission, requireRole, requireSession } from "@/lib/api-auth";
+import { requirePermission, requireRole } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
-import { propertyDayExpression } from "@/lib/operational-day";
-import { resolveAttendanceIdentity, attendanceStaffIds } from "@/lib/attendance-identity";
 
 export async function GET(request: Request) {
-  const sessionAccess = await requireSession();
-  if (!sessionAccess.error && sessionAccess.session) {
-    const identity = await resolveAttendanceIdentity(sessionAccess.session);
-    const staffIds = attendanceStaffIds(identity);
+  const staffAccess = await requireRole("staff");
+  if (!staffAccess.error && staffAccess.session) {
     const result = await query(
       `SELECT id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
        FROM attendance_records
-       WHERE staff_id = ANY($1::uuid[])
-         AND ${propertyDayExpression("created_at")} = ${propertyDayExpression()}
+       WHERE (staff_id = $1 OR staff_id = (SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1))
+         AND created_at::date = CURRENT_DATE
        ORDER BY created_at DESC LIMIT 1`,
-      [staffIds],
+      [staffAccess.session.id],
     );
     const record = result.rows[0] ?? null;
-    return NextResponse.json({
-      record,
-      canCheckIn: true,
-      nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "waiting" : "complete",
-      identity: { userId: identity.userId, staffProfileId: identity.staffProfileId, role: identity.role, classification: identity.classification, displayName: identity.displayName, eligibilityReason: identity.eligibilityReason },
-      sourceOfTruth: "users.role + staff_profiles + attendance_records",
-    });
+    return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
   }
   const { error } = await requirePermission("events");
   if (error) return error;
@@ -39,21 +29,19 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staffAccess = await requireSession();
+  const staffAccess = await requireRole("staff");
   if (!staffAccess.error && staffAccess.session) {
-    const identity = await resolveAttendanceIdentity(staffAccess.session);
     const body = await request.json();
-    if (body.action !== "check_in") {
-      return NextResponse.json({ error: "Manual checkout is permanently disabled. Checkout is completed automatically from the approved schedule.", code: "MANUAL_CHECKOUT_DISABLED" }, { status: 410 });
-    }
+    const action = body.action === "check_out" ? "check_out" : "check_in";
     try {
-      const result = await registerAttendance(staffAccess.session, String(body.notes ?? ""));
+      const result = await registerAttendance(staffAccess.session, action, String(body.notes ?? ""));
       return NextResponse.json(result, { status: 200 });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
         ALREADY_CHECKED_IN: "You are already checked in.",
-        CHECKIN_OUTSIDE_SCHEDULE: "Check-in is available for your current shift.",
+        CHECK_IN_REQUIRED: "Check in before checking out.",
+        CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
       };
       return NextResponse.json({ error: messages[code] ?? "Unable to update attendance", code }, { status: 409 });
@@ -71,16 +59,7 @@ export async function POST(request: Request) {
   }
   const result = await query(
     action === "clock_in"
-      ? `INSERT INTO attendance_logs (user_id, event_id, clock_in, gps_in_lat, gps_in_long, is_out_of_bounds, status, notes, account_name)
-         VALUES ($1, $2, NOW(), $3, $4, $5, 'pending', $6,
-           COALESCE(
-             (SELECT NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member') FROM users u WHERE u.id = $1),
-             (SELECT NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')),
-               '') FROM staff_profiles sp WHERE sp.id = $1 OR sp.user_id = $1 LIMIT 1),
-             (SELECT NULLIF(TRIM(u.email), '') FROM users u WHERE u.id = $1),
-             $1::text
-           )
-         ) RETURNING *`
+      ? `INSERT INTO attendance_logs (user_id, event_id, clock_in, gps_in_lat, gps_in_long, is_out_of_bounds, status, notes) VALUES ($1, $2, NOW(), $3, $4, $5, 'pending', $6) RETURNING *`
       : `UPDATE attendance_logs SET clock_out = NOW(), gps_out_lat = $2, gps_out_long = $3, updated_at = NOW() WHERE id = $1 AND user_id = $4 AND clock_out IS NULL RETURNING *`,
     action === "clock_in" ? [session.id, eventId, latitude, longitude, Boolean(body.isOutOfBounds), String(body.notes ?? "").trim() || null] : [String(body.attendanceId ?? ""), latitude, longitude, session.id],
   );

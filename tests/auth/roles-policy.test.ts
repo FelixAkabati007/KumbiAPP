@@ -39,9 +39,6 @@ describe("RBAC policy", () => {
   it("accepts aligned role, scope, and job classification combinations", () => {
     expect(validateStaffAccessProfile({ role: "frontDesk", classification: "reception", scope: "hotel" }).valid).toBe(true);
     expect(validateStaffAccessProfile({ role: "kitchen", classification: "chef", scope: "restaurant" }).valid).toBe(true);
-  expect(validateStaffAccessProfile({ role: "operationsManager", classification: "operations", scope: "general" }).valid).toBe(true);
-  expect(validateStaffAccessProfile({ role: "hotelManager", classification: "hotelManager", scope: "hotel" }).valid).toBe(true);
-  expect(validateStaffAccessProfile({ role: "restaurantManager", classification: "restaurantManager", scope: "restaurant" }).valid).toBe(true);
   });
 
   it("treats classification as guidance but rejects invalid scope", () => {

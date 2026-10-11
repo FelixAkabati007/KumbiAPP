@@ -1,3 +1,3 @@
-import AttendancePage from "@/app/attendance/page";
+import StaffAttendancePage from "@/app/staff/page";
 
-export default AttendancePage;
+export default StaffAttendancePage;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Clock3, LogIn, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
 import { FeaturePermissionsModal } from "@/components/attendance/feature-permissions-modal";
 import { BulkFeaturePermissions, type StaffPermissionRow } from "@/components/attendance/bulk-feature-permissions";
 
@@ -27,24 +27,23 @@ export default function AttendancePage() {
   const [staffAccounts, setStaffAccounts] = useState<{ id: string; name: string; email: string; leave: boolean; planned: boolean; exceptions: boolean }[]>([]);
   const [permissionRows, setPermissionRows] = useState<StaffPermissionRow[]>([]);
   const [permissionTarget, setPermissionTarget] = useState<{ id: string; name: string } | null>(null);
-  const [dashboardTime, setDashboardTime] = useState<Date | null>(null);
 
   async function load() {
     setLoading(true);
-    const statusResponse = await fetch("/api/v1/attendance");
+    const statusResponse = await fetch("/api/attendance");
     if (statusResponse.status === 401 || statusResponse.status === 403) {
       setAccessDenied(true);
-      setMessage("Sign in with an authorized account to use the attendance register.");
+      setMessage("Administrators do not use the staff attendance register. Return to the dashboard to continue.");
       setLoading(false);
       return;
     }
     const status = statusResponse.ok ? await statusResponse.json() : null;
     setAccessDenied(false);
     setRecord(status?.record ?? null);
-    const review = await fetch("/api/v1/attendance/manager");
+    const review = await fetch("/api/attendance/manager");
     if (review.ok) setManager(await review.json());
     if (review.ok) {
-      const staffResponse = await fetch("/api/v1/attendance/feature-permissions", { cache: "no-store" });
+      const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
       if (staffResponse.ok) {
         const staffData = await staffResponse.json();
         const rows = (staffData.permissions ?? []).filter((item: { staff_id?: string }) => item.staff_id) as StaffPermissionRow[];
@@ -52,57 +51,45 @@ export default function AttendancePage() {
         setStaffAccounts(rows.map((item) => ({ id: item.staff_id, name: item.staff_name || "Staff member", email: "", leave: item.leave_requests_enabled !== false, planned: item.planned_absence_enabled !== false, exceptions: item.attendance_exceptions_enabled !== false })));
       }
     }
-    const exceptionResponse = await fetch("/api/v1/attendance/exceptions", { cache: "no-store" });
+    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
     if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
-    const permissionResponse = await fetch("/api/v1/attendance/permissions", { cache: "no-store" });
+    const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
     if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
-    const leaveResponse = await fetch("/api/v1/attendance/leave", { cache: "no-store" });
+    const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
     if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
     setLoading(false);
   }
-  useEffect(() => {
-  void load();
-  let cancelled = false;
-  const syncDashboardClock = async () => {
-  const response = await fetch("/api/system/time", { cache: "no-store" });
-  if (!response.ok) return;
-  const payload = await response.json() as { iso?: string };
-  if (!cancelled && payload.iso) setDashboardTime(new Date(payload.iso));
-  };
-  void syncDashboardClock();
-  const timer = window.setInterval(() => void syncDashboardClock(), 30000);
-  return () => { cancelled = true; window.clearInterval(timer); };
-  }, []);
+  useEffect(() => { void load(); }, []);
 
-  async function register(action: "check_in") {
+  async function register(action: "check_in" | "check_out") {
     setBusy(true); setMessage("");
-    const response = await fetch("/api/v1/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const response = await fetch("/api/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const data = await response.json();
-    setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in with an authorized staff account to use the attendance register." : data.error ?? "Unable to update register");
+    setMessage(response.ok ? "Register updated. Manager verification is pending." : response.status === 401 || response.status === 403 ? "Sign in with a staff account to use the attendance register." : data.error ?? "Unable to update register");
     setAccessDenied(response.status === 401 || response.status === 403);
     setBusy(false); if (response.ok) void load();
   }
   async function decide(id: string, status: "verified" | "late" | "rejected") {
-    await fetch("/api/v1/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
   async function decideLeave(id: string, status: "approved" | "denied") {
-    await fetch("/api/v1/attendance/leave", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/attendance/leave", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
   async function decidePermission(id: string, status: "approved" | "denied") {
-    await fetch("/api/v1/attendance/permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/attendance/permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
   async function decideException(id: string, status: "approved" | "denied" | "resumed") {
-    await fetch("/api/v1/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await fetch("/api/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
     void load();
   }
 
-  const nextAction = record?.check_in_at ? (record.check_out_at ? "complete" : "waiting") : "check_in";
+  const nextAction = record?.check_in_at && !record.check_out_at ? "check_out" : record?.check_out_at ? "complete" : "check_in";
   return <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-8">
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-4">
@@ -110,10 +97,10 @@ export default function AttendancePage() {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to dashboard
         </Link>
-        <div><p className="text-sm font-medium text-primary">Workforce operations</p><h1 className="responsive-heading font-bold tracking-tight">Register</h1><p className="important-description mt-2 text-sm">Check in for your shift and wait for approval before opening other workspaces.</p></div>
+        <div><p className="text-sm font-medium text-primary">Workforce operations</p><h1 className="responsive-heading font-bold tracking-tight">Register</h1><p className="important-description mt-2 text-sm">Record your shift attendance and keep the monthly performance score accurate.</p></div>
       </header>
       <section className="rounded-2xl border border-border bg-background p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-muted-foreground">Check in here, then wait for Admin or General Manager approval before opening other workspaces. Administrators open operational workspaces directly. Attendance points are awarded only after approval.</p><p className="mt-3 text-xs font-semibold text-primary">Dashboard clock: {dashboardTime ? new Intl.DateTimeFormat("en-GH", { timeZone: "Africa/Accra", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).format(dashboardTime) : "—"}</p><p className="mt-2 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{loading ? "Loading…" : record?.verification_status === "pending" ? "Waiting for approval" : record?.verification_status ?? "Not checked in"}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div><div className="w-full lg:w-auto">{nextAction === "check_in" && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogIn className="h-4 w-4" />Check In</button>}{nextAction === "waiting" && <div className={`rounded-xl border px-4 py-3 text-center text-sm font-semibold ${record?.verification_status === "verified" || record?.verification_status === "late" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>{record?.verification_status === "verified" || record?.verification_status === "late" ? "Approved — checkout follows the approved schedule" : "Waiting for Admin or General Manager approval"}</div>}{!accessDenied && nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">Completed for today</div>}</div>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></div><div><h2 className="text-xl font-semibold">Today&apos;s register</h2><p className="mt-1 text-sm text-muted-foreground">Check-in is timestamped immediately and confirmed by a manager before attendance points are awarded.</p><p className="mt-3 text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{loading ? "Loading…" : record?.verification_status ?? "Not checked in"}</span> · In {formatTime(record?.check_in_at)} · Out {formatTime(record?.check_out_at)}</p></div></div>{!accessDenied && <div className="w-full lg:w-auto">{!accessDenied && nextAction === "check_in" && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogIn className="h-4 w-4" />Check In</button>}{!accessDenied && nextAction === "check_out" && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50 lg:w-auto"><LogOut className="h-4 w-4" />Check Out</button>}{!accessDenied && nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">Completed for today</div>}</div>}
         </div>
         {message && <div role="status" className={`mt-4 rounded-xl border p-3 text-sm ${accessDenied ? "border-amber-200 bg-amber-50 text-amber-900" : "border-border bg-muted text-foreground"}`}>{message}</div>}
       </section>

@@ -28,7 +28,7 @@ export function BulkFeaturePermissions({ accounts, onChange }: { accounts: Staff
     setBusy(true); setMessage("");
     const body: Record<string, unknown> = { staffIds: selected, applyToDepartment: !selected.length && department !== "all", department };
     if (feature) body[feature] = value; else Object.assign(body, { leaveRequestsEnabled: value, plannedAbsenceEnabled: value, attendanceExceptionsEnabled: value });
-    const response = await fetch("/api/v1/attendance/feature-permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const response = await fetch("/api/attendance/feature-permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) setMessage(data.error || "Unable to update permissions.");
     else { onChange(data.permissions ?? []); setSelected([]); setMessage(`${data.updatedCount ?? 0} account${data.updatedCount === 1 ? "" : "s"} updated.`); }

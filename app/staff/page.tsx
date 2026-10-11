@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3, LogIn, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 
 interface AttendanceRecord {
@@ -57,9 +57,9 @@ export default function StaffPage() {
 
   async function load() {
     const [attendanceResponse, scheduleResponse, featureResponse] = await Promise.all([
-      fetch("/api/v1/attendance"),
+      fetch("/api/attendance"),
       fetch("/api/workforce/schedule"),
-      fetch("/api/v1/attendance/feature-permissions"),
+      fetch("/api/attendance/feature-permissions"),
     ]);
     if (attendanceResponse.ok) {
       const attendance = await attendanceResponse.json();
@@ -68,11 +68,11 @@ export default function StaffPage() {
     }
     if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()).schedule ?? null);
     if (featureResponse.ok) setFeaturePermissions((await featureResponse.json()).permissions ?? { leave_requests_enabled: true, planned_absence_enabled: true, attendance_exceptions_enabled: true });
-    const exceptionResponse = await fetch("/api/v1/attendance/exceptions", { cache: "no-store" });
+    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
     if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
-    const permissionResponse = await fetch("/api/v1/attendance/permissions", { cache: "no-store" });
+    const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
     if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
-    const leaveResponse = await fetch("/api/v1/attendance/leave", { cache: "no-store" });
+    const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
     if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
   }
 
@@ -85,7 +85,7 @@ export default function StaffPage() {
   async function submitPermission(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const response = await fetch("/api/v1/attendance/permissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(permissionForm) });
+    const response = await fetch("/api/attendance/permissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(permissionForm) });
     const data = await response.json();
     setMessage(response.ok ? "Permission request sent for manager approval." : data.error ?? "Unable to submit permission request.");
     if (response.ok) setPermissionForm({ startDate: "", endDate: "", reason: "", handoverNotes: "" });
@@ -96,7 +96,7 @@ export default function StaffPage() {
   async function submitLeave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const response = await fetch("/api/v1/attendance/leave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(leaveForm) });
+    const response = await fetch("/api/attendance/leave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(leaveForm) });
     const data = await response.json();
     setMessage(response.ok ? "Leave request sent for approval." : data.error ?? "Unable to submit leave request.");
     if (response.ok) setLeaveForm({ leaveType: "annual", startDate: "", endDate: "", reason: "", medicalReportPath: "" });
@@ -106,7 +106,7 @@ export default function StaffPage() {
 
   async function uploadMedicalReport(file: File) {
     const body = new FormData(); body.append("file", file);
-    const response = await fetch("/api/v1/attendance/leave/upload", { method: "POST", body });
+    const response = await fetch("/api/attendance/leave/upload", { method: "POST", body });
     const data = await response.json();
     if (!response.ok) { setMessage(data.error ?? "Unable to upload medical report."); return; }
     setLeaveForm((current) => ({ ...current, medicalReportPath: data.pathname }));
@@ -118,7 +118,7 @@ export default function StaffPage() {
     setBusy(true);
     setMessage("");
     setMessageTone("neutral");
-    const response = await fetch("/api/v1/attendance", {
+    const response = await fetch("/api/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
@@ -136,8 +136,8 @@ export default function StaffPage() {
 
   if (isLoading || !user || user.role !== "staff") return null;
 
+  const open = nextAction === "check_out";
   const canCheckIn = nextAction === "check_in";
-  const isWaitingForAutomaticCheckout = nextAction === "check_out";
   return (
     <main className="min-h-screen bg-muted/30 p-4 text-foreground sm:p-8">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -166,7 +166,7 @@ export default function StaffPage() {
           <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4 text-sm"><span className="text-muted-foreground">Today&apos;s status</span><span className="mx-2 text-muted-foreground">·</span><span className="font-semibold">{attendanceStatus(record, nextAction)}</span><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground"><span>Checked in: {formatTime(record?.check_in_at)}</span><span>Checked out: {formatTime(record?.check_out_at)}</span></div></div>
           <div className="mt-5">
             {canCheckIn && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>}
-            {isWaitingForAutomaticCheckout && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm font-semibold text-amber-900">Checked in — checkout follows the approved schedule automatically</div>}
+            {open && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>}
             {nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-800">Attendance completed for today</div>}
           </div>
           {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}
@@ -175,7 +175,7 @@ export default function StaffPage() {
         }
         {featurePermissions.leave_requests_enabled && <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6"><h2 className="text-xl font-semibold">Request leave</h2><p className="mt-1 text-sm text-muted-foreground">Sick and maternity leave require a medical hospital report.</p><form onSubmit={submitLeave} className="mt-4 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Leave type<select value={leaveForm.leaveType} onChange={(event) => setLeaveForm((current) => ({ ...current, leaveType: event.target.value, medicalReportPath: "" }))} className="min-h-11 rounded-xl border border-border bg-background px-3"><option value="annual">Annual leave</option><option value="sick">Sick leave</option><option value="maternity">Maternity leave</option><option value="emergency">Emergency leave</option><option value="unpaid">Unpaid leave</option><option value="other">Other leave</option></select></label><div /><label className="grid gap-1 text-sm font-medium">Start date<input required type="date" value={leaveForm.startDate} onChange={(event) => setLeaveForm((current) => ({ ...current, startDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium">End date<input required type="date" value={leaveForm.endDate} onChange={(event) => setLeaveForm((current) => ({ ...current, endDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Reason<textarea required value={leaveForm.reason} onChange={(event) => setLeaveForm((current) => ({ ...current, reason: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" /></label>{["sick", "maternity"].includes(leaveForm.leaveType) && <label className="grid gap-1 text-sm font-medium sm:col-span-2">Medical hospital report<input required type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedicalReport(file); }} className="min-h-11 rounded-xl border border-border bg-background p-2 text-sm" /><span className="text-xs font-normal text-muted-foreground">PDF, JPG, or PNG up to 10 MB. {reportName && `Uploaded: ${reportName}`}</span></label>}<button disabled={busy || (["sick", "maternity"].includes(leaveForm.leaveType) && !leaveForm.medicalReportPath)} type="submit" className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">Send leave request</button></form>{leaveRequests.length > 0 && <div className="mt-5 space-y-2">{leaveRequests.map((item) => <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-3 text-sm"><span className="font-semibold">{item.leave_type} · {item.start_date} to {item.end_date}</span><span className="mx-2 text-muted-foreground">·</span>{item.status}{item.reviewer_message && <p className="mt-1 text-muted-foreground">{item.reviewer_message}</p>}</div>)}</div>}</section>
         }
-        {featurePermissions.attendance_exceptions_enabled && exceptions.length > 0 && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm"><h2 className="text-xl font-semibold text-amber-950">Attendance messages</h2><div className="mt-3 space-y-3">{exceptions.map((item) => <div key={item.id} className="rounded-xl border border-amber-200 bg-background p-4"><p className="text-sm font-semibold">{item.attendance_date} · {item.status}</p>{item.manager_message && <p className="mt-2 text-sm">{item.manager_message}</p>}{(item.status === "approved" || item.status === "denied") && <button type="button" onClick={async () => { await fetch("/api/v1/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, status: "resumed" }) }); await load(); }} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Resume work</button>}{item.status === "awaiting_reason" && <>{replyingTo === item.id ? <div className="mt-3 space-y-2"><textarea value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-24 w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder="Explain your absence..." /><button type="button" onClick={async () => { await fetch("/api/v1/attendance/exceptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, message: reply }) }); setReply(""); setReplyingTo(null); await load(); }} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Send</button></div> : <button type="button" onClick={() => setReplyingTo(item.id)} className="mt-3 rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold">Reply</button>}</>}</div>)}</div></section>}
+        {featurePermissions.attendance_exceptions_enabled && exceptions.length > 0 && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm"><h2 className="text-xl font-semibold text-amber-950">Attendance messages</h2><div className="mt-3 space-y-3">{exceptions.map((item) => <div key={item.id} className="rounded-xl border border-amber-200 bg-background p-4"><p className="text-sm font-semibold">{item.attendance_date} · {item.status}</p>{item.manager_message && <p className="mt-2 text-sm">{item.manager_message}</p>}{(item.status === "approved" || item.status === "denied") && <button type="button" onClick={async () => { await fetch("/api/attendance/exceptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, status: "resumed" }) }); await load(); }} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Resume work</button>}{item.status === "awaiting_reason" && <>{replyingTo === item.id ? <div className="mt-3 space-y-2"><textarea value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-24 w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder="Explain your absence..." /><button type="button" onClick={async () => { await fetch("/api/attendance/exceptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, message: reply }) }); setReply(""); setReplyingTo(null); await load(); }} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Send</button></div> : <button type="button" onClick={() => setReplyingTo(item.id)} className="mt-3 rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold">Reply</button>}</>}</div>)}</div></section>}
         <div className="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="h-4 w-4" aria-hidden="true" /> Attendance times are recorded automatically.</div>
       </div>
     </main>

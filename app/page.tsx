@@ -60,7 +60,6 @@ import {
   UserRole,
   AppSection,
   getRoleDisplayName,
-  canUseAttendanceRegister,
 } from "@/lib/roles";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
@@ -129,7 +128,6 @@ function DashboardContent() {
     check_in_at?: string | null;
     check_out_at?: string | null;
   } | null>(null);
-  const [attendanceCanCheckIn, setAttendanceCanCheckIn] = useState(true);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
@@ -234,27 +232,22 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-  if (!user) return;
-  let cancelled = false;
-  const syncAttendance = async () => {
-  try {
-  const response = await fetch("/api/v1/attendance", { cache: "no-store" });
-  const data = response.ok ? await response.json() : null;
-  if (!cancelled) {
-  setAttendanceRecord(data?.record ?? null);
-  setAttendanceCanCheckIn(data?.canCheckIn !== false);
-  setAttendanceLoaded(true);
-  }
-  } catch {
-  if (!cancelled) setAttendanceLoaded(true);
-  }
-  };
-  void syncAttendance();
-  const timer = window.setInterval(() => void syncAttendance(), 10000);
-  return () => {
-  cancelled = true;
-  window.clearInterval(timer);
-  };
+    if (!user) return;
+    let cancelled = false;
+    void fetch("/api/attendance", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { record?: typeof attendanceRecord } | null) => {
+        if (!cancelled) {
+          setAttendanceRecord(data?.record ?? null);
+          setAttendanceLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAttendanceLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   // Load receipt stats from Neon
@@ -323,14 +316,18 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const requiresAttendanceApproval = attendanceCanCheckIn && canUseAttendanceRegister(user.role);
+  const requiresAttendanceApproval = user.role !== "admin" && user.role !== "manager";
   const isAttendanceExempt = !requiresAttendanceApproval;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
-  const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified" || attendanceStatus === "late";
-  // Attendance approval controls attendance actions only. Other authorized
-  // application sections must remain usable while approval is pending.
-  const dashboardAccess: Record<AppSection, boolean> = access;
-  const attendanceRestricted = false;
+  const attendanceApproved = isAttendanceExempt || attendanceStatus === "verified";
+  const dashboardAccess: Record<AppSection, boolean> =
+    requiresAttendanceApproval && !attendanceApproved
+      ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)
+      : access;
+  const attendanceRestricted =
+    attendanceLoaded &&
+    requiresAttendanceApproval &&
+    !attendanceApproved;
   const categorySectionMap: Record<
     (typeof DASHBOARD_CATEGORIES)[number][0],
     AppSection[]
@@ -666,13 +663,13 @@ function DashboardContent() {
           data-attendance-only={attendanceRestricted ? "true" : "false"}
           className="dashboard-category-grid responsive-grid"
         >
-          <div data-dashboard-category="all" className="order-2 min-w-0">
+          <div data-dashboard-category="all" className="min-w-0">
             <AnnouncementCard />
           </div>
-  {(canUseAttendanceRegister(user.role) || ["manager", "generalmanager", "general_manager"].includes(String(user.role ?? "").replace(/[^a-z0-9_]/gi, "").toLowerCase())) && <Card
-  data-dashboard-category="all"
-  data-attendance-card="true"
-            className="order-first hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+          <Card
+            data-dashboard-category="all"
+            data-attendance-card="true"
+            className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
             <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
@@ -686,21 +683,23 @@ function DashboardContent() {
                 Attendance
               </div>
 <p className="text-base leading-6 text-muted-foreground">
-Check in here when you arrive. Your attendance stays pending until Admin or
-              General Manager approval. Checkout is completed automatically from
-              the approved staff schedule.
+                  Check in before your scheduled start, check out at or after your
+                scheduled end, and wait for a manager approval before opening
+                other workspaces.
               </p>
               <Link
                 href={
-                  "/attendance"
+                  user.role === "staff" ? "/staff/attendance" : "/attendance"
                 }
                 className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
               >
-                Open attendance register
+                {user.role === "staff"
+                  ? "Open staff attendance"
+                  : "Open attendance register"}
               </Link>
-  </CardContent>
-  </Card>}
-  {dashboardAccess.events && (
+            </CardContent>
+          </Card>
+          {dashboardAccess.events && (
             <Card
               data-dashboard-category="events"
               className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
@@ -1332,7 +1331,7 @@ Check in here when you arrive. Your attendance stays pending until Admin or
                 </div>
               </CardContent>
             </Card>
-            {!requiresAttendanceApproval && (
+            {user.role !== "staff" && (
               <Card className="min-w-0 md:col-span-2 lg:col-span-3 hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
                 <CardHeader className="rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">

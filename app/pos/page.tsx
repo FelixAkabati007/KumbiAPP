@@ -359,9 +359,12 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     return item.price * (1 - discount / 100);
   };
 
-  const calculateSubtotal = () => currentOrder.reduce((total, item) => total + item.price * item.quantity, 0);
-  const calculateDiscount = () => currentOrder.reduce((total, item) => total + (item.price - getDiscountedUnitPrice(item)) * item.quantity, 0);
-  const calculateTotal = () => calculateSubtotal() - calculateDiscount();
+  const calculateTotal = () => {
+  return currentOrder.reduce(
+    (total, item) => total + getDiscountedUnitPrice(item) * item.quantity,
+    0
+  );
+  };
 
   // Get prep time for item category
   const getPrepTimeForItem = (category: string): number => {
@@ -609,10 +612,8 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _generateReceiptContent = () => {
     const date = new Date();
-  const grossSubtotal = calculateSubtotal();
-  const discount = calculateDiscount();
-  const subtotal = calculateTotal();
-  const levyResult = calculateTaxes(subtotal, appSettings.system.taxConfiguration, "pos");
+    const subtotal = calculateTotal();
+    const levyResult = calculateTaxes(subtotal, appSettings.system.taxConfiguration, "pos");
     const tax = levyResult.tax;
     const total = levyResult.total;
 
@@ -658,8 +659,8 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
             <div class="item">
               <span class="name">${item.name}</span>
               <span>${item.quantity}</span>
-              <span class="price">₵${getDiscountedUnitPrice(item).toFixed(2)}${item.discountPercent ? ` <small>(${item.discountPercent}% off)</small>` : ""}</span>
-              <span class="line-total">₵${(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}</span>
+              <span class="price">₵${item.price.toFixed(2)}</span>
+              <span class="line-total">₵${(item.price * item.quantity).toFixed(2)}</span>
             </div>
           `
             )
@@ -667,9 +668,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         </div>
         
         <div class="total">
-          <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${grossSubtotal.toFixed(2)}</span></div>
-${discount > 0 ? `<div class="item"><span>Discount:</span><span></span><span></span><span>-₵${discount.toFixed(2)}</span></div>` : ""}
-<div class="item"><strong>Net subtotal:</strong><span></span><span></span><strong>₵${subtotal.toFixed(2)}</strong></div>
+          <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
 ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ") ? `<div class="levy-header">GRA E-VAT / statutory levies:</div>${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}` : ""}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
@@ -1475,10 +1474,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                               {item.quantity}
                             </span>
                             <span className="w-12 text-right">
-                              ₵{getDiscountedUnitPrice(item).toFixed(2)}
+                              ₵{item.price.toFixed(2)}
                             </span>
                             <span className="w-16 text-right font-semibold">
-                              ₵{(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}
+                              ₵{(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
                         ))
@@ -1492,18 +1491,10 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
 
                   {/* Totals */}
                   <div className="border-t-2 border-orange-300 dark:border-orange-600 pt-3 space-y-1">
-<div className="flex justify-between">
-  <span>Subtotal:</span>
-  <span>₵{calculateSubtotal().toFixed(2)}</span>
-  </div>
-  {calculateDiscount() > 0 && <div className="flex justify-between text-green-700 dark:text-green-300">
-  <span>Discount:</span>
-  <span>-₵{calculateDiscount().toFixed(2)}</span>
-  </div>}
-  <div className="flex justify-between">
-  <span>Net subtotal:</span>
-  <span>₵{calculateTotal().toFixed(2)}</span>
-  </div>
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>₵{calculateTotal().toFixed(2)}</span>
+                    </div>
 {appSettings.system.taxConfiguration.enabled && calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax > 0 && <div className="flex justify-between">
   <span>GRA E-VAT / statutory levies:</span>
   <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
