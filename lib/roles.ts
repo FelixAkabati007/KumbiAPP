@@ -148,7 +148,7 @@ export type AppSection =
   | "eventPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage" | "approve" | "administer";
-export type OperationalScope = "hotel" | "restaurant" | "general" | "events" | "staff";
+export type OperationalScope = "hotel" | "restaurant" | "general" | "events" | "staff" | "operations";
 
 export const operationalScopeOptions: { value: OperationalScope; label: string; description: string }[] = [
   { value: "general", label: "All operations", description: "Cross-department access within the assigned authority." },
@@ -156,6 +156,7 @@ export const operationalScopeOptions: { value: OperationalScope; label: string; 
   { value: "restaurant", label: "Restaurant", description: "POS, orders, kitchen, menu, inventory, and restaurant reporting." },
   { value: "events", label: "Events", description: "Event planning and event pricing without finance or guest-management access." },
   { value: "staff", label: "Staff", description: "Assigned staff duties and day-to-day operational work." },
+  { value: "operations", label: "Operations Manager", description: "Cross-functional operations, workforce coordination, and operational oversight." },
 ];
 
 export type RoleCapability = Partial<Record<CrudAction, boolean>>;
@@ -165,7 +166,7 @@ export const roleOperationalScopes: Record<UserRole, OperationalScope[]> = {
   manager: ["general", "hotel", "restaurant", "events"],
   hotelManager: ["hotel"],
   restaurantManager: ["restaurant", "events"],
-  operationsManager: ["general", "events"],
+  operationsManager: ["general", "events", "operations"],
   finance: ["general"],
   staff: ["staff", "restaurant"],
   kitchen: ["staff", "restaurant"],
@@ -215,7 +216,7 @@ export function validateStaffAccessProfile({
   const errors: string[] = [];
 
   if (!normalizedRole) errors.push("Select a valid role.");
-  if (normalizedScope && !["hotel", "restaurant", "general", "events", "staff"].includes(normalizedScope)) {
+  if (normalizedScope && !["hotel", "restaurant", "general", "events", "staff", "operations"].includes(normalizedScope)) {
     errors.push("Select a valid operational scope.");
   }
   if (normalizedRole && normalizedScope && !roleOperationalScopes[normalizedRole].includes(normalizedScope)) {

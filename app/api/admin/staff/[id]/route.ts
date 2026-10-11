@@ -104,7 +104,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid job classification" }, { status: 400 });
     }
 
-    if (managerScope && !["hotel", "restaurant", "general", "events", "staff"].includes(managerScope)) {
+    if (managerScope && !["hotel", "restaurant", "general", "events", "staff", "operations"].includes(managerScope)) {
       return NextResponse.json({ error: "Invalid manager scope" }, { status: 400 });
     }
 
