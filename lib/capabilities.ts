@@ -13,7 +13,7 @@ const capabilityMatrix: Record<Capability, readonly UserRole[]> = {
   "attendance.register": ["manager", "hotelManager", "restaurantManager", "operationsManager", "finance", "staff", "kitchen", "frontDesk", "housekeeping"],
   "attendance.approve": ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager"],
   "reports.read": ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance"],
-  "reports.reconcile": ["admin", "manager", "finance"],
+  "reports.reconcile": ["admin", "manager", "operationsManager", "finance"],
   "system.manage": ["admin"],
 };
 
