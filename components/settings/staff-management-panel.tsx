@@ -130,7 +130,7 @@ const emptyCreateForm = {
   hireDate: "",
   password: "",
   role: "staff" as StaffRole,
-  operationalScope: "general" as "hotel" | "restaurant" | "general" | "events",
+  operationalScope: "general" as "hotel" | "restaurant" | "general" | "events" | "staff" | "operations",
 };
 
 export function StaffManagementPanel({ currentRole }: { currentRole: string }) {
@@ -348,7 +348,7 @@ operationalScope: "general" as "hotel" | "restaurant" | "general" | "events" | "
       jobClassification: (member.job_classification || "other") as StaffClassification,
       employmentStatus: member.employment_status || "active",
       role: member.role || "staff",
-  operationalScope: (member.manager_scope || "general") as "hotel" | "restaurant" | "general" | "events",
+  operationalScope: (member.manager_scope || "general") as "hotel" | "restaurant" | "general" | "events" | "staff" | "operations",
   });
   };
 
