@@ -1,84 +1,70 @@
-import { transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
+import { transaction } from "@/lib/db";
 import { resolveAttendanceIdentity } from "@/lib/attendance-identity";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export async function registerAttendance(session: ApiSession, notes?: string) {
   const identity = await resolveAttendanceIdentity(session);
-  if (!identity.canCheckIn) throw new Error("ATTENDANCE_NOT_APPLICABLE");
+  if (!identity.canCheckIn) throw new Error(identity.eligibilityReason === "MISSING_CLASSIFICATION" ? "ATTENDANCE_PROFILE_INCOMPLETE" : "ATTENDANCE_NOT_APPLICABLE");
   const canonicalNow = await getCanonicalTransactionTimestamp();
+
   return transaction(async (client) => {
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
        FROM attendance_records
-       WHERE staff_id = $1 AND created_at::date = ${propertyDayExpression()}
+       WHERE staff_id = $1 AND ${propertyDayExpression("created_at")} = ${propertyDayExpression()}
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-[identity.userId],
-      );
-      const record = current.rows[0];
+      [identity.userId],
+    );
+    const existing = current.rows[0];
+    if (existing?.check_in_at && !existing.check_out_at) throw new Error("ALREADY_CHECKED_IN");
+    if (existing?.check_out_at) throw new Error("ALREADY_CHECKED_OUT");
 
-    {
-      if (record?.check_in_at && !record.check_out_at) throw new Error("ALREADY_CHECKED_IN");
-      const schedule = await client.query(
-        `SELECT s.start_time, s.end_time, COALESCE(s.reminder_minutes, 20) AS reminder_minutes
-         FROM staff_profiles sp
-LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression()} AND a.status <> 'cancelled'
-  LEFT JOIN LATERAL (
-    SELECT ws.*
-    FROM work_schedules ws
-    WHERE ws.is_active = true
-      AND (ws.id = a.schedule_id OR (
-        a.schedule_id IS NULL
-        AND LOWER(REGEXP_REPLACE(ws.job_classification, '[^a-z0-9]+', '', 'g')) = LOWER(REGEXP_REPLACE(COALESCE(sp.job_classification, sp.position, ''), '[^a-z0-9]+', '', 'g'))
-        AND LOWER(ws.department) = LOWER(COALESCE(sp.department, ws.department))
-      ))
-    ORDER BY CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END
-    LIMIT 1
-  ) s ON true
-         WHERE sp.user_id = $1 OR sp.id = $1
-         ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
-         LIMIT 1`,
-        [identity.userId],
-      );
-      const scheduledStart = schedule.rows[0]?.start_time;
-      const scheduledEnd = schedule.rows[0]?.end_time;
-      const reminderMinutes = Number(schedule.rows[0]?.reminder_minutes ?? 20);
-      // Check-in is always available for standard staff. Schedule data is used
-      // for reminders and automated checkout, never to block a late arrival.
-      void scheduledStart;
-      void scheduledEnd;
-      const inserted = await client.query(
-        `INSERT INTO attendance_records (staff_id, account_name, check_in_at, status, verification_status, notes)
-         VALUES ($1,
-           COALESCE(
-             (SELECT NULLIF(NULLIF(TRIM(name), ''), 'Staff member') FROM users WHERE id = $1),
-             (SELECT NULLIF(CONCAT_WS(' ', NULLIF(TRIM(first_name), ''), NULLIF(TRIM(last_name), '')),
-               '') FROM staff_profiles WHERE user_id = $1 OR id = $1 LIMIT 1),
-             (SELECT NULLIF(TRIM(email), '') FROM users WHERE id = $1),
-             $1::text
-           ),
-           $2::timestamptz, 'pending_verification', 'pending', $3) RETURNING *`,
-        [identity.userId, canonicalNow, notes?.slice(0, 500) ?? null],
-      );
-      const row = inserted.rows[0];
-      await client.query(
-        `INSERT INTO attendance_policy_events (attendance_record_id, staff_id, event_type, actor_id, idempotency_key, payload)
-         VALUES ($1, $2, 'check_in', $2, $3, $4::jsonb)`,
-        [row.id, identity.userId, `attendance:${row.id}:check_in`, JSON.stringify({ source: "attendance_service", userId: identity.userId, staffProfileId: identity.staffProfileId })],
-      );
-      await client.query(
-        `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-         VALUES ('attendance.checked_in', 'attendance_record', $1, $2, $3::jsonb)
-         ON CONFLICT (idempotency_key) DO NOTHING`,
-        [row.id, `attendance:${row.id}:checked_in`, JSON.stringify({ attendanceRecordId: row.id, staffId: identity.userId, staffProfileId: identity.staffProfileId, reminderMinutes })],
-      );
-      return {
-        record: row,
-        nextAction: "waiting" as const,
-        schedule: { startTime: scheduledStart ?? null, endTime: scheduledEnd ?? null, reminderMinutes, assigned: Boolean(scheduledStart || scheduledEnd) },
-        checkout: { mode: "automatic" as const },
-      };
-    }
+    const shift = await client.query(
+      `SELECT ss.id AS shift_id, ss.scheduled_start, ss.scheduled_end,
+              20 AS reminder_minutes
+       FROM staff_shifts ss
+       WHERE ss.staff_id = $1
+         AND ss.shift_date = ${propertyDayExpression()}::date
+         AND ss.status <> 'cancelled'
+       ORDER BY ss.scheduled_start NULLS LAST
+       LIMIT 1`,
+      [identity.staffProfileId ?? identity.userId],
+    );
+    const scheduled = shift.rows[0] ?? null;
+    const lateMinutes = scheduled?.scheduled_start
+      ? Math.max(0, Math.floor((new Date(canonicalNow).getTime() - new Date(scheduled.scheduled_start).getTime()) / 60000))
+      : 0;
+    const status = lateMinutes > 0 ? "late" : "pending_verification";
+
+    const inserted = await client.query(
+      `INSERT INTO attendance_records
+         (staff_id, shift_id, account_name, check_in_at, status, verification_status, late_minutes, notes)
+       VALUES ($1, $2, $3, $4::timestamptz, $5, 'pending', $6, $7)
+       RETURNING *`,
+      [identity.userId, scheduled?.shift_id ?? null, identity.displayName, canonicalNow, status, lateMinutes, notes?.trim().slice(0, 500) || null],
+    );
+    const row = inserted.rows[0];
+    const eventKey = `attendance:${row.id}:check_in`;
+    await client.query(
+      `INSERT INTO attendance_policy_events
+         (attendance_record_id, staff_id, event_type, actor_id, idempotency_key, payload)
+       VALUES ($1, $2, 'check_in', $2, $3, $4::jsonb)
+       ON CONFLICT (idempotency_key) DO NOTHING`,
+      [row.id, identity.userId, eventKey, JSON.stringify({ source: "attendance_service", scheduled: Boolean(scheduled), lateMinutes })],
+    );
+    await client.query(
+      `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
+       VALUES ('attendance.checked_in', 'attendance_record', $1, $2, $3::jsonb)
+       ON CONFLICT (idempotency_key) DO NOTHING`,
+      [row.id, `attendance:${row.id}:checked_in`, JSON.stringify({ attendanceRecordId: row.id, staffId: identity.userId, shiftId: scheduled?.shift_id ?? null })],
+    );
+    return {
+      record: row,
+      nextAction: "waiting" as const,
+      schedule: { startTime: scheduled?.scheduled_start ?? null, endTime: scheduled?.scheduled_end ?? null, reminderMinutes: Number(scheduled?.reminder_minutes ?? 20), assigned: Boolean(scheduled) },
+      checkout: { mode: "automatic" as const },
+    };
   });
 }
