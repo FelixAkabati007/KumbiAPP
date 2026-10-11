@@ -74,8 +74,31 @@ const apiPermissions: Record<string, string[]> = {
   // the route handler itself enforces admin-only writes (POST).
 };
 
+const API_V1_PREFIX = "/api/v1";
+const LEGACY_API_SUNSET = "Wed, 30 Jun 2027 23:59:59 GMT";
+
+function withApiLifecycleHeaders(response: NextResponse, version: "v1" | "legacy") {
+  response.headers.set("X-API-Version", version);
+  response.headers.set("X-API-Supported-Versions", "v1");
+  if (version === "legacy") {
+    response.headers.set("Deprecation", "true");
+    response.headers.set("Sunset", LEGACY_API_SUNSET);
+    response.headers.set("Link", '</api/v1>; rel="successor-version"');
+  }
+  return response;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const isLegacyApi = pathname.startsWith("/api/");
+
+  // Every API has a stable v1 URL. The rewrite preserves the existing route
+  // handlers while allowing v2+ implementations to be introduced later.
+  if (pathname === API_V1_PREFIX || pathname.startsWith(`${API_V1_PREFIX}/`)) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/api${pathname.slice(API_V1_PREFIX.length)}` || "/api";
+    return withApiLifecycleHeaders(NextResponse.rewrite(url), "v1");
+  }
 
   // 1. Exclude Public API Routes.
   // Signup is the exception: account creation must be admin-gated, so it
@@ -85,7 +108,7 @@ export async function middleware(req: NextRequest) {
     (pathname.startsWith("/api/auth") && pathname !== "/api/auth/signup") ||
     pathname.startsWith("/api/public")
   ) {
-    return NextResponse.next();
+    return withApiLifecycleHeaders(NextResponse.next(), isLegacyApi ? "legacy" : "v1");
   }
 
   // API handlers enforce the exact capability for each method. Middleware only
@@ -160,7 +183,9 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return isLegacyApi
+    ? withApiLifecycleHeaders(NextResponse.next(), "legacy")
+    : NextResponse.next();
 }
 
 export const config = {
