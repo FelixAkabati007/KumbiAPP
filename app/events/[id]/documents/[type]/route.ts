@@ -14,7 +14,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const snapshot = event.snapshot ?? {};
   const subtotal = Number(event.quote_subtotal ?? snapshot.subtotal ?? 0);
   const tax = Number(event.quote_tax ?? snapshot.tax ?? 0);
-  const total = Number(event.total_invoiced ?? event.quote_total ?? snapshot.total ?? 0);
+  const storedInvoiceTotal = Number(event.total_invoiced ?? 0);
+  const total = storedInvoiceTotal > 0 ? storedInvoiceTotal : Number(event.quote_total ?? snapshot.total ?? 0);
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - ${event.name}</title><style>body{font-family:Arial;max-width:760px;margin:40px auto;color:#202020}h1{margin-bottom:8px}.meta{line-height:1.8}table{width:100%;margin-top:24px;border-collapse:collapse}td{padding:8px;border-bottom:1px solid #ddd}td:last-child{text-align:right}</style></head><body><h1>${title}</h1><div class="meta"><strong>${event.name}</strong><br>Client: ${event.client_name}<br>Venue: ${event.venue}<br>Date: ${new Date(event.starts_at).toLocaleString()}<br>Guests: ${event.guest_count}<br>Status: ${event.status}<br>Receipt: ${event.order_number ?? "Not generated"}</div><table><tr><td>Subtotal</td><td>GHS ${subtotal.toFixed(2)}</td></tr><tr><td>VAT / tax</td><td>GHS ${tax.toFixed(2)}</td></tr><tr><td><strong>Total</strong></td><td><strong>GHS ${total.toFixed(2)}</strong></td></tr></table><script>window.print()</script></body></html>`;
   return new NextResponse(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
