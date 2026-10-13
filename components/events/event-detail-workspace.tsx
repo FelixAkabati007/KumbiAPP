@@ -85,7 +85,7 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
       {tab === "payments" && <EventPayments data={workspaceData} eventId={event.id} onRecorded={() => void refreshWorkspace()} />}
       {tab === "finance" && <EventFinance data={workspaceData} eventId={event.id} onGenerated={() => void refreshWorkspace()} />}
       {tab === "operations" && <EventOperations event={event} data={workspaceData} eventId={event.id} />}
-      {tab === "documents" && <EventDocuments eventId={event.id} receiptId={event.receipt_id} />}
+      {tab === "documents" && <EventDocuments eventId={event.id} receiptId={event.receipt_id} invoiceEnabled={Boolean(selectedQuoteId)} />}
       {tab === "activity" && <EventActivity data={workspaceData} eventId={event.id} receiptId={event.receipt_id} />}
     </CardContent></Card>
   </div></main>;
