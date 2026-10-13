@@ -23,7 +23,11 @@ export async function GET() {
     const access = await requirePermission("inventory");
     if (access.error) return access.error;
     const res = await query(
-      `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode FROM inventory i LEFT JOIN menu_items mi ON mi.id = i.menu_item_id ORDER BY i.last_updated DESC`,
+      `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode,
+        CASE WHEN LOWER(COALESCE(i.unit, '')) = LOWER(COALESCE(i.base_unit, '')) THEN false
+             WHEN EXISTS (SELECT 1 FROM inventory_item_uoms u WHERE u.inventory_id = i.id AND u.purchase_unit = LOWER(i.unit) AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)) THEN false
+             ELSE true END AS conversion_rule_missing
+       FROM inventory i LEFT JOIN menu_items mi ON mi.id = i.menu_item_id ORDER BY i.last_updated DESC`,
     );
     const canonicalMenuLedger = await getCanonicalInventoryMenuLedger();
     const availabilityByInventoryName = new Map(canonicalMenuLedger.map((item) => [item.name, item]));
@@ -49,6 +53,7 @@ export async function GET() {
         recipeUnit: r.recipe_unit ?? undefined,
         conversionRatio: String(r.conversion_ratio ?? ""),
         conversionType: r.conversion_type ?? "standard",
+        conversionRuleMissing: Boolean(r.conversion_rule_missing),
         canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
       })),
     );

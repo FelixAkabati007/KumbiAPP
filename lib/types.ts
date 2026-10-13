@@ -47,6 +47,7 @@ export interface InventoryItem {
   conversionRatio?: string;
   conversionType?: "standard" | "pack";
   densityGPerMl?: string;
+  conversionRuleMissing?: boolean;
   lastUpdated?: string;
   }
 

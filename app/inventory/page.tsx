@@ -868,9 +868,10 @@ function InventoryContent() {
                           <Package className="h-4 w-4" />
                         </div>
                         <div>
-                          <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-200 sm:text-base">
-                            {item.name}
-                          </h3>
+  <h3 className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-gray-800 dark:text-gray-200 sm:text-base">
+  {item.conversionRuleMissing && <span className="size-2 shrink-0 rounded-full bg-destructive" title="Conversion rule required before stock can be migrated" aria-label="Conversion rule required" />}
+  <span className="truncate">{item.name}</span>
+  </h3>
                           <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
                             <span className="font-mono">{item.sku}</span>
                             <span>•</span>
