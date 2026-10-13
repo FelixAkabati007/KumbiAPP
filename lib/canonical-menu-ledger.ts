@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import { calculateMenuAvailability } from "@/lib/menu-availability";
+import { calculateMenuAvailability, type AvailabilityIngredient } from "@/lib/menu-availability";
 
 export type CanonicalMenuItem = {
   id: string;
@@ -14,6 +14,21 @@ export type CanonicalMenuItem = {
   stockStatus: string;
   stockShortages: string[];
   shortageDetails: unknown[];
+};
+
+type CanonicalMenuLedgerRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  is_available: boolean;
+  availability_mode: "manual" | "automatic";
+  inventory_mode: "recipe" | "direct";
+  direct_quantity: number | string | null;
+  direct_units_per_sale: number | string | null;
+  ingredients: AvailabilityIngredient[] | null;
+  legacy_quantity: number | string | null;
+  category_slug: string | null;
 };
 
 export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean }) {
@@ -38,7 +53,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
     ORDER BY mi.created_at DESC
   `);
 
-  const items = result.rows.map((row: any) => {
+  const items = (result.rows as CanonicalMenuLedgerRow[]).map((row) => {
     const availability = calculateMenuAvailability({
       inventoryMode: row.inventory_mode,
       availabilityMode: row.availability_mode,
