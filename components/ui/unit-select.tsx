@@ -239,7 +239,7 @@ export function UnitSelect({
         <PopoverContent className="w-[200px] p-0">
           <Command>
             <CommandInput placeholder={t.searchUnit} />
-            <CommandList>
+            <CommandList className="max-h-[min(60vh,24rem)] overflow-y-auto overscroll-contain scrollbar-hide">
               {loading && (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />
