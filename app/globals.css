@@ -129,6 +129,36 @@
     -ms-overflow-style: none;
   }
 
+  /* Unit selectors intentionally expose the vertical scrollbar. This must come
+     after the app-wide hidden-scrollbar utilities because those utilities also
+     target every overflow-y-auto element. */
+  .unit-selector-scroll-viewport {
+    scrollbar-width: auto !important;
+    -ms-overflow-style: auto !important;
+    scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+  }
+
+  .unit-selector-scroll-viewport::-webkit-scrollbar {
+    display: block !important;
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .unit-selector-scroll-viewport::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 9999px;
+  }
+
+  .unit-selector-scroll-viewport::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground));
+    border: 3px solid hsl(var(--muted));
+    border-radius: 9999px;
+  }
+
+  .unit-selector-scroll-viewport::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground));
+  }
+
   .important-description {
     border: 1px solid hsl(var(--description-start));
     border-radius: 0.75rem;

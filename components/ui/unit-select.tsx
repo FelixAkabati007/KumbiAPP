@@ -244,7 +244,7 @@ export function UnitSelect({
             <CommandInput placeholder={t.searchUnit} />
             <div
               data-testid="unit-select-scroll-viewport"
-              className="h-60 max-h-60 w-full overflow-x-hidden overflow-y-auto overscroll-contain scrollbar-hide"
+              className="unit-selector-scroll-viewport h-60 max-h-60 w-full overflow-x-hidden overflow-y-auto overscroll-contain"
             >
             <CommandList
               data-testid="unit-select-list"
