@@ -244,7 +244,8 @@ export function UnitSelect({
             <CommandInput placeholder={t.searchUnit} />
             <CommandList
               data-testid="unit-select-list"
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
+              className="shrink-0 overflow-x-hidden overflow-y-scroll overscroll-contain scrollbar-hide"
+              style={{ height: "min(22rem, 50vh)", maxHeight: "min(22rem, 50vh)" }}
             >
               {loading && (
                 <div className="py-6 text-center text-sm text-muted-foreground">
