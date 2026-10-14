@@ -3,6 +3,9 @@ import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 import { updateSystemState } from "@/lib/system-sync";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 export async function GET() {
   const access = await requirePermission("inventory");
@@ -16,7 +19,7 @@ export async function GET() {
       LEFT JOIN menu_items mi ON mi.id = i.menu_item_id
       LEFT JOIN LATERAL (
         SELECT * FROM inventory_item_uoms r
-        WHERE r.inventory_id = i.id AND r.purchase_unit = LOWER(i.unit)
+        WHERE r.inventory_id = i.id AND r.purchase_unit = ${inventoryUnitSql}
           AND r.is_active = true AND (r.effective_to IS NULL OR r.effective_to > CURRENT_TIMESTAMP)
         ORDER BY r.effective_from DESC LIMIT 1
       ) u ON true
@@ -53,7 +56,7 @@ export async function POST() {
         FROM inventory i
         LEFT JOIN LATERAL (
           SELECT * FROM inventory_item_uoms r
-          WHERE r.inventory_id = i.id AND r.purchase_unit = LOWER(i.unit)
+          WHERE r.inventory_id = i.id AND r.purchase_unit = ${inventoryUnitSql}
             AND r.is_active = true AND (r.effective_to IS NULL OR r.effective_to > CURRENT_TIMESTAMP)
           ORDER BY r.effective_from DESC LIMIT 1
         ) u ON true

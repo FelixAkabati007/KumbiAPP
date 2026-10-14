@@ -5,6 +5,9 @@ import { updateSystemState } from "@/lib/system-sync";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 import { canTopUpInventory } from "@/lib/roles";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 const priceRoles = new Set(["admin", "manager", "restaurantManager", "kitchen", "frontDesk"]);
 
@@ -65,7 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       let quantityAdded = enteredQuantity;
       let appliedConversion = null;
       if (purchaseUnit && purchaseUnit !== String(item.rows[0].unit ?? "").toLowerCase()) {
-        const conversion = await client.query(`SELECT purchase_unit, base_unit, conversion_factor_to_base, yield_factor FROM inventory_item_uoms WHERE inventory_id = $1 AND purchase_unit = $2 AND is_active = true AND (effective_to IS NULL OR effective_to > CURRENT_TIMESTAMP) ORDER BY effective_from DESC LIMIT 1`, [id, purchaseUnit]);
+        const conversion = await client.query(`SELECT purchase_unit, base_unit, conversion_factor_to_base, yield_factor FROM inventory_item_uoms WHERE inventory_id = $1 AND purchase_unit = ${inventoryUnitSql.replace("i.unit", "$2")} AND is_active = true AND (effective_to IS NULL OR effective_to > CURRENT_TIMESTAMP) ORDER BY effective_from DESC LIMIT 1`, [id, purchaseUnit]);
         if (!conversion.rowCount) throw Object.assign(new Error("No active conversion rule exists for this purchase unit"), { code: "CONVERSION_NOT_FOUND" });
         const rule = conversion.rows[0];
         quantityAdded = enteredQuantity * Number(rule.conversion_factor_to_base) * Number(rule.yield_factor);

@@ -4,7 +4,9 @@ import {
   validateInventoryNumber,
 } from "@/lib/inventory-validation";
 import {
+  convertInventoryQuantity,
   getInventoryUnitCompatibilityError,
+  getInventoryUnitSqlExpression,
   normalizeInventoryUnit,
 } from "@/lib/inventory-units";
 
@@ -33,5 +35,15 @@ describe("inventory validation", () => {
     );
     expect(getInventoryUnitCompatibilityError("g", "kg")).toBeNull();
     expect(getInventoryUnitCompatibilityError("ml", "g")).toContain("density");
+  });
+  it("converts recipe quantities into stock units", () => {
+    expect(convertInventoryQuantity(500, "g", "kg")).toBe(0.5);
+    expect(convertInventoryQuantity(250, "ml", "l")).toBe(0.25);
+    expect(convertInventoryQuantity(2, "each", "unit")).toBe(2);
+  });
+  it("uses a trusted canonical alias expression for SQL rule matching", () => {
+    const expression = getInventoryUnitSqlExpression("i.unit");
+    expect(expression).toContain("LOWER(TRIM(i.unit))");
+    expect(expression).toContain("'box'");
   });
 });

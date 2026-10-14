@@ -320,6 +320,19 @@ export function normalizeInventoryUnit(unit?: string | null): string | null {
   return key ?? null;
 }
 
+/**
+ * Returns a safe SQL expression that applies the same canonical aliases used
+ * by normalizeInventoryUnit() to a trusted column reference.
+ */
+export function getInventoryUnitSqlExpression(column: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(column)) {
+    throw new Error("Invalid inventory unit column reference");
+  }
+  return `LOWER(CASE ${Object.entries(UNIT_ALIASES)
+    .map(([alias, canonical]) => `WHEN LOWER(TRIM(${column})) = '${alias}' THEN '${canonical}'`)
+    .join(" ")} ELSE TRIM(${column}) END)`;
+}
+
 export function getInventoryUnitLabel(unit?: string | null): string {
   return unit || "units";
 }
