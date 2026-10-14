@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
-import { getRecipeDeductionQuantity } from "@/lib/inventory-units";
+import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 export const runtime = "nodejs";
@@ -87,10 +89,24 @@ export async function POST(req: Request) {
           );
         } else if (item.id) {
 const ingredients = await client.query(
-        `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.recipe_unit AS inventory_recipe_unit, i.conversion_ratio AS inventory_conversion_ratio, i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.name
-      FROM recipe_ingredients r
-      JOIN inventory i ON i.id = r.inventory_item_id
-      WHERE r.menu_item_id = $1`,
+        `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity,
+                COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
+                i.recipe_unit AS inventory_recipe_unit,
+                COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
+                i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.name
+         FROM recipe_ingredients r
+         JOIN inventory i ON i.id = r.inventory_item_id
+         LEFT JOIN LATERAL (
+           SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+           FROM inventory_item_uoms u
+           WHERE u.inventory_id = i.id
+             AND u.purchase_unit = ${inventoryUnitSql}
+             AND u.is_active = true
+             AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+           ORDER BY u.effective_from DESC
+           LIMIT 1
+         ) active_uom ON true
+         WHERE r.menu_item_id = $1`,
             [item.id]
           );
           for (const ingredient of ingredients.rows) {
