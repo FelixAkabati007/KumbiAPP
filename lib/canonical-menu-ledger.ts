@@ -40,7 +40,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
            COALESCE(json_agg(json_build_object(
              'name', i.name, 'requiredQuantity', ri.quantity,
              'recipeUnit', ri.unit, 'availableQuantity', i.quantity,
-             'stockUnit', i.unit, 'conversionRatio', i.conversion_ratio,
+             'stockUnit', COALESCE(active_uom.base_unit, i.base_unit, i.unit), 'conversionRatio', COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio),
              'densityGPerMl', i.density_g_per_ml
            )) FILTER (WHERE ri.id IS NOT NULL), '[]') AS ingredients
     FROM menu_items mi
@@ -49,6 +49,16 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
     LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
     LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
     LEFT JOIN inventory i ON i.id = ri.inventory_item_id
+    LEFT JOIN LATERAL (
+      SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+      FROM inventory_item_uoms u
+      WHERE u.inventory_id = i.id
+        AND u.purchase_unit = LOWER(TRIM(i.unit))
+        AND u.is_active = true
+        AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+      ORDER BY u.effective_from DESC
+      LIMIT 1
+    ) active_uom ON true
     GROUP BY mi.id, mi.created_at, c.slug, di.quantity, legacy_i.quantity
     ORDER BY mi.created_at DESC
   `);

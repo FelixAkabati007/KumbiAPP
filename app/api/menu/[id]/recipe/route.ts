@@ -16,9 +16,23 @@ export async function GET(
 
     const result = await query(
       `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
-              i.quantity AS inventory_quantity, i.unit AS inventory_unit, i.recipe_unit AS inventory_recipe_unit, i.conversion_ratio AS inventory_conversion_ratio, i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.cost_per_item AS inventory_cost_price
+              i.quantity AS inventory_quantity,
+              COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
+              i.recipe_unit AS inventory_recipe_unit,
+              COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
+              i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.cost_per_item AS inventory_cost_price
        FROM recipe_ingredients r
        JOIN inventory i ON r.inventory_item_id = i.id
+       LEFT JOIN LATERAL (
+         SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+         FROM inventory_item_uoms u
+         WHERE u.inventory_id = i.id
+           AND u.purchase_unit = LOWER(TRIM(i.unit))
+           AND u.is_active = true
+           AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+         ORDER BY u.effective_from DESC
+         LIMIT 1
+       ) active_uom ON true
        WHERE r.menu_item_id = $1`,
       [id]
     );
