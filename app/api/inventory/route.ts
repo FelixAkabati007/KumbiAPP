@@ -17,6 +17,9 @@ import {
 } from "@/lib/inventory-units";
 import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 import { getCanonicalInventoryMenuLedger } from "@/lib/canonical-menu-ledger";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 export async function GET() {
   try {
@@ -25,7 +28,7 @@ export async function GET() {
     const res = await query(
       `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode,
         CASE WHEN LOWER(COALESCE(i.unit, '')) = LOWER(COALESCE(i.base_unit, '')) THEN false
-             WHEN EXISTS (SELECT 1 FROM inventory_item_uoms u WHERE u.inventory_id = i.id AND u.purchase_unit = LOWER(i.unit) AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)) THEN false
+             WHEN EXISTS (SELECT 1 FROM inventory_item_uoms u WHERE u.inventory_id = i.id AND u.purchase_unit = ${inventoryUnitSql} AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)) THEN false
              ELSE true END AS conversion_rule_missing
        FROM inventory i LEFT JOIN menu_items mi ON mi.id = i.menu_item_id ORDER BY i.last_updated DESC`,
     );

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-import { isInventoryBaseUnit, isInventoryUnit, normalizeInventoryUnit } from "@/lib/inventory-units";
+import { getInventoryUnitSqlExpression, isInventoryBaseUnit, isInventoryUnit, normalizeInventoryUnit } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 export async function GET(request: Request) {
   const access = await requirePermission("inventory");
