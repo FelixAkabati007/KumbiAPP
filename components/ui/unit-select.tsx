@@ -236,10 +236,16 @@ export function UnitSelect({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] p-0">
-          <Command className="flex max-h-[min(60vh,28rem)] min-h-0 flex-col overflow-hidden">
+        <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] max-h-[calc(100vh-1rem)] overflow-hidden p-0">
+          <Command
+            data-testid="unit-select-command"
+            className="flex h-[min(60vh,28rem)] max-h-[min(60vh,28rem)] min-h-0 flex-col overflow-hidden"
+          >
             <CommandInput placeholder={t.searchUnit} />
-            <CommandList className="min-h-0 max-h-none flex-1 overflow-y-auto overscroll-contain scrollbar-hide">
+            <CommandList
+              data-testid="unit-select-list"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
+            >
               {loading && (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />
