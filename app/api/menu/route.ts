@@ -5,6 +5,9 @@ import { logAudit } from "@/lib/audit";
 import { updateSystemState } from "@/lib/system-sync";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateMenuAvailability } from "@/lib/menu-availability";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 async function ensureCategory(slug: string): Promise<string> {
   const existing = await query<{ id: string }>(
@@ -48,15 +51,22 @@ export async function GET() {
              di.quantity::text AS direct_inventory_quantity, di.category AS direct_inventory_category,
              legacy_i.quantity::text AS legacy_inventory_quantity,
              COUNT(ri.id)::text AS recipe_count,
-             ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < ri.quantity THEN i.name END), NULL) AS unavailable_ingredients,
-             COALESCE(json_agg(json_build_object('name', i.name, 'requiredQuantity', ri.quantity, 'recipeUnit', ri.unit, 'availableQuantity', i.quantity, 'stockUnit', i.unit, 'conversionRatio', i.conversion_ratio, 'densityGPerMl', i.density_g_per_ml)) FILTER (WHERE ri.id IS NOT NULL), '[]') AS recipe_ingredients
+             ARRAY_REMOVE(ARRAY_AGG(CASE WHEN ri.id IS NOT NULL AND COALESCE(i.quantity, 0) < (ri.quantity * COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio, 1)) THEN i.name END), NULL) AS unavailable_ingredients,
+             COALESCE(json_agg(json_build_object('name', i.name, 'requiredQuantity', ri.quantity, 'recipeUnit', ri.unit, 'availableQuantity', i.quantity, 'stockUnit', COALESCE(active_uom.base_unit, i.base_unit, i.unit), 'conversionRatio', COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio), 'densityGPerMl', i.density_g_per_ml)) FILTER (WHERE ri.id IS NOT NULL), '[]') AS recipe_ingredients
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
       LEFT JOIN inventory i ON i.id = ri.inventory_item_id
+      LEFT JOIN LATERAL (
+        SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+        FROM inventory_item_uoms u
+        WHERE u.inventory_id = i.id AND u.purchase_unit = ${inventoryUnitSql}
+          AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+        ORDER BY u.effective_from DESC LIMIT 1
+      ) active_uom ON true
       LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
       LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
-      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity
+      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity, active_uom.base_unit, active_uom.conversion_factor_to_base, active_uom.yield_factor
       ORDER BY mi.created_at DESC
       `
     );

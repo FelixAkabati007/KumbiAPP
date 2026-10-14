@@ -6,6 +6,9 @@ import { logAudit } from "@/lib/audit";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateMenuAvailability } from "@/lib/menu-availability";
 import { recordMenuChange } from "@/lib/menu-change-events";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 interface MenuRow {
   id: string;
@@ -48,7 +51,17 @@ export async function GET(
 
     const r = res.rows[0];
     const recipeRes = await query<{ name: string; requiredQuantity: number | string; recipeUnit: string | null; availableQuantity: number | string | null; stockUnit: string | null; conversionRatio: number | string | null; densityGPerMl: number | string | null }>(
-      `SELECT i.name, ri.quantity AS "requiredQuantity", ri.unit AS "recipeUnit", i.quantity AS "availableQuantity", COALESCE(i.base_unit, i.unit) AS "stockUnit", i.conversion_ratio AS "conversionRatio", i.density_g_per_ml AS "densityGPerMl" FROM recipe_ingredients ri JOIN inventory i ON i.id = ri.inventory_item_id WHERE ri.menu_item_id = $1`,
+      `SELECT i.name, ri.quantity AS "requiredQuantity", ri.unit AS "recipeUnit", i.quantity AS "availableQuantity", COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS "stockUnit", COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS "conversionRatio", i.density_g_per_ml AS "densityGPerMl"
+       FROM recipe_ingredients ri
+       JOIN inventory i ON i.id = ri.inventory_item_id
+       LEFT JOIN LATERAL (
+         SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+         FROM inventory_item_uoms u
+         WHERE u.inventory_id = i.id AND u.purchase_unit = ${inventoryUnitSql}
+           AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+         ORDER BY u.effective_from DESC LIMIT 1
+       ) active_uom ON true
+       WHERE ri.menu_item_id = $1`,
       [id]
     );
     const availability = calculateMenuAvailability({ inventoryMode: r.inventory_mode, availabilityMode: r.availability_mode, isAvailable: r.is_available, directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity), directUnitsPerSale: Number(r.direct_units_per_sale), ingredients: recipeRes.rows.map((ingredient) => ({ ...ingredient, requiredQuantity: Number(ingredient.requiredQuantity), availableQuantity: ingredient.availableQuantity == null ? null : Number(ingredient.availableQuantity), conversionRatio: ingredient.conversionRatio == null ? null : Number(ingredient.conversionRatio), densityGPerMl: ingredient.densityGPerMl == null ? null : Number(ingredient.densityGPerMl) })) });
