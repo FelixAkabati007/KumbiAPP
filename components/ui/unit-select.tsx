@@ -242,11 +242,13 @@ export function UnitSelect({
             className="w-full overflow-hidden"
           >
             <CommandInput placeholder={t.searchUnit} />
+            <div
+              data-testid="unit-select-scroll-viewport"
+              className="h-60 max-h-60 w-full overflow-x-hidden overflow-y-auto overscroll-contain scrollbar-hide"
+            >
             <CommandList
               data-testid="unit-select-list"
-              tabIndex={0}
-              className="!h-60 !max-h-60 w-full overflow-x-hidden !overflow-y-auto overscroll-contain scrollbar-hide"
-              style={{ height: "15rem", maxHeight: "15rem", overflowY: "auto" }}
+              className="!h-auto !max-h-none w-full overflow-visible"
             >
               {loading && (
                 <div className="py-6 text-center text-sm text-muted-foreground">
@@ -293,6 +295,7 @@ export function UnitSelect({
                 </>
               )}
             </CommandList>
+            </div>
           </Command>
         </PopoverContent>
       </Popover>
