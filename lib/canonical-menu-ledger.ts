@@ -1,5 +1,8 @@
 import { query } from "@/lib/db";
 import { calculateMenuAvailability, type AvailabilityIngredient } from "@/lib/menu-availability";
+import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 export type CanonicalMenuItem = {
   id: string;
@@ -53,7 +56,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
       SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
       FROM inventory_item_uoms u
       WHERE u.inventory_id = i.id
-        AND u.purchase_unit = LOWER(TRIM(i.unit))
+        AND u.purchase_unit = ${inventoryUnitSql}
         AND u.is_active = true
         AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
       ORDER BY u.effective_from DESC

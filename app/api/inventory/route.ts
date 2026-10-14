@@ -27,10 +27,21 @@ export async function GET() {
     if (access.error) return access.error;
     const res = await query(
       `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode,
+        active_uom.base_unit AS active_uom_base_unit,
+        active_uom.conversion_factor_to_base AS active_uom_factor,
         CASE WHEN LOWER(COALESCE(i.unit, '')) = LOWER(COALESCE(i.base_unit, '')) THEN false
-             WHEN EXISTS (SELECT 1 FROM inventory_item_uoms u WHERE u.inventory_id = i.id AND u.purchase_unit = ${inventoryUnitSql} AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)) THEN false
+             WHEN active_uom.inventory_id IS NOT NULL THEN false
              ELSE true END AS conversion_rule_missing
-       FROM inventory i LEFT JOIN menu_items mi ON mi.id = i.menu_item_id ORDER BY i.last_updated DESC`,
+       FROM inventory i
+       LEFT JOIN menu_items mi ON mi.id = i.menu_item_id
+       LEFT JOIN LATERAL (
+         SELECT u.inventory_id, u.base_unit, u.conversion_factor_to_base
+         FROM inventory_item_uoms u
+         WHERE u.inventory_id = i.id AND u.purchase_unit = ${inventoryUnitSql}
+           AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+         ORDER BY u.effective_from DESC LIMIT 1
+       ) active_uom ON true
+       ORDER BY i.last_updated DESC`,
     );
     const canonicalMenuLedger = await getCanonicalInventoryMenuLedger();
     const availabilityByInventoryName = new Map(canonicalMenuLedger.map((item) => [item.name, item]));
@@ -52,9 +63,9 @@ export async function GET() {
         supplier: r.supplier ?? "",
         lastUpdated: r.last_updated ?? undefined,
         menuItemId: r.menu_item_id ?? undefined,
-        baseUnit: r.base_unit ?? undefined,
-        recipeUnit: r.recipe_unit ?? undefined,
-        conversionRatio: String(r.conversion_ratio ?? ""),
+        baseUnit: r.active_uom_base_unit ?? r.base_unit ?? undefined,
+        recipeUnit: r.active_uom_base_unit ?? r.recipe_unit ?? undefined,
+        conversionRatio: String(r.active_uom_factor ?? r.conversion_ratio ?? ""),
         conversionType: r.conversion_type ?? "standard",
         conversionRuleMissing: Boolean(r.conversion_rule_missing),
         canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
@@ -249,6 +260,22 @@ export async function POST(req: Request) {
         ],
       );
     }
+
+    const purchaseUnit = normalizeInventoryUnit(String(containerUnit ?? unit ?? "unit"));
+    const activeBaseUnit = normalizeInventoryUnit(String(resolvedBaseUnit ?? resolvedRecipeUnit ?? "unit"));
+    if (purchaseUnit && activeBaseUnit && Number.isFinite(resolvedConversionRatio) && resolvedConversionRatio > 0) {
+      await query(
+        "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
+        [res.rows[0].id],
+      );
+      await query(
+        `INSERT INTO inventory_item_uoms
+          (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, density_g_per_ml, yield_factor, is_active, effective_from)
+         VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
+        [res.rows[0].id, purchaseUnit, activeBaseUnit, resolvedConversionRatio, resolvedDensity, 1],
+      );
+    }
+
     await logAudit({
       performedBy: session?.id,
       action: "UPDATE_INVENTORY",

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission, requireRole } from "@/lib/api-auth";
-import { getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
+import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
 import { recordMenuChange } from "@/lib/menu-change-events";
 
@@ -27,7 +29,7 @@ export async function GET(
          SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
          FROM inventory_item_uoms u
          WHERE u.inventory_id = i.id
-           AND u.purchase_unit = LOWER(TRIM(i.unit))
+           AND u.purchase_unit = ${inventoryUnitSql}
            AND u.is_active = true
            AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
          ORDER BY u.effective_from DESC

@@ -220,6 +220,35 @@ export async function PUT(
 
     const res = await query(q, values);
 
+    const uomWasUpdated =
+      containerUnit !== undefined ||
+      unit !== undefined ||
+      baseUnit !== undefined ||
+      recipeUnit !== undefined ||
+      conversionRatio !== undefined ||
+      conversionType !== undefined;
+    if ((res.rowCount ?? 0) > 0 && uomWasUpdated) {
+      const purchaseUnit = normalizeInventoryUnit(
+        String(normalizedContainerUnit ?? unit ?? before.unit ?? "unit"),
+      );
+      const activeBaseUnit = normalizeInventoryUnit(
+        String(normalizedBaseUnit ?? recipeUnit ?? before.base_unit ?? before.unit ?? "unit"),
+      );
+      const factor = Number(normalizedConversionRatio ?? 1);
+      if (purchaseUnit && activeBaseUnit && Number.isFinite(factor) && factor > 0) {
+        await query(
+          "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
+          [id],
+        );
+        await query(
+          `INSERT INTO inventory_item_uoms
+            (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, yield_factor, is_active, effective_from)
+           VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP)`,
+          [id, purchaseUnit, activeBaseUnit, factor, 1],
+        );
+      }
+    }
+
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
