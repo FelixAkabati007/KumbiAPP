@@ -239,13 +239,14 @@ export function UnitSelect({
         <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] max-h-[calc(100vh-1rem)] overflow-hidden p-0">
           <Command
             data-testid="unit-select-command"
-            className="flex h-[min(60vh,28rem)] max-h-[min(60vh,28rem)] min-h-0 flex-col overflow-hidden"
+            className="w-full overflow-hidden"
           >
             <CommandInput placeholder={t.searchUnit} />
             <CommandList
               data-testid="unit-select-list"
-              className="shrink-0 overflow-x-hidden overflow-y-scroll overscroll-contain scrollbar-hide"
-              style={{ height: "min(22rem, 50vh)", maxHeight: "min(22rem, 50vh)" }}
+              tabIndex={0}
+              className="!h-60 !max-h-60 w-full overflow-x-hidden !overflow-y-auto overscroll-contain scrollbar-hide"
+              style={{ height: "15rem", maxHeight: "15rem", overflowY: "auto" }}
             >
               {loading && (
                 <div className="py-6 text-center text-sm text-muted-foreground">
