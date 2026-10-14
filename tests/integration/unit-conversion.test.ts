@@ -77,6 +77,46 @@ describe.skipIf(!databaseUrl)("inventory and menu unit conversion", () => {
     }
   }, 30000);
 
+  it("completes inventory to menu to order deduction arithmetic", async () => {
+    const pool = new Pool({ connectionString: databaseUrl });
+    try {
+      const result = await pool.query(`
+        SELECT i.id AS inventory_id,
+               ri.menu_item_id,
+               ri.quantity AS recipe_quantity,
+               ri.unit AS recipe_unit,
+               i.quantity AS stock_quantity,
+               COALESCE(u.base_unit, i.base_unit, i.unit) AS stock_unit,
+               COALESCE(u.conversion_factor_to_base * u.yield_factor, i.conversion_ratio, 1) AS conversion_ratio
+        FROM inventory i
+        JOIN recipe_ingredients ri ON ri.inventory_item_id = i.id
+        LEFT JOIN LATERAL (
+          SELECT base_unit, conversion_factor_to_base, yield_factor
+          FROM inventory_item_uoms
+          WHERE inventory_id = i.id
+            AND purchase_unit = LOWER(TRIM(i.unit))
+            AND is_active = true
+            AND (effective_to IS NULL OR effective_to > CURRENT_TIMESTAMP)
+          ORDER BY effective_from DESC
+          LIMIT 1
+        ) u ON true
+        WHERE ri.quantity > 0
+        LIMIT 1
+      `);
+
+      if (result.rows.length === 0) return;
+      const row = result.rows[0];
+      const requiredStock = Number(row.recipe_quantity) * Number(row.conversion_ratio);
+      const remainingStock = Number(row.stock_quantity) - requiredStock;
+      expect(row.inventory_id).toBeTruthy();
+      expect(row.menu_item_id).toBeTruthy();
+      expect(requiredStock).toBeGreaterThan(0);
+      expect(Number.isFinite(remainingStock)).toBe(true);
+    } finally {
+      await pool.end();
+    }
+  }, 30000);
+
   it("has no duplicate active UOM rules for one inventory purchase unit", async () => {
     const pool = new Pool({ connectionString: databaseUrl });
     try {

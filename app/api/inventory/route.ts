@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
@@ -204,10 +204,16 @@ export async function POST(req: Request) {
       : 1;
     const resolvedConversionType =
       conversionType === "pack" ? "pack" : "standard";
+    if (!menuItemId && !String(name ?? "").trim())
+      return NextResponse.json(
+        { error: "Name is required for standalone inventory items" },
+        { status: 400 },
+      );
     const canonicalNow = await getCanonicalTransactionTimestamp();
-    let res;
-    if (menuItemId) {
-      res = await query(
+    const res = await transaction(async (client) => {
+      let res;
+      if (menuItemId) {
+      res = await client.query(
         `INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::timestamptz) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, base_unit=EXCLUDED.base_unit, density_g_per_ml=EXCLUDED.density_g_per_ml, recipe_unit=EXCLUDED.recipe_unit, conversion_ratio=EXCLUDED.conversion_ratio, conversion_type=EXCLUDED.conversion_type, last_updated=EXCLUDED.last_updated RETURNING id, quantity`,
         [
           menuItemId,
@@ -230,12 +236,7 @@ export async function POST(req: Request) {
         ],
       );
     } else {
-      if (!String(name ?? "").trim())
-        return NextResponse.json(
-          { error: "Name is required for standalone inventory items" },
-          { status: 400 },
-        );
-      res = await query(
+      res = await client.query(
         `INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::timestamptz) RETURNING id`,
         [
           String(name).trim(),
@@ -264,17 +265,20 @@ export async function POST(req: Request) {
     const purchaseUnit = normalizeInventoryUnit(String(containerUnit ?? unit ?? "unit"));
     const activeBaseUnit = normalizeInventoryUnit(String(resolvedBaseUnit ?? resolvedRecipeUnit ?? "unit"));
     if (purchaseUnit && activeBaseUnit && Number.isFinite(resolvedConversionRatio) && resolvedConversionRatio > 0) {
-      await query(
+      await client.query(
         "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
         [res.rows[0].id],
       );
-      await query(
+      await client.query(
         `INSERT INTO inventory_item_uoms
           (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, density_g_per_ml, yield_factor, is_active, effective_from)
          VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
         [res.rows[0].id, purchaseUnit, activeBaseUnit, resolvedConversionRatio, resolvedDensity, 1],
       );
     }
+
+    return res;
+    });
 
     await logAudit({
       performedBy: session?.id,

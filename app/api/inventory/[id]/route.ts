@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requireRole } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
@@ -218,36 +218,40 @@ export async function PUT(
       ", ",
     )} WHERE id = $${idx} RETURNING *`;
 
-    const res = await query(q, values);
+    const res = await transaction(async (client) => {
+      const updated = await client.query(q, values);
 
-    const uomWasUpdated =
+      const uomWasUpdated =
       containerUnit !== undefined ||
       unit !== undefined ||
       baseUnit !== undefined ||
       recipeUnit !== undefined ||
       conversionRatio !== undefined ||
       conversionType !== undefined;
-    if ((res.rowCount ?? 0) > 0 && uomWasUpdated) {
-      const purchaseUnit = normalizeInventoryUnit(
-        String(normalizedContainerUnit ?? unit ?? before.unit ?? "unit"),
-      );
-      const activeBaseUnit = normalizeInventoryUnit(
-        String(normalizedBaseUnit ?? recipeUnit ?? before.base_unit ?? before.unit ?? "unit"),
-      );
-      const factor = Number(normalizedConversionRatio ?? 1);
-      if (purchaseUnit && activeBaseUnit && Number.isFinite(factor) && factor > 0) {
-        await query(
-          "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
-          [id],
+      if ((updated.rowCount ?? 0) > 0 && uomWasUpdated) {
+        const purchaseUnit = normalizeInventoryUnit(
+          String(normalizedContainerUnit ?? unit ?? before.unit ?? "unit"),
         );
-        await query(
-          `INSERT INTO inventory_item_uoms
-            (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, yield_factor, is_active, effective_from)
-           VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP)`,
-          [id, purchaseUnit, activeBaseUnit, factor, 1],
+        const activeBaseUnit = normalizeInventoryUnit(
+          String(normalizedBaseUnit ?? recipeUnit ?? before.base_unit ?? before.unit ?? "unit"),
         );
+        const factor = Number(normalizedConversionRatio ?? 1);
+        if (purchaseUnit && activeBaseUnit && Number.isFinite(factor) && factor > 0) {
+          await client.query(
+            "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
+            [id],
+          );
+          await client.query(
+            `INSERT INTO inventory_item_uoms
+              (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, yield_factor, is_active, effective_from)
+             VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP)`,
+            [id, purchaseUnit, activeBaseUnit, factor, 1],
+          );
+        }
       }
-    }
+
+      return updated;
+    });
 
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
