@@ -84,7 +84,7 @@ export function EventDetailWorkspace({ eventId, autoPrint = false }: { eventId: 
       {tab === "quote" && <><EventPricingDesk eventId={event.id} canEdit={canPrice} /><QuoteApprovalPanel eventId={event.id} onSecureQuote={(quoteId) => { setSelectedQuoteId(quoteId); openTab("documents"); }} /><EventBookingPanel eventId={event.id} secured={Boolean(event.receipt_id)} quoteApproved={Boolean(event.quote_approved)} selectedQuoteId={selectedQuoteId} receiptId={event.receipt_id} onReviewQuote={() => openTab("quote")} onSecured={refreshWorkspace} /></>}
       {tab === "payments" && <EventPayments data={workspaceData} eventId={event.id} onRecorded={() => void refreshWorkspace()} />}
       {tab === "finance" && <EventFinance data={workspaceData} eventId={event.id} onGenerated={() => void refreshWorkspace()} />}
-      {tab === "operations" && <EventOperations event={event} data={workspaceData} eventId={event.id} />}
+      {tab === "operations" && <EventOperations event={event} data={workspaceData} eventId={event.id} onChanged={() => void refreshWorkspace()} />}
       {tab === "documents" && <EventDocuments eventId={event.id} receiptId={event.receipt_id} invoiceEnabled={Boolean(selectedQuoteId)} />}
       {tab === "activity" && <EventActivity data={workspaceData} eventId={event.id} receiptId={event.receipt_id} />}
     </CardContent></Card>
