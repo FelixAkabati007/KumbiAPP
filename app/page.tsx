@@ -726,16 +726,15 @@ function DashboardContent() {
                 scheduled end, and wait for a manager approval before opening
                 other workspaces.
               </p>
-              <Link
-                href={
-                  user.role === "staff" ? "/staff/attendance" : "/attendance"
-                }
-                className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
-              >
-                {user.role === "staff"
-                  ? "Open staff attendance"
-                  : "Open attendance register"}
-              </Link>
+              <div className="mt-4">
+                <DashboardLaunchButton
+                  href={user.role === "staff" ? "/staff/attendance" : "/attendance"}
+                >
+                  {user.role === "staff"
+                    ? "Open staff attendance"
+                    : "Open attendance register"}
+                </DashboardLaunchButton>
+              </div>
             </CardContent>
           </Card>
           {dashboardAccess.events && (
@@ -758,12 +757,11 @@ function DashboardContent() {
                   Plan events, coordinate venues, manage guests, assign delivery
                   teams, and prepare quotations through the Pricing desk.
                 </p>
-                <Link
-                  href="/events"
-                  className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
-                >
-                  Open Event Organization
-                </Link>
+                <div className="mt-4">
+                  <DashboardLaunchButton href="/events">
+                    Open Event Organization
+                  </DashboardLaunchButton>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1185,11 +1183,9 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/hotels/reservations" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    Manage Reservations
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/hotels/reservations">
+                  Manage Reservations
+                </DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1214,11 +1210,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/hotels/rooms" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    View Rooms
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/hotels/rooms">View Rooms</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1243,11 +1235,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/hotels/housekeeping" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    View Tasks
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/hotels/housekeeping">View Tasks</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1272,11 +1260,9 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/hotels/check-in" className="w-full">
-                  <Button className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg cursor-pointer">
-                    Process Check-In
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/hotels/check-in">
+                  Process Check-In
+                </DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
