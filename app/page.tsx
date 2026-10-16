@@ -121,26 +121,34 @@ function DashboardContent() {
   }: {
     href: string;
     children: ReactNode;
-  }) => (
-    <Link
-      href={href}
-      className="w-full"
-      aria-busy={loadingDestination === href}
-      onClick={() => setLoadingDestination(href)}
-    >
+  }) => {
+    const isLoading = loadingDestination === href;
+    const isBlocked = loadingDestination !== null && !isLoading;
+
+    return (
       <Button
+        asChild
         className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600"
-        disabled={loadingDestination !== null}
       >
-        <span className={loadingDestination === href ? "sr-only" : undefined}>
-          {children}
-        </span>
-        {loadingDestination === href && (
-          <span className="dashboard-launcher-loader" role="status" aria-label="Loading" />
-        )}
+        <Link
+          href={href}
+          aria-busy={isLoading}
+          aria-disabled={isBlocked || undefined}
+          tabIndex={isBlocked ? -1 : undefined}
+          onClick={(event) => {
+            if (isBlocked) {
+              event.preventDefault();
+              return;
+            }
+            setLoadingDestination(href);
+          }}
+        >
+          <span className={isLoading ? "sr-only" : undefined}>{children}</span>
+          {isLoading && <span className="dashboard-launcher-loader" role="status" aria-label="Loading" />}
+        </Link>
       </Button>
-    </Link>
-  );
+    );
+  };
 
   const requestedCategory = searchParams.get("category") as (typeof DASHBOARD_CATEGORIES)[number][0] | null;
   const [activeDashboardCategory, setActiveDashboardCategory] =
