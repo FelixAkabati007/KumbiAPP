@@ -159,27 +159,6 @@
     background: hsl(var(--foreground));
   }
 
-  .dashboard-launcher-loader {
-    display: inline-block;
-    width: 1.25rem;
-    height: 1.25rem;
-    border: 0.2rem solid hsl(var(--primary-foreground) / 0.35);
-    border-top-color: hsl(var(--primary-foreground));
-    border-radius: 9999px;
-    animation: dashboard-launcher-spin 0.8s linear infinite;
-  }
-
-  @keyframes dashboard-launcher-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dashboard-launcher-loader {
-      animation-duration: 1.5s;
-    }
-  }
 
   .important-description {
     border: 1px solid hsl(var(--description-start));
