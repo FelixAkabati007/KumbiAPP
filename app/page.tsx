@@ -113,6 +113,35 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [loadingDestination, setLoadingDestination] = useState<string | null>(null);
+
+  const DashboardLaunchButton = ({
+    href,
+    children,
+  }: {
+    href: string;
+    children: ReactNode;
+  }) => (
+    <Link
+      href={href}
+      className="w-full"
+      aria-busy={loadingDestination === href}
+      onClick={() => setLoadingDestination(href)}
+    >
+      <Button
+        className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600"
+        disabled={loadingDestination !== null}
+      >
+        <span className={loadingDestination === href ? "sr-only" : undefined}>
+          {children}
+        </span>
+        {loadingDestination === href && (
+          <span className="dashboard-launcher-loader" role="status" aria-label="Loading" />
+        )}
+      </Button>
+    </Link>
+  );
+
   const requestedCategory = searchParams.get("category") as (typeof DASHBOARD_CATEGORIES)[number][0] | null;
   const [activeDashboardCategory, setActiveDashboardCategory] =
     useState<(typeof DASHBOARD_CATEGORIES)[number][0]>(requestedCategory || "all");
@@ -751,11 +780,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/pos" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    Open POS
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/pos">Open POS</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -809,11 +834,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/kitchen" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Kitchen
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/kitchen">View Kitchen</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -865,11 +886,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/order-display?mode=grid" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Orders
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/order-display?mode=grid">View Orders</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -894,11 +911,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/menu" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    Manage Menu
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/menu">Manage Menu</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -923,11 +936,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/inventory" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Inventory
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/inventory">View Inventory</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -955,11 +964,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/operations" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600">
-                    Open Operations
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/operations">Open Operations</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -991,11 +996,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/finance" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    Open Finance
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/finance">Open Finance</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1020,11 +1021,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/reports" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Reports
-                  </Button>
-                </Link>
+<DashboardLaunchButton href="/reports">View Reports</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1049,11 +1046,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/refunds" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    Manage Refunds
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/refunds">Manage Refunds</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1078,11 +1071,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/payments" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Payments
-                  </Button>
-                </Link>
+<DashboardLaunchButton href="/payments">View Payments</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1138,11 +1127,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/receipt" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View Receipts
-                  </Button>
-                </Link>
+                <DashboardLaunchButton href="/receipt">View Receipts</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
@@ -1167,11 +1152,7 @@ function DashboardContent() {
                 </p>
               </CardContent>
               <CardFooter className="relative z-10">
-                <Link href="/system" className="w-full">
-                  <Button className="dashboard-launcher-action w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-                    View System
-                  </Button>
-                </Link>
+<DashboardLaunchButton href="/system">View System</DashboardLaunchButton>
               </CardFooter>
             </Card>
           )}
