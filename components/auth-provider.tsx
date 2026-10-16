@@ -36,19 +36,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDatabaseReady] = useState(true);
+  const authRequestRef = React.useRef<Promise<void> | null>(null);
 
   const checkAuth = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v1/auth/me", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
+    if (authRequestRef.current) return authRequestRef.current;
+    const request = (async () => {
+      try {
+        const res = await fetch("/api/v1/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
         setUser(null);
       }
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      setUser(null);
+    })();
+    authRequestRef.current = request;
+    try {
+      await request;
+    } finally {
+      authRequestRef.current = null;
     }
   }, []);
 

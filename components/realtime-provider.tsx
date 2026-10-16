@@ -45,7 +45,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       source.onerror = () => {
         setConnected(false);
         source?.close();
-        if (!fallback) fallback = setInterval(() => { if (!document.hidden && navigator.onLine) router.refresh(); }, 30_000);
+        if (!fallback) fallback = setInterval(() => { if (!document.hidden && navigator.onLine) router.refresh(); }, 60_000);
         if (!stopped && !reconnectTimer) {
           reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, reconnectDelay);
           reconnectDelay = Math.min(reconnectDelay * 2, 30_000);

@@ -22,7 +22,7 @@ type Recipient = { id: string; name?: string | null; email: string; role: string
 export function AnnouncementCard({ variant = "dashboard" }: { variant?: "dashboard" | "page" }) {
   const isPage = variant === "page";
   const { user } = useAuth();
-  const { data, mutate } = useSWR<{ announcements: Array<{ id: string; title: string; message: string; priority: string; created_by_name: string; created_by_role: string; created_at: string; archived_at: string | null; is_read: boolean }> }>("/api/announcements", fetcher, { refreshInterval: 30000 });
+  const { data, mutate } = useSWR<{ announcements: Array<{ id: string; title: string; message: string; priority: string; created_by_name: string; created_by_role: string; created_at: string; archived_at: string | null; is_read: boolean }> }>("/api/announcements", fetcher, { refreshInterval: 60000, refreshWhenHidden: false, revalidateOnFocus: true });
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
