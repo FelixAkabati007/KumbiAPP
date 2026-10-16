@@ -58,6 +58,30 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({ ...summary, receipts: receipts.rows, payments: uniquePayments, ledger: ledger.rows, activity: activity.rows, tasks: tasks.rows });
 }
 
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { session, error } = await requirePermission("events");
+  if (error) return error;
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  const taskId = String(body.taskId ?? "").trim();
+  if (!taskId || !["completed", "open"].includes(String(body.status ?? ""))) {
+    return NextResponse.json({ error: "taskId and a valid task status are required" }, { status: 400 });
+  }
+  const result = await query(
+    `UPDATE hotel_activity_ledger
+     SET metadata = metadata || jsonb_build_object(
+       'status', $1,
+       'completedAt', CASE WHEN $1 = 'completed' THEN now() ELSE NULL END,
+       'completedBy', CASE WHEN $1 = 'completed' THEN $2 ELSE NULL END
+     )
+     WHERE id::text = $3 AND entity_type = 'event_task' AND entity_id::text = $4
+     RETURNING id, description, metadata, occurred_at`,
+    [String(body.status), session.id, taskId, id],
+  );
+  if (!result.rowCount) return NextResponse.json({ error: "Operational task not found" }, { status: 404 });
+  return NextResponse.json({ task: result.rows[0] });
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requirePermission("events");
   if (error) return error;
