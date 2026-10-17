@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
   ChefHat,
   CreditCard,
   Grid3X3,
+  Loader2,
   LogOut,
   Monitor,
   Package,
@@ -80,6 +81,32 @@ const DASHBOARD_CATEGORIES = [
   ["events", "Event Organization"],
 ] as const;
 
+// Defined at module scope: declaring it inside DashboardContent (which re-renders every
+// second for the clock) gave it a new identity each render, remounting every launcher
+// anchor mid-click so navigation never fired.
+function LaunchPendingIndicator({ children }: { children: ReactNode }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span className="inline-flex items-center justify-center gap-2" aria-live="polite">
+      {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+      <span>{children}</span>
+      {pending && <span className="sr-only">Loading</span>}
+    </span>
+  );
+}
+
+function DashboardLaunchButton({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      prefetch
+      className="enterprise-interactive inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dashboard-launcher-action"
+    >
+      <LaunchPendingIndicator>{children}</LaunchPendingIndicator>
+    </Link>
+  );
+}
+
 function DashboardContent() {
   const { user, logout } = useAuth();
   const searchParams = useSearchParams();
@@ -113,20 +140,6 @@ function DashboardContent() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const DashboardLaunchButton = ({
-    href,
-    children,
-  }: {
-    href: string;
-    children: ReactNode;
-  }) => (
-    <a
-      href={href}
-      className="enterprise-interactive inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dashboard-launcher-action"
-    >
-      {children}
-    </a>
-  );
 
   const requestedCategory = searchParams.get("category") as (typeof DASHBOARD_CATEGORIES)[number][0] | null;
   const [activeDashboardCategory, setActiveDashboardCategory] =
