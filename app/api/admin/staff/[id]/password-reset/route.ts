@@ -131,7 +131,7 @@ export async function GET(
        FROM password_reset_tokens prt
        WHERE prt.token_hash = $1
        AND prt.staff_id = $2
-       AND prt.is_used = false
+       AND prt.used_at IS NULL
        AND prt.expires_at > NOW()`,
       [tokenHash, id]
     );

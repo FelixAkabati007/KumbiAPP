@@ -16,7 +16,14 @@ export async function POST(req: Request) {
     }
 
     // Check if user exists
-    const userRes = await query("SELECT id FROM users WHERE email = $1", [email]);
+    const userRes = await query(
+      `SELECT u.id, sp.id AS staff_id
+       FROM users u
+       LEFT JOIN staff_profiles sp ON sp.user_id = u.id
+       WHERE LOWER(u.email) = LOWER($1)
+       LIMIT 1`,
+      [email.trim()]
+    );
     if (userRes.rows.length === 0) {
       // Don't reveal user existence
       return NextResponse.json({
@@ -35,9 +42,9 @@ export async function POST(req: Request) {
 
     // Store token
     await query(
-      `INSERT INTO password_reset_tokens (email, token_hash, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '${expiresMinutes} minutes')`,
-      [email, tokenHash]
+      `INSERT INTO password_reset_tokens (email, staff_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '${expiresMinutes} minutes')`,
+      [email.trim().toLowerCase(), userRes.rows[0].staff_id ?? null, tokenHash]
     );
 
     // Send email

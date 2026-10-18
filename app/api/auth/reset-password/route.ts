@@ -34,9 +34,10 @@ export async function POST(req: Request) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
     const tokenRes = await query(
-      `SELECT id, expires_at, used_at FROM password_reset_tokens
-       WHERE email = $1 AND token_hash = $2 AND used_at IS NULL`,
-      [email, tokenHash]
+      `SELECT id, staff_id, expires_at, used_at FROM password_reset_tokens
+       WHERE LOWER(email) = LOWER($1) AND token_hash = $2 AND used_at IS NULL
+       AND expires_at > NOW()`,
+      [email.trim(), tokenHash]
     );
 
     if (tokenRes.rows.length === 0) {
@@ -47,24 +48,25 @@ export async function POST(req: Request) {
     }
 
     const tokenData = tokenRes.rows[0];
-    if (new Date() > new Date(tokenData.expires_at)) {
-      return NextResponse.json(
-        { success: false, error: "Token has expired" },
-        { status: 400 }
+
+    // Update both credential stores used by staff and standard user login.
+    const hashedPassword = await hashPassword(password);
+    await query(
+      "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = LOWER($2)",
+      [hashedPassword, email.trim()]
+    );
+    if (tokenData.staff_id) {
+      await query(
+        "UPDATE staff_profiles SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2",
+        [hashedPassword, tokenData.staff_id]
       );
     }
 
-    // Update password
-    const hashedPassword = await hashPassword(password);
-    await query("UPDATE users SET password_hash = $1 WHERE email = $2", [
-      hashedPassword,
-      email,
-    ]);
-
-    // Mark token used
-    await query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [
-      tokenData.id,
-    ]);
+    // Consume the token only after a successful credential update.
+    await query(
+      "UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL",
+      [tokenData.id]
+    );
 
     return NextResponse.json({
       success: true,
