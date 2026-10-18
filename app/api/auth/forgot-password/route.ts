@@ -54,7 +54,16 @@ export async function POST(req: Request) {
     )}&email=${encodeURIComponent(email)}`;
     
     const { subject, text, html } = buildPasswordResetEmail(link);
-    await sendEmail({ to: email, subject, text, html });
+    const delivery = await sendEmail({ to: email, subject, text, html });
+    if (!delivery.success) {
+      await query("DELETE FROM password_reset_tokens WHERE token_hash = $1", [
+        tokenHash,
+      ]);
+      return NextResponse.json(
+        { success: false, error: "Password reset email delivery is not configured" },
+        { status: 503 },
+      );
+    }
 
     return NextResponse.json({
       success: true,

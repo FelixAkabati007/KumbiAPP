@@ -127,7 +127,7 @@ export async function GET(
       .digest("hex");
 
     const tokenResult = await query(
-      `SELECT prt.staff_id, prt.expires_at, prt.is_used
+      `       SELECT prt.staff_id, prt.expires_at, prt.used_at
        FROM password_reset_tokens prt
        WHERE prt.token_hash = $1
        AND prt.staff_id = $2

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { updateStaffPassword } from "@/lib/password-manager";
 import crypto from "crypto";
 import { z } from "zod";
 
@@ -9,10 +10,12 @@ const resetSchema = z.object({
   token: z.string(),
   password: z
     .string()
-    .min(8, { message: "Password must be at least 8 characters" })
-    .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-      message:
-        "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+    .min(12, { message: "Password must be at least 12 characters" })
+    .regex(/[a-z]/, { message: "Password must contain a lowercase letter" })
+    .regex(/[A-Z]/, { message: "Password must contain an uppercase letter" })
+    .regex(/[0-9]/, { message: "Password must contain a number" })
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, {
+      message: "Password must contain a special character",
     }),
 });
 
@@ -49,16 +52,14 @@ export async function POST(req: Request) {
 
     const tokenData = tokenRes.rows[0];
 
-    // Update both credential stores used by staff and standard user login.
-    const hashedPassword = await hashPassword(password);
-    await query(
-      "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = LOWER($2)",
-      [hashedPassword, email.trim()]
-    );
+    // Apply the same password-history policy used by staff password changes.
     if (tokenData.staff_id) {
+      await updateStaffPassword(tokenData.staff_id, password);
+    } else {
+      const hashedPassword = await hashPassword(password);
       await query(
-        "UPDATE staff_profiles SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2",
-        [hashedPassword, tokenData.staff_id]
+        "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = LOWER($2)",
+        [hashedPassword, email.trim()]
       );
     }
 

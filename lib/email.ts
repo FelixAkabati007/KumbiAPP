@@ -6,7 +6,7 @@ type SendEmailParams = {
 };
 
 const EMAIL_FROM =
-  process.env.EMAIL_FROM || "no-reply@kumbisaly-heritage-restaurant.local";
+  process.env.EMAIL_FROM || "info.kumbisalyheritagehotel@gmail.com";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = process.env.SMTP_PORT;
@@ -55,10 +55,10 @@ export async function sendEmail({ to, subject, text, html }: SendEmailParams) {
     return { success: true, preview };
   }
 
-  // Fallback
+  // Do not report success when no delivery provider is configured.
   const preview = { to, subject, text, html };
-  console.info("[Email Fallback Preview]", preview);
-  return { success: true, preview };
+  console.warn("[Email Delivery Unavailable]", preview);
+  return { success: false, preview, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
 }
 
 export function buildVerificationEmail(link: string) {
