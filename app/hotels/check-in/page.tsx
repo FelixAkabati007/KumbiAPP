@@ -152,6 +152,8 @@ function CheckInPage() {
   const [checkoutGuest, setCheckoutGuest] = useState<CheckedInGuest | null>(
     null,
   );
+  const [checkoutFolio, setCheckoutFolio] = useState<GuestFolio | null>(null);
+  const [loadingCheckoutFolio, setLoadingCheckoutFolio] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [checkoutDisclosure, setCheckoutDisclosure] = useState<{
     grossSpent: number;
@@ -464,11 +466,46 @@ function CheckInPage() {
     }
   };
 
-  const openCheckout = (guest: CheckedInGuest) => {
+  const openCheckout = async (guest: CheckedInGuest) => {
+    if (loadingCheckoutFolio || processing) return;
+    setLoadingCheckoutFolio(true);
+    setCheckoutFolio(null);
     setCheckoutGuest(guest);
-    // In Ghana, accommodation is settled at check-in. Check-out starts at GHS 0
-    // and only collects optional outstanding incidentals or damage charges.
     setPaymentAmount("");
+
+    try {
+      const response = await fetch(`/api/hotels/folios/${guest.id}`, {
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to calculate checkout amount");
+      }
+
+      const outstanding = Number(data.balance ?? 0);
+      setCheckoutFolio(data);
+      setCheckoutGuest((current) =>
+        current?.id === guest.id
+          ? {
+              ...current,
+              balance: String(outstanding),
+              extras_outstanding: String(outstanding),
+            }
+          : current,
+      );
+    } catch (error) {
+      setCheckoutGuest(null);
+      toast({
+        title: "Unable to prepare checkout",
+        description:
+          error instanceof Error
+            ? error.message
+            : "The current checkout amount could not be calculated.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCheckoutFolio(false);
+    }
   };
 
   const handleCheckOut = async () => {
@@ -483,7 +520,9 @@ function CheckInPage() {
     }
 
     const paid = paymentAmount.trim() === "" ? 0 : Number(paymentAmount);
-    const balance = Number(checkoutGuest.balance || 0);
+    const balance = Number(
+    checkoutGuest.extras_outstanding ?? checkoutGuest.balance ?? 0,
+  );
     if (!Number.isFinite(paid) || paid < 0 || paid > balance) {
       toast({
         title: "Invalid payment",
@@ -524,9 +563,10 @@ function CheckInPage() {
       window.dispatchEvent(new Event("roomStatusUpdated"));
       window.dispatchEvent(new Event("housekeepingUpdated"));
       window.dispatchEvent(new Event("reservationUpdated"));
-      setCheckoutGuest(null);
-      setPaymentAmount("");
-      toast({
+  setCheckoutGuest(null);
+  setCheckoutFolio(null);
+  setPaymentAmount("");
+  toast({
         title: "Success",
         description:
           paid > 0
@@ -1089,11 +1129,11 @@ function CheckInPage() {
                               </Button>
                               <Button
                                 onClick={() => openCheckout(guest)}
-                                disabled={processing}
+                                disabled={processing || loadingCheckoutFolio}
                                 className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
                               >
                                 <DoorClosed className="h-4 w-4 mr-2" />
-                                Check Out
+                                {loadingCheckoutFolio ? "Calculating…" : "Check Out"}
                               </Button>
                             </div>
                           </div>
@@ -1221,6 +1261,7 @@ function CheckInPage() {
         onOpenChange={(open) => {
           if (!open && !processing) {
             setCheckoutGuest(null);
+            setCheckoutFolio(null);
             setPaymentAmount("");
           }
         }}
@@ -1257,6 +1298,33 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                   </p>
                 </div>
               </div>
+              {loadingCheckoutFolio ? (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+                  Calculating every accumulated room, service, food, and other charge before confirmation…
+                </div>
+              ) : checkoutFolio ? (
+                <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/60 p-3">
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                    <span>Accumulated checkout charges</span>
+                    <span>GHS {Number(checkoutFolio.total_charges).toFixed(2)}</span>
+                  </div>
+                  {checkoutFolio.items?.length ? (
+                    <div className="divide-y divide-orange-200 rounded-lg border border-orange-200 bg-background">
+                      {checkoutFolio.items.map((item) => (
+                        <div key={item.id} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+                          <span>{item.description}</span>
+                          <span className="shrink-0 font-medium">GHS {Number(item.total_amount).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No accumulated charges are due.</p>
+                  )}
+                  <p className="text-xs text-orange-900">
+                    Paid at check-in: GHS {Number(checkoutFolio.paid_amount).toFixed(2)} · Outstanding: GHS {Number(checkoutFolio.balance).toFixed(2)}
+                  </p>
+                </div>
+              ) : null}
               <div className="space-y-2">
                 <Label htmlFor="payment-amount">
                   Incidentals Payment at Check-Out
@@ -1306,6 +1374,8 @@ A short-stay booking includes two hours. Guests may check out at any time after 
               onClick={handleCheckOut}
               disabled={
                 processing ||
+                loadingCheckoutFolio ||
+                !checkoutFolio ||
                 !checkoutGuest ||
                 !Number.isFinite(Number(paymentAmount || 0)) ||
                 Number(paymentAmount || 0) < 0 ||
