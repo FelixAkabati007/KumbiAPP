@@ -88,8 +88,8 @@ export async function verifyResetToken(token: string): Promise<string | null> {
   try {
     const result = await query(
       `SELECT staff_id FROM password_reset_tokens 
-       WHERE token_hash = $1 
-       AND is_used = false 
+       WHERE token_hash = $1
+       AND used_at IS NULL
        AND expires_at > NOW() 
        LIMIT 1`,
       [tokenHash]
@@ -104,8 +104,8 @@ export async function verifyResetToken(token: string): Promise<string | null> {
     // Mark token as used
     await query(
       `UPDATE password_reset_tokens 
-       SET is_used = true, used_at = NOW() 
-       WHERE token_hash = $1`,
+       SET used_at = NOW()
+       WHERE token_hash = $1 AND used_at IS NULL`,
       [tokenHash]
     );
 

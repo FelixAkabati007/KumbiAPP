@@ -13,6 +13,9 @@ async function main() {
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         email VARCHAR(255) NOT NULL,
+        staff_id UUID,
+        initiated_by UUID,
+        reset_reason TEXT,
         token_hash TEXT NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
         used_at TIMESTAMP WITH TIME ZONE,
