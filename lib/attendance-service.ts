@@ -1,11 +1,15 @@
 import { transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
+import { managementRoles } from "@/lib/roles";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export type AttendanceAction = "check_in" | "check_out";
 
 export async function registerAttendance(session: ApiSession, action: AttendanceAction, notes?: string) {
+  if (action === "check_in" && managementRoles.includes(session.role)) {
+    throw new Error("MANAGERIAL_ROLE_CHECK_IN_FORBIDDEN");
+  }
   const canonicalNow = await getCanonicalTransactionTimestamp();
   return transaction(async (client) => {
     const identity = await client.query<{ staff_id: string }>(

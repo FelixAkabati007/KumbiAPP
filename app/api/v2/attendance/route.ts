@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { registerAttendance } from "@/lib/attendance-service";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { managementRoles } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function GET() {
     apiVersion: "2",
     record: record ? { ...record, lifecycleStatus: statusLabel(record.verification_status) } : null,
     nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete",
+    canCheckIn: !managementRoles.includes(session.role),
   }, { headers });
 }
 
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
     const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
     const messages: Record<string, string> = {
       STAFF_PROFILE_REQUIRED: "Your account is not linked to an active staff assignment. Contact a manager.",
+      MANAGERIAL_ROLE_CHECK_IN_FORBIDDEN: "Managerial roles do not check in as staff. Use the managerial attendance controls instead.",
       ALREADY_CHECKED_IN: "You already have an attendance session for the current scheduled day.",
       CHECK_IN_REQUIRED: "Check in before checking out.",
       CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
