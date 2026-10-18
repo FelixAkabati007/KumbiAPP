@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isShortStayRoom, isShortStayRoomNumber, SHORT_STAY_DURATION_MINUTES } from "@/lib/hotels/short-stay";
+import { getShortStayBillableBlocks } from "@/lib/services/hotel-folio";
 
 describe("short-stay room policy", () => {
   it("limits the 130-minute policy to Rooms 19 and 20", () => {
@@ -8,6 +9,14 @@ describe("short-stay room policy", () => {
     expect(isShortStayRoomNumber("20")).toBe(true);
     expect(isShortStayRoomNumber("18")).toBe(false);
     expect(isShortStayRoomNumber("21")).toBe(false);
+  });
+
+  it("does not add an accumulated block until 2 hours 10 minutes have passed", () => {
+    const allowance = SHORT_STAY_DURATION_MINUTES * 60_000;
+    expect(getShortStayBillableBlocks(allowance - 1)).toBe(1);
+    expect(getShortStayBillableBlocks(allowance)).toBe(1);
+    expect(getShortStayBillableBlocks(allowance + 1)).toBe(2);
+    expect(getShortStayBillableBlocks(allowance * 2 + 1)).toBe(3);
   });
 
   it("requires both the designated room and short-stay room type", () => {

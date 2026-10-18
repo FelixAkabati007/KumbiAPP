@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
-import { syncOverdueRoomCharges } from "@/lib/services/hotel-folio";
+import {
+  syncOverdueRoomCharges,
+  syncShortStayRoomCharges,
+} from "@/lib/services/hotel-folio";
 import { getAuthoritativeNow } from "@/lib/property-time";
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
@@ -80,9 +83,19 @@ export async function GET(
     );
 
   const authoritativeNow = await getAuthoritativeNow();
-  const syncResult = await transaction((client) =>
-    syncOverdueRoomCharges(client, reservationId, authoritativeNow),
-  );
+    const syncResult = await transaction(async (client) => {
+      const overdueStay = await syncOverdueRoomCharges(
+        client,
+        reservationId,
+        authoritativeNow,
+      );
+      const shortStay = await syncShortStayRoomCharges(
+        client,
+        reservationId,
+        authoritativeNow,
+      );
+      return { ...overdueStay, shortStay };
+    });
     const result = await query(
       `
       SELECT gf.*, r.reservation_number, g.first_name, g.last_name, rm.room_number

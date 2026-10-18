@@ -1,6 +1,12 @@
 import type { PoolClient } from "@neondatabase/serverless";
 import { SHORT_STAY_DURATION_MINUTES, isShortStayRoom } from "@/lib/hotels/short-stay";
 
+export function getShortStayBillableBlocks(elapsedMilliseconds: number) {
+  const allowance = SHORT_STAY_DURATION_MINUTES * 60_000;
+  if (elapsedMilliseconds <= allowance) return 1;
+  return Math.ceil(elapsedMilliseconds / allowance);
+}
+
 export async function syncShortStayRoomCharges(client: PoolClient, reservationId: string, authoritativeNow: Date) {
   const reservation = await client.query<{
     room_id: string | null;
@@ -35,7 +41,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
 
   // Neon is the single clock for both check-in and checkout billing.
   const elapsed = Number(stay.elapsed_ms || 0);
-  const billableBlocks = Math.max(1, Math.ceil(elapsed / (SHORT_STAY_DURATION_MINUTES * 60_000)));
+  const billableBlocks = getShortStayBillableBlocks(elapsed);
   const inserted = await client.query(
     `INSERT INTO guest_folio_items
       (reservation_id, folio_id, category, description, quantity, unit_amount, total_amount, source_type, source_id)
