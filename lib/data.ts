@@ -116,7 +116,7 @@ export async function createInventoryItem(
   return { ...item, id: data.id } as InventoryItem;
 }
 
-export async function updateInventoryItem(item: InventoryItem): Promise<void> {
+export async function updateInventoryItem(item: InventoryItem): Promise<InventoryItem> {
   let res: Response;
   try {
     res = await fetch(`/api/inventory/${item.id}`, {
@@ -134,6 +134,8 @@ export async function updateInventoryItem(item: InventoryItem): Promise<void> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Failed to update inventory item (status ${res.status}).`);
   }
+  const data = await res.json().catch(() => ({}));
+  return { ...item, ...(data.item ?? data) } as InventoryItem;
 }
 
 export async function deleteInventoryItem(id: string): Promise<boolean> {

@@ -88,6 +88,7 @@ function InventoryContent() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
   const [isNewItem, setIsNewItem] = useState(false);
   const [varianceItem, setVarianceItem] = useState<InventoryItem | null>(null);
   const [varianceReason, setVarianceReason] = useState("expired");
@@ -427,6 +428,10 @@ function InventoryContent() {
       });
       return;
     }
+    const quantityPerContainer = Number(editingItem.quantityPerContainer || 0);
+    const containerCount = Number(editingItem.containerCount || 0);
+    const costPerContainer = Number(editingItem.costPerContainer || 0);
+    const conversionRatio = Number(editingItem.conversionRatio || 0);
     if (!Number.isFinite(reorderLevel) || reorderLevel < 0) {
       toast({
         title: "Invalid reorder level",
@@ -435,7 +440,20 @@ function InventoryContent() {
       });
       return;
     }
+    if (editingItem.containerUnit && (!Number.isFinite(quantityPerContainer) || quantityPerContainer <= 0)) {
+      toast({ title: "Invalid packaging", description: "Items per container must be greater than zero when a container unit is selected.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(containerCount) || containerCount < 0 || !Number.isFinite(costPerContainer) || costPerContainer < 0) {
+      toast({ title: "Invalid packaging", description: "Container count and cost per container must be zero or greater.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(conversionRatio) || conversionRatio <= 0) {
+      toast({ title: "Invalid conversion", description: "Base units per stock unit must be greater than zero.", variant: "destructive" });
+      return;
+    }
 
+    setIsSavingItem(true);
     try {
       if (isNewItem) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -461,10 +479,10 @@ function InventoryContent() {
           ...editingItem,
           lastUpdated: new Date().toISOString(),
         };
-        await updateInventoryItem(updatedItem);
+        const savedItem = await updateInventoryItem(updatedItem);
         setItems(
           items.map((item) =>
-            item.id === editingItem.id ? updatedItem : item
+            item.id === editingItem.id ? savedItem : item
           )
         );
         toast({
@@ -481,6 +499,8 @@ function InventoryContent() {
         description: `${reason} ${solution}`,
         variant: "destructive",
       });
+    } finally {
+      setIsSavingItem(false);
     }
   };
 
@@ -907,7 +927,7 @@ function InventoryContent() {
                             ₵{Number.parseFloat(item.cost).toFixed(2)}
                           </div>
                         </div>
-  <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
+  <Button variant="ghost" size="icon" title="Report stock issue" aria-label={`Report stock issue for ${item.name}`} onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
   <AlertTriangle className="h-4 w-4" />
   </Button>
   {canTopUpStock && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
@@ -916,6 +936,8 @@ function InventoryContent() {
   <Button
   variant="ghost"
   size="icon"
+  title={`Edit ${item.name}`}
+  aria-label={`Edit ${item.name}`}
   onClick={() => handleEditItem(item)}
                             className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
                           >
@@ -924,6 +946,8 @@ function InventoryContent() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title={`Delete ${item.name}`}
+                            aria-label={`Delete ${item.name}`}
                             onClick={() => handleDeleteItem(item.id)}
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                           >
@@ -1105,12 +1129,12 @@ function InventoryContent() {
                       <UnitSelect value={editingItem.containerUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })} placeholder="Crate, box, bag..." />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
-                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const total = Number(per || 0) * count; const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); setEditingItem({ ...editingItem, quantityPerContainer: per, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
+                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label><p className="text-xs text-muted-foreground">Packaging only; does not change current stock.</p>
+                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); const totalCost = Number(editingItem.costPerContainer || 0) * count; setEditingItem({ ...editingItem, quantityPerContainer: per, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
-                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const total = perContainer * Number(count || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); setEditingItem({ ...editingItem, containerCount: count, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
+                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0); setEditingItem({ ...editingItem, containerCount: count, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
@@ -1128,7 +1152,7 @@ function InventoryContent() {
                       <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Recipe units per stock unit</Label>
+                      <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Base units per stock unit</Label>
                       <Input id="conversionRatio" type="number" min="0.000001" step="0.01" value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
                     </div>
                     <div className="grid gap-2">
@@ -1169,15 +1193,14 @@ function InventoryContent() {
                       htmlFor="cost"
                       className="text-orange-700 dark:text-orange-300"
                     >
-                      Cost (₵)
+                      Total packaging cost (₵)
                     </Label>
                     <Input
                       id="cost"
                       type="number"
                       value={editingItem.cost}
-                      onChange={(e) =>
-                        setEditingItem({ ...editingItem, cost: e.target.value })
-                      }
+                      readOnly
+                      aria-readonly="true"
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
                   </div>
@@ -1210,16 +1233,19 @@ function InventoryContent() {
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
+                disabled={isSavingItem}
                 className="w-full rounded-2xl border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveItem}
+                disabled={isSavingItem}
+                aria-busy={isSavingItem}
                 className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:w-auto"
               >
                 <Save className="mr-2 h-4 w-4" />
-                {isNewItem ? "Add Item" : "Save Changes"}
+                {isSavingItem ? "Saving..." : isNewItem ? "Add Item" : "Save Changes"}
               </Button>
             </DialogFooter>
           </DialogContent>
