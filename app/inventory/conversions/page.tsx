@@ -27,7 +27,7 @@ export default function InventoryConversionsPage() {
   const [density, setDensity] = useState("");
   const [yieldFactor, setYieldFactor] = useState("1");
   const [saving, setSaving] = useState(false);
-  const [migration, setMigration] = useState<{ ready: number; missingRules: number; items: Array<{ id: string; name: string; quantity: number; unit: string; status: string; convertedQuantity: number }> } | null>(null);
+  const [migration, setMigration] = useState<{ ready: number; missingRules: number; snapshotToken: string; items: Array<{ id: string; name: string; quantity: number; unit: string; status: string; convertedQuantity: number }> } | null>(null);
   const [migrating, setMigrating] = useState(false);
 
   const load = async () => {
@@ -70,7 +70,7 @@ export default function InventoryConversionsPage() {
   const migrateStock = async () => {
     setMigrating(true);
     try {
-      const response = await fetch("/api/v1/inventory/conversions/migrate", { method: "POST" });
+      const response = await fetch("/api/v1/inventory/conversions/migrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ snapshotToken: migration?.snapshotToken }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Migration failed");
       toast({ title: "Stock migration complete", description: `${data.migrated} item(s) converted. ${data.skipped} item(s) remain unchanged until a rule is added.` });

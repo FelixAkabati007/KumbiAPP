@@ -1,3 +1,4 @@
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
@@ -6,6 +7,22 @@ import { updateSystemState } from "@/lib/system-sync";
 import { getInventoryUnitSqlExpression, getMigratedBaseQuantity } from "@/lib/inventory-units";
 
 const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+
+type MigrationRow = { id: string; quantity: number; unit: string | null; baseUnit: string | null; ruleId: string | null; factor: number | null };
+
+function createMigrationSnapshot(rows: MigrationRow[]) {
+  const canonical = rows
+    .map((row) => [row.id, row.quantity, row.unit ?? "", row.baseUnit ?? "", row.ruleId ?? "", row.factor ?? ""].join("|"))
+    .sort()
+    .join("\n");
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+function tokensMatch(expected: string, actual: string) {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const actualBuffer = Buffer.from(actual, "utf8");
+  return expectedBuffer.length === actualBuffer.length && timingSafeEqual(expectedBuffer, actualBuffer);
+}
 
 export async function GET() {
   const access = await requirePermission("inventory");
@@ -24,6 +41,8 @@ export async function GET() {
         ORDER BY r.effective_from DESC LIMIT 1
       ) u ON true
       ORDER BY COALESCE(mi.name, i.name)`));
+    const snapshotRows: MigrationRow[] = result.rows.map((row) => ({ id: String(row.id), quantity: Number(row.quantity ?? 0), unit: row.unit, baseUnit: row.base_unit, ruleId: row.rule_id ?? null, factor: row.conversion_factor_to_base == null ? null : Number(row.conversion_factor_to_base) }));
+    const snapshotToken = createMigrationSnapshot(snapshotRows);
     const items = result.rows.map((row) => {
       const currentUnit = String(row.unit ?? "").toLowerCase();
       const baseUnit = String(row.base_unit ?? "").toLowerCase();
@@ -36,14 +55,16 @@ export async function GET() {
         convertedQuantity: hasRule ? getMigratedBaseQuantity(Number(row.quantity ?? 0), Number(row.conversion_factor_to_base)) : Number(row.quantity ?? 0),
       };
     });
-    return NextResponse.json({ items, ready: items.filter((item) => item.status === "ready").length, missingRules: items.filter((item) => item.status === "missing_rule").length, migrated: false });
+    return NextResponse.json({ items, ready: items.filter((item) => item.status === "ready").length, missingRules: items.filter((item) => item.status === "missing_rule").length, snapshotToken, migrated: false });
   } catch (error) {
     console.error("Inventory conversion preview failed:", error);
     return NextResponse.json({ error: "Failed to load conversion preview" }, { status: 500 });
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const expectedSnapshot = typeof body.snapshotToken === "string" ? body.snapshotToken : "";
   const access = await requirePermission("inventory");
   if (access.error) return access.error;
   const session = access.session;
@@ -51,7 +72,7 @@ export async function POST() {
     const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await transaction(async (client) => {
       const rows = await client.query(`
-        SELECT i.id, i.quantity, i.unit, i.base_unit, u.base_unit AS rule_base_unit,
+        SELECT i.id, i.quantity, i.unit, i.base_unit, u.id AS rule_id, u.base_unit AS rule_base_unit,
           u.conversion_factor_to_base, u.yield_factor
         FROM inventory i
         LEFT JOIN LATERAL (
@@ -61,6 +82,18 @@ export async function POST() {
           ORDER BY r.effective_from DESC LIMIT 1
         ) u ON true
         FOR UPDATE`);
+      const snapshot = createMigrationSnapshot(rows.rows.map((row) => ({
+        id: String(row.id),
+        quantity: Number(row.quantity ?? 0),
+        unit: row.unit,
+        baseUnit: row.base_unit,
+        ruleId: row.rule_id ?? null,
+        factor: row.conversion_factor_to_base == null ? null : Number(row.conversion_factor_to_base),
+      })));
+      if (!expectedSnapshot || !tokensMatch(expectedSnapshot, snapshot)) {
+        throw new Error("MIGRATION_SNAPSHOT_STALE");
+      }
+      const migrationBatchId = randomUUID();
       let migrated = 0;
       let skipped = 0;
       for (const row of rows.rows) {
@@ -70,7 +103,7 @@ export async function POST() {
           const before = Number(row.quantity ?? 0);
           const after = getMigratedBaseQuantity(before, Number(row.conversion_factor_to_base));
           await client.query(`UPDATE inventory SET quantity = $1, unit = $2, base_unit = $2, last_updated = $3 WHERE id = $4`, [after, row.rule_base_unit, canonicalNow, row.id]);
-          await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, reason, staff_id, staff_name, staff_role, metadata, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::timestamptz)`, [row.id, "UNIT_CONVERSION_MIGRATION", before, after - before, after, "Migrated current stock to canonical base unit", session.id, session.name || session.email || session.id, session.role, JSON.stringify({ conversionFactor: row.conversion_factor_to_base, yieldFactor: row.yield_factor, yieldApplied: false, fromUnit: row.unit, toUnit: row.rule_base_unit }), canonicalNow]);
+          await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, reason, staff_id, staff_name, staff_role, metadata, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::timestamptz)`, [row.id, "UNIT_CONVERSION_MIGRATION", before, after - before, after, "Migrated current stock to canonical base unit", session.id, session.name || session.email || session.id, session.role, JSON.stringify({ migrationBatchId, conversionFactor: row.conversion_factor_to_base, yieldFactor: row.yield_factor, yieldApplied: false, fromUnit: row.unit, toUnit: row.rule_base_unit }), canonicalNow]);
           migrated++;
         } else if (!baseUnit || currentUnit !== baseUnit) skipped++;
       }
@@ -79,6 +112,9 @@ export async function POST() {
     if (result.migrated) await updateSystemState("inventory");
     return NextResponse.json({ ...result, migratedAt: canonicalNow });
   } catch (error) {
+    if (error instanceof Error && error.message === "MIGRATION_SNAPSHOT_STALE") {
+      return NextResponse.json({ error: "Migration preview is stale. Refresh the preview before applying it." }, { status: 409 });
+    }
     console.error("Inventory conversion migration failed:", error);
     return NextResponse.json({ error: "Failed to migrate current inventory stock" }, { status: 500 });
   }
