@@ -5,6 +5,7 @@ import {
 } from "@/lib/inventory-validation";
 import {
   convertInventoryQuantity,
+  getRecipeDeductionQuantity,
   getInventoryUnitCompatibilityError,
   getInventoryUnitSqlExpression,
   normalizeInventoryUnit,
@@ -40,6 +41,11 @@ describe("inventory validation", () => {
     expect(convertInventoryQuantity(500, "g", "kg")).toBe(0.5);
     expect(convertInventoryQuantity(250, "ml", "l")).toBe(0.25);
     expect(convertInventoryQuantity(2, "each", "unit")).toBe(2);
+  });
+  it("uses the same direction for recipe deduction and stock availability", () => {
+    expect(getRecipeDeductionQuantity(500, "g", "kg", 1000)).toBe(0.5);
+    expect(getRecipeDeductionQuantity(250, "ml", "l", 1000)).toBe(0.25);
+    expect(getRecipeDeductionQuantity(2, "each", "unit", 1)).toBe(2);
   });
   it("uses a trusted canonical alias expression for SQL rule matching", () => {
     const expression = getInventoryUnitSqlExpression("i.unit");
