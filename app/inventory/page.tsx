@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UnitSelect } from "@/components/ui/unit-select";
+import { getInventoryUnitCompatibilityError } from "@/lib/inventory-units";
 import {
   ArrowLeft,
   Edit,
@@ -75,6 +76,11 @@ const INVENTORY_PRINT_ROLES = new Set([
   "kitchen",
 ]);
 
+function getEditorComparable(item: InventoryItem | null) {
+  if (!item) return "";
+  return JSON.stringify(item);
+}
+
 function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -87,7 +93,10 @@ function InventoryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [originalEditingItem, setOriginalEditingItem] = useState<InventoryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [editorErrors, setEditorErrors] = useState<Record<string, string>>({});
   const [isNewItem, setIsNewItem] = useState(false);
   const [varianceItem, setVarianceItem] = useState<InventoryItem | null>(null);
   const [varianceReason, setVarianceReason] = useState("expired");
@@ -259,8 +268,8 @@ function InventoryContent() {
   };
 
   const handleAddItem = () => {
-    setEditingItem({
-      id: "",
+  const draft: InventoryItem = {
+    id: "",
       name: "",
       sku: "",
       category: "ingredient",
@@ -280,7 +289,10 @@ function InventoryContent() {
       conversionType: "standard",
       densityGPerMl: "",
       lastUpdated: new Date().toISOString(),
-    });
+    };
+    setEditingItem(draft);
+    setOriginalEditingItem(draft);
+    setEditorErrors({});
     setIsNewItem(true);
     setIsDialogOpen(true);
   };
@@ -316,6 +328,8 @@ function InventoryContent() {
       };
 
       setEditingItem(itemToEdit);
+      setOriginalEditingItem(itemToEdit);
+      setEditorErrors({});
       setIsNewItem(false);
       setIsDialogOpen(true);
     } catch (error) {
@@ -389,53 +403,47 @@ function InventoryContent() {
     };
   };
 
+  const handleEditorOpenChange = (open: boolean) => {
+    if (!open && !isSavingItem && getEditorComparable(editingItem) !== getEditorComparable(originalEditingItem)) {
+      if (!window.confirm("Discard your unsaved inventory changes?")) return;
+    }
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingItem(null);
+      setOriginalEditingItem(null);
+      setEditorErrors({});
+    }
+  };
+
   const handleSaveItem = async () => {
     if (!editingItem) return;
-
+    const nextErrors: Record<string, string> = {};
     const quantity = Number(editingItem.quantity);
     const cost = Number(editingItem.cost);
     const reorderLevel = Number(editingItem.reorderLevel);
-    if (!editingItem.name.trim()) {
-      toast({
-        title: "Name is required",
-        description: "Enter a name for this inventory item before saving.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!editingItem.sku.trim()) {
-      toast({
-        title: "SKU is required",
-        description: "Enter a unique SKU for this inventory item before saving.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!Number.isFinite(quantity) || quantity < 0) {
-      toast({
-        title: "Invalid quantity",
-        description: "Quantity must be a number of 0 or greater. Remove any letters or symbols from the field.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!Number.isFinite(cost) || cost < 0) {
-      toast({
-        title: "Invalid cost",
-        description: "Cost must be a number of 0 or greater. Remove any letters or symbols from the field.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!Number.isFinite(reorderLevel) || reorderLevel < 0) {
-      toast({
-        title: "Invalid reorder level",
-        description: "Reorder level must be a number of 0 or greater. Remove any letters or symbols from the field.",
-        variant: "destructive",
-      });
+    const quantityPerContainer = Number(editingItem.quantityPerContainer || 0);
+    const containerCount = Number(editingItem.containerCount || 0);
+    const costPerContainer = Number(editingItem.costPerContainer || 0);
+    const conversionRatio = Number(editingItem.conversionRatio || 0);
+    if (!editingItem.name.trim()) nextErrors.name = "Name is required.";
+    if (!editingItem.sku.trim()) nextErrors.sku = "SKU is required.";
+    if (!Number.isFinite(quantity) || quantity < 0) nextErrors.quantity = "Enter a quantity of 0 or greater.";
+    if (!Number.isFinite(cost) || cost < 0) nextErrors.cost = "Enter a cost of 0 or greater.";
+    if (!Number.isFinite(reorderLevel) || reorderLevel < 0) nextErrors.reorderLevel = "Enter a reorder level of 0 or greater.";
+    if (editingItem.containerUnit && (!Number.isFinite(quantityPerContainer) || quantityPerContainer <= 0)) nextErrors.quantityPerContainer = "Items per container must be greater than zero.";
+    if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
+    if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
+    if (!Number.isFinite(conversionRatio) || conversionRatio <= 0) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
+    const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, editingItem.unit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
+    if (compatibilityError) nextErrors.conversionRatio = compatibilityError;
+    setEditorErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast({ title: "Check the highlighted fields", description: "Correct the inventory details before saving.", variant: "destructive" });
       return;
     }
 
+
+    setIsSavingItem(true);
     try {
       if (isNewItem) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -461,10 +469,10 @@ function InventoryContent() {
           ...editingItem,
           lastUpdated: new Date().toISOString(),
         };
-        await updateInventoryItem(updatedItem);
+        const savedItem = await updateInventoryItem(updatedItem);
         setItems(
           items.map((item) =>
-            item.id === editingItem.id ? updatedItem : item
+            item.id === editingItem.id ? savedItem : item
           )
         );
         toast({
@@ -481,6 +489,8 @@ function InventoryContent() {
         description: `${reason} ${solution}`,
         variant: "destructive",
       });
+    } finally {
+      setIsSavingItem(false);
     }
   };
 
@@ -907,7 +917,7 @@ function InventoryContent() {
                             ₵{Number.parseFloat(item.cost).toFixed(2)}
                           </div>
                         </div>
-  <Button variant="ghost" size="icon" title="Report stock issue" onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
+  <Button variant="ghost" size="icon" title="Report stock issue" aria-label={`Report stock issue for ${item.name}`} onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
   <AlertTriangle className="h-4 w-4" />
   </Button>
   {canTopUpStock && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
@@ -916,6 +926,8 @@ function InventoryContent() {
   <Button
   variant="ghost"
   size="icon"
+  title={`Edit ${item.name}`}
+  aria-label={`Edit ${item.name}`}
   onClick={() => handleEditItem(item)}
                             className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
                           >
@@ -924,6 +936,8 @@ function InventoryContent() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title={`Delete ${item.name}`}
+                            aria-label={`Delete ${item.name}`}
                             onClick={() => handleDeleteItem(item.id)}
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                           >
@@ -995,7 +1009,7 @@ function InventoryContent() {
         </Dialog>
 
         {/* Add/Edit Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleEditorOpenChange}>
           <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden rounded-3xl border border-orange-200 bg-white/95 p-4 backdrop-blur-md dark:border-orange-700 dark:bg-gray-800/95 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-orange-800 dark:text-orange-200">
@@ -1016,16 +1030,21 @@ function InventoryContent() {
                     htmlFor="name"
                     className="text-orange-700 dark:text-orange-300"
                   >
-                    Name
+                    Name <span aria-hidden="true">*</span>
                   </Label>
                   <div className="relative">
                     <Input
                       id="name"
+                      required
+                      aria-required="true"
+                      aria-invalid={Boolean(editorErrors.name)}
+                      aria-describedby={editorErrors.name ? "name-error" : undefined}
                       autoComplete="off"
                       value={editingItem.name}
                       onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
+                    {editorErrors.name && <p id="name-error" className="text-xs text-destructive">{editorErrors.name}</p>}
                     {(isLoadingSuggestions || nameSuggestions.length > 0) && (
                       <div className="absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-orange-200 bg-background p-1 shadow-lg">
                         {isLoadingSuggestions && <p className="px-3 py-2 text-sm text-muted-foreground">Searching inventory history...</p>}
@@ -1057,12 +1076,17 @@ function InventoryContent() {
                     </Label>
                     <Input
                       id="sku"
+                      required
+                      aria-required="true"
+                      aria-invalid={Boolean(editorErrors.sku)}
+                      aria-describedby={editorErrors.sku ? "sku-error" : undefined}
                       value={editingItem.sku}
                       onChange={(e) =>
                         setEditingItem({ ...editingItem, sku: e.target.value })
                       }
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
+                    {editorErrors.sku && <p id="sku-error" className="text-xs text-destructive">{editorErrors.sku}</p>}
                   </div>
                   <div className="grid gap-2">
                     <Label
@@ -1105,16 +1129,16 @@ function InventoryContent() {
                       <UnitSelect value={editingItem.containerUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })} placeholder="Crate, box, bag..." />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
-                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const total = Number(per || 0) * count; const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); setEditingItem({ ...editingItem, quantityPerContainer: per, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
+                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label><p className="text-xs text-muted-foreground">Packaging only; does not change current stock.</p>
+                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.quantityPerContainer)} aria-describedby={editorErrors.quantityPerContainer ? "quantity-per-container-error" : undefined} value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); const totalCost = Number(editingItem.costPerContainer || 0) * count; setEditingItem({ ...editingItem, quantityPerContainer: per, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
-                      <Input id="containerCount" type="number" min="0" step="0.01" value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const total = perContainer * Number(count || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); setEditingItem({ ...editingItem, containerCount: count, quantity: String(total), costPerItem: perItem.toFixed(2), cost: String(Number((perItem * total).toFixed(2)) || 0) }); }} />
+                      <Input id="containerCount" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.containerCount)} aria-describedby={editorErrors.containerCount ? "container-count-error" : undefined} value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0); setEditingItem({ ...editingItem, containerCount: count, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
-                      <Input id="costPerContainer" type="number" min="0" step="0.01" value={editingItem.costPerContainer || ""} onChange={(e) => { const costPerContainer = e.target.value; const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1); const count = Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, costPerContainer, costPerItem: perItem.toFixed(2), cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0) }); }} />
+                      <Input id="costPerContainer" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.costPerContainer)} aria-describedby={editorErrors.costPerContainer ? "cost-per-container-error" : undefined} value={editingItem.costPerContainer || ""} onChange={(e) => { const costPerContainer = e.target.value; const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1); const count = Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, costPerContainer, costPerItem: perItem.toFixed(2), cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0) }); }} />
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.containerUnit || editingItem.unit || "units"}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
@@ -1128,8 +1152,9 @@ function InventoryContent() {
                       <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Recipe units per stock unit</Label>
-                      <Input id="conversionRatio" type="number" min="0.000001" step="0.01" value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
+                      <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Base units per stock unit <span aria-hidden="true">*</span></Label>
+                      <Input id="conversionRatio" type="number" min="0.000001" step="0.01" aria-invalid={Boolean(editorErrors.conversionRatio)} aria-describedby={editorErrors.conversionRatio ? "conversion-ratio-error" : undefined} value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
+                      {editorErrors.conversionRatio && <p id="conversion-ratio-error" className="text-xs text-destructive">{editorErrors.conversionRatio}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="conversionType" className="text-orange-700 dark:text-orange-300">Conversion setup</Label>
@@ -1147,6 +1172,7 @@ function InventoryContent() {
                   <div className="grid gap-2">
                     <Label
                       htmlFor="reorderLevel"
+                      aria-label="Reorder level"
                       className="text-orange-700 dark:text-orange-300"
                     >
                       Reorder Level
@@ -1154,6 +1180,8 @@ function InventoryContent() {
                     <Input
                       id="reorderLevel"
                       type="number"
+                      aria-invalid={Boolean(editorErrors.reorderLevel)}
+                      aria-describedby={editorErrors.reorderLevel ? "reorder-level-error" : undefined}
                       value={editingItem.reorderLevel}
                       onChange={(e) =>
                         setEditingItem({
@@ -1163,21 +1191,21 @@ function InventoryContent() {
                       }
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
+                    {editorErrors.reorderLevel && <p id="reorder-level-error" className="text-xs text-destructive">{editorErrors.reorderLevel}</p>}
                   </div>
                   <div className="grid gap-2">
                     <Label
                       htmlFor="cost"
                       className="text-orange-700 dark:text-orange-300"
                     >
-                      Cost (₵)
+                      Total packaging cost (₵)
                     </Label>
                     <Input
                       id="cost"
                       type="number"
                       value={editingItem.cost}
-                      onChange={(e) =>
-                        setEditingItem({ ...editingItem, cost: e.target.value })
-                      }
+                      readOnly
+                      aria-readonly="true"
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
                   </div>
@@ -1209,17 +1237,20 @@ function InventoryContent() {
             <DialogFooter className="flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
-                onClick={() => setIsDialogOpen(false)}
+                onClick={() => handleEditorOpenChange(false)}
+                disabled={isSavingItem}
                 className="w-full rounded-2xl border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveItem}
+                disabled={isSavingItem}
+                aria-busy={isSavingItem}
                 className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 sm:w-auto"
               >
                 <Save className="mr-2 h-4 w-4" />
-                {isNewItem ? "Add Item" : "Save Changes"}
+                {isSavingItem ? "Saving..." : isNewItem ? "Add Item" : "Save Changes"}
               </Button>
             </DialogFooter>
           </DialogContent>
