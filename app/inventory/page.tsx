@@ -434,7 +434,7 @@ function InventoryContent() {
     if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
     if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
     if (!Number.isFinite(conversionRatio) || conversionRatio <= 0) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
-    const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, editingItem.containerUnit || editingItem.unit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
+    const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, editingItem.unit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
     if (compatibilityError) nextErrors.conversionRatio = compatibilityError;
     setEditorErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -1191,6 +1191,7 @@ function InventoryContent() {
                       }
                       className="rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400"
                     />
+                    {editorErrors.reorderLevel && <p id="reorder-level-error" className="text-xs text-destructive">{editorErrors.reorderLevel}</p>}
                   </div>
                   <div className="grid gap-2">
                     <Label
