@@ -187,7 +187,7 @@ export async function middleware(req: NextRequest) {
 
   if (isVersionedApi) {
     const rewriteUrl = req.nextUrl.clone();
-    rewriteUrl.pathname = `/api${pathname}`;
+    rewriteUrl.pathname = `/api/${CURRENT_API_VERSION}${pathname}`;
     return withApiLifecycleHeaders(NextResponse.rewrite(rewriteUrl), CURRENT_API_VERSION);
   }
 
