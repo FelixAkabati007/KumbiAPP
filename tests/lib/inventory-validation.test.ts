@@ -6,6 +6,7 @@ import {
 import {
   convertInventoryQuantity,
   getRecipeDeductionQuantity,
+  getMigratedBaseQuantity,
   getInventoryUnitCompatibilityError,
   getInventoryUnitSqlExpression,
   normalizeInventoryUnit,
@@ -41,6 +42,10 @@ describe("inventory validation", () => {
     expect(convertInventoryQuantity(500, "g", "kg")).toBe(0.5);
     expect(convertInventoryQuantity(250, "ml", "l")).toBe(0.25);
     expect(convertInventoryQuantity(2, "each", "unit")).toBe(2);
+  });
+  it("converts physical stock without applying yield loss", () => {
+    expect(getMigratedBaseQuantity(10, 1000)).toBe(10000);
+    expect(getMigratedBaseQuantity(10, 1000)).not.toBe(8000);
   });
   it("uses the same direction for recipe deduction and stock availability", () => {
     expect(getRecipeDeductionQuantity(500, "g", "kg", 1000)).toBe(0.5);
