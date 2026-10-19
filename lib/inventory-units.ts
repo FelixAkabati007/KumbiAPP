@@ -174,6 +174,16 @@ export function getInventoryDeductionQuantity(
   return null;
 }
 
+export function getMigratedBaseQuantity(quantity: number, conversionFactorToBase: number) {
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    throw new Error("Quantity must be a non-negative number");
+  }
+  if (!Number.isFinite(conversionFactorToBase) || conversionFactorToBase <= 0) {
+    throw new Error("Conversion factor must be greater than zero");
+  }
+  return quantity * conversionFactorToBase;
+}
+
 export function getRecipeDeductionQuantity(
   quantity: number,
   recipeUnit?: string | null,

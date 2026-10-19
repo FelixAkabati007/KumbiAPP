@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
-import { getInventoryUnitSqlExpression, isInventoryBaseUnit, isInventoryUnit, normalizeInventoryUnit } from "@/lib/inventory-units";
+import { getInventoryUnitCompatibilityError, getInventoryUnitSqlExpression, isInventoryBaseUnit, isInventoryUnit, normalizeInventoryUnit } from "@/lib/inventory-units";
 
 const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
@@ -30,6 +30,8 @@ export async function POST(request: Request) {
   if (!Number.isFinite(factor) || factor <= 0) return NextResponse.json({ error: "Conversion factor must be greater than zero" }, { status: 400 });
   if (density !== null && (!Number.isFinite(density) || density <= 0)) return NextResponse.json({ error: "Density must be greater than zero" }, { status: 400 });
   if (!Number.isFinite(yieldFactor) || yieldFactor <= 0 || yieldFactor > 1) return NextResponse.json({ error: "Yield factor must be between 0 and 1" }, { status: 400 });
+  const compatibilityError = getInventoryUnitCompatibilityError(purchaseUnit, baseUnit, density);
+  if (compatibilityError) return NextResponse.json({ error: compatibilityError }, { status: 400 });
   const result = await query(
     `INSERT INTO inventory_item_uoms (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, density_g_per_ml, yield_factor) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
     [body.inventoryId, purchaseUnit, baseUnit, factor, density, yieldFactor],

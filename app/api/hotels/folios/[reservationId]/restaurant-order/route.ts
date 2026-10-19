@@ -4,6 +4,9 @@ import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
+import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
+
+const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
 
 const paramsSchema = z.object({ reservationId: z.string().uuid() });
 const orderSchema = z.object({
@@ -93,12 +96,36 @@ export async function POST(
         }
 
         const recipeResult = await client.query(
-          `SELECT inventory_item_id, quantity FROM recipe_ingredients WHERE menu_item_id = $1`,
+          `SELECT r.inventory_item_id, r.quantity, r.unit,
+                  COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
+                  COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS conversion_ratio,
+                  i.density_g_per_ml
+           FROM recipe_ingredients r
+           JOIN inventory i ON i.id = r.inventory_item_id
+           LEFT JOIN LATERAL (
+             SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
+             FROM inventory_item_uoms u
+             WHERE u.inventory_id = i.id
+               AND u.purchase_unit = ${inventoryUnitSql}
+               AND u.is_active = true
+               AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
+             ORDER BY u.effective_from DESC LIMIT 1
+           ) active_uom ON true
+           WHERE r.menu_item_id = $1`,
           [item.menuItem.id]
         );
         if (recipeResult.rowCount) {
           for (const ingredient of recipeResult.rows) {
-            const deduction = Number(ingredient.quantity) * item.quantity;
+            const deduction = getRecipeDeductionQuantity(
+              Number(ingredient.quantity) * item.quantity,
+              ingredient.unit,
+              ingredient.inventory_unit,
+              ingredient.conversion_ratio,
+              ingredient.density_g_per_ml,
+            );
+            if (deduction === null) {
+              throw new Error(`${item.menuItem.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit})`);
+            }
             const ingredientUpdate = await client.query(
               `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
                WHERE id = $2 AND quantity >= $1 RETURNING id`,
