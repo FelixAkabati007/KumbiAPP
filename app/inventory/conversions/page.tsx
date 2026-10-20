@@ -47,11 +47,11 @@ export default function InventoryConversionsPage() {
         getInventoryItems(),
         fetch("/api/v1/inventory/conversions"),
         fetch("/api/v1/inventory/conversions/migrate"),
-        fetch("/api/units"),
+        fetch("/api/v1/inventory/units"),
       ]);
       setItems(inventory);
       const failures: string[] = [];
-      if (unitsResponse.ok) setUnitFamilies(await unitsResponse.json());
+      if (unitsResponse.ok && unitsResponse.headers.get("content-type")?.includes("application/json")) setUnitFamilies(await unitsResponse.json());
       else failures.push("unit catalog");
       if (response.ok) setRules(await response.json());
       else failures.push("conversion rules");

@@ -146,6 +146,13 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Versioned API requests must never fall through to page RBAC. Their route
+  // handlers own authentication and authorization, while this middleware only
+  // adds the version lifecycle header.
+  if (isVersionedApi) {
+    return withApiLifecycleHeaders(NextResponse.next(), CURRENT_API_VERSION);
+  }
+
   // 4. Check for Protected Page Routes
   // Find if the current path matches any protected route prefix
   const protectedRoute = Object.keys(routePermissions).find((route) =>
@@ -183,12 +190,6 @@ export async function middleware(req: NextRequest) {
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
-  }
-
-  if (isVersionedApi) {
-    const rewriteUrl = req.nextUrl.clone();
-    rewriteUrl.pathname = `/api/${CURRENT_API_VERSION}${pathname}`;
-    return withApiLifecycleHeaders(NextResponse.rewrite(rewriteUrl), CURRENT_API_VERSION);
   }
 
   if (isLegacyApi) {
