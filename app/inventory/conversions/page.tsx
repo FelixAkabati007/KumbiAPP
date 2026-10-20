@@ -41,15 +41,28 @@ export default function InventoryConversionsPage() {
   const load = async () => {
     setLoading(true);
     setLoadError("");
+    setMigration(null);
     try {
-      const [inventory, response, migrationResponse, unitsResponse] = await Promise.all([getInventoryItems(), fetch("/api/v1/inventory/conversions"), fetch("/api/v1/inventory/conversions/migrate"), fetch("/api/v1/units")]);
-      if (!response.ok || !migrationResponse.ok || !unitsResponse.ok) throw new Error("Some conversion data could not be loaded.");
+      const [inventory, response, migrationResponse, unitsResponse] = await Promise.all([
+        getInventoryItems(),
+        fetch("/api/v1/inventory/conversions"),
+        fetch("/api/v1/inventory/conversions/migrate"),
+        fetch("/api/units"),
+      ]);
       setItems(inventory);
-      setUnitFamilies(await unitsResponse.json());
-      setRules(await response.json());
-      setMigration(await migrationResponse.json());
+      const failures: string[] = [];
+      if (unitsResponse.ok) setUnitFamilies(await unitsResponse.json());
+      else failures.push("unit catalog");
+      if (response.ok) setRules(await response.json());
+      else failures.push("conversion rules");
+      if (migrationResponse.ok && migrationResponse.headers.get("content-type")?.includes("application/json")) {
+        setMigration(await migrationResponse.json());
+      } else if (migrationResponse.status !== 404) {
+        failures.push("migration preview");
+      }
+      if (failures.length) setLoadError(`Could not load ${failures.join(" and ")}. Refresh and try again.`);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Some conversion data could not be loaded.");
+      setLoadError(error instanceof Error ? error.message : "Some conversion data could not be loaded. Refresh and try again.");
     } finally { setLoading(false); }
   };
   useEffect(() => { load().catch(() => undefined); }, []);

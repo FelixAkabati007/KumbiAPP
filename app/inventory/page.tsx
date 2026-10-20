@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -126,6 +126,8 @@ function InventoryContent() {
   const [restockLogs, setRestockLogs] = useState<Array<{ id: string; details: { actor?: { email?: string; role?: string }; item?: { name?: string; category?: string }; quantityBefore?: number; quantityAdded?: number; quantityAfter?: number; unit?: string; supplier?: string; staffId?: string; staffRole?: string; reason?: string | null; correlationId?: string; idempotencyKey?: string }; created_at: string }>>([]);
   const [nameSuggestions, setNameSuggestions] = useState<InventoryItem[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(true);
 
   useEffect(() => {
     fetch("/api/inventory/restocks")
@@ -180,13 +182,26 @@ function InventoryContent() {
     };
   }, [editingItem?.name, isDialogOpen, isNewItem]);
 
+  const loadInventory = useCallback(async () => {
+    setIsLoadingInventory(true);
+    setInventoryLoadError(null);
+    try {
+      const response = await fetch("/api/inventory", { cache: "no-store" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(payload)) {
+        throw new Error(payload?.error || "Inventory could not be loaded.");
+      }
+      setItems(payload);
+    } catch (error) {
+      setInventoryLoadError(error instanceof Error ? error.message : "Inventory could not be loaded.");
+    } finally {
+      setIsLoadingInventory(false);
+    }
+  }, []);
+
   // Load inventory items on component mount
   useEffect(() => {
-    async function load() {
-      const loadedItems = await getInventoryItems();
-      setItems(loadedItems);
-    }
-    load();
+    void loadInventory();
     fetch("/api/hotel-activity?limit=100")
       .then((response) => response.ok ? response.json() : [])
       .then((events) => setHotelActivityCount(Array.isArray(events) ? events.length : 0))
@@ -730,6 +745,17 @@ function InventoryContent() {
       </header>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
+          {inventoryLoadError && (
+            <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <span>Inventory could not be loaded: {inventoryLoadError}</span>
+              <Button size="sm" variant="outline" onClick={() => void loadInventory()} disabled={isLoadingInventory}>
+                {isLoadingInventory ? "Retrying…" : "Retry"}
+              </Button>
+            </div>
+          )}
+          {isLoadingInventory && !inventoryLoadError && (
+            <div role="status" className="mb-4 rounded-2xl border border-orange-200 bg-background px-4 py-3 text-sm text-muted-foreground">Loading inventory…</div>
+          )}
         {selectedCategory && (
           <Card className="mb-6 border-orange-200 bg-orange-50/70 shadow-sm dark:border-orange-800 dark:bg-orange-950/20">
             <CardHeader className="pb-3">
