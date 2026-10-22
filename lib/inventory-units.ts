@@ -197,13 +197,8 @@ export function getRecipeDeductionQuantity(
   const stockKey = resolveUnitKey(stockUnit);
   if (recipeKey && stockKey && recipeKey === stockKey) return quantity;
   if (Number.isFinite(ratio) && ratio > 0) {
-    if (
-      recipeKey &&
-      stockKey &&
-      FACTORS[recipeKey].dimension === FACTORS[stockKey].dimension
-    ) {
-      return quantity / ratio;
-    }
+    if (!recipeKey || !stockKey) return null;
+    return quantity / ratio;
   }
   return getInventoryDeductionQuantity(
     quantity,

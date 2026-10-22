@@ -105,12 +105,14 @@ export async function POST(req: Request) {
       recipeUnit,
       conversionRatio,
       conversionType,
+      chefYieldPerStockUnit,
     } = body;
     for (const [field, value] of Object.entries({
       quantity,
       reorderLevel,
       cost,
       densityGPerMl,
+      chefYieldPerStockUnit,
     })) {
       const error = validateInventoryNumber(value, field);
       if (error) return NextResponse.json({ error }, { status: 400 });
@@ -144,7 +146,10 @@ export async function POST(req: Request) {
             densityGPerMl ? Number(densityGPerMl) : null,
           )
         : null;
-    if (unitCompatibilityError)
+    const chefYield = chefYieldPerStockUnit === "" || chefYieldPerStockUnit == null ? null : Number(chefYieldPerStockUnit);
+    if (chefYield !== null && (!Number.isFinite(chefYield) || chefYield <= 0)) return NextResponse.json({ error: "Chef yield must be greater than zero" }, { status: 400 });
+    const hasChefYield = chefYield !== null;
+    if (unitCompatibilityError && !hasChefYield)
       return NextResponse.json(
         { error: unitCompatibilityError },
         { status: 400 },
@@ -213,7 +218,7 @@ export async function POST(req: Request) {
       let res;
       if (menuItemId) {
       res = await client.query(
-        `INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::timestamptz) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, base_unit=EXCLUDED.base_unit, density_g_per_ml=EXCLUDED.density_g_per_ml, recipe_unit=EXCLUDED.recipe_unit, conversion_ratio=EXCLUDED.conversion_ratio, conversion_type=EXCLUDED.conversion_type, last_updated=EXCLUDED.last_updated RETURNING id, quantity`,
+        `INSERT INTO inventory (menu_item_id, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, chef_yield_per_stock_unit, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::timestamptz) ON CONFLICT (menu_item_id) DO UPDATE SET quantity=inventory.quantity + EXCLUDED.quantity, unit=EXCLUDED.unit, reorder_level=EXCLUDED.reorder_level, cost_price=EXCLUDED.cost_price, supplier=EXCLUDED.supplier, container_unit=EXCLUDED.container_unit, quantity_per_container=EXCLUDED.quantity_per_container, container_count=EXCLUDED.container_count, cost_per_container=EXCLUDED.cost_per_container, cost_per_item=EXCLUDED.cost_per_item, base_unit=EXCLUDED.base_unit, density_g_per_ml=EXCLUDED.density_g_per_ml, recipe_unit=EXCLUDED.recipe_unit, conversion_ratio=EXCLUDED.conversion_ratio, conversion_type=EXCLUDED.conversion_type, chef_yield_per_stock_unit=EXCLUDED.chef_yield_per_stock_unit, last_updated=EXCLUDED.last_updated RETURNING id, quantity`,
         [
           menuItemId,
           normalizedQuantity,
@@ -236,7 +241,7 @@ export async function POST(req: Request) {
       );
     } else {
       res = await client.query(
-        `INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::timestamptz) RETURNING id`,
+        `INSERT INTO inventory (name, sku, category, quantity, unit, reorder_level, cost_price, supplier, container_unit, quantity_per_container, container_count, cost_per_container, cost_per_item, base_unit, density_g_per_ml, recipe_unit, conversion_ratio, conversion_type, chef_yield_per_stock_unit, last_updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::timestamptz) RETURNING id`,
         [
           String(name).trim(),
           sku ?? "",
@@ -256,6 +261,7 @@ export async function POST(req: Request) {
           resolvedRecipeUnit,
           resolvedConversionRatio,
           resolvedConversionType,
+          chefYield,
           canonicalNow,
         ],
       );

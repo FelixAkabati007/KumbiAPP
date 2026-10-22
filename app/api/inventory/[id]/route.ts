@@ -42,6 +42,7 @@ export async function PUT(
       recipeUnit,
       conversionRatio,
       conversionType,
+      chefYieldPerStockUnit,
     } = body;
     for (const [value, field] of [
       [quantity, "Quantity"],
@@ -52,6 +53,7 @@ export async function PUT(
       [costPerContainer, "Cost per container"],
       [densityGPerMl, "Density"],
       [conversionRatio, "Conversion ratio"],
+      [chefYieldPerStockUnit, "Chef yield per stock unit"],
     ] as const) {
       const validationError = validateInventoryNumber(value, field);
       if (validationError)
@@ -110,11 +112,13 @@ export async function PUT(
         { status: 400 },
       );
     const normalizedRecipeUnit = recipeUnit === "" ? null : recipeUnit;
-    const normalizedConversionRatio =
-      conversionRatio === "" ? null : conversionRatio;
+    const normalizedConversionRatio = conversionRatio === "" ? null : conversionRatio;
+    const normalizedChefYield = chefYieldPerStockUnit === "" ? null : chefYieldPerStockUnit;
+    const hasChefYield = normalizedChefYield !== undefined && normalizedChefYield !== null;
+    if (hasChefYield && (!Number.isFinite(Number(normalizedChefYield)) || Number(normalizedChefYield) <= 0)) return NextResponse.json({ error: "Chef yield must be greater than zero" }, { status: 400 });
 
     const beforeResult = await query(
-      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price, cost_per_container, quantity_per_container, cost_per_item FROM inventory WHERE id = $1",
+      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price, cost_per_container, quantity_per_container, cost_per_item, recipe_unit, density_g_per_ml, chef_yield_per_stock_unit FROM inventory WHERE id = $1",
       [id],
     );
     const before = beforeResult.rows[0];
@@ -134,7 +138,8 @@ export async function PUT(
               : Number(densityGPerMl) || null,
           )
         : null;
-    if (unitCompatibilityError)
+    const effectiveChefYield = hasChefYield ? Number(normalizedChefYield) : Number(before.chef_yield_per_stock_unit ?? 0) || null;
+    if (unitCompatibilityError && !effectiveChefYield)
       return NextResponse.json(
         { error: unitCompatibilityError },
         { status: 400 },
@@ -201,6 +206,7 @@ export async function PUT(
       ["recipe_unit", normalizedRecipeUnit],
       ["conversion_ratio", normalizedConversionRatio],
       ["conversion_type", conversionType],
+      ["chef_yield_per_stock_unit", normalizedChefYield],
     ] as const) {
       if (value !== undefined) {
         fields.push(`${column} = $${idx++}`);
