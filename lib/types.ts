@@ -45,6 +45,7 @@ export interface InventoryItem {
   baseUnit?: string;
   recipeUnit?: string;
   conversionRatio?: string;
+  chefYieldPerStockUnit?: string;
   conversionType?: "standard" | "pack";
   densityGPerMl?: string;
   conversionRuleMissing?: boolean;

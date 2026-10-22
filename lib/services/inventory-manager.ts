@@ -38,7 +38,7 @@ export class InventoryManager {
           if (!directStockHandled) {
             const ingredients = (await client.query(
               `SELECT r.inventory_item_id, r.quantity, r.unit, COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
-                      i.recipe_unit, COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS conversion_ratio,
+                      i.recipe_unit, COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio) AS conversion_ratio,
                       i.density_g_per_ml, i.name
                FROM recipe_ingredients r
                JOIN inventory i ON i.id = r.inventory_item_id

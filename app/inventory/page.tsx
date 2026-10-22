@@ -81,6 +81,15 @@ function getEditorComparable(item: InventoryItem | null) {
   return JSON.stringify(item);
 }
 
+function getUnitSelectionHint(purchaseUnit?: string | null) {
+  const unit = (purchaseUnit ?? "").toLowerCase().trim();
+  if (["kg", "kilogram", "kilograms"].includes(unit)) return "For weight items, choose g, kg, oz, or lb. Choose Slice only when you know the chef yield per kg.";
+  if (["g", "gram", "grams"].includes(unit)) return "For weight items, choose g, kg, oz, or lb. Choose Slice only when you know the chef yield per g.";
+  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "For liquids, choose ml, l, fl oz, qt, or gal. Choose Ladle only when you know the chef yield per litre.";
+  if (["ml", "millilitre", "millilitres", "milliliter", "milliliters"].includes(unit)) return "For liquids, choose ml or l. Choose Ladle only when you know the chef yield per ml.";
+  return "Choose the unit the chef measures during preparation. If it differs from the purchase unit family, enter a Chef yield below.";
+}
+
 function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -301,6 +310,7 @@ function InventoryContent() {
       baseUnit: getInventoryBaseUnit("kg") || undefined,
       recipeUnit: "g",
       conversionRatio: "1000",
+      chefYieldPerStockUnit: "",
       conversionType: "standard",
       densityGPerMl: "",
       lastUpdated: new Date().toISOString(),
@@ -337,6 +347,7 @@ function InventoryContent() {
         baseUnit: item.baseUnit || getInventoryBaseUnit(item.unit) || undefined,
         recipeUnit: item.recipeUnit || getInventoryBaseUnit(item.unit) || item.unit,
         conversionRatio: item.conversionRatio?.toString() || "1",
+        chefYieldPerStockUnit: item.chefYieldPerStockUnit?.toString() || "",
         conversionType: item.conversionType || "standard",
         densityGPerMl: item.densityGPerMl?.toString() || "",
         lastUpdated: item.lastUpdated || new Date().toISOString(),
@@ -440,6 +451,7 @@ function InventoryContent() {
     const containerCount = Number(editingItem.containerCount || 0);
     const costPerContainer = Number(editingItem.costPerContainer || 0);
     const conversionRatio = Number(editingItem.conversionRatio || 0);
+    const chefYieldPerStockUnit = editingItem.chefYieldPerStockUnit === "" ? null : Number(editingItem.chefYieldPerStockUnit || 0);
     if (!editingItem.name.trim()) nextErrors.name = "Name is required.";
     if (!editingItem.sku.trim()) nextErrors.sku = "SKU is required.";
     if (!Number.isFinite(quantity) || quantity < 0) nextErrors.quantity = "Enter a quantity of 0 or greater.";
@@ -449,8 +461,9 @@ function InventoryContent() {
     if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
     if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
     if (!Number.isFinite(conversionRatio) || conversionRatio <= 0) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
+    if (editingItem.chefYieldPerStockUnit !== "" && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
     const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, editingItem.unit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
-    if (compatibilityError) nextErrors.conversionRatio = compatibilityError;
+    if (compatibilityError && !editingItem.chefYieldPerStockUnit) nextErrors.conversionRatio = compatibilityError;
     setEditorErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       toast({ title: "Check the highlighted fields", description: "Correct the inventory details before saving.", variant: "destructive" });
@@ -1168,6 +1181,7 @@ function InventoryContent() {
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.containerUnit || editingItem.unit || "units"}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
+                  <p className="mt-2 rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100"><strong>Unit tip:</strong> {getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Purchase unit is how stock arrives; choose a chef unit below based on how the item is measured in recipes.</p>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
                   <p className="mb-1 text-sm font-medium text-orange-800 dark:text-orange-200">How chefs use this item</p>
@@ -1176,11 +1190,17 @@ function InventoryContent() {
                     <div className="grid gap-2">
                       <Label htmlFor="recipeUnit" className="text-orange-700 dark:text-orange-300">Used in recipes as</Label>
                       <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
+                      <p className="text-xs leading-relaxed text-muted-foreground">{editingItem.recipeUnit ? `Chef selected ${editingItem.recipeUnit}. Enter how many ${editingItem.recipeUnit} one ${editingItem.containerUnit || editingItem.unit || "purchase unit"} provides.` : "Hint: select g/kg for weighed ingredients, ml/l for liquids, pieces for countable items, or Slice when the chef uses slices."}</p>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Base units per stock unit <span aria-hidden="true">*</span></Label>
                       <Input id="conversionRatio" type="number" min="0.000001" step="0.01" aria-invalid={Boolean(editorErrors.conversionRatio)} aria-describedby={editorErrors.conversionRatio ? "conversion-ratio-error" : undefined} value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
                       {editorErrors.conversionRatio && <p id="conversion-ratio-error" className="text-xs text-destructive">{editorErrors.conversionRatio}</p>}
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="chefYieldPerStockUnit" className="text-orange-700 dark:text-orange-300">Chef yield per stock unit</Label>
+                      <Input id="chefYieldPerStockUnit" type="number" min="0.000001" step="0.01" placeholder="e.g. 20 slices per kg" aria-invalid={Boolean(editorErrors.chefYieldPerStockUnit)} aria-describedby="chef-yield-help" value={editingItem.chefYieldPerStockUnit || ""} onChange={(e) => setEditingItem({ ...editingItem, chefYieldPerStockUnit: e.target.value })} />
+                      <p id="chef-yield-help" className="text-xs leading-relaxed text-muted-foreground">Use only when the recipe unit is not directly compatible with the purchase unit. Example: purchase <strong>{editingItem.containerUnit || editingItem.unit || "kg"}</strong> → recipe <strong>{editingItem.recipeUnit || "slice"}</strong>: enter the number of recipe units supplied by one purchase unit.</p>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="conversionType" className="text-orange-700 dark:text-orange-300">Conversion setup</Label>
@@ -1191,7 +1211,7 @@ function InventoryContent() {
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Example: stock unit <strong>{editingItem.containerUnit || editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.conversionRatio || "1"}</strong>. One {editingItem.containerUnit || editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
+                    Example: stock unit <strong>{editingItem.containerUnit || editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.chefYieldPerStockUnit || editingItem.conversionRatio || "1"}</strong>. One {editingItem.containerUnit || editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
