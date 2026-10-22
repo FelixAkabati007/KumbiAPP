@@ -19,7 +19,7 @@ import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 import { getCanonicalInventoryMenuLedger } from "@/lib/canonical-menu-ledger";
 import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = getInventoryUnitSqlExpression("COALESCE(i.container_unit, i.unit)");
 
 export async function GET() {
   try {
