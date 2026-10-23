@@ -1,5 +1,11 @@
 export type InventoryDimension = "mass" | "volume" | "count" | "unknown";
 
+export type InventoryUnitSuggestion = {
+  value: string;
+  label: string;
+  kind: "automatic" | "yield";
+};
+
 // Canonical unit codes. Every recognized spelling (full word, plural, abbreviation) used
 // anywhere in the app — inventory items, recipe ingredients, purchase packaging — must
 // resolve to one of these via UNIT_ALIASES, or conversion/sync silently fails.
@@ -23,6 +29,32 @@ const FACTORS: Record<
 // purchase packaging) to a canonical FACTORS key. Discrete packaging units (bags, boxes,
 // rolls, trays, pieces, etc.) are countable and map to "unit" — they cannot be converted
 // to mass/volume since each one may contain a different amount of product.
+const CHEF_UNIT_ALIASES: Record<string, string> = {
+  slice: "slice",
+  slices: "slice",
+  ladle: "ladle",
+  ladles: "ladle",
+  scoop: "scoop",
+  scoops: "scoop",
+  pinch: "pinch",
+  pinches: "pinch",
+  tsp: "tsp",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  tbsp: "tbsp",
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+};
+
+const CHEF_UNIT_LABELS: Record<string, string> = {
+  slice: "Slice",
+  ladle: "Ladle",
+  scoop: "Scoop",
+  pinch: "Pinch",
+  tsp: "Teaspoon",
+  tbsp: "Tablespoon",
+};
+
 const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
   g: "g",
   gram: "g",
@@ -115,28 +147,45 @@ const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
   head: "unit",
   leaf: "unit",
   root: "unit",
-  scoop: "unit",
-  ladle: "unit",
-  slice: "unit",
-  tsp: "unit",
-  tbsp: "unit",
   c: "unit",
-  pinch: "unit",
 };
 
+function normalizeUnitText(unit?: string | null) {
+  return String(unit || "").trim().toLowerCase();
+}
+
+function resolveChefUnitKey(unit?: string | null): string | null {
+  return CHEF_UNIT_ALIASES[normalizeUnitText(unit)] ?? null;
+}
+
 function resolveUnitKey(unit?: string | null): keyof typeof FACTORS | null {
-  const normalized = String(unit || "")
-    .trim()
-    .toLowerCase();
-  return (
-    UNIT_ALIASES[normalized] ??
-    (normalized in FACTORS ? (normalized as keyof typeof FACTORS) : null)
-  );
+  const normalized = normalizeUnitText(unit);
+  return UNIT_ALIASES[normalized] ?? (normalized in FACTORS ? (normalized as keyof typeof FACTORS) : null);
+}
+
+export function getCompatibleRecipeUnits(purchaseUnit?: string | null): InventoryUnitSuggestion[] {
+  const dimension = getInventoryUnitDimension(purchaseUnit);
+  const automatic = dimension === "mass"
+    ? ["g", "kg", "oz", "lb"]
+    : dimension === "volume"
+      ? ["ml", "l", "fl_oz", "qt", "gal"]
+      : dimension === "count"
+        ? ["unit"]
+        : [];
+  const automaticSuggestions = automatic.map((value) => ({ value, label: getInventoryUnitLabel(value), kind: "automatic" as const }));
+  const yieldSuggestions = Object.entries(CHEF_UNIT_LABELS).map(([value, label]) => ({ value, label, kind: "yield" as const }));
+  return [...automaticSuggestions, ...yieldSuggestions];
+}
+
+export function requiresChefYield(purchaseUnit?: string | null, recipeUnit?: string | null) {
+  return Boolean(resolveChefUnitKey(recipeUnit)) || getInventoryUnitDimension(purchaseUnit) !== getInventoryUnitDimension(recipeUnit);
 }
 
 export function getInventoryUnitDimension(
   unit?: string | null,
 ): InventoryDimension {
+  const chefKey = resolveChefUnitKey(unit);
+  if (chefKey) return "count";
   const key = resolveUnitKey(unit);
   return key ? FACTORS[key].dimension : "unknown";
 }
@@ -195,9 +244,11 @@ export function getRecipeDeductionQuantity(
   const ratio = Number(recipeUnitPerStockUnit);
   const recipeKey = resolveUnitKey(recipeUnit);
   const stockKey = resolveUnitKey(stockUnit);
+  const recipeKnown = Boolean(recipeKey || resolveChefUnitKey(recipeUnit));
+  const stockKnown = Boolean(stockKey || resolveChefUnitKey(stockUnit));
   if (recipeKey && stockKey && recipeKey === stockKey) return quantity;
   if (Number.isFinite(ratio) && ratio > 0) {
-    if (!recipeKey || !stockKey) return null;
+    if (!recipeKnown || !stockKnown) return null;
     return quantity / ratio;
   }
   return getInventoryDeductionQuantity(
@@ -231,7 +282,7 @@ export function normalizeToBase(
 }
 
 export function isInventoryUnit(unit?: string | null): boolean {
-  return Boolean(resolveUnitKey(unit));
+  return Boolean(resolveUnitKey(unit) || resolveChefUnitKey(unit));
 }
 
 export function validateInventoryNumber(
@@ -353,9 +404,9 @@ export function getInventoryDimensionLabel(
     ? "solid"
     : dimension === "volume"
       ? "liquid"
-      : dimension === "count"
-        ? "countable"
-        : "unknown";
+    : dimension === "count"
+      ? "countable"
+      : "unknown";
 }
 
 export function isCompatibleInventoryUnit(
