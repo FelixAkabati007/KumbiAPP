@@ -29,7 +29,6 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run unit tests with coverage
-        # Database integration tests skip when DATABASE_URL is not configured.
         run: npx vitest run --coverage
 
       - name: Build
