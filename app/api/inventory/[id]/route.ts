@@ -125,7 +125,7 @@ export async function PUT(
     if (!before)
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
-    const effectiveUnit = unit === undefined ? before.unit : unit;
+    const effectiveUnit = containerUnit === undefined ? (unit === undefined ? before.unit : unit) : containerUnit;
     const effectiveRecipeUnit =
       recipeUnit === undefined ? before.recipe_unit : recipeUnit;
     const unitCompatibilityError =

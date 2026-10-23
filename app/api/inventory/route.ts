@@ -134,7 +134,7 @@ export async function POST(req: Request) {
         { error: "Invalid recipe unit" },
         { status: 400 },
       );
-    const normalizedUnit = unit ? normalizeInventoryUnit(String(unit)) : null;
+    const normalizedUnit = (containerUnit || unit) ? normalizeInventoryUnit(String(containerUnit || unit)) : null;
     const normalizedRecipeUnit = recipeUnit
       ? normalizeInventoryUnit(String(recipeUnit))
       : normalizedUnit;

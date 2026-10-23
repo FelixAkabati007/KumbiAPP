@@ -470,10 +470,12 @@ function InventoryContent() {
     if (editingItem.containerUnit && (!Number.isFinite(quantityPerContainer) || quantityPerContainer <= 0)) nextErrors.quantityPerContainer = "Items per container must be greater than zero.";
     if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
     if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
-    if (!Number.isFinite(conversionRatio) || conversionRatio <= 0) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
-    if (editingItem.chefYieldPerStockUnit !== "" && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
-    const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, editingItem.unit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
-    if (compatibilityError && !editingItem.chefYieldPerStockUnit) nextErrors.conversionRatio = compatibilityError;
+    const stockUnit = editingItem.containerUnit || editingItem.unit;
+    const hasChefYield = editingItem.chefYieldPerStockUnit !== "";
+    if (!hasChefYield && (!Number.isFinite(conversionRatio) || conversionRatio <= 0)) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
+    if (hasChefYield && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
+    const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, stockUnit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
+    if (compatibilityError && !hasChefYield) nextErrors.conversionRatio = compatibilityError;
     setEditorErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       toast({ title: "Check the highlighted fields", description: "Correct the inventory details before saving.", variant: "destructive" });
