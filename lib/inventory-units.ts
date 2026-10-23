@@ -382,7 +382,8 @@ export function getInventoryUnitCompatibilityError(
 
 export function normalizeInventoryUnit(unit?: string | null): string | null {
   const key = resolveUnitKey(unit);
-  return key ?? null;
+  if (key) return key;
+  return resolveChefUnitKey(unit);
 }
 
 /**
@@ -399,7 +400,14 @@ export function getInventoryUnitSqlExpression(column: string): string {
 }
 
 export function getInventoryUnitLabel(unit?: string | null): string {
-  return unit || "units";
+  const normalized = normalizeUnitText(unit);
+  if (normalized in CHEF_UNIT_LABELS) return CHEF_UNIT_LABELS[normalized];
+  const labels: Record<string, string> = {
+    g: "Gram (g)", kg: "Kilogram (kg)", oz: "Ounce (oz)", lb: "Pound (lb)",
+    ml: "Millilitre (ml)", l: "Litre (l)", fl_oz: "Fluid ounce (fl oz)", qt: "Quart (qt)", gal: "Gallon (gal)", unit: "Unit",
+  };
+  const canonical = normalizeInventoryUnit(unit);
+  return (canonical && labels[canonical]) || unit || "units";
 }
 
 export function getInventoryUnitOptions() {

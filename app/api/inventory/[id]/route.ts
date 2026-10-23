@@ -136,8 +136,8 @@ export async function PUT(
     const unitCompatibilityError =
       effectiveRecipeUnit && effectiveUnit
         ? getInventoryUnitCompatibilityError(
-            normalizeInventoryUnit(String(effectiveRecipeUnit)),
-            normalizeInventoryUnit(String(effectiveUnit)),
+            normalizeInventoryUnit(String(effectiveRecipeUnit)) ?? String(effectiveRecipeUnit),
+            normalizeInventoryUnit(String(effectiveUnit)) ?? String(effectiveUnit),
             densityGPerMl === undefined
               ? Number(before.density_g_per_ml ?? 0) || null
               : Number(densityGPerMl) || null,

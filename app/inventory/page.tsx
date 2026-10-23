@@ -82,7 +82,7 @@ function getEditorComparable(item: InventoryItem | null) {
 }
 
 function getUnitSelectionHint(purchaseUnit?: string | null) {
-  const unit = (purchaseUnit ?? "").toLowerCase().trim();
+  const unit = (purchaseUnit ?? "").toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/, "");
   if (["kg", "kilogram", "kilograms"].includes(unit)) return "Automatic: g, kg, oz, and lb. Chef units such as Slice require an explicit yield.";
   if (["g", "gram", "grams"].includes(unit)) return "These are compatible weight units. Choose Slice only when you know the chef yield per g.";
   if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "Automatic: ml, l, fl oz, qt, and gal. Chef units such as Ladle require an explicit yield.";
@@ -461,7 +461,7 @@ function InventoryContent() {
     if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
     if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
     const stockUnit = editingItem.containerUnit || editingItem.unit;
-    const hasChefYield = editingItem.chefYieldPerStockUnit !== "";
+    const hasChefYield = editingItem.chefYieldPerStockUnit !== "" && Boolean(editingItem.recipeUnit);
     if (!hasChefYield && (!Number.isFinite(conversionRatio) || conversionRatio <= 0)) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
     if (hasChefYield && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
     const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, stockUnit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
