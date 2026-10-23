@@ -61,6 +61,12 @@ const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
   grams: "g",
   gramme: "g",
   grammes: "g",
+  "gram (g)": "g",
+  "grams (g)": "g",
+  "grams (solid)": "g",
+  "millilitres (liquid)": "ml",
+  "milliliters (liquid)": "ml",
+  "units (countable)": "unit",
   kg: "kg",
   kilogram: "kg",
   kilograms: "kg",
@@ -151,7 +157,10 @@ const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
 };
 
 function normalizeUnitText(unit?: string | null) {
-  return String(unit || "").trim().toLowerCase();
+  return String(unit || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*$/, "");
 }
 
 function resolveChefUnitKey(unit?: string | null): string | null {

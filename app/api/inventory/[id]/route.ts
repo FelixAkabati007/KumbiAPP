@@ -13,6 +13,7 @@ import {
   isInventoryBaseUnit,
   getInventoryUnitCompatibilityError,
   normalizeInventoryUnit,
+  getInventoryBaseUnit,
 } from "@/lib/inventory-units";
 import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 
@@ -60,7 +61,11 @@ export async function PUT(
         return NextResponse.json({ error: validationError }, { status: 400 });
     }
     const normalizedContainerUnit = containerUnit === "" ? null : containerUnit;
-    const normalizedBaseUnit = baseUnit === "" ? null : baseUnit;
+    const normalizedBaseUnit = baseUnit === undefined
+      ? undefined
+      : baseUnit === null || baseUnit === ""
+        ? null
+        : normalizeInventoryUnit(String(baseUnit)) || getInventoryBaseUnit(String(unit ?? recipeUnit ?? "unit"));
     const normalizedDensity = densityGPerMl === "" ? null : densityGPerMl;
 
     if (unit !== undefined && !isInventoryUnit(unit))
@@ -228,20 +233,22 @@ export async function PUT(
       const updated = await client.query(q, values);
 
       const uomWasUpdated =
-      containerUnit !== undefined ||
-      unit !== undefined ||
-      baseUnit !== undefined ||
-      recipeUnit !== undefined ||
-      conversionRatio !== undefined ||
-      conversionType !== undefined;
+        containerUnit !== undefined ||
+        unit !== undefined ||
+        baseUnit !== undefined ||
+        recipeUnit !== undefined ||
+        conversionRatio !== undefined ||
+        conversionType !== undefined ||
+        chefYieldPerStockUnit !== undefined;
       if ((updated.rowCount ?? 0) > 0 && uomWasUpdated) {
         const purchaseUnit = normalizeInventoryUnit(
           String(normalizedContainerUnit ?? unit ?? before.unit ?? "unit"),
         );
         const activeBaseUnit = normalizeInventoryUnit(
-          String(normalizedBaseUnit ?? recipeUnit ?? before.base_unit ?? before.unit ?? "unit"),
+          String(recipeUnit ?? normalizedBaseUnit ?? before.recipe_unit ?? before.base_unit ?? before.unit ?? "unit"),
         );
         const factor = Number(normalizedConversionRatio ?? 1);
+        const yieldFactor = Number(normalizedChefYield ?? before.chef_yield_per_stock_unit ?? 1) || 1;
         if (purchaseUnit && activeBaseUnit && Number.isFinite(factor) && factor > 0) {
           await client.query(
             "UPDATE inventory_item_uoms SET is_active = false, effective_to = CURRENT_TIMESTAMP WHERE inventory_id = $1 AND is_active = true",
@@ -251,7 +258,7 @@ export async function PUT(
             `INSERT INTO inventory_item_uoms
               (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, yield_factor, is_active, effective_from)
              VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP)`,
-            [id, purchaseUnit, activeBaseUnit, factor, 1],
+            [id, purchaseUnit, activeBaseUnit, factor, yieldFactor],
           );
         }
       }
