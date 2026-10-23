@@ -9,7 +9,8 @@ const accountSchema = z.object({
   email: z.union([z.string().email(), z.literal("")]).optional(),
   phone: z.string().max(64).optional(),
   address: z.string().max(500).optional(),
-  logo: z.string().max(200000).optional(),
+  // Keep a bounded data URL for compatibility with the existing profile column.
+  logo: z.string().max(500000).optional(),
 }).strict();
 
 export const canonicalSettingsPatchSchema = z.object({
