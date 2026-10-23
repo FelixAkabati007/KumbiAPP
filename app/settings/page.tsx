@@ -273,15 +273,30 @@ function SettingsPageContent() {
         return;
       }
 
-      // Read file as base64
+      // Normalize the logo before storing it in the settings JSON. The API accepts
+      // compact data URLs so a large camera/export file cannot make Save Settings fail.
       const reader = new FileReader();
       reader.onload = (e) => {
-        const base64 = e.target?.result as string;
-        handleInputChange("account", "logo", base64 || "");
-        toast({
-          title: "Logo Uploaded",
-          description: "Your logo has been uploaded successfully",
-        });
+        const source = e.target?.result as string;
+        const image = new window.Image();
+        image.onload = () => {
+          const maxDimension = 1200;
+          const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext("2d");
+          if (!context) {
+            toast({ title: "Logo upload failed", description: "Your browser could not process this image.", variant: "destructive" });
+            return;
+          }
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          const optimized = canvas.toDataURL("image/webp", 0.82);
+          handleInputChange("account", "logo", optimized.length <= 190000 ? optimized : canvas.toDataURL("image/jpeg", 0.68));
+          toast({ title: "Logo Uploaded", description: "Logo optimized. Select Save Settings to apply it." });
+        };
+        image.onerror = () => toast({ title: "Logo upload failed", description: "Please choose a valid image file.", variant: "destructive" });
+        image.src = source;
       };
       reader.readAsDataURL(file);
     }
@@ -301,9 +316,9 @@ function SettingsPageContent() {
 
       setSaveState("saved");
       toast({ title: "Settings Saved", description: "Your preferences have been saved successfully" });
-    } catch {
+    } catch (error) {
       setSaveState("error");
-      toast({ title: "Save failed", description: "Your changes were not saved. Try again.", variant: "destructive" });
+      toast({ title: "Save failed", description: error instanceof Error ? error.message : "Your changes were not saved. Try again.", variant: "destructive" });
     }
   };
 
