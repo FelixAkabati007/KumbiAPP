@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/property-time", () => ({
+  getCanonicalTransactionTimestamp: vi.fn().mockResolvedValue("2026-01-01T00:00:00.000Z"),
+}));
+
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 describe("canonical financial ledger classification", () => {

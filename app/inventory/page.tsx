@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UnitSelect } from "@/components/ui/unit-select";
-import { getInventoryUnitCompatibilityError } from "@/lib/inventory-units";
+import { getCompatibleRecipeUnits, getInventoryUnitCompatibilityError } from "@/lib/inventory-units";
 import {
   ArrowLeft,
   Edit,
@@ -81,21 +81,11 @@ function getEditorComparable(item: InventoryItem | null) {
   return JSON.stringify(item);
 }
 
-function getCompatibleRecipeUnits(purchaseUnit?: string | null) {
-  const unit = (purchaseUnit ?? "").toLowerCase().trim();
-  if (["kg", "kilogram", "kilograms", "kilo", "kilos"].includes(unit)) return ["g", "kg", "oz", "lb"];
-  if (["g", "gram", "grams", "gramme", "grammes"].includes(unit)) return ["g", "kg", "oz", "lb"];
-  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return ["ml", "l", "fl oz", "qt", "gal"];
-  if (["ml", "millilitre", "millilitres", "milliliter", "milliliters"].includes(unit)) return ["ml", "l", "fl oz"];
-  if (["pack", "packs", "pk", "box", "boxes", "bag", "bags", "bottle", "bottles", "can", "cans", "crate", "crates", "carton", "cartons", "tray", "trays", "unit", "units", "piece", "pieces", "each", "ea"].includes(unit)) return ["piece", "unit", "each", "bottle", "can", "slice"];
-  return ["g", "kg", "ml", "l", "piece", "unit", "slice"];
-}
-
 function getUnitSelectionHint(purchaseUnit?: string | null) {
   const unit = (purchaseUnit ?? "").toLowerCase().trim();
-  if (["kg", "kilogram", "kilograms"].includes(unit)) return "These are compatible weight units. Choose Slice only when you know the chef yield per kg.";
+  if (["kg", "kilogram", "kilograms"].includes(unit)) return "Automatic: g, kg, oz, and lb. Chef units such as Slice require an explicit yield.";
   if (["g", "gram", "grams"].includes(unit)) return "These are compatible weight units. Choose Slice only when you know the chef yield per g.";
-  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "These are compatible liquid units. Choose Ladle only when you know the chef yield per litre.";
+  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "Automatic: ml, l, fl oz, qt, and gal. Chef units such as Ladle require an explicit yield.";
   if (["ml", "millilitre", "millilitres", "milliliter", "milliliters"].includes(unit)) return "These are compatible liquid units. Choose Ladle only when you know the chef yield per ml.";
   return "Choose a matching count unit, or use Chef yield for a measured chef unit such as Slice.";
 }
@@ -1203,10 +1193,10 @@ function InventoryContent() {
                       <Label htmlFor="recipeUnit" className="text-orange-700 dark:text-orange-300">Used in recipes as</Label>
                       <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
                       <div className="rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100" aria-live="polite">
-                        <p><strong>Suggested compatible units:</strong> Select one below.</p>
+                        <p><strong>Suggested units:</strong> automatic conversions; units marked * require Chef yield.</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {getCompatibleRecipeUnits(editingItem.containerUnit || editingItem.unit).map((unit) => (
-                            <button key={unit} type="button" className={`rounded-full border px-2.5 py-1 transition-colors ${editingItem.recipeUnit === unit ? "border-orange-600 bg-orange-100 font-semibold dark:border-orange-300 dark:bg-orange-900/50" : "border-orange-200 bg-background hover:border-orange-500 dark:border-orange-700"}`} onClick={() => setEditingItem({ ...editingItem, recipeUnit: unit })} aria-pressed={editingItem.recipeUnit === unit}>{unit}</button>
+                          {getCompatibleRecipeUnits(editingItem.containerUnit || editingItem.unit).map((suggestion) => (
+                            <button key={suggestion.value} type="button" className={`rounded-full border px-2.5 py-1 transition-colors ${editingItem.recipeUnit === suggestion.value ? "border-orange-600 bg-orange-100 font-semibold dark:border-orange-300 dark:bg-orange-900/50" : "border-orange-200 bg-background hover:border-orange-500 dark:border-orange-700"}`} onClick={() => setEditingItem({ ...editingItem, recipeUnit: suggestion.value })} aria-pressed={editingItem.recipeUnit === suggestion.value}>{suggestion.label}{suggestion.kind === "yield" ? "*" : ""}</button>
                           ))}
                         </div>
                         <p className="mt-2">{getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Cross-family choices require a Chef yield.</p>
