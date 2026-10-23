@@ -10,7 +10,9 @@ neonConfig.webSocketConstructor = ws;
 
 const connectionString = process.env.DATABASE_URL ?? process.env.KUMRESH_DB_DATABASE_URL;
 
-describe("Database Schema Integration Tests", () => {
+const describeDatabase = connectionString ? describe : describe.skip;
+
+describeDatabase("Database Schema Integration Tests", () => {
   let pool: Pool;
 
   beforeAll(() => {
