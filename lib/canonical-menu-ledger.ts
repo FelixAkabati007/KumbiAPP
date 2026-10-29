@@ -2,7 +2,7 @@ import { query } from "@/lib/db";
 import { calculateMenuAvailability, type AvailabilityIngredient } from "@/lib/menu-availability";
 import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
 
 export type CanonicalMenuItem = {
   id: string;
@@ -43,7 +43,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
            COALESCE(json_agg(json_build_object(
              'name', i.name, 'requiredQuantity', ri.quantity,
              'recipeUnit', ri.unit, 'availableQuantity', i.quantity,
-             'stockUnit', COALESCE(active_uom.base_unit, i.base_unit, i.unit), 'conversionRatio', COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio),
+             'stockUnit', i.unit, 'conversionRatio', COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio),
              'densityGPerMl', i.density_g_per_ml
            )) FILTER (WHERE ri.id IS NOT NULL), '[]') AS ingredients
     FROM menu_items mi

@@ -5,6 +5,7 @@ import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { getCanonicalMenuLedger } from "@/lib/canonical-menu-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -98,27 +99,14 @@ export async function POST(req: Request) {
 
     const menuItemIds = Array.isArray(items) ? items.map((item: { id?: string }) => item.id).filter(Boolean) : [];
     if (menuItemIds.length > 0) {
-      const stockResult = await query(
-        `SELECT mi.id AS menu_item_id,
-                mi.inventory_mode,
-                mi.direct_inventory_id,
-                mi.direct_units_per_sale,
-                di.quantity AS direct_quantity
-         FROM menu_items mi
-         LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-         WHERE mi.id = ANY($1::uuid[])`,
-        [menuItemIds]
-      );
-      const stockByMenuItem = new Map(stockResult.rows.map((row) => [String(row.menu_item_id), row]));
+      const canonicalItems = await getCanonicalMenuLedger({ activeOnly: false });
+      const menuMap = new Map(canonicalItems.map((c) => [String(c.id), c]));
       const unavailable = (items as Array<{ id?: string; name?: string; quantity?: number }>)
         .find((item) => {
           if (!item.id) return false;
-          const stock = stockByMenuItem.get(String(item.id));
-          if (!stock) return false;
-          const requested = Number(item.quantity ?? 0);
-          if (stock.inventory_mode === "direct") {
-            return !stock.direct_inventory_id || Number(stock.direct_quantity ?? 0) < Number(stock.direct_units_per_sale ?? 1) * requested;
-          }
+          const canonical = menuMap.get(String(item.id));
+          if (!canonical) return false;
+          if (!canonical.isAvailable || !canonical.inStock) return true;
           return false;
         });
       if (unavailable) {

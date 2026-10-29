@@ -238,6 +238,7 @@ export async function addSaleData(sale: SalesData): Promise<boolean> {
         status: "success", // Assuming success if we are adding it
         paymentMethod: sale.paymentMethod,
         timestamp: sale.date,
+        skipFinancialLedger: sale.skipFinancialLedger,
         metadata: {
           orderNumber: sale.orderNumber,
           items: sale.items,
@@ -245,6 +246,7 @@ export async function addSaleData(sale: SalesData): Promise<boolean> {
           tableNumber: sale.tableNumber,
           customerName: sale.customerName,
           customerRefused: sale.customerRefused,
+          skipFinancialLedger: sale.skipFinancialLedger,
         },
       }),
     });

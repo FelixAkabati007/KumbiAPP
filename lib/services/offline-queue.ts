@@ -8,6 +8,27 @@ export interface QueuedRequest {
 }
 
 const MAX_RETRIES = 5;
+const DB_NAME = "khhrest_offline_db";
+const STORE_NAME = "offline_requests";
+
+function openIdb(): Promise<IDBDatabase | null> {
+  if (typeof window === "undefined" || !window.indexedDB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const request = window.indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: "id" });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
 
 export class OfflineQueueService {
   private static instance: OfflineQueueService;
@@ -15,14 +36,12 @@ export class OfflineQueueService {
   private isProcessing = false;
 
   private constructor() {
-    // In-memory queue only for Neon-only mode.
-    // No localStorage loading.
-
-    // Try to process queue on startup and when online status changes
     if (typeof window !== "undefined") {
+      this.loadQueue().then(() => {
+        if (navigator.onLine) this.processQueue();
+      });
       window.addEventListener("online", () => this.processQueue());
-      // Process periodically
-      setInterval(() => this.processQueue(), 60000);
+      setInterval(() => this.processQueue(), 30000);
     }
   }
 
@@ -33,14 +52,36 @@ export class OfflineQueueService {
     return OfflineQueueService.instance;
   }
 
-  private loadQueue() {
-    // LocalStorage persistence removed.
-    this.queue = [];
+  private async loadQueue(): Promise<void> {
+    try {
+      const db = await openIdb();
+      if (!db) return;
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        if (Array.isArray(req.result)) {
+          this.queue = req.result;
+        }
+      };
+    } catch {
+      // In-memory fallback
+    }
   }
 
-  private saveQueue() {
-    // LocalStorage persistence removed.
-    // Queue is in-memory only.
+  private async saveQueue(): Promise<void> {
+    try {
+      const db = await openIdb();
+      if (!db) return;
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      store.clear();
+      for (const item of this.queue) {
+        store.put(item);
+      }
+    } catch {
+      // In-memory fallback
+    }
   }
 
   async enqueue(url: string, method: string, body: unknown) {
@@ -53,16 +94,15 @@ export class OfflineQueueService {
       retryCount: 0,
     };
     this.queue.push(request);
-    this.saveQueue();
+    await this.saveQueue();
 
-    // Try to process immediately if online
-    if (navigator.onLine) {
+    if (typeof navigator !== "undefined" && navigator.onLine) {
       this.processQueue();
     }
   }
 
   async processQueue() {
-    if (this.isProcessing || this.queue.length === 0 || !navigator.onLine)
+    if (this.isProcessing || this.queue.length === 0 || (typeof navigator !== "undefined" && !navigator.onLine))
       return;
 
     this.isProcessing = true;
@@ -79,9 +119,6 @@ export class OfflineQueueService {
         if (!response.ok) {
           throw new Error(`Server returned ${response.status}`);
         }
-
-        // Success: do not add back to remainingQueue
-        // console.log(`Processed queued request: ${req.id}`);
       } catch (error) {
         console.error(`Failed to process queued request ${req.id}`, error);
         req.retryCount++;
@@ -89,13 +126,12 @@ export class OfflineQueueService {
           remainingQueue.push(req);
         } else {
           console.error(`Request ${req.id} failed max retries, dropping.`);
-          // Optionally move to a "dead letter" queue
         }
       }
     }
 
     this.queue = remainingQueue;
-    this.saveQueue();
+    await this.saveQueue();
     this.isProcessing = false;
   }
 

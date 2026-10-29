@@ -22,7 +22,8 @@ export interface OrderItem extends MenuItem {
   status?: "pending" | "preparing" | "ready" | "served"; // Item-level status
   prepTime?: number; // Estimated preparation time in minutes
   notes?: string; // Item-specific notes
-  orderId?: string; // Unique order ID for this specific product
+  orderId?: string;
+  skipFinancialLedger?: boolean; // Unique order ID for this specific product
   orderNumber?: string; // Unique order number for this specific product
   discountPercent?: number;
 }
@@ -69,6 +70,7 @@ export interface SalesData {
   source?: "hotel" | "restaurant" | "event" | "shared_event" | "shared";
   performedBy?: { id?: string; name?: string | null; email?: string; role?: string };
   type?: "sale" | "refund";
+  skipFinancialLedger?: boolean;
 }
 
 export interface RefundRequest {

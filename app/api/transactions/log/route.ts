@@ -62,24 +62,30 @@ export async function POST(req: Request) {
         ]
       );
 
-      await recordFinancialLedgerEntry(client, {
-        eventKey: `pos-payment:${transactionId}`,
-        amount: Number(amount),
-        currency,
-        direction: "credit",
-        status,
-        source: "pos",
-        paymentMethod: canonicalPaymentMethod,
-        entityType: "order",
-        entityId: orderId || transactionId,
-        metadata: {
-          ...finalMetadata,
-          ...(timestamp ? { clientOccurredAt: timestamp } : {}),
-          clockSource: "kumbi-property-authoritative-clock",
-          timeZone: "Africa/Accra",
-        },
-        occurredAt: canonicalTimestamp,
-      });
+      const ledgerEventKey = finalMetadata.orderNumber
+        ? `pos-order:${finalMetadata.orderNumber}`
+        : `pos-payment:${transactionId}`;
+
+      if (!body.skipFinancialLedger && !finalMetadata.skipFinancialLedger) {
+        await recordFinancialLedgerEntry(client, {
+          eventKey: ledgerEventKey,
+          amount: Number(amount),
+          currency,
+          direction: "credit",
+          status,
+          source: "pos",
+          paymentMethod: canonicalPaymentMethod,
+          entityType: "order",
+          entityId: orderId || transactionId,
+          metadata: {
+            ...finalMetadata,
+            ...(timestamp ? { clientOccurredAt: timestamp } : {}),
+            clockSource: "kumbi-property-authoritative-clock",
+            timeZone: "Africa/Accra",
+          },
+          occurredAt: canonicalTimestamp,
+        });
+      }
     });
 
     // Trigger system sync for orders/transactions

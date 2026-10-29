@@ -254,5 +254,60 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
       { name: 'created_by', type: 'uuid', nullable: true },
       { name: 'created_at', type: 'timestamp with time zone', nullable: false },
     ]
+  },
+  {
+    name: 'canonical_financial_ledger',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'event_key', type: 'character varying', nullable: false },
+      { name: 'amount', type: 'numeric', nullable: false },
+      { name: 'currency', type: 'character varying', nullable: true },
+      { name: 'direction', type: 'character varying', nullable: false },
+      { name: 'status', type: 'character varying', nullable: false },
+      { name: 'source', type: 'character varying', nullable: false },
+      { name: 'payment_method', type: 'character varying', nullable: true },
+      { name: 'entity_type', type: 'character varying', nullable: true },
+      { name: 'entity_id', type: 'character varying', nullable: true },
+      { name: 'original_entry_id', type: 'character varying', nullable: true },
+      { name: 'journal_type', type: 'character varying', nullable: true },
+      { name: 'metadata', type: 'jsonb', nullable: true },
+      { name: 'occurred_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'inventory_item_uoms',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'inventory_id', type: 'uuid', nullable: false },
+      { name: 'purchase_unit', type: 'character varying', nullable: false },
+      { name: 'base_unit', type: 'character varying', nullable: false },
+      { name: 'conversion_factor_to_base', type: 'numeric', nullable: false },
+      { name: 'yield_factor', type: 'numeric', nullable: false },
+      { name: 'is_active', type: 'boolean', nullable: false },
+      { name: 'effective_from', type: 'timestamp with time zone', nullable: false },
+    ]
+  },
+  {
+    name: 'inventory_movements',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'inventory_id', type: 'uuid', nullable: false },
+      { name: 'quantity_delta', type: 'numeric', nullable: false },
+      { name: 'movement_type', type: 'character varying', nullable: false },
+      { name: 'source_type', type: 'character varying', nullable: false },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: true },
+    ]
+  },
+  {
+    name: 'inventory_events',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'inventory_id', type: 'uuid', nullable: false },
+      { name: 'event_type', type: 'character varying', nullable: false },
+      { name: 'quantity_before', type: 'numeric', nullable: false },
+      { name: 'quantity_delta', type: 'numeric', nullable: false },
+      { name: 'quantity_after', type: 'numeric', nullable: false },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: true },
+    ]
   }
 ];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 export async function PATCH(
   req: Request,
@@ -54,6 +55,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
+    await publishRealtime("orders.updated", String(id));
     return NextResponse.json({ success: true, order: result.rows[0] });
   } catch (error) {
     console.error("Failed to update order:", error);

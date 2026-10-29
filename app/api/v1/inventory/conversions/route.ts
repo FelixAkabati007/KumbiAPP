@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   if (!body.inventoryId || !isInventoryUnit(purchaseUnit) || !isInventoryBaseUnit(baseUnit)) return NextResponse.json({ error: "Valid inventory, purchase unit, and base unit are required" }, { status: 400 });
   if (!Number.isFinite(factor) || factor <= 0) return NextResponse.json({ error: "Conversion factor must be greater than zero" }, { status: 400 });
   if (density !== null && (!Number.isFinite(density) || density <= 0)) return NextResponse.json({ error: "Density must be greater than zero" }, { status: 400 });
-  if (!Number.isFinite(yieldFactor) || yieldFactor <= 0 || yieldFactor > 1) return NextResponse.json({ error: "Yield factor must be between 0 and 1" }, { status: 400 });
+  if (!Number.isFinite(yieldFactor) || yieldFactor <= 0) return NextResponse.json({ error: "Yield factor must be greater than zero" }, { status: 400 });
   const compatibilityError = getInventoryUnitCompatibilityError(purchaseUnit, baseUnit, density);
   if (compatibilityError) return NextResponse.json({ error: compatibilityError }, { status: 400 });
   const result = await query(

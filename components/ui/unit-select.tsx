@@ -58,7 +58,7 @@ export function resetUnitSelectCache() {
 }
 
 const MASS_UNITS = new Set(["g", "kg", "oz", "lb"]);
-const VOLUME_UNITS = new Set(["ml", "l", "fl_oz", "qt", "gal"]);
+const VOLUME_UNITS = new Set(["ml", "l", "fl_oz", "qt", "gal", "tsp", "tbsp", "cup", "pt"]);
 const COUNT_UNITS = new Set(["unit", "ea", "ct", "pc", "pcs", "piece", "pack", "box", "bag", "bottle", "can", "tray", "sack", "crate", "carton", "cs", "pk", "bx", "bg"]);
 function unitDimension(value: string): UnitDimension {
   if (MASS_UNITS.has(value)) return "mass";

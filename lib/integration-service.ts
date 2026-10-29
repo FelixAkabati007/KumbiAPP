@@ -390,6 +390,7 @@ class IntegrationService {
           : paymentData.customerName || "",
         customerRefused: !!paymentData.customerRefused,
         paymentMethod: paymentData.method,
+        skipFinancialLedger: true,
       });
 
       // transactionLogger.logTransaction call removed to prevent double logging

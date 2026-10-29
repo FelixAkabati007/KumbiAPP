@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 // Validation schema
 const updateItemSchema = z.object({
@@ -64,6 +65,10 @@ export async function PATCH(
     }
 
     // console.log(`[API] Successfully updated item ${id} status to ${status}`);
+
+    if (updatedItem.kitchenorderid) {
+      await publishRealtime("orders.updated", String(updatedItem.kitchenorderid));
+    }
 
     return NextResponse.json({ success: true, item: updatedItem });
   } catch (error) {

@@ -323,3 +323,88 @@ CREATE TABLE IF NOT EXISTS staff_schedule_assignments (
 
 CREATE INDEX IF NOT EXISTS idx_work_schedules_classification ON work_schedules(job_classification, is_active);
 CREATE INDEX IF NOT EXISTS idx_staff_schedule_assignments_date ON staff_schedule_assignments(work_date, status);
+
+
+-- Canonical Financial Ledger (Enterprise Single Source of Truth for Money Movement)
+CREATE TABLE IF NOT EXISTS canonical_financial_ledger (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_key VARCHAR(255) UNIQUE NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'GHS',
+    direction VARCHAR(10) NOT NULL CHECK (direction IN ('credit', 'debit')),
+    status VARCHAR(50) NOT NULL DEFAULT 'posted',
+    source VARCHAR(100) NOT NULL,
+    payment_method VARCHAR(50),
+    entity_type VARCHAR(100),
+    entity_id VARCHAR(255),
+    original_entry_id VARCHAR(255),
+    journal_type VARCHAR(50) DEFAULT 'operational',
+    source_event_id VARCHAR(255),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_event_key ON canonical_financial_ledger(event_key);
+CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_occurred_at ON canonical_financial_ledger(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_source ON canonical_financial_ledger(source);
+CREATE INDEX IF NOT EXISTS idx_canonical_financial_ledger_entity ON canonical_financial_ledger(entity_type, entity_id);
+
+-- Inventory Unit of Measure (UOM) Conversions
+CREATE TABLE IF NOT EXISTS inventory_item_uoms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inventory_id UUID NOT NULL,
+    purchase_unit VARCHAR(50) NOT NULL,
+    base_unit VARCHAR(50) NOT NULL,
+    conversion_factor_to_base DECIMAL(12, 4) NOT NULL DEFAULT 1,
+    density_g_per_ml DECIMAL(10, 4),
+    yield_factor DECIMAL(10, 4) NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    effective_from TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    effective_to TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_item_uoms_active ON inventory_item_uoms(inventory_id, purchase_unit, is_active);
+
+-- Inventory Movement Ledger (Real-Time Stock Audits)
+CREATE TABLE IF NOT EXISTS inventory_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inventory_id UUID NOT NULL,
+    menu_item_id UUID,
+    quantity_delta DECIMAL(12, 4) NOT NULL,
+    movement_type VARCHAR(50) NOT NULL,
+    source_type VARCHAR(50) NOT NULL,
+    source_id VARCHAR(255),
+    order_id VARCHAR(255),
+    reason TEXT,
+    actor_id UUID,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_inventory_id ON inventory_movements(inventory_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_created_at ON inventory_movements(created_at);
+
+-- Inventory Events & Top-up Audits
+CREATE TABLE IF NOT EXISTS inventory_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inventory_id UUID NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    quantity_before DECIMAL(12, 4) NOT NULL,
+    quantity_delta DECIMAL(12, 4) NOT NULL,
+    quantity_after DECIMAL(12, 4) NOT NULL,
+    purchase_packaging_price_before DECIMAL(12, 2),
+    purchase_packaging_price_after DECIMAL(12, 2),
+    cost_per_item_before DECIMAL(12, 4),
+    cost_per_item_after DECIMAL(12, 4),
+    reason TEXT,
+    staff_id UUID,
+    staff_name VARCHAR(255),
+    staff_role VARCHAR(50),
+    correlation_id VARCHAR(255),
+    idempotency_key VARCHAR(255),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_events_inventory_id ON inventory_events(inventory_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_events_created_at ON inventory_events(created_at);

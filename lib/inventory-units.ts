@@ -260,6 +260,24 @@ export function getRecipeDeductionQuantity(
     if (!recipeKnown || !stockKnown) return null;
     return quantity / ratio;
   }
+  const normalizedRecipe = normalizeUnitText(recipeUnit);
+  const stockDim = getInventoryUnitDimension(stockUnit);
+  if (stockDim === "volume") {
+    if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
+      return getInventoryDeductionQuantity(quantity * 4.92892, "ml", stockUnit, densityGPerMl);
+    }
+    if (normalizedRecipe === "tbsp" || normalizedRecipe === "tablespoon" || normalizedRecipe === "tablespoons") {
+      return getInventoryDeductionQuantity(quantity * 14.7868, "ml", stockUnit, densityGPerMl);
+    }
+  }
+  if (stockDim === "mass" && densityGPerMl && densityGPerMl > 0) {
+    if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
+      return getInventoryDeductionQuantity(quantity * 4.92892, "ml", stockUnit, densityGPerMl);
+    }
+    if (normalizedRecipe === "tbsp" || normalizedRecipe === "tablespoon" || normalizedRecipe === "tablespoons") {
+      return getInventoryDeductionQuantity(quantity * 14.7868, "ml", stockUnit, densityGPerMl);
+    }
+  }
   return getInventoryDeductionQuantity(
     quantity,
     recipeUnit,

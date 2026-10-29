@@ -14,6 +14,7 @@ import {
   getInventoryBaseUnit,
   getInventoryUnitCompatibilityError,
   normalizeInventoryUnit,
+  getInventoryDeductionQuantity,
 } from "@/lib/inventory-units";
 import { getInventoryCostValidationError } from "@/lib/inventory-cost";
 import { getCanonicalInventoryMenuLedger } from "@/lib/canonical-menu-ledger";
@@ -203,9 +204,8 @@ export async function POST(req: Request) {
     const resolvedDensity = densityGPerMl ? Number(densityGPerMl) : null;
     const resolvedRecipeUnit =
       recipeUnit || getInventoryBaseUnit(unit) || unit || "unit";
-    const resolvedConversionRatio = conversionRatio
-      ? Number(conversionRatio)
-      : 1;
+    const autoRatio = (normalizedUnit && normalizedRecipeUnit) ? getInventoryDeductionQuantity(1, normalizedUnit, normalizedRecipeUnit, resolvedDensity) : null;
+    const resolvedConversionRatio = conversionRatio ? Number(conversionRatio) : (quantityPerContainer && Number(quantityPerContainer) > 0) ? Number(quantityPerContainer) : (autoRatio && autoRatio > 0) ? autoRatio : 1;
     const resolvedConversionType =
       conversionType === "pack" ? "pack" : "standard";
     if (!menuItemId && !String(name ?? "").trim())
@@ -278,7 +278,7 @@ export async function POST(req: Request) {
         `INSERT INTO inventory_item_uoms
           (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, density_g_per_ml, yield_factor, is_active, effective_from)
          VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
-        [res.rows[0].id, purchaseUnit, activeBaseUnit, resolvedConversionRatio, resolvedDensity, 1],
+        [res.rows[0].id, purchaseUnit, activeBaseUnit, resolvedConversionRatio, resolvedDensity, chefYield ?? 1],
       );
     }
 

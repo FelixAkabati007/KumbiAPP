@@ -91,109 +91,121 @@ function withApiLifecycleHeaders(response: NextResponse, version: string, deprec
 export async function middleware(req: NextRequest) {
   const originalPathname = req.nextUrl.pathname;
   const versionedApiPrefix = `/api/${CURRENT_API_VERSION}`;
-  const isVersionedApi = originalPathname === versionedApiPrefix || originalPathname.startsWith(`${versionedApiPrefix}/`);
-  const isLegacyApi = originalPathname.startsWith("/api/") && !isVersionedApi;
-  const pathname = isVersionedApi
-    ? originalPathname.slice(versionedApiPrefix.length) || "/"
-    : originalPathname;
+  const isV1Api = originalPathname === versionedApiPrefix || originalPathname.startsWith(`${versionedApiPrefix}/`);
+  const isV2Api = originalPathname === "/api/v2" || originalPathname.startsWith("/api/v2/");
+  const isLegacyApi = originalPathname.startsWith("/api/") && !isV1Api && !isV2Api;
 
-  // Versioned routes use the existing handlers after authentication and RBAC;
-  // the rewrite is applied only at the end of this middleware.
-
-  // 1. Exclude Public API Routes.
-  // Signup is the exception: account creation must be admin-gated, so it
-  // falls through to the protected API route check below instead of being
-  // treated as a public auth endpoint like login/logout.
-  if (
-    (pathname.startsWith("/api/auth") && pathname !== "/api/auth/signup") ||
-    pathname.startsWith("/api/public")
-  ) {
-    return isLegacyApi
-      ? withApiLifecycleHeaders(NextResponse.next(), "legacy", true)
-      : NextResponse.next();
+  // Normalized API resource path for RBAC checking (always begins with /api/...)
+  let normalizedApiPath: string | null = null;
+  if (isV1Api) {
+    const sub = originalPathname.slice(versionedApiPrefix.length);
+    normalizedApiPath = `/api${sub === "" ? "" : sub}`;
+  } else if (isV2Api) {
+    const sub = originalPathname.slice("/api/v2".length);
+    normalizedApiPath = `/api${sub === "" ? "" : sub}`;
+  } else if (isLegacyApi) {
+    normalizedApiPath = originalPathname;
   }
 
-  // API handlers enforce the exact capability for each method. Middleware only
-  // authenticates and applies coarse route visibility so normal department work
-  // is not incorrectly restricted to administrators.
-  const isAuthEndpoint = pathname.startsWith("/api/auth");
-
-  const protectedApiRoute =
-    pathname === "/api/auth/signup"
-      ? "/api/auth/signup"
-      : Object.keys(apiPermissions).find((route) => pathname.startsWith(route));
-
-  const apiAllowedRoles =
-    pathname === "/api/auth/signup" ? ["admin"] : apiPermissions[protectedApiRoute || ""];
-
-  if (protectedApiRoute) {
-    const token = req.cookies.get("auth_token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const secret = new TextEncoder().encode(JWT_SECRET);
-      const { payload } = await jwtVerify(token, secret);
-      const userRole = payload.role as string;
-
-      if (!apiAllowedRoles.includes(userRole)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // 1. API Route processing (Auth, RBAC, Versioning & Rewrite)
+  if (normalizedApiPath) {
+    // 1a. Exclude Public API Routes
+    if (
+      (normalizedApiPath.startsWith("/api/auth") && normalizedApiPath !== "/api/auth/signup") ||
+      normalizedApiPath.startsWith("/api/public")
+    ) {
+      if (isV1Api) {
+        const res = NextResponse.rewrite(new URL(normalizedApiPath + req.nextUrl.search, req.url));
+        return withApiLifecycleHeaders(res, "1", false);
       }
-    } catch {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return isLegacyApi
+        ? withApiLifecycleHeaders(NextResponse.next(), "1", true)
+        : withApiLifecycleHeaders(NextResponse.next(), isV2Api ? "2" : "1", false);
+    }
+
+    // 1b. Check RBAC for API
+    const protectedApiRoute =
+      normalizedApiPath === "/api/auth/signup"
+        ? "/api/auth/signup"
+        : Object.keys(apiPermissions).find((route) => normalizedApiPath!.startsWith(route));
+
+    const apiAllowedRoles =
+      normalizedApiPath === "/api/auth/signup" ? ["admin"] : apiPermissions[protectedApiRoute || ""];
+
+    if (protectedApiRoute) {
+      const token = req.cookies.get("auth_token")?.value;
+      if (!token) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jwtVerify(token, secret);
+        const userRole = payload.role as string;
+
+        if (!apiAllowedRoles.includes(userRole)) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
+    // 1c. Route resolution / rewrite
+    if (isV2Api) {
+      return withApiLifecycleHeaders(NextResponse.next(), "2", false);
+    }
+
+    if (isV1Api) {
+      // Check if a dedicated route file exists under app/api/v1 (e.g. inventory conversions & units)
+      const hasDedicatedRoute =
+        originalPathname.startsWith("/api/v1/inventory/conversions") ||
+        originalPathname.startsWith("/api/v1/inventory/units");
+
+      if (hasDedicatedRoute) {
+        return withApiLifecycleHeaders(NextResponse.next(), "1", false);
+      }
+
+      // Transparently rewrite /api/v1/:path to /api/:path
+      const rewriteResponse = NextResponse.rewrite(new URL(normalizedApiPath + req.nextUrl.search, req.url));
+      return withApiLifecycleHeaders(rewriteResponse, "1", false);
+    }
+
+    if (isLegacyApi) {
+      return withApiLifecycleHeaders(NextResponse.next(), "1", true);
     }
   }
 
-  // Versioned API requests must never fall through to page RBAC. Their route
-  // handlers own authentication and authorization, while this middleware only
-  // adds the version lifecycle header.
-  if (isVersionedApi) {
-    return withApiLifecycleHeaders(NextResponse.next(), CURRENT_API_VERSION);
-  }
-
-  // 4. Check for Protected Page Routes
-  // Find if the current path matches any protected route prefix
+  // 2. Check for Protected Page Routes
   const protectedRoute = Object.keys(routePermissions).find((route) =>
-    pathname.startsWith(route)
+    originalPathname.startsWith(route)
   );
 
   if (protectedRoute) {
     const token = req.cookies.get("auth_token")?.value;
-
     if (!token) {
-      // Redirect to login if no token
       const url = req.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("from", pathname);
+      url.searchParams.set("from", originalPathname);
       return NextResponse.redirect(url);
     }
 
     try {
-      // Verify JWT
       const secret = new TextEncoder().encode(JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
       const userRole = payload.role as string;
       const allowedRoles = routePermissions[protectedRoute];
 
-      // Check Role Access
       if (!allowedRoles.includes(userRole)) {
-        // Redirect to unauthorized if role not allowed
         const url = req.nextUrl.clone();
         url.pathname = "/unauthorized";
         return NextResponse.redirect(url);
       }
     } catch {
-      // Token invalid or expired
       const url = req.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
-  }
-
-  if (isLegacyApi) {
-    return withApiLifecycleHeaders(NextResponse.next(), "legacy", true);
   }
 
   return NextResponse.next();
@@ -201,13 +213,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

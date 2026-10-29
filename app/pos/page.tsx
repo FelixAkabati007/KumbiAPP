@@ -296,6 +296,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
       return;
     }
+  setCartPanelOpen(true);
   setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
   setCurrentOrder((prev) => {
   const existingItem = prev.find((orderItem) => orderItem.id === item.id);
@@ -863,7 +864,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
               {!menuLoading && filteredItems.map((item) => (
                 <Card
                   key={item.id}
-  className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm transition-shadow duration-200 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
+  className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-orange-200 bg-white/70 backdrop-blur-sm card-hover-lift interactive-tap active:scale-[0.98] transition-all duration-150 dark:border-orange-700 dark:bg-gray-800/70 sm:rounded-3xl ${isItemAvailable(item) ? "cursor-pointer hover:border-orange-400 hover:shadow-lg sm:hover:scale-[1.02]" : "cursor-not-allowed opacity-60"}`}
   onClick={() => addItemToOrder(item)}
   aria-disabled={!isItemAvailable(item)}
                 >

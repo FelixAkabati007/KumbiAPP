@@ -179,6 +179,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
                 customerName: order.customerRefused ? "" : order.customerName,
                 customerRefused: !!order.customerRefused,
                 paymentMethod: order.paymentMethod,
+                skipFinancialLedger: true,
               });
             }
           });

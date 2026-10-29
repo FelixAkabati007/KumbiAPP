@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { requirePermission } from "@/lib/api-auth";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 const VALID_STATUSES = ["pending", "approved", "rejected", "completed"] as const;
 
@@ -194,6 +195,32 @@ export async function PUT(
             JSON.stringify({ source: 'refund', refundId: row.id, orderId: row.orderid, originalTransactionId: targetTransactionId, originalSource, originalDepartment, reason: row.reason }),
           ],
         );
+        await recordFinancialLedgerEntry(client, {
+          eventKey: `refund:${row.id}`,
+          amount: Number(row.refundamount),
+          currency: "GHS",
+          direction: "debit",
+          status: "posted",
+          source: originalSource || "pos-refund",
+          paymentMethod: refundMethod,
+          entityType: "order_refund",
+          entityId: row.orderid || row.id,
+          originalEntryId: targetTransactionId,
+          journalType: "refund",
+          metadata: {
+            department: originalDepartment || "restaurant",
+            departmentLabel: originalDepartment === "hotel" ? "Hotel" : originalDepartment === "event" ? "Events" : "Restaurant",
+            refundId: row.id,
+            orderId: row.orderid,
+            orderNumber: row.ordernumber,
+            originalTransactionId: targetTransactionId,
+            originalSource,
+            reason: row.reason,
+            approvedBy,
+            performedBy: approvedBy ? { id: approvedBy, accountName: approvedBy } : undefined,
+          },
+          occurredAt: nowIso,
+        });
         await client.query(
           `
             INSERT INTO refund_audit_logs (refund_id, action, actor, message, metadata, created_at)

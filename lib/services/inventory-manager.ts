@@ -1,7 +1,7 @@
-import { transaction } from "@/lib/db";
+import { transaction, type DatabaseClient } from "@/lib/db";
 import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
 
 export interface InventoryDeductionItem {
   menu_item_id?: string;
@@ -10,10 +10,15 @@ export interface InventoryDeductionItem {
 }
 
 export class InventoryManager {
-  async deductIngredientsForOrder(orderId: string, items: InventoryDeductionItem[]): Promise<void> {
+  async deductIngredientsForOrder(
+    orderId: string,
+    items: InventoryDeductionItem[],
+    externalClient?: DatabaseClient,
+    actorId?: string
+  ): Promise<void> {
     if (items.length === 0) return;
 
-    await transaction(async (client) => {
+    const execute = async (client: DatabaseClient) => {
       for (const item of items) {
         let recipeFound = false;
         let directStockHandled = false;
@@ -28,17 +33,27 @@ export class InventoryManager {
             if (!mode.direct_inventory_id) throw new Error(`Direct inventory is not configured for ${item.item_name}`);
             const deduction = Number(mode.direct_units_per_sale || 1) * item.quantity;
             const updated = await client.query(
-              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1 RETURNING quantity`,
               [deduction, mode.direct_inventory_id]
             );
             if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock`);
+
+            await client.query(
+              `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
+               VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
+              [mode.direct_inventory_id, item.menu_item_id, -deduction, orderId, orderId, `Direct sale deduction for ${item.item_name}`, actorId || null]
+            ).catch(() => null);
+
             directStockHandled = true;
           }
 
           if (!directStockHandled) {
             const ingredients = (await client.query(
-              `SELECT r.inventory_item_id, r.quantity, r.unit, COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
-                      i.recipe_unit, COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio) AS conversion_ratio,
+              `SELECT r.inventory_item_id, r.quantity, r.unit,
+                      i.unit AS stock_unit,
+                      COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS base_unit,
+                      i.recipe_unit,
+                      COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio) AS conversion_ratio,
                       i.density_g_per_ml, i.name
                FROM recipe_ingredients r
                JOIN inventory i ON i.id = r.inventory_item_id
@@ -58,32 +73,50 @@ export class InventoryManager {
               const deduction = getRecipeDeductionQuantity(
                 Number(ingredient.quantity) * item.quantity,
                 ingredient.unit,
-                ingredient.inventory_unit,
+                ingredient.stock_unit,
                 ingredient.conversion_ratio,
                 ingredient.density_g_per_ml
               );
-              if (deduction === null) throw new Error(`${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit})`);
+              if (deduction === null) throw new Error(`${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.stock_unit})`);
               const updated = await client.query(
-                `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+                `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1 RETURNING quantity`,
                 [deduction, ingredient.inventory_item_id]
               );
               if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock: ${ingredient.name}`);
+
+              await client.query(
+                `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
+                 VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
+                [ingredient.inventory_item_id, item.menu_item_id, -deduction, orderId, orderId, `Recipe deduction for ${item.item_name}`, actorId || null]
+              ).catch(() => null);
             }
           }
         }
 
         if (!recipeFound && !directStockHandled) {
-          const inventory = (await client.query(`SELECT id, quantity FROM inventory WHERE name = $1 LIMIT 1`, [item.item_name])).rows[0];
+          const inventory = (await client.query(`SELECT id, quantity, unit FROM inventory WHERE name = $1 LIMIT 1`, [item.item_name])).rows[0];
           if (inventory) {
             const updated = await client.query(
-              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
+              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1 RETURNING quantity`,
               [item.quantity, inventory.id]
             );
             if (updated.rowCount !== 1) throw new Error(`${item.item_name} is out of stock`);
+
+            await client.query(
+              `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
+               VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
+              [inventory.id, item.menu_item_id || null, -item.quantity, orderId, orderId, `Sale deduction for ${item.item_name}`, actorId || null]
+            ).catch(() => null);
           }
         }
       }
-    });
+    };
+
+    if (externalClient) {
+      await execute(externalClient);
+    } else {
+      await transaction(execute);
+    }
   }
 }
 
