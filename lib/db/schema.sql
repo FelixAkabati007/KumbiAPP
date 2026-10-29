@@ -421,3 +421,20 @@ CREATE TABLE IF NOT EXISTS blobs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_blobs_pathname ON blobs(pathname);
+
+-- Software Updates & Release Notes Table
+CREATE TABLE IF NOT EXISTS software_updates (
+    id VARCHAR(100) PRIMARY KEY,
+    version VARCHAR(50) NOT NULL,
+    build VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL DEFAULT 'feature',
+    is_critical BOOLEAN NOT NULL DEFAULT FALSE,
+    details JSONB NOT NULL DEFAULT '[]'::jsonb,
+    source VARCHAR(100) DEFAULT 'production',
+    release_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_software_updates_version ON software_updates(version);
+CREATE INDEX IF NOT EXISTS idx_software_updates_release_date ON software_updates(release_date DESC);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
+import { ensureSoftwareUpdatesTable } from "@/lib/software-updates";
 
 export async function GET() {
   try {
@@ -191,6 +192,7 @@ export async function GET() {
       `CREATE INDEX IF NOT EXISTS idx_favicons_created_at ON favicons(created_at);`
     );
 
+    await ensureSoftwareUpdatesTable();
     return NextResponse.json({
       message: "Database tables set up successfully",
     });

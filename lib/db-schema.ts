@@ -321,5 +321,21 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
       { name: 'created_at', type: 'timestamp with time zone', nullable: true },
       { name: 'updated_at', type: 'timestamp with time zone', nullable: true },
     ]
+  },
+  {
+    name: 'software_updates',
+    columns: [
+      { name: 'id', type: 'character varying', nullable: false, isPrimary: true },
+      { name: 'version', type: 'character varying', nullable: false },
+      { name: 'build', type: 'character varying', nullable: false },
+      { name: 'title', type: 'character varying', nullable: false },
+      { name: 'description', type: 'text', nullable: true },
+      { name: 'type', type: 'character varying', nullable: false },
+      { name: 'is_critical', type: 'boolean', nullable: false },
+      { name: 'details', type: 'jsonb', nullable: false },
+      { name: 'source', type: 'character varying', nullable: true },
+      { name: 'release_date', type: 'timestamp with time zone', nullable: true },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: true },
+    ]
   }
 ];
