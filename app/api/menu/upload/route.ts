@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { saveDatabaseBlob } from "@/lib/blob-storage";
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -25,13 +26,27 @@ export async function POST(request: Request) {
     }
 
     const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
-    const blob = await put(`menu-items/${crypto.randomUUID()}.${extension}`, file, {
-      access: "public",
-      addRandomSuffix: false,
-      contentType: file.type,
-    });
+    const pathname = `menu-items/${crypto.randomUUID()}.${extension}`;
+    let blobUrl: string;
 
-    return NextResponse.json({ url: blob.url });
+    try {
+      const blob = await put(pathname, file, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType: file.type,
+      });
+      blobUrl = blob.url;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      if (errorMsg.includes("No token found") || errorMsg.includes("BLOB_READ_WRITE_TOKEN") || !process.env.BLOB_READ_WRITE_TOKEN) {
+        const dbBlob = await saveDatabaseBlob(pathname, file, file.type);
+        blobUrl = dbBlob.url;
+      } else {
+        throw err;
+      }
+    }
+
+    return NextResponse.json({ url: blobUrl });
   } catch (error) {
     console.error("Menu image upload failed:", error);
     return NextResponse.json({ error: "Failed to upload menu image" }, { status: 500 });

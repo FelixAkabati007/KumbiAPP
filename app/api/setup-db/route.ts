@@ -119,6 +119,12 @@ export async function GET() {
       );
     `);
 
+    await query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
+    `).catch(() => {});
+
     // 5. Users Table
     await query(`
       CREATE TABLE IF NOT EXISTS users (

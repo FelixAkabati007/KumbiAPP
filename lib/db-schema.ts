@@ -308,6 +308,18 @@ export const EXPECTED_SCHEMA: TableDefinition[] = [
       { name: 'quantity_delta', type: 'numeric', nullable: false },
       { name: 'quantity_after', type: 'numeric', nullable: false },
       { name: 'created_at', type: 'timestamp with time zone', nullable: true },
+    ]  },
+  {
+    name: 'blobs',
+    columns: [
+      { name: 'id', type: 'uuid', nullable: false, isPrimary: true },
+      { name: 'pathname', type: 'character varying', nullable: false },
+      { name: 'content_type', type: 'character varying', nullable: false },
+      { name: 'size', type: 'integer', nullable: false },
+      { name: 'data', type: 'bytea', nullable: false },
+      { name: 'url', type: 'text', nullable: false },
+      { name: 'created_at', type: 'timestamp with time zone', nullable: true },
+      { name: 'updated_at', type: 'timestamp with time zone', nullable: true },
     ]
   }
 ];

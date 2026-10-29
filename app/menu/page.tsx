@@ -52,6 +52,7 @@ import { MenuChangeHistorySheet } from "@/components/menu/menu-change-history-sh
 const allowedImageHosts = new Set([
   "scontent.facc5-2.fna.fbcdn.net",
   "images.unsplash.com",
+  "public.blob.vercel-storage.com",
   // Add any other trusted hosts here if you want Next to optimize them
 ]);
 

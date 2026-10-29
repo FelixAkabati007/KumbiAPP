@@ -529,3 +529,16 @@ CREATE TABLE IF NOT EXISTS inventory_events (
 );
 CREATE INDEX IF NOT EXISTS idx_inventory_events_inventory_id ON inventory_events(inventory_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_events_created_at ON inventory_events(created_at);
+
+-- Unified Blob Storage Table
+CREATE TABLE IF NOT EXISTS blobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pathname VARCHAR(512) UNIQUE NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    size INTEGER NOT NULL,
+    data BYTEA NOT NULL,
+    url TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_blobs_pathname ON blobs(pathname);

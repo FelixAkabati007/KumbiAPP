@@ -57,7 +57,19 @@ export function SignInForm() {
   };
 
   return (
-    <AuthShell title="Sign into Sales Terminal" description={<>Enter your credentials to access the sales terminal{!isDatabaseReady && <span className="mt-2 block text-xs text-amber-600 dark:text-amber-400">Connecting to database. Please wait...</span>}</>} footer={<p className="text-center text-sm text-gray-600 dark:text-gray-400">Need an account? Contact your administrator to have one created for you.</p>}>
+    <AuthShell title="Sign into Sales Terminal" description={<>Enter your credentials to access the sales terminal{!isDatabaseReady && <span className="mt-2 block text-xs text-amber-600 dark:text-amber-400">Connecting to database. Please wait...</span>}</>} footer={
+        <div className="space-y-1 text-center text-sm text-gray-600 dark:text-gray-400">
+          <p>
+            Need an account?{' '}
+            <Link
+              href="/sign-up"
+              className="font-semibold text-orange-600 hover:text-orange-700 dark:text-orange-400 hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
+      }>
             {error && (
               <Alert className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl">
                 <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
@@ -90,7 +102,7 @@ export function SignInForm() {
                             autoComplete="email"
                             inputMode="email"
                             className="min-h-11 rounded-2xl border-orange-200 bg-white/50 pl-10 dark:border-orange-700 dark:bg-gray-800/50 focus:border-orange-500 dark:focus:border-orange-400"
-                            disabled={isLoading || form.formState.isSubmitting || !isDatabaseReady}
+                            disabled={isLoading || form.formState.isSubmitting}
                             {...field}
                           />
                         </div>

@@ -12,34 +12,48 @@ declare global {
   var dbPool: Pool | undefined;
 }
 
-// Configuration for the database connection
-// Prefer the connected KUMRESH_DB Neon integration URL. DATABASE_URL can be
-// left over from an older Neon project and may authenticate against a stale role.
-const connectionString =
-  process.env.KUMRESH_DB_DATABASE_URL ||
-  process.env.KUMRESH_DB_POSTGRES_URL ||
-  process.env.DATABASE_URL ||
-  process.env.DB_URL;
+/**
+ * Resolves the Neon database connection string checking standard and platform-specific environment variables.
+ */
+export function getDatabaseConnectionString(): string {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.KUMRESH_DB_DATABASE_URL ||
+    process.env.KUMRESH_DB_POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.DB_URL ||
+    ""
+  );
+}
+
 const poolMax = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 8 : 20));
 const idleTimeoutMillis = Number(process.env.DB_IDLE_TIMEOUT_MS ?? 30000);
 const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 5000);
 
-if (!connectionString) {
-  console.warn(
-    "KUMRESH_DB_DATABASE_URL environment variable is not defined. Database functionality will not work."
-  );
+// Configures Neon to use the 'ws' package for WebSocket connections in Node environments
+if (typeof WebSocket === "undefined") {
+  neonConfig.webSocketConstructor = ws;
 }
 
-// Configures Neon to use the 'ws' package for WebSocket connections
-// This is required for Node.js environments where global WebSocket is not available
-neonConfig.webSocketConstructor = ws;
-
-// Singleton pattern for the database pool
-// This prevents multiple pools from being created during hot reloading in development
-// which can exhaust the database connection limit.
 let pool: Pool | undefined = undefined;
 
-if (connectionString) {
+/**
+ * Lazy and resilient pool accessor. Re-checks environment variables on call
+ * so hot reloads and late-injected env vars don't leave an empty pool.
+ */
+export function getPool(): Pool {
+  if (pool) return pool;
+
+  const connectionString = getDatabaseConnectionString();
+  if (!connectionString) {
+    throw new Error(
+      "Neon database connection string is not defined. Please set DATABASE_URL or POSTGRES_URL."
+    );
+  }
+
   if (process.env.NODE_ENV === "production") {
     pool = new Pool({
       connectionString,
@@ -48,8 +62,6 @@ if (connectionString) {
       connectionTimeoutMillis,
     });
   } else {
-    // In development mode, use a global variable so that the value
-    // is preserved across module reloads caused by HMR (Hot Module Replacement).
     if (!global.dbPool) {
       global.dbPool = new Pool({
         connectionString,
@@ -60,18 +72,29 @@ if (connectionString) {
     }
     pool = global.dbPool;
   }
+
+  if (pool && pool.listenerCount("error") === 0) {
+    pool.on("error", (err: Error) => {
+      console.error("Unexpected error on idle Neon client", err);
+    });
+  }
+
+  return pool;
 }
 
-// Event listeners for pool health monitoring
-// Only attach listeners if they haven't been attached (tricky in dev, but okay for logging)
-if (pool && pool.listenerCount("error") === 0) {
-  pool.on("error", (err: Error) => {
-    console.error("Unexpected error on idle client", err);
-  });
+// Auto-initialize if connection string is immediately present
+try {
+  if (getDatabaseConnectionString()) {
+    getPool();
+  }
+} catch {
+  // Will initialize on first query call
 }
 
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {
+    const connStr = getDatabaseConnectionString();
+    if (!connStr) return false;
     await query("SELECT 1");
     return true;
   } catch (e) {
@@ -93,11 +116,7 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[]
 ): Promise<QueryResult<R>> {
-  if (!pool) {
-    throw new Error(
-      "Database pool is not initialized. Check DATABASE_URL environment variable."
-    );
-  }
+  const activePool = getPool();
 
   const MAX_RETRIES = 3;
   let attempt = 0;
@@ -106,13 +125,13 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
     const start = Date.now();
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await pool.query<R>(text, params as any[]);
+      const res = await activePool.query<R>(text, params as any[]);
       const duration = Date.now() - start;
       if (duration > 200) {
         console.warn("[db] slow query", {
           durationMs: duration,
           rows: res.rowCount,
-          operation: text.trim().split(/\\s+/)[0]?.toUpperCase(),
+          operation: text.trim().split(/\s+/)[0]?.toUpperCase(),
         });
       }
       return res;
@@ -156,38 +175,19 @@ export async function query<R extends QueryResultRow = QueryResultRow>(
 /**
  * Get a client from the pool to execute a transaction.
  * NOTE: You MUST call client.release() when finished.
- *
- * Usage:
- * const client = await getClient();
- * try {
- *   await client.query('BEGIN');
- *   // ... operations ...
- *   await client.query('COMMIT');
- * } catch (e) {
- *   await client.query('ROLLBACK');
- *   throw e;
- * } finally {
- *   client.release();
- * }
  */
 export async function getClient(): Promise<PoolClient> {
-  if (!pool) {
-    throw new Error(
-      "Database pool is not initialized. Check DATABASE_URL environment variable."
-    );
-  }
-  const client = await pool.connect();
+  const activePool = getPool();
+  const client = await activePool.connect();
   return client;
 }
+
+export type DatabaseClient = PoolClient;
 
 /**
  * Helper function to execute a transaction safely.
  * Handles BEGIN, COMMIT, and ROLLBACK automatically.
- *
- * @param callback Function to execute within the transaction
  */
-export type DatabaseClient = PoolClient;
-
 export async function transaction<T>(
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
@@ -208,6 +208,8 @@ export async function transaction<T>(
 // Health check function
 export async function checkConnection(): Promise<boolean> {
   try {
+    const connStr = getDatabaseConnectionString();
+    if (!connStr) return false;
     const res = await query("SELECT NOW()");
     return res.rowCount !== null && res.rowCount > 0;
   } catch (error) {

@@ -4,11 +4,16 @@
 
 // Define environment variables
 export const env = {
-  // Database configuration (connected Neon integration first)
+  // Database configuration (supports all standard Neon & Vercel Postgres env vars)
   DATABASE_URL:
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
     process.env.KUMRESH_DB_DATABASE_URL ||
     process.env.KUMRESH_DB_POSTGRES_URL ||
-    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.DB_URL ||
     "",
 
   // App configuration
@@ -46,17 +51,17 @@ export function validateEnv() {
   // Validate environment variables
   if (!env.DATABASE_URL) {
     if (env.NODE_ENV === "production") {
-      errors.push("KUMRESH_DB_DATABASE_URL is missing (Required for Neon PostgreSQL)");
+      errors.push("DATABASE_URL is missing (Required for Neon PostgreSQL)");
     } else {
       warnings.push(
-        "KUMRESH_DB_DATABASE_URL is missing (App may not function correctly without DB)"
+        "DATABASE_URL is missing (App may not function correctly without DB)"
       );
     }
   } else if (
     !env.DATABASE_URL.startsWith("postgres://") &&
     !env.DATABASE_URL.startsWith("postgresql://")
   ) {
-    errors.push("KUMRESH_DB_DATABASE_URL must start with postgres:// or postgresql://");
+    errors.push("DATABASE_URL must start with postgres:// or postgresql://");
   }
 
   if (!env.JWT_SECRET && env.NODE_ENV === "production") {

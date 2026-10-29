@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { putBlob } from "@/lib/blob-storage";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const item = await query("SELECT id, name, sku, quantity, unit FROM inventory WHERE id = $1", [inventoryItemId]);
     if (!item.rows[0]) return NextResponse.json({ error: "Inventory item not found" }, { status: 404 });
 
-    const blob = await put(`inventory-evidence/${inventoryItemId}/${crypto.randomUUID()}.${evidence.type.split("/")[1]}`, evidence, { access: "private", addRandomSuffix: false });
+    const blob = await putBlob(`inventory-evidence/${inventoryItemId}/${crypto.randomUUID()}.${evidence.type.split("/")[1]}`, evidence, { access: "private", addRandomSuffix: false });
     const reportId = crypto.randomUUID();
     await logAudit({
       action: "SUBMIT_INVENTORY_VARIANCE",

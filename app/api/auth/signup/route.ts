@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     }
 
     // Check if user exists locally first (fast fail)
-    const existingUser = await query("SELECT id FROM users WHERE email = $1", [
+    const existingUser = await query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [
       email,
     ]);
     if (existingUser.rows.length > 0) {

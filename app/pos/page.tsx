@@ -148,6 +148,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   const allowedImageHosts = new Set([
     "scontent.facc5-2.fna.fbcdn.net",
     "images.unsplash.com",
+    "public.blob.vercel-storage.com",
   ]);
 
   // Load menu items with a short retry window so the POS does not render a false empty state while auth/API hydration settles.

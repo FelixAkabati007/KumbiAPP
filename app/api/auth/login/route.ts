@@ -42,9 +42,9 @@ export async function POST(req: Request) {
     }
 
     const result = await query(
-      `SELECT id, email, name, role, password_hash, email_verified
+      `SELECT id, email, name, role, password_hash, COALESCE(email_verified, TRUE) as email_verified, COALESCE(is_active, TRUE) as is_active
        FROM users
-       WHERE email = $1
+       WHERE LOWER(email) = LOWER($1)
        LIMIT 1`,
       [cleanEmail]
     );
@@ -60,6 +60,18 @@ export async function POST(req: Request) {
     }
 
     const user = result.rows[0];
+
+    if (user.is_active === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Account has been deactivated",
+          code: "account_deactivated",
+        },
+        { status: 401 }
+      );
+    }
+
     const isValid = await comparePassword(password, user.password_hash);
 
     if (!isValid) {
@@ -84,6 +96,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // Record last login timestamp (safe if query mock returns undefined in unit tests)
+    try {
+      const updatePromise = query(
+        `UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
+        [user.id]
+      );
+      if (updatePromise && typeof updatePromise.catch === "function") {
+        await updatePromise.catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+
     const token = signToken({
       id: user.id,
       email: user.email,
@@ -92,7 +117,7 @@ export async function POST(req: Request) {
     (await cookies()).set("auth_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
       maxAge: 86400, // 1 day
     });

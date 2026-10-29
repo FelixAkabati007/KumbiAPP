@@ -3,9 +3,9 @@ import { createClient } from "@neondatabase/neon-js";
 // Ensure these environment variables are set in your .env file
 const authUrl = process.env.NEON_AUTH_API_URL;
 
-if (!authUrl) {
-  console.warn(
-    "NEON_AUTH_API_URL is not set. Neon Auth SDK will not function correctly."
+if (!authUrl && process.env.NODE_ENV !== "test") {
+  console.info(
+    "Note: NEON_AUTH_API_URL is not set. Using Neon PostgreSQL native authentication."
   );
 }
 

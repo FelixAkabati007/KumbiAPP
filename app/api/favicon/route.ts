@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { putBlob } from "@/lib/blob-storage";
 import sharp from "sharp";
 import { query } from "@/lib/db";
 
@@ -128,7 +128,7 @@ async function processAndUploadFavicon(file: File) {
       .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
       .png({ compressionLevel: 9, adaptiveFiltering: true, palette: size <= 64 })
       .toBuffer();
-    const blob = await put(`${BLOB_PREFIX}/favicon-${size}-${version}.png`, resizedBuffer, {
+    const blob = await putBlob(`${BLOB_PREFIX}/favicon-${size}-${version}.png`, resizedBuffer, {
       access: "public",
       contentType: "image/png",
       addRandomSuffix: false,
@@ -138,7 +138,7 @@ async function processAndUploadFavicon(file: File) {
   }
 
   if (file.type === "image/svg+xml") {
-    const svgBlob = await put(`${BLOB_PREFIX}/favicon-${version}.svg`, buffer, {
+    const svgBlob = await putBlob(`${BLOB_PREFIX}/favicon-${version}.svg`, buffer, {
       access: "public",
       contentType: "image/svg+xml",
       addRandomSuffix: false,
