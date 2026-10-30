@@ -5,8 +5,11 @@ import { requirePermission } from "@/lib/api-auth";
 // Get all rooms with optional filtering
 export async function GET(request: NextRequest) {
   try {
-    const { error } = await requirePermission("rooms");
-    if (error) return error;
+    const roomsAccess = await requirePermission("rooms");
+    if (roomsAccess.error) {
+      const maintenanceAccess = await requirePermission("maintenance");
+      if (maintenanceAccess.error) return roomsAccess.error;
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
              END AS status,
              r.room_type_id, r.notes,
              CASE WHEN res.check_in_date IS NULL THEN NULL ELSE r.current_guest_id END AS current_guest_id,
-             rt.name as room_type_name, rt.base_price,
+             COALESCE(rt.name, 'Standard Room') as room_type_name, rt.base_price,
              COALESCE(r.price, rt.base_price) as price,
              r.images,
              CASE WHEN res.check_in_date IS NULL THEN NULL ELSE g.first_name END AS guest_first_name,
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
              hk.assigned_to AS assigned_housekeeper_id,
              hu.name AS assigned_housekeeper_name
       FROM rooms r
-      JOIN room_types rt ON r.room_type_id = rt.id AND rt.is_active = true
+      LEFT JOIN room_types rt ON r.room_type_id = rt.id
       LEFT JOIN guests g ON g.id = r.current_guest_id
       LEFT JOIN LATERAL (
         SELECT check_in_date, check_out_date

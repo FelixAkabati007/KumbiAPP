@@ -31,6 +31,14 @@ interface Ticket {
   created_at: string;
 }
 
+interface RoomOption {
+  id: string;
+  room_number: string;
+  status: string;
+  room_type_name?: string;
+  floor?: number | string | null;
+}
+
 const SHARED_AREAS: Record<string, string> = {
   "shared:Kitchen Equipment & Prep": "Kitchen Equipment & Prep",
   "shared:Restaurant Dining & Bar": "Restaurant Dining & Bar",
@@ -40,11 +48,21 @@ const SHARED_AREAS: Record<string, string> = {
   shared: "Restaurant / Shared Area",
 };
 
+const QUICK_ISSUE_TEMPLATES: Array<{ label: string; text: string; severity: string }> = [
+  { label: "AC / Cooling", text: "Air conditioner not cooling properly / requires servicing.", severity: "high" },
+  { label: "Plumbing / Leak", text: "Water leak or drainage blockage reported.", severity: "urgent" },
+  { label: "Electrical / Power", text: "Power socket / lighting fault requires electrical check.", severity: "high" },
+  { label: "Water Heater", text: "Hot water heater not heating in bathroom.", severity: "normal" },
+  { label: "Door Lock / Key", text: "Door lock / keycard mechanism jammed or faulty.", severity: "urgent" },
+  { label: "TV / Wi-Fi", text: "Television signal or Wi-Fi connectivity issue.", severity: "low" },
+  { label: "Kitchen Appliance", text: "Commercial kitchen appliance / burner / fridge requires repair.", severity: "high" },
+];
+
 function OperationsWorkspace() {
   const { toast } = useToast();
   const { lastEvent } = useRealtime();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [rooms, setRooms] = useState<Array<{ id: string; room_number: string; status: string }>>([]);
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [status, setStatus] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +71,8 @@ function OperationsWorkspace() {
   const [savingTicket, setSavingTicket] = useState(false);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
+  const [locationTab, setLocationTab] = useState<"all" | "available" | "rooms" | "shared">("all");
+  const [locationSearch, setLocationSearch] = useState("");
   const [ticketForm, setTicketForm] = useState({
     roomNumber: "",
     issueDescription: "",
@@ -60,6 +80,18 @@ function OperationsWorkspace() {
     notes: "",
     markRoomMaintenance: false,
   });
+
+  const loadRooms = async () => {
+    try {
+      const response = await fetch("/api/hotels/rooms", { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) setRooms(data);
+      }
+    } catch {
+      // ignore network error
+    }
+  };
 
   const loadTickets = async (filterStatus = status) => {
     const response = await fetch(
@@ -75,17 +107,55 @@ function OperationsWorkspace() {
   }, [status]);
 
   useEffect(() => {
-    if (lastEvent?.topic === "maintenance.updated") {
+    if (lastEvent?.topic === "maintenance.updated" || lastEvent?.topic === "rooms.updated") {
       void loadTickets(status);
+      void loadRooms();
     }
   }, [lastEvent, status]);
 
   useEffect(() => {
-    fetch("/api/hotels/rooms", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : []))
-      .then(setRooms)
-      .catch(() => undefined);
+    void loadRooms();
   }, []);
+
+  useEffect(() => {
+    if (showNewTicketDialog) {
+      void loadRooms();
+    }
+  }, [showNewTicketDialog]);
+
+  const activeRooms = useMemo(
+    () =>
+      rooms
+        .filter((room) => room.status !== "inactive")
+        .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true })),
+    [rooms],
+  );
+
+  const availableRooms = useMemo(
+    () => activeRooms.filter((room) => room.status === "available"),
+    [activeRooms],
+  );
+
+  const otherExistingRooms = useMemo(
+    () => activeRooms.filter((room) => room.status !== "available"),
+    [activeRooms],
+  );
+
+  const selectedRoomObj = useMemo(
+    () => activeRooms.find((room) => room.room_number === ticketForm.roomNumber) ?? null,
+    [activeRooms, ticketForm.roomNumber],
+  );
+
+  const selectLocation = (value: string) => {
+    setTicketForm((prev) => ({
+      ...prev,
+      roomNumber: value,
+      markRoomMaintenance:
+        Boolean(value) &&
+        !value.startsWith("shared") &&
+        ["urgent", "high"].includes(prev.severity),
+    }));
+  };
 
   const isSharedSelection = ticketForm.roomNumber.startsWith("shared");
 
@@ -402,26 +472,46 @@ function OperationsWorkspace() {
           </CardContent>
         </Card>
         <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Create Maintenance Ticket</DialogTitle><DialogDescription>Report a repair or technical issue across hotel rooms, kitchen, or shared areas.</DialogDescription></DialogHeader>
+          <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Maintenance Ticket</DialogTitle>
+              <DialogDescription>Report a repair or technical issue across hotel rooms, kitchen, or shared areas.</DialogDescription>
+            </DialogHeader>
             <div className="grid gap-4">
-              <div>
-                <Label htmlFor="operations-room">Room Number / Facility Area</Label>
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="operations-room">Room Number / Facility Area</Label>
+                  {ticketForm.roomNumber && (
+                    <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/50 dark:text-orange-200">
+                      Selected: {isSharedSelection ? SHARED_AREAS[ticketForm.roomNumber] || "Shared Area" : `Room ${ticketForm.roomNumber}`}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Synchronized Quick Dropdown */}
                 <select
                   id="operations-room"
                   value={ticketForm.roomNumber}
-                  onChange={(event) =>
-                    setTicketForm((prev) => ({
-                      ...prev,
-                      roomNumber: event.target.value,
-                      markRoomMaintenance:
-                        !event.target.value.startsWith("shared") &&
-                        ["urgent", "high"].includes(prev.severity),
-                    }))
-                  }
-                  className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
+                  onChange={(event) => selectLocation(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-orange-200 bg-background px-3 text-sm dark:border-orange-800"
                 >
                   <option value="">Select a room or facility area</option>
+                  <optgroup label={`Available Hotel Rooms (${availableRooms.length})`}>
+                    {availableRooms.map((room) => (
+                      <option key={room.id} value={room.room_number}>
+                        Room {room.room_number}{room.room_type_name ? ` — ${room.room_type_name}` : ""} (Available)
+                      </option>
+                    ))}
+                  </optgroup>
+                  {otherExistingRooms.length > 0 && (
+                    <optgroup label={`Occupied / Other Hotel Rooms (${otherExistingRooms.length})`}>
+                      {otherExistingRooms.map((room) => (
+                        <option key={room.id} value={room.room_number}>
+                          Room {room.room_number}{room.room_type_name ? ` — ${room.room_type_name}` : ""} ({room.status})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                   <optgroup label="Restaurant & Shared Facilities">
                     <option value="shared:Kitchen Equipment & Prep">Kitchen Equipment &amp; Prep Area</option>
                     <option value="shared:Restaurant Dining & Bar">Restaurant Dining &amp; Bar</option>
@@ -430,19 +520,216 @@ function OperationsWorkspace() {
                     <option value="shared:Plumbing / Water Supply">Plumbing / Water Supply</option>
                     <option value="shared">General Shared Area</option>
                   </optgroup>
-                  <optgroup label="Hotel Rooms">
-                    {rooms
-                      .filter((room) => room.status !== "inactive")
-                      .map((room) => (
-                        <option key={room.id} value={room.room_number}>
-                          Room {room.room_number} ({room.status})
-                        </option>
-                      ))}
-                  </optgroup>
                 </select>
+
+                {/* Filter Tabs + Search for Vertically Scrollable Room & Facility List */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: "all", label: `All (${activeRooms.length + Object.keys(SHARED_AREAS).length})` },
+                      { id: "available", label: `Available Rooms (${availableRooms.length})` },
+                      { id: "rooms", label: `All Rooms (${activeRooms.length})` },
+                      { id: "shared", label: "Shared Facilities (6)" },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setLocationTab(tab.id as "all" | "available" | "rooms" | "shared")}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                          locationTab === tab.id
+                            ? "bg-orange-500 text-white shadow-sm"
+                            : "border border-orange-200 bg-white/80 text-muted-foreground hover:bg-orange-50 dark:border-orange-800 dark:bg-gray-800/80"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative w-full sm:w-44">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      placeholder="Filter room # or area..."
+                      className="h-8 w-full rounded-lg border border-orange-200 bg-background pl-8 pr-2.5 text-xs dark:border-orange-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Vertically Scrollable Room & Facility Picker Box */}
+                <div
+                  role="listbox"
+                  aria-label="Scrollable Room Number and Facility Area list"
+                  className="max-h-48 overflow-y-auto rounded-xl border border-orange-200/80 bg-white/70 p-2 shadow-inner dark:border-orange-800/80 dark:bg-gray-900/50"
+                >
+                  <div className="space-y-2">
+                    {locationTab !== "shared" && (
+                      <div className="space-y-1">
+                        <p className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                          Available Hotel Rooms ({availableRooms.length})
+                        </p>
+                        {availableRooms
+                          .filter((room) => {
+                            const q = locationSearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return `room ${room.room_number} ${room.room_type_name || ""} floor ${room.floor ?? ""}`.toLowerCase().includes(q);
+                          })
+                          .map((room) => {
+                            const isSelected = ticketForm.roomNumber === room.room_number;
+                            return (
+                              <button
+                                key={room.id}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => selectLocation(room.room_number)}
+                                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                                  isSelected
+                                    ? "bg-orange-500 font-semibold text-white"
+                                    : "hover:bg-orange-100/70 dark:hover:bg-orange-950/40"
+                                }`}
+                              >
+                                <span>
+                                  Room {room.room_number}
+                                  {room.room_type_name ? ` · ${room.room_type_name}` : ""}
+                                  {room.floor ? ` (Floor ${room.floor})` : ""}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                    isSelected
+                                      ? "bg-white/20 text-white"
+                                      : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                  }`}
+                                >
+                                  Available
+                                </span>
+                              </button>
+                            );
+                          })}
+                        {availableRooms.length === 0 && (
+                          <p className="px-2 py-1 text-xs text-muted-foreground">No available rooms right now.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {(locationTab === "all" || locationTab === "rooms") && otherExistingRooms.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <p className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-orange-700 dark:text-orange-400">
+                          Occupied / Other Existing Rooms ({otherExistingRooms.length})
+                        </p>
+                        {otherExistingRooms
+                          .filter((room) => {
+                            const q = locationSearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return `room ${room.room_number} ${room.room_type_name || ""} ${room.status} floor ${room.floor ?? ""}`.toLowerCase().includes(q);
+                          })
+                          .map((room) => {
+                            const isSelected = ticketForm.roomNumber === room.room_number;
+                            return (
+                              <button
+                                key={room.id}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => selectLocation(room.room_number)}
+                                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                                  isSelected
+                                    ? "bg-orange-500 font-semibold text-white"
+                                    : "hover:bg-orange-100/70 dark:hover:bg-orange-950/40"
+                                }`}
+                              >
+                                <span>
+                                  Room {room.room_number}
+                                  {room.room_type_name ? ` · ${room.room_type_name}` : ""}
+                                  {room.floor ? ` (Floor ${room.floor})` : ""}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
+                                    isSelected
+                                      ? "bg-white/20 text-white"
+                                      : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {room.status}
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    )}
+
+                    {(locationTab === "all" || locationTab === "shared") && (
+                      <div className="space-y-1 pt-1">
+                        <p className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Restaurant &amp; Shared Facilities
+                        </p>
+                        {Object.entries(SHARED_AREAS)
+                          .filter(([, label]) => {
+                            const q = locationSearch.trim().toLowerCase();
+                            return !q || label.toLowerCase().includes(q);
+                          })
+                          .map(([key, label]) => {
+                            const isSelected = ticketForm.roomNumber === key;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => selectLocation(key)}
+                                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                                  isSelected
+                                    ? "bg-orange-500 font-semibold text-white"
+                                    : "hover:bg-orange-100/70 dark:hover:bg-orange-950/40"
+                                }`}
+                              >
+                                <span>{label}</span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                                    isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  Facility
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="operations-issue">Issue Description</Label>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <Label htmlFor="operations-issue">Issue Description</Label>
+                  <span className="text-[11px] text-muted-foreground">Quick templates:</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_ISSUE_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      onClick={() =>
+                        setTicketForm((prev) => ({
+                          ...prev,
+                          issueDescription: prev.issueDescription.trim()
+                            ? `${prev.issueDescription.trim()} — ${tpl.text}`
+                            : tpl.text,
+                          severity: tpl.severity,
+                          markRoomMaintenance:
+                            Boolean(prev.roomNumber) &&
+                            !prev.roomNumber.startsWith("shared") &&
+                            ["urgent", "high"].includes(tpl.severity),
+                        }))
+                      }
+                      className="rounded-lg border border-orange-200 bg-orange-50/70 px-2.5 py-1 text-xs font-medium text-orange-900 transition-colors hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
+                    >
+                      + {tpl.label}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   id="operations-issue"
                   value={ticketForm.issueDescription}
@@ -476,14 +763,21 @@ function OperationsWorkspace() {
                 </select>
               </div>
               {ticketForm.roomNumber && !isSharedSelection && (
-                <label className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2 text-sm dark:border-orange-800 dark:bg-orange-950/30">
-                  <input
-                    type="checkbox"
-                    checked={ticketForm.markRoomMaintenance}
-                    onChange={(e) => setTicketForm({ ...ticketForm, markRoomMaintenance: e.target.checked })}
-                  />
-                  <span>Place Room {ticketForm.roomNumber} in Maintenance status until resolved</span>
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2 text-sm dark:border-orange-800 dark:bg-orange-950/30">
+                    <input
+                      type="checkbox"
+                      checked={ticketForm.markRoomMaintenance}
+                      onChange={(e) => setTicketForm({ ...ticketForm, markRoomMaintenance: e.target.checked })}
+                    />
+                    <span>Place Room {ticketForm.roomNumber} in Maintenance status until resolved</span>
+                  </label>
+                  {selectedRoomObj?.status === "occupied" && (
+                    <p className="rounded-lg border border-amber-300 bg-amber-50/80 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                      Note: Room {ticketForm.roomNumber} is currently occupied. Please coordinate access timing with Front Desk before entering.
+                    </p>
+                  )}
+                </div>
               )}
               <div>
                 <Label htmlFor="operations-notes">Technician / Handover Notes</Label>
