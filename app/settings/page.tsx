@@ -62,6 +62,8 @@ import { StaffManagementPanel } from "@/components/settings/staff-management-pan
 import { HardwareDiagnostics } from "@/components/settings/hardware-diagnostics";
 import { StaffSchedulePanel } from "@/components/settings/staff-schedule-panel";
 import { DataResetPanel } from "@/components/settings/data-reset-panel";
+import { SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { LiveReceiptPreview } from "@/components/settings/live-receipt-preview";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -157,6 +159,7 @@ function SettingsPageContent() {
   });
   const [mounted, setMounted] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "unsaved" | "saving" | "error">("saved");
+  const [originalSettings, setOriginalSettings] = useState<AppSettings | null>(null);
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const canManageStaff = isAdmin || isManager;
@@ -186,7 +189,7 @@ function SettingsPageContent() {
 
   // Load settings on component mount
   useEffect(() => {
-    fetchSettings().then(setSettingsState);
+    fetchSettings().then((loaded) => { setSettingsState(loaded); setOriginalSettings(loaded); });
     fetch("/api/feature-toggles").then((response) => response.json()).then((data) => setFeatureToggles((current) => ({ ...current, ...(data.toggles || {}) }))).catch(() => undefined);
   }, []);
 
@@ -309,7 +312,9 @@ function SettingsPageContent() {
     setSaveState("saving");
     try {
       const result = await saveSettings(settings);
-      setSettingsState((current) => ({ ...current, version: result.version ?? current.version }));
+      const nextSettings = { ...settings, version: result.version ?? settings.version };
+      setSettingsState(nextSettings);
+      setOriginalSettings(nextSettings);
 
     // Notify mounted consumers, including the Navbar, of the saved business name.
     window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: settings }));
@@ -319,6 +324,17 @@ function SettingsPageContent() {
     } catch (error) {
       setSaveState("error");
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "Your changes were not saved. Try again.", variant: "destructive" });
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    if (originalSettings) {
+      setSettingsState(originalSettings);
+      setSaveState("saved");
+      toast({
+        title: "Changes Discarded",
+        description: "Reverted your changes to the last saved configuration.",
+      });
     }
   };
 
@@ -405,7 +421,35 @@ function SettingsPageContent() {
           onValueChange={(tab) => { setActiveTab(tab); window.history.replaceState(null, "", `/settings?tab=${tab}`); }}
           className="space-y-4"
         >
-          <div className="overflow-x-auto">
+          {/* Mobile Tab Selector (Visible on small screens) */}
+          <div className="block md:hidden mb-2">
+            <label htmlFor="mobile-settings-tab" className="text-xs font-semibold uppercase tracking-wider text-orange-950/70 dark:text-orange-200/70 mb-1.5 block">
+              Settings Category
+            </label>
+            <Select
+              value={activeTab}
+              onValueChange={(tab) => {
+                setActiveTab(tab);
+                window.history.replaceState(null, "", `/settings?tab=${tab}`);
+              }}
+            >
+              <SelectTrigger id="mobile-settings-tab" className="w-full bg-white/80 dark:bg-gray-800/80 border-orange-200 dark:border-orange-700 rounded-2xl h-11 text-sm font-medium shadow-sm">
+                <SelectValue placeholder="Select tab" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="appearance">Appearance</SelectItem>
+                <SelectItem value="notifications">Notifications</SelectItem>
+                <SelectItem value="account">Account & Profile</SelectItem>
+                {isAdmin && <SelectItem value="system">System, Taxes & Hardware</SelectItem>}
+                {canManageOperationalSettings && <SelectItem value="operations">Operations & Features</SelectItem>}
+                {isAdmin && <SelectItem value="security">Security & Sessions</SelectItem>}
+                {canManageStaff && <SelectItem value="staff">Staff Management</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop Tab Selector (Hidden on small screens) */}
+          <div className="hidden md:block overflow-x-auto">
             <TabsList
               className={`grid w-full ${isAdmin ? "grid-cols-7 min-w-[700px]" : canManageOperationalSettings ? "grid-cols-4 min-w-[400px]" : "grid-cols-5 min-w-[500px]"} bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-full p-1 shadow-lg`}
             >
@@ -1405,6 +1449,14 @@ function SettingsPageContent() {
               disabled={!isAdmin}
             />
 
+            {/* Live Thermal Receipt Preview */}
+            <LiveReceiptPreview
+              account={settings.account}
+              taxConfiguration={settings.system.taxConfiguration}
+              printerConfig={settings.system.thermalPrinter}
+              currency={settings.system.currency}
+            />
+
             {/* Barcode Scanner Configuration */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
@@ -1888,6 +1940,13 @@ function SettingsPageContent() {
             Reset to Defaults
           </Button>
         </div>
+      {/* Floating Bottom Save Action Bar */}
+        <SettingsSaveBar
+          saveState={saveState}
+          onSave={handleSaveSettings}
+          onDiscard={handleDiscardChanges}
+          disabled={!canSaveSettings}
+        />
       </main>
     </div>
   );
