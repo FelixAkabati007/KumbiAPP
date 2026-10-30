@@ -28,6 +28,9 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
     const {
+      name,
+      sku,
+      category,
       quantity,
       unit,
       reorderLevel,
@@ -45,6 +48,9 @@ export async function PUT(
       conversionType,
       chefYieldPerStockUnit,
     } = body;
+    if (name !== undefined && !String(name).trim()) {
+      return NextResponse.json({ error: "Item name cannot be empty" }, { status: 400 });
+    }
     for (const [value, field] of [
       [quantity, "Quantity"],
       [reorderLevel, "Reorder level"],
@@ -180,6 +186,18 @@ export async function PUT(
     const values: (string | number | boolean | null)[] = [];
     let idx = 1;
 
+    if (name !== undefined) {
+      fields.push(`name = ${idx++}`);
+      values.push(String(name).trim());
+    }
+    if (sku !== undefined) {
+      fields.push(`sku = ${idx++}`);
+      values.push(String(sku).trim());
+    }
+    if (category !== undefined) {
+      fields.push(`category = ${idx++}`);
+      values.push(String(category).trim());
+    }
     if (quantity !== undefined) {
       fields.push(`quantity = $${idx++}`);
       values.push(quantity);
@@ -307,7 +325,32 @@ export async function PUT(
       ipAddress: req.headers.get("x-forwarded-for") || "unknown",
     });
 
-    return NextResponse.json({ success: true, item: res.rows[0] });
+    const r = res.rows[0];
+    const mappedItem = {
+      id: r.id,
+      name: r.name ?? "",
+      sku: r.sku ?? "",
+      category: r.category ?? "ingredient",
+      quantity: String(r.quantity),
+      unit: r.unit ?? "units",
+      containerUnit: r.container_unit ?? "",
+      quantityPerContainer: String(r.quantity_per_container ?? 1),
+      containerCount: String(r.container_count ?? 0),
+      costPerContainer: String(r.cost_per_container ?? 0),
+      costPerItem: String(r.cost_per_item ?? 0),
+      reorderLevel: String(r.reorder_level ?? 0),
+      cost: String(r.cost_price ?? 0),
+      supplier: r.supplier ?? "",
+      lastUpdated: r.last_updated ?? undefined,
+      baseUnit: r.base_unit ?? undefined,
+      recipeUnit: r.recipe_unit ?? undefined,
+      conversionRatio: String(r.conversion_ratio ?? ""),
+      conversionType: r.conversion_type ?? "standard",
+      chefYieldPerStockUnit: r.chef_yield_per_stock_unit != null ? String(r.chef_yield_per_stock_unit) : undefined,
+      densityGPerMl: r.density_g_per_ml != null ? String(r.density_g_per_ml) : undefined,
+    };
+
+    return NextResponse.json({ success: true, item: mappedItem });
   } catch (error) {
     console.error("Inventory Item PUT failed:", error);
     return NextResponse.json(

@@ -250,40 +250,106 @@ export function getRecipeDeductionQuantity(
   densityGPerMl?: number | null,
 ): number | null {
   if (!Number.isFinite(quantity) || quantity < 0) return null;
+  if (quantity === 0) return 0;
+
   const ratio = Number(recipeUnitPerStockUnit);
+  const normalizedRecipe = normalizeUnitText(recipeUnit);
   const recipeKey = resolveUnitKey(recipeUnit);
   const stockKey = resolveUnitKey(stockUnit);
-  const recipeKnown = Boolean(recipeKey || resolveChefUnitKey(recipeUnit));
-  const stockKnown = Boolean(stockKey || resolveChefUnitKey(stockUnit));
-  if (recipeKey && stockKey && recipeKey === stockKey) return quantity;
-  if (Number.isFinite(ratio) && ratio > 0) {
-    if (!recipeKnown || !stockKnown) return null;
-    return quantity / ratio;
+  const chefRecipeKey = resolveChefUnitKey(recipeUnit);
+  const chefStockKey = resolveChefUnitKey(stockUnit);
+
+  // 1. Identical canonical unit
+  if (recipeKey && stockKey && recipeKey === stockKey) {
+    if (Number.isFinite(ratio) && ratio > 0 && ratio < 1) {
+      return quantity / ratio;
+    }
+    return quantity;
   }
-  const normalizedRecipe = normalizeUnitText(recipeUnit);
+
+  // 2. Culinary volume measures (tsp, tbsp)
+  let effectiveQuantity = quantity;
+  let effectiveRecipeUnit = recipeUnit;
+  if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
+    effectiveQuantity = quantity * 4.92892;
+    effectiveRecipeUnit = "ml";
+  } else if (normalizedRecipe === "tbsp" || normalizedRecipe === "tablespoon" || normalizedRecipe === "tablespoons") {
+    effectiveQuantity = quantity * 14.7868;
+    effectiveRecipeUnit = "ml";
+  }
+
+  const recipeDim = getInventoryUnitDimension(effectiveRecipeUnit);
   const stockDim = getInventoryUnitDimension(stockUnit);
-  if (stockDim === "volume") {
-    if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
-      return getInventoryDeductionQuantity(quantity * 4.92892, "ml", stockUnit, densityGPerMl);
-    }
-    if (normalizedRecipe === "tbsp" || normalizedRecipe === "tablespoon" || normalizedRecipe === "tablespoons") {
-      return getInventoryDeductionQuantity(quantity * 14.7868, "ml", stockUnit, densityGPerMl);
+
+  // 3. Same physical dimension (mass <-> mass, volume <-> volume)
+  if (
+    recipeDim !== "unknown" &&
+    stockDim !== "unknown" &&
+    recipeDim === stockDim &&
+    recipeDim !== "count"
+  ) {
+    const standardDeduction = getInventoryDeductionQuantity(
+      effectiveQuantity,
+      effectiveRecipeUnit,
+      stockUnit,
+      densityGPerMl,
+    );
+    if (standardDeduction !== null) {
+      if (Number.isFinite(ratio) && ratio > 0 && ratio < 1) {
+        return standardDeduction / ratio;
+      }
+      return standardDeduction;
     }
   }
-  if (stockDim === "mass" && densityGPerMl && densityGPerMl > 0) {
-    if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
-      return getInventoryDeductionQuantity(quantity * 4.92892, "ml", stockUnit, densityGPerMl);
-    }
-    if (normalizedRecipe === "tbsp" || normalizedRecipe === "tablespoon" || normalizedRecipe === "tablespoons") {
-      return getInventoryDeductionQuantity(quantity * 14.7868, "ml", stockUnit, densityGPerMl);
+
+  // 4. Cross physical dimension (mass <-> volume) with density
+  if (
+    ((recipeDim === "mass" && stockDim === "volume") ||
+      (recipeDim === "volume" && stockDim === "mass")) &&
+    densityGPerMl &&
+    densityGPerMl > 0
+  ) {
+    const crossDeduction = getInventoryDeductionQuantity(
+      effectiveQuantity,
+      effectiveRecipeUnit,
+      stockUnit,
+      densityGPerMl,
+    );
+    if (crossDeduction !== null) {
+      if (Number.isFinite(ratio) && ratio > 0 && ratio < 1) {
+        return crossDeduction / ratio;
+      }
+      return crossDeduction;
     }
   }
-  return getInventoryDeductionQuantity(
-    quantity,
-    recipeUnit,
+
+  // 5. Chef yield / portion units or discrete count conversions
+  // (e.g. "slice", "portion", "scoop", "ladle", "pinch", "shot", "serving", "unit", "can", "bottle")
+  if (Number.isFinite(ratio) && ratio > 0) {
+    const recipeKnown = Boolean(recipeKey || chefRecipeKey);
+    const stockKnown = Boolean(stockKey || chefStockKey);
+    if (recipeKnown && stockKnown) {
+      return effectiveQuantity / ratio;
+    }
+  }
+
+  // 6. Direct fallback via getInventoryDeductionQuantity
+  const directDeduction = getInventoryDeductionQuantity(
+    effectiveQuantity,
+    effectiveRecipeUnit,
     stockUnit,
     densityGPerMl,
   );
+  if (directDeduction !== null) {
+    return directDeduction;
+  }
+
+  // 7. Last resort fallback with ratio
+  if (Number.isFinite(ratio) && ratio > 0) {
+    return effectiveQuantity / ratio;
+  }
+
+  return null;
 }
 
 export function isInventoryBaseUnit(unit?: string | null): boolean {

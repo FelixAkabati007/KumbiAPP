@@ -68,6 +68,8 @@ export async function GET() {
         conversionRatio: String(r.active_uom_factor ?? r.conversion_ratio ?? ""),
         conversionType: r.conversion_type ?? "standard",
         conversionRuleMissing: Boolean(r.conversion_rule_missing),
+        chefYieldPerStockUnit: r.chef_yield_per_stock_unit != null ? String(r.chef_yield_per_stock_unit) : undefined,
+        densityGPerMl: r.density_g_per_ml != null ? String(r.density_g_per_ml) : undefined,
         canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
       })),
     );
@@ -236,6 +238,7 @@ export async function POST(req: Request) {
           resolvedRecipeUnit,
           resolvedConversionRatio,
           resolvedConversionType,
+          chefYield,
           canonicalNow,
         ],
       );

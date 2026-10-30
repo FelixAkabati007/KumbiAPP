@@ -53,7 +53,7 @@ export class InventoryManager {
                       i.unit AS stock_unit,
                       COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS base_unit,
                       i.recipe_unit,
-                      COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.chef_yield_per_stock_unit, i.conversion_ratio) AS conversion_ratio,
+                      COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS conversion_ratio,
                       i.density_g_per_ml, i.name
                FROM recipe_ingredients r
                JOIN inventory i ON i.id = r.inventory_item_id
