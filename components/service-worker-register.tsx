@@ -4,10 +4,21 @@ import { useEffect } from "react";
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Offline support is progressive enhancement; the app remains usable without it.
-    });
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // Register service worker for offline PWA support
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => {
+        // Trigger background check for service worker updates
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+      })
+      .catch((err) => {
+        // Progressive enhancement fallback: app operates cleanly even without SW
+        console.warn("[SW] Service worker registration omitted or unsupported:", err);
+      });
   }, []);
 
   return null;

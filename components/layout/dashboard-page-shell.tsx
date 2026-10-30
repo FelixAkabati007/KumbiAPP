@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { AppUpdateMenu } from "@/components/app-update-menu";
+import { OfflineSyncIndicator } from "@/components/offline-sync-indicator";
 import { LogoDisplay } from "@/components/logo-display";
 
 interface DashboardPageShellProps {
@@ -28,6 +29,7 @@ export function DashboardPageShell({ children, eyebrow, title, description, back
             <LogoDisplay className="h-8 w-auto max-w-[9rem]" />
           </Link>
           <div className="flex items-center gap-1">
+            <OfflineSyncIndicator />
             <NotificationBell />
             <AppUpdateMenu />
             <UserNav />

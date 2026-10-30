@@ -52,6 +52,7 @@ import {
   exportInventoryData,
 } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
+import { getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { LogoDisplay } from "@/components/logo-display";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
@@ -201,8 +202,15 @@ function InventoryContent() {
         throw new Error(payload?.error || "Inventory could not be loaded.");
       }
       setItems(payload);
+      setOfflineInventory(payload);
     } catch (error) {
-      setInventoryLoadError(error instanceof Error ? error.message : "Inventory could not be loaded.");
+      const cached = getOfflineInventory<InventoryItem>();
+      if (Array.isArray(cached) && cached.length > 0) {
+        setItems(cached);
+        setInventoryLoadError(null);
+      } else {
+        setInventoryLoadError(error instanceof Error ? error.message : "Inventory could not be loaded.");
+      }
     } finally {
       setIsLoadingInventory(false);
     }

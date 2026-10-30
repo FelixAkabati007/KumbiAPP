@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { enqueueOfflineAttendance } from "@/lib/offline-storage";
 import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock3, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
 import { FeaturePermissionsModal } from "@/components/attendance/feature-permissions-modal";
@@ -67,11 +68,35 @@ export default function AttendancePage() {
 
   async function register(action: "check_in" | "check_out") {
     setBusy(true); setMessage("");
-    const response = await fetch("/api/v2/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-    const data = await response.json();
-    setMessage(response.ok ? (action === "check_in" ? "Check-In recorded. Waiting for approval." : "Check-Out recorded for today.") : response.status === 401 || response.status === 403 ? "Sign in to use the attendance register." : data.error ?? "Unable to update register");
-    setAccessDenied(response.status === 401 || response.status === 403);
-    setBusy(false); if (response.ok) void load();
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOfflineAttendance({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        payload: { action },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+      setMessage(action === "check_in" ? "Check-In recorded locally (offline mode). Will sync automatically." : "Check-Out recorded locally (offline mode). Will sync automatically.");
+      setBusy(false);
+      return;
+    }
+    try {
+      const response = await fetch("/api/v2/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const data = await response.json();
+      setMessage(response.ok ? (action === "check_in" ? "Check-In recorded. Waiting for approval." : "Check-Out recorded for today.") : response.status === 401 || response.status === 403 ? "Sign in to use the attendance register." : data.error ?? "Unable to update register");
+      setAccessDenied(response.status === 401 || response.status === 403);
+      setBusy(false); if (response.ok) void load();
+    } catch {
+      enqueueOfflineAttendance({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        payload: { action },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+      setMessage("Recorded locally (offline mode). Will sync automatically when connection is restored.");
+      setBusy(false);
+    }
   }
   async function decide(id: string, status: "verified" | "late" | "rejected") {
     await fetch("/api/v2/attendance/manager", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });

@@ -1,5 +1,6 @@
 import { MenuItem, InventoryItem, SalesData } from "./types";
 import { apiFetch, ApiError, isExpectedRequestError } from "./api-client";
+import { getOfflineMenuCatalog, setOfflineMenuCatalog } from "./offline-storage";
 
 type TransactionMetadata = {
   orderNumber?: string;
@@ -27,10 +28,18 @@ type TransactionLog = {
 export async function getMenuItems(): Promise<MenuItem[]> {
   if (typeof window === "undefined") return [];
   try {
-    return await apiFetch<MenuItem[]>("/api/menu");
+    const items = await apiFetch<MenuItem[]>("/api/menu");
+    if (Array.isArray(items) && items.length > 0) {
+      setOfflineMenuCatalog(items);
+    }
+    return items;
   } catch (error) {
     if (!isExpectedRequestError(error) && !(error instanceof ApiError && (error.status === 401 || error.status === 403))) {
       console.error("Error fetching menu items:", error);
+    }
+    const cached = getOfflineMenuCatalog();
+    if (cached && cached.length > 0) {
+      return cached;
     }
     return [];
   }

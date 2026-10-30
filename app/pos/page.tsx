@@ -65,6 +65,7 @@ import {
   processBarcodeWithIntegration,
 } from "@/lib/integration-service";
 import { hasPermission, UserRole } from "@/lib/roles";
+import { enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { calculateTaxes } from "@/lib/tax";
 import { levyRowsHtml } from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
@@ -442,36 +443,70 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       const success = await processPaymentWithIntegration(paymentData);
 
       if (success) {
-        const completionResponse = await fetch("/api/orders/complete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderNumber,
-            total: calculateTotal(),
-            orderType,
-            tableNumber,
-            customerName,
-            paymentMethod,
-            items: currentOrder.map((item) => ({
-              id: item.id,
-              name: item.name,
-  price: item.price,
-  category: item.category,
-  quantity: item.quantity,
-  discountPercent: item.discountPercent || 0,
-              notes: item.notes,
-              prepTime: getPrepTimeForItem(item.category),
-            })),
-            estimatedTime: calculateEstimatedTime(currentOrder),
-          }),
-        });
-        if (!completionResponse.ok) {
-          const completionError = await completionResponse.json().catch(() => null);
-          throw new Error(completionError?.error || "Order could not be saved");
+        const orderPayload = {
+          orderNumber,
+          total: calculateTotal(),
+          orderType,
+          tableNumber,
+          customerName,
+          paymentMethod,
+          items: currentOrder.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            category: item.category,
+            quantity: item.quantity,
+            discountPercent: item.discountPercent || 0,
+            notes: item.notes,
+            prepTime: getPrepTimeForItem(item.category),
+          })),
+          estimatedTime: calculateEstimatedTime(currentOrder),
+        };
+
+        let savedRemotely = false;
+        try {
+          if (typeof navigator === "undefined" || navigator.onLine) {
+            const completionResponse = await fetch("/api/orders/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(orderPayload),
+            });
+            if (completionResponse.ok) {
+              savedRemotely = true;
+            } else {
+              const completionError = await completionResponse.json().catch(() => null);
+              if (completionResponse.status >= 500) {
+                // Server 5xx error, will fallback to local offline queue
+                savedRemotely = false;
+              } else {
+                throw new Error(completionError?.error || "Order could not be saved");
+              }
+            }
+          }
+        } catch (netErr: unknown) {
+          const errName = netErr instanceof Error ? netErr.name : "";
+          const errMsg = netErr instanceof Error ? netErr.message : String(netErr);
+          if ((typeof navigator !== "undefined" && !navigator.onLine) || errName === "TypeError" || errMsg.includes("fetch")) {
+            savedRemotely = false;
+          } else {
+            throw netErr;
+          }
         }
 
-        // Remove or comment out playNotificationSound if it causes media errors
-        // playNotificationSound();
+        if (!savedRemotely) {
+          enqueueOfflineOrder({
+            id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            orderNumber,
+            payload: orderPayload,
+            createdAt: new Date().toISOString(),
+            status: "pending",
+            retryCount: 0,
+          });
+          toast({
+            title: "Saved Offline",
+            description: `Order #${orderNumber} queued locally and will sync when online.`,
+          });
+        }
 
   // Keep payment completion independent from printing, then open the browser
   // print dialog while the completed receipt data is still available.

@@ -2,6 +2,12 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import {
+  getOfflineCachedUser,
+  setOfflineCachedUser,
+  clearOfflineCachedUser,
+  initOfflineSyncListeners,
+} from "@/lib/offline-storage";
 
 interface AppUser {
   id: string;
@@ -38,6 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isDatabaseReady] = useState(true);
   const authRequestRef = React.useRef<Promise<void> | null>(null);
 
+  // Initialize offline sync listeners once on client mount
+  useEffect(() => {
+    initOfflineSyncListeners();
+  }, []);
+
   const checkAuth = useCallback(async () => {
     if (authRequestRef.current) return authRequestRef.current;
     const request = (async () => {
@@ -46,12 +57,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUser(data.user);
+          if (data.user) {
+            setOfflineCachedUser(data.user);
+          }
         } else {
-          setUser(null);
+          // If explicit unauthorized (401/403), invalidate cached session
+          if (res.status === 401 || res.status === 403) {
+            clearOfflineCachedUser();
+            setUser(null);
+          } else {
+            // Server error or non-auth 5xx - fallback to cached session if available
+            const cached = getOfflineCachedUser();
+            if (cached) {
+              setUser(cached);
+            } else {
+              setUser(null);
+            }
+          }
         }
       } catch (error) {
-        console.error("Auth check failed:", error);
-        setUser(null);
+        // Network error / offline mode
+        const cached = getOfflineCachedUser();
+        if (cached) {
+          setUser(cached);
+        } else {
+          console.error("Auth check failed:", error);
+          setUser(null);
+        }
       }
     })();
     authRequestRef.current = request;
@@ -94,6 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         setUser(data.user);
+        if (data.user) {
+          setOfflineCachedUser(data.user);
+        }
         return { success: true };
       }
       return { success: false, error: data.error || "Invalid email or password. Please try again." };
@@ -144,10 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
+      clearOfflineCachedUser();
+      setUser(null);
       setIsLoading(false);
     }
   }, []);

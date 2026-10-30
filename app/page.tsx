@@ -70,6 +70,7 @@ import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { ChefRecipeCard } from "@/components/dashboard/chef-recipe-card";
 import { AppUpdateMenu } from "@/components/app-update-menu";
+import { OfflineSyncIndicator } from "@/components/offline-sync-indicator";
 
 const DASHBOARD_CATEGORIES = [
   ["all", "All Categories"],
@@ -563,6 +564,7 @@ function DashboardContent() {
               </Button>
             </Link>
             <div className="order-4 flex shrink-0 items-center gap-1 md:gap-1.5">
+              <OfflineSyncIndicator />
               <AppUpdateMenu />
               <TooltipProvider>
                 <Tooltip>

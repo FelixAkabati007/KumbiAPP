@@ -66,9 +66,7 @@ describe("Software Updates Backend & API", () => {
 
     test("retrieves updates from database and merges canonical items", async () => {
       const { query } = await import("@/lib/db");
-      // @ts-expect-error mocking
-      query
-        .mockResolvedValueOnce({ rows: [] }) // ensure table
+      (query as any).mockResolvedValueOnce({ rows: [] }) // ensure table
         .mockResolvedValueOnce({ rows: [{ count: "1" }] }) // table count check
         .mockResolvedValueOnce({
           rows: [
