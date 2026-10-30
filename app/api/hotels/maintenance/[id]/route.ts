@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 // Update a maintenance ticket
 export async function PATCH(
@@ -23,6 +24,8 @@ export async function PATCH(
 
       if (status === "resolved" || status === "completed") {
         sql += `, completed_at = NOW()`;
+      } else if (status === "open" || status === "in_progress") {
+        sql += `, completed_at = NULL`;
       }
     }
 
@@ -44,29 +47,53 @@ export async function PATCH(
     values.push(id);
     sql += ` WHERE id = $${values.length} RETURNING *`;
 
-    const result = await query(sql, values);
+    const updatedTicket = await transaction(async (client) => {
+      const result = await client.query(sql, values);
+      if (result.rows.length === 0) {
+        return null;
+      }
 
-    if (result.rows.length === 0) {
+      const ticket = result.rows[0];
+
+      // Restore room status to available if all open maintenance tickets for the room are resolved
+      if ((status === "resolved" || status === "completed") && ticket.room_id) {
+        const remainingOpen = await client.query(
+          `SELECT COUNT(*) AS count FROM maintenance_tickets
+           WHERE room_id = $1 AND id <> $2 AND status NOT IN ('resolved', 'closed', 'completed')`,
+          [ticket.room_id, id],
+        );
+        if (Number(remainingOpen.rows[0]?.count || 0) === 0) {
+          await client.query(
+            `UPDATE rooms SET status = 'available', updated_at = NOW() WHERE id = $1 AND status = 'maintenance'`,
+            [ticket.room_id],
+          );
+        }
+      }
+
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [session.id, "maintenance_ticket_updated", "maintenance_ticket", id, JSON.stringify({ status, assignedTo, notesChanged: notes !== undefined, severity })],
+      );
+      if (status || assignedTo !== undefined) {
+        await client.query(
+          `INSERT INTO notifications (recipient_user_id, title, message, type)
+           SELECT id, $1, $2, $3 FROM users
+           WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
+          [`Maintenance ticket ${ticket.ticket_number} updated`, `Status or assignment changed by ${session.email}.`, "maintenance", session.id, ticket.assigned_to || null],
+        );
+      }
+      return ticket;
+    });
+
+    if (!updatedTicket) {
       return NextResponse.json(
         { error: "Maintenance ticket not found" },
         { status: 404 }
       );
     }
 
-    const updatedTicket = result.rows[0];
-    await query(
-      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-       VALUES ($1, $2, $3, $4, $5::jsonb)`,
-      [session.id, "maintenance_ticket_updated", "maintenance_ticket", id, JSON.stringify({ status, assignedTo, notesChanged: notes !== undefined, severity })],
-    );
-    if (status || assignedTo !== undefined) {
-      await query(
-        `INSERT INTO notifications (recipient_user_id, title, message, type)
-         SELECT id, $1, $2, $3 FROM users
-         WHERE (role IN ('admin', 'manager') OR id = $5) AND id <> $4`,
-        [`Maintenance ticket ${updatedTicket.ticket_number} updated`, `Status or assignment changed by ${session.email}.`, "maintenance", session.id, updatedTicket.assigned_to || null],
-      );
-    }
+    publishRealtime("maintenance.updated", String(id));
     return NextResponse.json(updatedTicket);
   } catch (error) {
     console.error("Error updating maintenance ticket:", error);

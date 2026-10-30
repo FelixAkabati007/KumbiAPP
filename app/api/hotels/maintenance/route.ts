@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { publishRealtime } from "@/lib/realtime";
 
 async function generateTicketNumber(): Promise<string> {
   const result = await query(
@@ -24,17 +25,22 @@ export async function GET(request: NextRequest) {
     const roomId = searchParams.get("roomId");
 
     let sql = `
-      SELECT mt.*, r.room_number, u.name as assigned_to_name
+      SELECT mt.*, r.room_number, u.name as assigned_to_name, creator.name as created_by_name
       FROM maintenance_tickets mt
       LEFT JOIN rooms r ON mt.room_id = r.id
       LEFT JOIN users u ON mt.assigned_to = u.id
+      LEFT JOIN users creator ON mt.created_by = creator.id
     `;
     const params: string[] = [];
     const conditions: string[] = [];
 
     if (status) {
-      conditions.push(`mt.status = $${params.length + 1}`);
-      params.push(status);
+      if (status === "assigned") {
+        conditions.push(`(mt.status = 'assigned' OR (mt.assigned_to IS NOT NULL AND mt.status NOT IN ('resolved', 'closed', 'completed')))`);
+      } else {
+        conditions.push(`mt.status = $${params.length + 1}`);
+        params.push(status);
+      }
     }
 
     if (severity) {
@@ -57,10 +63,7 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params);
     const response = NextResponse.json(result.rows);
-    response.headers.set(
-      "Cache-Control",
-      "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
-    );
+    response.headers.set("Cache-Control", "private, no-store");
     return response;
   } catch (error) {
     console.error("Error fetching maintenance tickets:", error);
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest) {
   try {
     const { session, error } = await requirePermission("maintenance");
     if (error) return error;
-    const { roomId, issueDescription, severity, assignedTo, notes } =
+    const { roomId, issueDescription, severity, assignedTo, notes, markRoomMaintenance } =
       await request.json();
 
     let routedRecipient = assignedTo || null;
@@ -93,8 +96,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!["admin", "manager", "operationsManager", "housekeeping"].includes(session.role)) {
-      return NextResponse.json({ error: "Only Admins, Managers, or Housekeeping can issue maintenance tickets" }, { status: 403 });
+    if (!["admin", "manager", "operationsManager", "housekeeping", "frontDesk", "restaurantManager"].includes(session.role)) {
+      return NextResponse.json({ error: "Only authorized operational or management staff can issue maintenance tickets" }, { status: 403 });
     }
 
     if ((roomId === undefined || roomId === "") || !issueDescription) {
@@ -105,6 +108,11 @@ export async function POST(request: NextRequest) {
     }
 
     const ticketNumber = await generateTicketNumber();
+    const shouldMarkRoomMaintenance =
+      Boolean(roomId) &&
+      (markRoomMaintenance !== undefined
+        ? Boolean(markRoomMaintenance)
+        : ["urgent", "high"].includes(severity || "normal"));
 
     const ticket = await transaction(async (client) => {
       const result = await client.query(
@@ -127,6 +135,12 @@ export async function POST(request: NextRequest) {
       );
 
       const createdTicket = result.rows[0];
+      if (roomId && shouldMarkRoomMaintenance) {
+        await client.query(
+          `UPDATE rooms SET status = 'maintenance', updated_at = NOW() WHERE id = $1 AND status = 'available'`,
+          [roomId],
+        );
+      }
       await client.query(
         `INSERT INTO notifications (recipient_user_id, title, message, type)
          SELECT id, $1, $2, $3 FROM users
@@ -142,10 +156,11 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
          VALUES ($1, $2, $3, $4, $5::jsonb)`,
-        [session.id, "maintenance_ticket_routed", "maintenance_ticket", createdTicket.id, JSON.stringify({ recipientId: routedRecipient, routing: session.role === "housekeeping" ? "manager_first_admin_fallback" : "direct_assignment" })],
+        [session.id, "maintenance_ticket_routed", "maintenance_ticket", createdTicket.id, JSON.stringify({ recipientId: routedRecipient, routing: session.role === "housekeeping" ? "manager_first_admin_fallback" : "direct_assignment", roomMarkedMaintenance: shouldMarkRoomMaintenance })],
       );
       return createdTicket;
     });
+    publishRealtime("maintenance.updated", String(ticket.id));
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
     console.error("Error creating maintenance ticket:", error);
