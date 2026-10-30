@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const unitPrice = money(item.unitPrice ?? 0);
     const label = String(item.label ?? "").trim();
     const pricingUnit = String(item.pricingUnit ?? "fixed");
-    if (!label || unitPrice === null || !Number.isInteger(quantity) || quantity <= 0 || quantity > 100000 || !["fixed", "per_guest", "per_hour", "per_staff"].includes(pricingUnit)) return null;
+    if (!label || unitPrice === null || !Number.isFinite(quantity) || quantity <= 0 || quantity > 100000 || !["fixed", "per_guest", "per_hour", "per_staff"].includes(pricingUnit)) return null;
     return { label, description: String(item.description ?? "").trim(), pricingUnit, quantity, unitPrice, amount: Math.round(quantity * unitPrice * 100) / 100 };
   });
   if (normalized.some((item) => item === null)) return NextResponse.json({ error: "Each quote item must have a label, valid quantity, unit price, and pricing unit" }, { status: 400 });
@@ -57,11 +57,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Discount cannot exceed the quote subtotal" }, { status: 400 });
   }
   const total = Math.round((subtotal - discountAmount + taxAmount) * 100) / 100;
+  const initialStatus = body.autoApprove === true ? "approved" : "draft";
 
   const quote = await transaction(async (client) => {
+    if (initialStatus === "approved") {
+      await client.query(
+        `UPDATE event_quotes SET status = 'superseded', updated_at = now() WHERE event_id = $1 AND status IN ('approved', 'sent')`,
+        [eventId]
+      );
+    }
     const quoteResult = await client.query(
-      `INSERT INTO event_quotes (event_id, status, discount_amount, tax_amount, deposit_percent, subtotal, total, created_by)
-       VALUES ($1, 'draft', $2, $3, $4, $5, $6, $7) RETURNING id, event_id, status, currency, discount_amount, tax_amount, deposit_percent, subtotal, total, created_at`,
+      initialStatus === "approved"
+        ? `INSERT INTO event_quotes (event_id, status, discount_amount, tax_amount, deposit_percent, subtotal, total, created_by, approved_by)
+           VALUES ($1, 'approved', $2, $3, $4, $5, $6, $7, $7) RETURNING id, event_id, status, currency, discount_amount, tax_amount, deposit_percent, subtotal, total, created_at`
+        : `INSERT INTO event_quotes (event_id, status, discount_amount, tax_amount, deposit_percent, subtotal, total, created_by)
+           VALUES ($1, 'draft', $2, $3, $4, $5, $6, $7) RETURNING id, event_id, status, currency, discount_amount, tax_amount, deposit_percent, subtotal, total, created_at`,
       [eventId, discountAmount, taxAmount, depositPercent, subtotal, total, session.id]
     );
     const createdQuote = quoteResult.rows[0];
@@ -88,7 +98,7 @@ export async function PATCH(request: Request) {
     const current = currentResult.rows[0];
     if (!current) return null;
     const transitions: Record<string, string[]> = {
-      draft: ["pending_approval"],
+      draft: ["pending_approval", "approved"],
       pending_approval: ["approved", "rejected"],
       approved: ["sent", "superseded"],
       sent: ["accepted", "rejected", "superseded"],

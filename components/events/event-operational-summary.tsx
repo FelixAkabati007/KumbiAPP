@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ClipboardList, FileText, IndianRupee } from "lucide-react";
+import { CheckCircle2, ClipboardList, FileText, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { WorkspaceSummary } from "@/components/events/event-workspace-panels";
 
@@ -17,7 +17,7 @@ export function EventOperationalSummary({ summary, onOpen }: { summary?: Workspa
   if (!summary) return null;
   const cards = [
     { key: "booking", label: "Booking", icon: CheckCircle2, detail: summary.booking.detail, action: summary.booking.action, tab: summary.booking.secured ? "overview" as const : "quote" as const },
-    { key: "collections", label: "Collections", icon: IndianRupee, detail: summary.collections.detail, action: summary.collections.action, tab: "payments" as const },
+    { key: "collections", label: "Collections", icon: Wallet, detail: summary.collections.detail, action: summary.collections.action, tab: "payments" as const },
     { key: "delivery", label: "Delivery", icon: ClipboardList, detail: summary.delivery.detail, action: summary.delivery.action, tab: "operations" as const },
     { key: "records", label: "Records", icon: FileText, detail: summary.records.detail, action: summary.records.action, tab: "documents" as const },
   ];

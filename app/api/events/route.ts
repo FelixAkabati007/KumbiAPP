@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
 import { query } from "@/lib/db";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { publishRealtime } from "@/lib/realtime";
 
 export async function GET() {
   const { error } = await requirePermission("events");
@@ -10,6 +11,10 @@ export async function GET() {
   const result = await query(`
     SELECT e.id, e.name, e.client_name, e.venue, e.starts_at, e.ends_at, e.guest_count, e.status, e.notes,
       e.receipt_id,
+      COALESCE(e.total_invoiced, 0) AS total_invoiced,
+      COALESCE(e.total_paid, 0) AS total_paid,
+      COALESCE(e.balance_due, 0) AS balance_due,
+      e.secured_at,
       EXISTS (SELECT 1 FROM event_quotes q WHERE q.event_id = e.id AND q.status IN ('approved', 'accepted')) AS quote_approved,
       EXISTS (SELECT 1 FROM canonical_financial_ledger l WHERE l.entity_type = 'event' AND l.entity_id = e.id::text AND l.status = 'posted') AS finance_posted,
       COALESCE((SELECT SUM(CASE WHEN l.direction = 'credit' THEN l.amount ELSE -l.amount END) FROM canonical_financial_ledger l WHERE l.entity_type = 'event' AND l.entity_id = e.id::text AND l.status = 'posted' AND l.source IN ('event_payment', 'event_refund', 'event_payment_reversal')), 0) AS posted_balance,
@@ -33,6 +38,7 @@ export async function POST(request: Request) {
   const startsAt = String(body.startsAt ?? "").trim();
   const endsAt = String(body.endsAt ?? "").trim() || null;
   const guestCount = Number(body.guestCount ?? 0);
+  const notes = String(body.notes ?? "").trim() || null;
   const startDate = new Date(startsAt);
   const endDate = endsAt ? new Date(endsAt) : null;
 
@@ -55,12 +61,40 @@ export async function POST(request: Request) {
     );
   }
 
+  // Venue overlap protection for registered internal venues
+  if (venue.toLowerCase() !== "external venue") {
+    const effectiveEnd = endDate
+      ? endDate.toISOString()
+      : new Date(startDate.getTime() + 4 * 60 * 60 * 1000).toISOString();
+    const conflictCheck = await query(
+      `SELECT id, name, starts_at, ends_at
+       FROM events
+       WHERE LOWER(venue) = LOWER($1)
+         AND status IN ('confirmed', 'in_progress')
+         AND starts_at < $3::timestamptz
+         AND COALESCE(ends_at, starts_at + interval '4 hours') > $2::timestamptz
+       LIMIT 1`,
+      [venue, startDate.toISOString(), effectiveEnd],
+    );
+    if (conflictCheck.rows[0]) {
+      const conflict = conflictCheck.rows[0];
+      return NextResponse.json(
+        {
+          error: `Venue "${venue}" is already booked for "${conflict.name}" during this time window.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const result = await query(
-    `INSERT INTO events (name, client_name, venue, starts_at, ends_at, guest_count, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO events (name, client_name, venue, starts_at, ends_at, guest_count, notes, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, name, client_name, venue, starts_at, ends_at, guest_count, status, notes`,
-    [name, clientName, venue, startsAt, endsAt, guestCount, session.id],
+    [name, clientName, venue, startsAt, endsAt, guestCount, notes, session.id],
   );
+
+  void publishRealtime("event_created", String(result.rows[0]?.id ?? "events"));
 
   return NextResponse.json({ event: result.rows[0] }, { status: 201 });
 }

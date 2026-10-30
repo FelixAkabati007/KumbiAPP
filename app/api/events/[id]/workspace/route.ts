@@ -84,10 +84,25 @@ export async function GET(
   const ledgerPostedTotal = ledger.rows
     .filter(
       (entry) =>
-        entry.direction === "credit" &&
+        entry.status === "posted" &&
         ["event_payment", "event_refund", "event_payment_reversal"].includes(
           String(entry.source),
         ),
+    )
+    .reduce(
+      (sum: number, entry) =>
+        sum +
+        (entry.direction === "credit"
+          ? Number(entry.amount ?? 0)
+          : -Number(entry.amount ?? 0)),
+      0,
+    );
+  const ledgerBookingTotal = ledger.rows
+    .filter(
+      (entry) =>
+        entry.status === "posted" &&
+        entry.direction === "credit" &&
+        String(entry.source) === "event_booking",
     )
     .reduce((sum: number, entry) => sum + Number(entry.amount ?? 0), 0);
   const receipt = receipts.rows[0];
@@ -206,10 +221,13 @@ export async function GET(
     status: financeStatus,
     reconciliation: financeException
       ? "unmatched"
-      : hasInvoice &&
-          Math.abs(ledgerPostedTotal - (invoiced || receiptTotal)) <= 0.01
-        ? "matched"
-        : "unmatched",
+      : !hasInvoice
+        ? "not_applicable"
+        : Math.abs(ledgerPostedTotal - paidTotal) <= 0.01 &&
+            (ledgerBookingTotal <= 0 ||
+              Math.abs(ledgerBookingTotal - (invoiced || receiptTotal)) <= 0.01)
+          ? "matched"
+          : "unmatched",
     lastUpdatedAt: receipt?.created_at ?? ledger.rows[0]?.occurred_at ?? null,
     exception: financeException,
   };

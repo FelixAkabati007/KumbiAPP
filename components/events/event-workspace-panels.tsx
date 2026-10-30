@@ -181,6 +181,8 @@ export function EventPayments({
       <RecordPaymentForm
         eventId={eventId}
         receiptId={summary.receiptId}
+        invoiceTotal={summary.invoiceTotal}
+        balanceDue={summary.balanceDue}
         onRecorded={onRecorded}
       />
       <div className="flex items-center justify-between gap-3">
@@ -331,13 +333,22 @@ export function EventOperations({
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const add = async () => {
-    if (!description.trim()) return;
+  const BANQUET_TASK_PRESETS = [
+    "Confirm hall seating arrangement & tables",
+    "Finalize catering menu & headcount with kitchen",
+    "Test PA / sound system & microphones",
+    "Assign banquet waiters, ushers & security",
+    "Post-event hall & equipment inspection",
+  ];
+
+  const addTaskText = async (taskText: string) => {
+    const trimmed = taskText.trim();
+    if (!trimmed) return;
     setMessage(null);
     const response = await fetch(`/api/events/${eventId}/workspace`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ description: description.trim(), status: "task" }),
+      body: JSON.stringify({ description: trimmed, status: "task" }),
     });
     if (response.ok) {
       const result = await response.json().catch(() => ({}));
@@ -345,7 +356,7 @@ export function EventOperations({
         ...current,
         {
           id: String(result.id ?? crypto.randomUUID()),
-          description: description.trim(),
+          description: trimmed,
           metadata: { status: "open" },
           occurred_at: new Date().toISOString(),
         },
@@ -354,6 +365,10 @@ export function EventOperations({
       setOpen(false);
       onChanged?.();
     } else setMessage("Unable to save the operational task.");
+  };
+
+  const add = async () => {
+    await addTaskText(description);
   };
 
   const setTaskStatus = async (
@@ -399,6 +414,25 @@ export function EventOperations({
         <Button variant="outline" onClick={() => setOpen((value) => !value)}>
           {open ? "Close task form" : "Add operational task"}
         </Button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {BANQUET_TASK_PRESETS.filter(
+          (preset) =>
+            !tasks.some(
+              (t) => t.description.toLowerCase() === preset.toLowerCase(),
+            ),
+        ).map((preset) => (
+          <Button
+            key={preset}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full text-xs"
+            onClick={() => void addTaskText(preset)}
+          >
+            + {preset}
+          </Button>
+        ))}
       </div>
       {open && (
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -586,21 +620,31 @@ export function EventActivity({
 function RecordPaymentForm({
   eventId,
   receiptId,
+  invoiceTotal = 0,
+  balanceDue = 0,
   onRecorded,
 }: {
   eventId: string;
   receiptId: string | null;
+  invoiceTotal?: number;
+  balanceDue?: number;
   onRecorded?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState("");
+  const [open, setOpen] = useState(balanceDue > 0);
+  const [amount, setAmount] = useState(
+    balanceDue > 0 ? balanceDue.toFixed(2) : "",
+  );
   const [method, setMethod] = useState("cash");
-  const [reference, setReference] = useState("");
+  const [reference, setReference] = useState(
+    `EVT-PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`,
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "error" | "success";
     text: string;
   } | null>(null);
+
+  const halfDeposit = Math.min(balanceDue, Math.round(invoiceTotal * 0.5 * 100) / 100);
 
   const submit = async () => {
     const value = Number(amount);
@@ -608,6 +652,9 @@ function RecordPaymentForm({
       setMessage({ type: "error", text: "Enter a valid payment amount" });
       return;
     }
+    const effectiveReference =
+      reference.trim() ||
+      `EVT-${eventId.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-5)}`;
     setSaving(true);
     setMessage(null);
     const response = await fetch(`/api/events/${eventId}/payments`, {
@@ -616,7 +663,7 @@ function RecordPaymentForm({
         "content-type": "application/json",
         "Idempotency-Key": crypto.randomUUID(),
       },
-      body: JSON.stringify({ amount: value, method, reference }),
+      body: JSON.stringify({ amount: value, method, reference: effectiveReference }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -627,9 +674,8 @@ function RecordPaymentForm({
       setSaving(false);
       return;
     }
-    setMessage({ type: "success", text: "Payment recorded." });
+    setMessage({ type: "success", text: "Payment recorded and posted to Finance." });
     setAmount("");
-    setReference("");
     setSaving(false);
     setOpen(false);
     onRecorded?.();
@@ -651,13 +697,41 @@ function RecordPaymentForm({
             Log cash, card, or mobile money received for this event.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? "Close" : "Record payment"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {balanceDue > 0 && halfDeposit > 0 && halfDeposit < balanceDue && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOpen(true);
+                setAmount(halfDeposit.toFixed(2));
+              }}
+            >
+              50% Deposit (GHS {halfDeposit.toFixed(2)})
+            </Button>
+          )}
+          {balanceDue > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOpen(true);
+                setAmount(balanceDue.toFixed(2));
+              }}
+            >
+              Full Balance (GHS {balanceDue.toFixed(2)})
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Close" : "Record payment"}
+          </Button>
+        </div>
       </div>
       {open && (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
