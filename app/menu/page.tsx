@@ -729,12 +729,45 @@ function MenuContent() {
                   <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                     ₵{item.price.toFixed(2)}
                   </span>
-                  <Badge
-                    variant="secondary"
-                    className={getCategoryBadgeColor(item.category)}
-                  >
-                    {item.category}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {canManageMenu && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className={`h-7 rounded-full px-2.5 text-xs ${
+                          item.inStock
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            : "border-red-300 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-700 dark:bg-red-950/40 dark:text-red-300"
+                        }`}
+                        onClick={async () => {
+                          try {
+                            const nextItem = {
+                              ...item,
+                              inStock: !item.inStock,
+                              isAvailable: !item.inStock,
+                            };
+                            const ok = await updateMenuItem(nextItem);
+                            if (ok) {
+                              setItems((prev) =>
+                                prev.map((m) => (m.id === item.id ? nextItem : m))
+                              );
+                            }
+                          } catch {
+                            // keep previous state on error
+                          }
+                        }}
+                      >
+                        {item.inStock ? "In Stock" : "Out of Stock"}
+                      </Button>
+                    )}
+                    <Badge
+                      variant="secondary"
+                      className={getCategoryBadgeColor(item.category)}
+                    >
+                      {item.category}
+                    </Badge>
+                  </div>
                 </div>
                 {item.barcode && (
                   <p className="text-xs text-muted-foreground">

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 
 async function generateTicketNumber(): Promise<string> {
   const result = await query(
     `SELECT COUNT(*) as count FROM maintenance_tickets WHERE created_at > NOW() - INTERVAL '1 day'`
   );
-  const count = (result.rows[0]?.count || 0) + 1;
+  const count = Number(result.rows[0]?.count || 0) + 1;
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  return `MT${date}${String(count).padStart(4, "0")}`;
+  const suffix = Math.random().toString(36).slice(2, 4).toUpperCase();
+  return `MT${date}${String(count).padStart(4, "0")}-${suffix}`;
 }
 
 // Get all maintenance tickets with optional filtering
@@ -105,43 +106,46 @@ export async function POST(request: NextRequest) {
 
     const ticketNumber = await generateTicketNumber();
 
-    const result = await query(
-      `
-      INSERT INTO maintenance_tickets (
-        ticket_number, room_id, issue_description, severity, assigned_to, notes, created_by
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-      `,
-      [
-        ticketNumber,
-        roomId || null,
-        issueDescription,
-        severity || "normal",
-        routedRecipient,
-        notes || null,
-        session.id,
-      ]
-    );
+    const ticket = await transaction(async (client) => {
+      const result = await client.query(
+        `
+        INSERT INTO maintenance_tickets (
+          ticket_number, room_id, issue_description, severity, assigned_to, notes, created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+        `,
+        [
+          ticketNumber,
+          roomId || null,
+          issueDescription,
+          severity || "normal",
+          routedRecipient,
+          notes || null,
+          session.id,
+        ]
+      );
 
-    const ticket = result.rows[0];
-    await query(
-      `INSERT INTO notifications (recipient_user_id, title, message, type)
-       SELECT id, $1, $2, $3 FROM users
-       WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
-      [
-        `New maintenance ticket ${ticketNumber}`,
-        `${severity || "normal"} priority ticket created for ${roomId ? `room ${roomId}` : "restaurant / shared area"}.`,
-        "maintenance",
-        session.id,
-        routedRecipient,
-      ],
-    );
-    await query(
-      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-       VALUES ($1, $2, $3, $4, $5::jsonb)`,
-      [session.id, "maintenance_ticket_routed", "maintenance_ticket", ticket.id, JSON.stringify({ recipientId: routedRecipient, routing: session.role === "housekeeping" ? "manager_first_admin_fallback" : "direct_assignment" })],
-    );
+      const createdTicket = result.rows[0];
+      await client.query(
+        `INSERT INTO notifications (recipient_user_id, title, message, type)
+         SELECT id, $1, $2, $3 FROM users
+         WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
+        [
+          `New maintenance ticket ${ticketNumber}`,
+          `${severity || "normal"} priority ticket created for ${roomId ? `room ${roomId}` : "restaurant / shared area"}.`,
+          "maintenance",
+          session.id,
+          routedRecipient,
+        ],
+      );
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [session.id, "maintenance_ticket_routed", "maintenance_ticket", createdTicket.id, JSON.stringify({ recipientId: routedRecipient, routing: session.role === "housekeeping" ? "manager_first_admin_fallback" : "direct_assignment" })],
+      );
+      return createdTicket;
+    });
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
     console.error("Error creating maintenance ticket:", error);

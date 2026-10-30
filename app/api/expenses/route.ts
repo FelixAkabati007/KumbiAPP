@@ -49,7 +49,7 @@ export async function PATCH(request: Request) {
   const status = typeof body?.status === "string" ? body.status : "";
   if (!id || !statuses.includes(status) || status === "submitted" || status === "cancelled") return NextResponse.json({ error: "Invalid expense status change" }, { status: 400 });
   const result = await transaction(async (client) => {
-    const current = await client.query(`SELECT id, status, requested_by, amount, currency, title, department, payment_method FROM public.expenses WHERE id = $1 FOR UPDATE`, [id]);
+    const current = await client.query(`SELECT id, status, requested_by, amount, currency, title, category, department, payment_method FROM public.expenses WHERE id = $1 FOR UPDATE`, [id]);
     const expense = current.rows[0];
     if (!expense) return { kind: "missing" as const };
     if ((status === "approved" || status === "rejected") && expense.requested_by === auth.session.id) return { kind: "self_approval" as const };

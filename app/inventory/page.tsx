@@ -351,9 +351,10 @@ function InventoryContent() {
       );
       const quantity = Number.parseFloat(item.quantity);
       const matchesTab = activeTab === "all"
+        || (activeTab === "low_stock" && isLowStock(item))
         || (activeTab === "active" && quantity > 0)
         || (activeTab === "inactive" && quantity <= 0)
-        || (activeTab !== "active" && activeTab !== "inactive" && item.category === activeTab);
+        || (activeTab !== "low_stock" && activeTab !== "active" && activeTab !== "inactive" && item.category === activeTab);
 
       return matchesQuery && matchesTab;
     });
@@ -1020,6 +1021,7 @@ function InventoryContent() {
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-orange-200 dark:border-orange-700">
                   <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="low_stock">Low Stock Only ({summary.lowStockItems})</SelectItem>
                   <SelectItem value="active">Active Stock</SelectItem>
                   <SelectItem value="inactive">Inactive (Out of Stock)</SelectItem>
                   <SelectItem value="ingredient">Ingredients</SelectItem>
@@ -1027,6 +1029,19 @@ function InventoryContent() {
                   <SelectItem value="supply">Supplies</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant={activeTab === "low_stock" ? "default" : "outline"}
+                onClick={() => setActiveTab((prev) => (prev === "low_stock" ? "all" : "low_stock"))}
+                className={`min-h-11 rounded-2xl ${
+                  activeTab === "low_stock"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                }`}
+              >
+                <AlertTriangle className="mr-1.5 h-4 w-4" />
+                Low Stock ({summary.lowStockItems})
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="relative z-10 p-0">

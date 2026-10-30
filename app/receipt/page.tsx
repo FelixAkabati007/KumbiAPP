@@ -85,6 +85,53 @@ function ReceiptContent() {
   } | null>(null);
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
+  const [recentLookupIds, setRecentLookupIds] = useState<Array<{ id: string; label: string; amount: number }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadRecentReceipts = async () => {
+      try {
+        if (receiptSource === "hotel") {
+          const res = await fetch("/api/hotel-activity?limit=6", { cache: "no-store" });
+          const rows = res.ok ? await res.json() : [];
+          if (active && Array.isArray(rows)) {
+            setRecentLookupIds(
+              rows
+                .filter((r) => r?.metadata?.reservationId || r?.transaction_id)
+                .slice(0, 6)
+                .map((r) => ({
+                  id: String(r.metadata?.reservationId ?? r.transaction_id),
+                  label: `Res #${r.metadata?.reservationId ?? r.transaction_id}`,
+                  amount: Number(r.amount || 0),
+                })),
+            );
+          }
+          return;
+        }
+        const sourceParam = receiptSource === "event" ? "event" : "restaurant";
+        const res = await fetch(`/api/transactions?source=${sourceParam}&limit=6`, { cache: "no-store" });
+        const rows = res.ok ? await res.json() : [];
+        if (active && Array.isArray(rows)) {
+          setRecentLookupIds(
+            rows.slice(0, 6).map((r) => {
+              const orderNo = String(r.metadata?.orderNumber ?? r.transaction_id ?? "");
+              return {
+                id: orderNo,
+                label: orderNo,
+                amount: Number(r.amount || 0),
+              };
+            }).filter((item) => Boolean(item.id)),
+          );
+        }
+      } catch {
+        if (active) setRecentLookupIds([]);
+      }
+    };
+    void loadRecentReceipts();
+    return () => {
+      active = false;
+    };
+  }, [receiptSource]);
 
   const toReceiptItems = (items: unknown): OrderItem[] => {
     if (!Array.isArray(items)) return [];
@@ -353,6 +400,68 @@ function ReceiptContent() {
                   Search
                 </Button>
               </div>
+              {recentLookupIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-2.5 text-xs dark:border-orange-800/60 dark:bg-orange-950/20">
+                  <span className="font-semibold text-orange-800 dark:text-orange-200">
+                    Recent receipts:
+                  </span>
+                  {recentLookupIds.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSearchOrderNumber(item.id);
+                        setSearchTouched(true);
+                        if (receiptSource === "restaurant") {
+                          void findSaleByOrderNumber(item.id).then((sale) => {
+                            setFoundSale(sale || null);
+                            setHotelActivity(null);
+                          });
+                        } else if (receiptSource === "hotel") {
+                          void fetch(`/api/hotel-activity?reservationId=${encodeURIComponent(item.id)}&limit=1`)
+                            .then((r) => (r.ok ? r.json() : []))
+                            .then((events) => {
+                              setHotelActivity(Array.isArray(events) ? (events[0] ?? null) : null);
+                              setFoundSale(null);
+                            });
+                        } else if (receiptSource === "event") {
+                          void fetch(`/api/transactions?orderNumber=${encodeURIComponent(item.id)}&source=event&limit=1`)
+                            .then((r) => (r.ok ? r.json() : []))
+                            .then((rows) => {
+                              const row = Array.isArray(rows) ? rows[0] : null;
+                              const items = toReceiptItems(row?.items);
+                              const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+                              const total = Number(row?.amount) || 0;
+                              setFoundSale(
+                                row
+                                  ? {
+                                      id: row.id,
+                                      orderNumber: row.metadata?.orderNumber ?? row.transaction_id,
+                                      orderId: row.metadata?.eventId,
+                                      date: row.created_at,
+                                      items,
+                                      subtotal: Number(row.metadata?.subtotal) || subtotal,
+                                      tax: Math.max(total - (Number(row.metadata?.subtotal) || subtotal), 0),
+                                      total,
+                                      orderType: "event booking",
+                                      customerName: row.metadata?.clientName,
+                                      paymentMethod: row.payment_method ?? "event booking",
+                                      performedBy: row.metadata?.performedBy,
+                                    }
+                                  : null,
+                              );
+                              setHotelActivity(null);
+                            });
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-white px-2.5 py-1 font-medium text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100 dark:hover:bg-orange-900/40"
+                    >
+                      <span>{item.label}</span>
+                      <span className="text-muted-foreground">· ₵{item.amount.toFixed(2)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Preview or Empty State */}
               {hotelActivity ? (
                 <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-orange-200 bg-white p-5 text-orange-900 shadow-sm dark:border-orange-700 dark:bg-gray-900 dark:text-orange-100">

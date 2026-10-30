@@ -776,11 +776,23 @@ function CheckInPage() {
             </h2>
           </div>
         </div>
-        <LiveSyncToolbar
-          connected={liveSync.connected}
-          refreshing={liveSync.refreshing}
-          onRefresh={() => void liveSync.refresh()}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/hotels/reservations")}
+            className="rounded-full border-orange-200 bg-white/80 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800/80 dark:text-orange-200"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            New Walk-In / Reservation
+          </Button>
+          <LiveSyncToolbar
+            connected={liveSync.connected}
+            refreshing={liveSync.refreshing}
+            onRefresh={() => void liveSync.refresh()}
+          />
+        </div>
       </header>
 
       <div className="min-w-0 flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">

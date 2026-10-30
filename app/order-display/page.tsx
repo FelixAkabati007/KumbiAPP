@@ -40,28 +40,42 @@ import { toast } from "sonner";
 import { RoleGuard } from "@/components/role-guard";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { FeatureDisabledBanner } from "@/components/feature-disabled-banner";
+import { useRealtime } from "@/components/realtime-provider";
 
 type OrderStatus = KitchenOrder["status"] | OrderItem["status"];
 type Priority = KitchenOrder["priority"];
 
 function OrderDisplayContent() {
   const { orders, refreshOrders } = useOrders();
-  const { user, isLoading } = useAuth();
+  const { lastEvent } = useRealtime();
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   useEffect(() => {
-    // Initialize current time on client to avoid SSR time mismatch
     setCurrentTime(new Date());
-    const interval = setInterval(() => {
+    const handleOrdersUpdate = () => {
       refreshOrders();
       setCurrentTime(new Date());
-    }, 3000);
+    };
+    window.addEventListener("ordersUpdated", handleOrdersUpdate);
+    const interval = setInterval(() => {
+      if (!document.hidden && navigator.onLine) {
+        refreshOrders();
+      }
+      setCurrentTime(new Date());
+    }, 15000);
 
     return () => {
+      window.removeEventListener("ordersUpdated", handleOrdersUpdate);
       clearInterval(interval);
     };
   }, [refreshOrders]);
+
+  useEffect(() => {
+    if (lastEvent?.topic?.startsWith("orders.")) {
+      refreshOrders();
+      setCurrentTime(new Date());
+    }
+  }, [lastEvent, refreshOrders]);
 
   // The board is a read-only canonical-ledger view: arrival time is the queue authority.
   const activeOrders = useMemo(() => {
@@ -163,15 +177,6 @@ function OrderDisplayContent() {
     return total ? Math.round((completed / total) * 100) : 0;
   };
 
-  // Reset handler
-  const handleResetKitchen = () => {
-    // Ideally this should call an API endpoint to archive all active orders
-    toast.error(
-      "Resetting kitchen display is disabled in Database mode. Please complete orders individually."
-    );
-    setResetDialogOpen(false);
-  };
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
       <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-2 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-2 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
@@ -205,41 +210,6 @@ function OrderDisplayContent() {
           >
             <RefreshCw className="h-4 w-4" aria-label="Refresh Icon" />
           </Button>
-          {/* Reset Kitchen Display button for admin/manager only - REMOVED per user request */}
-          {!isLoading &&
-            user &&
-            (user.role === "admin" || user.role === "manager") && (
-              <>
-                <Dialog
-                  open={resetDialogOpen}
-                  onOpenChange={setResetDialogOpen}
-                >
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Reset Kitchen Display?</DialogTitle>
-                      <DialogDescription>
-                        This will clear all active kitchen orders. This action
-                        cannot be undone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setResetDialogOpen(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={handleResetKitchen}
-                      >
-                        Reset
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
         </div>
       </header>
 

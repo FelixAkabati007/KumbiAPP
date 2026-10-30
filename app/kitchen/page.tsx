@@ -52,6 +52,7 @@ import { RoleGuard } from "@/components/role-guard";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { FeatureDisabledBanner } from "@/components/feature-disabled-banner";
 import { useAuth } from "@/components/auth-provider";
+import { useRealtime } from "@/components/realtime-provider";
 
 function WaitTimer({ createdAt }: { createdAt: string }) {
   const [elapsed, setElapsed] = useState(0);
@@ -109,6 +110,7 @@ function KitchenContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClosingDay, setIsClosingDay] = useState(false);
   const canCloseKitchenDay = user?.role === "manager" || user?.role === "restaurantManager";
+  const { lastEvent } = useRealtime();
 
   // Real-time updates
   useEffect(() => {
@@ -120,6 +122,12 @@ function KitchenContent() {
     return () =>
       window.removeEventListener("ordersUpdated", handleOrdersUpdate);
   }, [refreshOrders]);
+
+  useEffect(() => {
+    if (lastEvent?.topic?.startsWith("orders.")) {
+      refreshOrders();
+    }
+  }, [lastEvent, refreshOrders]);
 
   // Handle manual refresh
   const handleRefresh = async () => {
