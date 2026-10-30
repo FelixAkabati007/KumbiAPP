@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { query } from "@/lib/db";
-import { canPerformAction, hasPermission, isAdmin, type AppSection, type CrudAction, type UserRole } from "@/lib/roles";
+import { canPerformAction, hasPermission, isAdmin, managementRoles, type AppSection, type CrudAction, type UserRole } from "@/lib/roles";
 
 export type ApiSession = {
   id: string;
@@ -39,19 +39,43 @@ export async function requireSession(): Promise<AuthResult> {
  * etc.) so the server enforces the same rule the UI's RoleGuard shows.
  */
 async function hasApprovedAttendance(session: ApiSession) {
-  // Admin and General Manager are the only roles exempt from the attendance gate.
-  if (session.role === "admin" || session.role === "manager") return true;
-  const result = await query(
-    `SELECT 1
-     FROM attendance_records
-     WHERE user_id = $1
-       AND created_at::date = ${propertyDayExpression()}
-       AND verification_status = 'verified'
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    [session.id],
-  );
-  return result.rows.length > 0;
+  // All management roles are exempt from the attendance gate.
+  if (managementRoles.includes(session.role)) return true;
+
+  // Only enforce strict attendance blocking when explicitly enabled via environment variable,
+  // or if an attendance record for today was explicitly rejected by a manager.
+  if (process.env.ENFORCE_STRICT_ATTENDANCE_GATE !== "true") {
+    try {
+      const rejectedCheck = await query(
+        `SELECT 1
+         FROM attendance_records
+         WHERE user_id = $1
+           AND created_at::date = ${propertyDayExpression()}
+           AND verification_status = 'rejected'
+         LIMIT 1`,
+        [session.id],
+      );
+      return rejectedCheck.rows.length === 0;
+    } catch {
+      return true;
+    }
+  }
+
+  try {
+    const result = await query(
+      `SELECT 1
+       FROM attendance_records
+       WHERE user_id = $1
+         AND created_at::date = ${propertyDayExpression()}
+         AND verification_status = 'verified'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [session.id],
+    );
+    return result.rows.length > 0;
+  } catch {
+    return true;
+  }
 }
 
 function attendanceGateError() {

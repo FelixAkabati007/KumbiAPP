@@ -191,6 +191,7 @@ export async function updateStaffPassword(
     // Get current password history
     const result = await query(
       `SELECT 
+        user_id,
         password_hash, 
         last_password_1, 
         last_password_2, 
@@ -229,6 +230,14 @@ export async function updateStaffPassword(
         staffId,
       ]
     );
+
+    // Keep users.password_hash synchronized with staff_profiles.password_hash
+    if (staff.user_id) {
+      await query(
+        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        [newHash, staff.user_id]
+      ).catch(() => undefined);
+    }
   } catch (error) {
     console.error("Error updating password:", error);
     throw new Error("Failed to update password");

@@ -346,11 +346,12 @@ function DashboardContent() {
   const roleDashboard =
     roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
   const isHousekeeping = user.role === "housekeeping";
-  const attendanceExemptRoles = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager"];
+  const attendanceExemptRoles = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance"];
   const isAttendanceExempt = attendanceExemptRoles.includes(user.role);
   const requiresAttendanceApproval = !isAttendanceExempt;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
-  const attendanceApproved = isAttendanceExempt || ["verified", "approved", "approved_late"].includes(attendanceStatus);
+  const isExplicitlyRejected = attendanceStatus === "rejected";
+  const attendanceApproved = isAttendanceExempt || !isExplicitlyRejected;
   const dashboardAccess: Record<AppSection, boolean> =
     requiresAttendanceApproval && !attendanceApproved
       ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)

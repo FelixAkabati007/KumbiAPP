@@ -14,16 +14,18 @@ declare global {
 
 /**
  * Resolves the Neon database connection string checking standard and platform-specific environment variables.
+ * Prefers the connected KUMRESH_DB Neon integration URL first, as DATABASE_URL can be
+ * left over from an older Neon project.
  */
 export function getDatabaseConnectionString(): string {
   return (
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
     process.env.KUMRESH_DB_DATABASE_URL ||
     process.env.KUMRESH_DB_POSTGRES_URL ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.NEON_DATABASE_URL ||
     process.env.DB_URL ||
     ""
   );

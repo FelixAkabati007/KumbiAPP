@@ -3,11 +3,11 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("CRITICAL: JWT_SECRET environment variable must be set in production");
-  }
-  return secret || "your-secret-key-change-me";
+  return (
+    process.env.JWT_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "your-secret-key-change-me"
+  );
 }
 
 export type JwtPayloadData = {

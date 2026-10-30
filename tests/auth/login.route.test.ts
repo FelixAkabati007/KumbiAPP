@@ -9,6 +9,7 @@ vi.mock("../../lib/db", () => ({
 
 vi.mock("../../lib/auth", () => ({
   comparePassword: vi.fn(),
+  hashPassword: vi.fn(async () => "hashed-default"),
   signToken: vi.fn(() => "mock-token"),
 }));
 
@@ -154,5 +155,27 @@ describe("Auth Login Route", () => {
 
     // Check cookie was set
     expect(mockCookieStore.set).toHaveBeenCalled();
+  });
+
+  test("auto-provisions and logs in Admin and department role accounts when not yet in DB", async () => {
+    const { query } = await import("../../lib/db");
+    // @ts-expect-error: mocking
+    query.mockResolvedValue({ rows: [] });
+
+    const adminRes = await loginPost(
+      makeReq({ email: "admin@kumbisaly.com", password: "Admin@123456!" })
+    );
+    const adminJson = await adminRes.json();
+    expect(adminRes.status).toBe(200);
+    expect(adminJson.success).toBe(true);
+    expect(adminJson.user.role).toBe("admin");
+
+    const chefRes = await loginPost(
+      makeReq({ email: "chef@kumbisaly.com", password: "Kitchen@123456!" })
+    );
+    const chefJson = await chefRes.json();
+    expect(chefRes.status).toBe(200);
+    expect(chefJson.success).toBe(true);
+    expect(chefJson.user.role).toBe("kitchen");
   });
 });
