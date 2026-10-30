@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useTransition } from "react";
-import { Cloud, CloudOff, RefreshCw, Wifi, WifiOff, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { Cloud, RefreshCw, Wifi, WifiOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,13 +27,18 @@ import {
 import { toast } from "sonner";
 
 export function OfflineSyncIndicator() {
-  const [stats, setStats] = useState<OfflineQueueStats>({
-    orders: 0,
-    attendance: 0,
-    mutations: 0,
-    total: 0,
-    isOnline: true,
-    isSyncing: false,
+  const [stats, setStats] = useState<OfflineQueueStats>(() => {
+    if (typeof window !== "undefined") {
+      return getOfflineQueueStats();
+    }
+    return {
+      orders: 0,
+      attendance: 0,
+      mutations: 0,
+      total: 0,
+      isOnline: true,
+      isSyncing: false,
+    };
   });
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -79,7 +84,7 @@ export function OfflineSyncIndicator() {
   };
 
   const handleClearQueue = () => {
-    if (window.confirm("Are you sure you want to clear all un-synced offline records? Any queued sales or attendance will be lost.")) {
+    if (typeof window !== "undefined" && window.confirm("Are you sure you want to clear all un-synced offline records? Any queued sales or attendance will be lost.")) {
       clearAllQueues();
       toast.info("Local offline queue cleared.");
       setOpen(false);
