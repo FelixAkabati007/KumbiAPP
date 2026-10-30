@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
     const roomsAccess = await requirePermission("rooms");
     if (roomsAccess.error) {
       const maintenanceAccess = await requirePermission("maintenance");
-      if (maintenanceAccess.error) return roomsAccess.error;
+      if (maintenanceAccess.error) {
+        const operationsAccess = await requirePermission("operations");
+        if (operationsAccess.error) return roomsAccess.error;
+      }
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -16,13 +19,17 @@ export async function GET(request: NextRequest) {
     const roomTypeId = searchParams.get("roomTypeId");
     const reservationId = searchParams.get("reservationId");
 
+    const effectiveStatusExpr = `CASE
+      WHEN res.status = 'checked_in' THEN 'occupied'
+      WHEN r.status IN ('maintenance', 'out_of_order', 'cleaning', 'dirty') THEN r.status
+      WHEN res.check_in_date IS NOT NULL AND r.status = 'occupied' THEN 'occupied'
+      WHEN r.status = 'occupied' THEN 'available'
+      ELSE COALESCE(r.status, 'available')
+    END`;
+
     let sql = `
       SELECT r.id, r.room_number, r.floor, r.building,
-             CASE
-               WHEN res.check_in_date IS NOT NULL THEN 'occupied'
-               WHEN r.status = 'occupied' THEN 'available'
-               ELSE r.status
-             END AS status,
+             ${effectiveStatusExpr} AS status,
              r.room_type_id, r.notes,
              CASE WHEN res.check_in_date IS NULL THEN NULL ELSE r.current_guest_id END AS current_guest_id,
              COALESCE(rt.name, 'Standard Room') as room_type_name, rt.base_price,
@@ -37,12 +44,12 @@ export async function GET(request: NextRequest) {
       LEFT JOIN room_types rt ON r.room_type_id = rt.id
       LEFT JOIN guests g ON g.id = r.current_guest_id
       LEFT JOIN LATERAL (
-        SELECT check_in_date, check_out_date
+        SELECT check_in_date, check_out_date, status
         FROM reservations
         WHERE room_id = r.id
           AND status IN ('checked_in', 'confirmed', 'pending')
           ${reservationId ? "AND id <> $1::uuid" : ""}
-        ORDER BY updated_at DESC
+        ORDER BY CASE status WHEN 'checked_in' THEN 0 ELSE 1 END, updated_at DESC
         LIMIT 1
       ) res ON true
       LEFT JOIN LATERAL (
@@ -53,7 +60,7 @@ export async function GET(request: NextRequest) {
         LIMIT 1
       ) hk ON true
       LEFT JOIN users hu ON hu.id = hk.assigned_to
-      WHERE r.is_active = true
+      WHERE COALESCE(r.is_active, true) = true
     `;
     const params: (string | undefined)[] = reservationId ? [reservationId] : [];
 
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
       const statuses = status.split(",").map((value) => value.trim()).filter(Boolean);
       if (statuses.length > 0) {
         const placeholders = statuses.map((_, index) => `$${params.length + index + 1}`);
-        sql += ` AND (CASE WHEN res.check_in_date IS NOT NULL THEN 'occupied' WHEN r.status = 'occupied' THEN 'available' ELSE r.status END) IN (${placeholders.join(", ")})`;
+        sql += ` AND (${effectiveStatusExpr}) IN (${placeholders.join(", ")})`;
         params.push(...statuses);
       }
     }

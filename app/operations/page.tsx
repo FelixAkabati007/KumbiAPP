@@ -37,6 +37,7 @@ interface RoomOption {
   status: string;
   room_type_name?: string;
   floor?: number | string | null;
+  building?: string | null;
 }
 
 const SHARED_AREAS: Record<string, string> = {
@@ -67,6 +68,7 @@ function OperationsWorkspace() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [roomsLoading, setRoomsLoading] = useState(true);
   const [showNewTicketDialog, setShowNewTicketDialog] = useState(false);
   const [savingTicket, setSavingTicket] = useState(false);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ function OperationsWorkspace() {
   });
 
   const loadRooms = async () => {
+    setRoomsLoading(true);
     try {
       const response = await fetch("/api/hotels/rooms", { cache: "no-store" });
       if (response.ok) {
@@ -90,6 +93,8 @@ function OperationsWorkspace() {
       }
     } catch {
       // ignore network error
+    } finally {
+      setRoomsLoading(false);
     }
   };
 
@@ -123,13 +128,27 @@ function OperationsWorkspace() {
     }
   }, [showNewTicketDialog]);
 
-  const activeRooms = useMemo(
-    () =>
-      rooms
-        .filter((room) => room.status !== "inactive")
-        .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true })),
-    [rooms],
-  );
+  const activeRooms = useMemo(() => {
+    const byNumber = new Map<string, RoomOption>();
+    for (const room of rooms) {
+      if (room.status !== "inactive") {
+        byNumber.set(room.room_number, room);
+      }
+    }
+    for (const ticket of tickets) {
+      if (ticket.room_id && ticket.room_number && !byNumber.has(ticket.room_number)) {
+        byNumber.set(ticket.room_number, {
+          id: ticket.room_id,
+          room_number: ticket.room_number,
+          status: "available",
+          room_type_name: "Standard Room",
+        });
+      }
+    }
+    return Array.from(byNumber.values()).sort((a, b) =>
+      a.room_number.localeCompare(b.room_number, undefined, { numeric: true }),
+    );
+  }, [rooms, tickets]);
 
   const availableRooms = useMemo(
     () => activeRooms.filter((room) => room.status === "available"),
@@ -141,9 +160,26 @@ function OperationsWorkspace() {
     [activeRooms],
   );
 
+  const openTicketsByRoom = useMemo(() => {
+    const map = new Map<string, Ticket[]>();
+    for (const ticket of tickets) {
+      if (ticket.room_number && !["resolved", "closed", "completed"].includes(ticket.status)) {
+        const list = map.get(ticket.room_number) ?? [];
+        list.push(ticket);
+        map.set(ticket.room_number, list);
+      }
+    }
+    return map;
+  }, [tickets]);
+
   const selectedRoomObj = useMemo(
     () => activeRooms.find((room) => room.room_number === ticketForm.roomNumber) ?? null,
     [activeRooms, ticketForm.roomNumber],
+  );
+
+  const selectedRoomOpenTickets = useMemo(
+    () => (ticketForm.roomNumber ? openTicketsByRoom.get(ticketForm.roomNumber) ?? [] : []),
+    [openTicketsByRoom, ticketForm.roomNumber],
   );
 
   const selectLocation = (value: string) => {
@@ -162,7 +198,7 @@ function OperationsWorkspace() {
   const createTicket = async () => {
     const roomId = isSharedSelection
       ? null
-      : rooms.find((room) => room.room_number === ticketForm.roomNumber)?.id;
+      : activeRooms.find((room) => room.room_number === ticketForm.roomNumber)?.id;
     if ((!roomId && !isSharedSelection) || !ticketForm.issueDescription.trim()) {
       toast({ title: "Location and issue description are required", variant: "destructive" });
       return;
@@ -480,7 +516,18 @@ function OperationsWorkspace() {
             <div className="grid gap-4">
               <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor="operations-room">Room Number / Facility Area</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="operations-room">Room Number / Facility Area</Label>
+                    <button
+                      type="button"
+                      onClick={() => void loadRooms()}
+                      className="inline-flex items-center gap-1 rounded-md border border-orange-200 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:bg-gray-800/80 dark:text-orange-300"
+                      title="Refresh hotel rooms list"
+                    >
+                      <RotateCcw className={`h-3 w-3 ${roomsLoading ? "animate-spin" : ""}`} />
+                      {roomsLoading ? "Loading..." : `Refresh (${activeRooms.length} rooms)`}
+                    </button>
+                  </div>
                   {ticketForm.roomNumber && (
                     <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/50 dark:text-orange-200">
                       Selected: {isSharedSelection ? SHARED_AREAS[ticketForm.roomNumber] || "Shared Area" : `Room ${ticketForm.roomNumber}`}
@@ -561,7 +608,7 @@ function OperationsWorkspace() {
                 <div
                   role="listbox"
                   aria-label="Scrollable Room Number and Facility Area list"
-                  className="max-h-48 overflow-y-auto rounded-xl border border-orange-200/80 bg-white/70 p-2 shadow-inner dark:border-orange-800/80 dark:bg-gray-900/50"
+                  className="max-h-56 overflow-y-scroll rounded-xl border border-orange-200/80 bg-white/70 p-2 pr-1.5 shadow-inner dark:border-orange-800/80 dark:bg-gray-900/50"
                 >
                   <div className="space-y-2">
                     {locationTab !== "shared" && (
@@ -573,10 +620,11 @@ function OperationsWorkspace() {
                           .filter((room) => {
                             const q = locationSearch.trim().toLowerCase();
                             if (!q) return true;
-                            return `room ${room.room_number} ${room.room_type_name || ""} floor ${room.floor ?? ""}`.toLowerCase().includes(q);
+                            return `room ${room.room_number} ${room.room_type_name || ""} floor ${room.floor ?? ""} ${room.building ?? ""}`.toLowerCase().includes(q);
                           })
                           .map((room) => {
                             const isSelected = ticketForm.roomNumber === room.room_number;
+                            const openCount = openTicketsByRoom.get(room.room_number)?.length ?? 0;
                             return (
                               <button
                                 key={room.id}
@@ -595,20 +643,35 @@ function OperationsWorkspace() {
                                   {room.room_type_name ? ` · ${room.room_type_name}` : ""}
                                   {room.floor ? ` (Floor ${room.floor})` : ""}
                                 </span>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                    isSelected
-                                      ? "bg-white/20 text-white"
-                                      : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                                  }`}
-                                >
-                                  Available
+                                <span className="flex items-center gap-1.5">
+                                  {openCount > 0 && (
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                        isSelected
+                                          ? "bg-white/25 text-white"
+                                          : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
+                                      }`}
+                                    >
+                                      {openCount} open
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                      isSelected
+                                        ? "bg-white/20 text-white"
+                                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                    }`}
+                                  >
+                                    Available
+                                  </span>
                                 </span>
                               </button>
                             );
                           })}
                         {availableRooms.length === 0 && (
-                          <p className="px-2 py-1 text-xs text-muted-foreground">No available rooms right now.</p>
+                          <p className="px-2 py-1 text-xs text-muted-foreground">
+                            {roomsLoading ? "Loading hotel rooms…" : "No available rooms right now."}
+                          </p>
                         )}
                       </div>
                     )}
@@ -622,10 +685,11 @@ function OperationsWorkspace() {
                           .filter((room) => {
                             const q = locationSearch.trim().toLowerCase();
                             if (!q) return true;
-                            return `room ${room.room_number} ${room.room_type_name || ""} ${room.status} floor ${room.floor ?? ""}`.toLowerCase().includes(q);
+                            return `room ${room.room_number} ${room.room_type_name || ""} ${room.status} floor ${room.floor ?? ""} ${room.building ?? ""}`.toLowerCase().includes(q);
                           })
                           .map((room) => {
                             const isSelected = ticketForm.roomNumber === room.room_number;
+                            const openCount = openTicketsByRoom.get(room.room_number)?.length ?? 0;
                             return (
                               <button
                                 key={room.id}
@@ -644,14 +708,27 @@ function OperationsWorkspace() {
                                   {room.room_type_name ? ` · ${room.room_type_name}` : ""}
                                   {room.floor ? ` (Floor ${room.floor})` : ""}
                                 </span>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
-                                    isSelected
-                                      ? "bg-white/20 text-white"
-                                      : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
-                                  }`}
-                                >
-                                  {room.status}
+                                <span className="flex items-center gap-1.5">
+                                  {openCount > 0 && (
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                        isSelected
+                                          ? "bg-white/25 text-white"
+                                          : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
+                                      }`}
+                                    >
+                                      {openCount} open
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
+                                      isSelected
+                                        ? "bg-white/20 text-white"
+                                        : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
+                                    }`}
+                                  >
+                                    {room.status}
+                                  </span>
                                 </span>
                               </button>
                             );
@@ -776,6 +853,20 @@ function OperationsWorkspace() {
                     <p className="rounded-lg border border-amber-300 bg-amber-50/80 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                       Note: Room {ticketForm.roomNumber} is currently occupied. Please coordinate access timing with Front Desk before entering.
                     </p>
+                  )}
+                  {selectedRoomOpenTickets.length > 0 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50/80 px-3 py-2 text-xs text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+                      <p className="font-semibold">
+                        Existing Open Ticket{selectedRoomOpenTickets.length > 1 ? "s" : ""} on Room {ticketForm.roomNumber}:
+                      </p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {selectedRoomOpenTickets.slice(0, 3).map((openTicket) => (
+                          <li key={openTicket.id}>
+                            <span className="font-medium">{openTicket.ticket_number}:</span> {openTicket.issue_description} ({openTicket.status.replace("_", " ")})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               )}

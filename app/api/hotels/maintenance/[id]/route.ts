@@ -9,8 +9,12 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { session, error } = await requirePermission("maintenance");
-    if (error) return error;
+    let authResult = await requirePermission("maintenance");
+    if (authResult.error) {
+      authResult = await requirePermission("operations");
+      if (authResult.error) return authResult.error;
+    }
+    const { session } = authResult;
 
     const { id } = await context.params;
     const { status, assignedTo, notes, severity } = await request.json();
@@ -94,6 +98,9 @@ export async function PATCH(
     }
 
     publishRealtime("maintenance.updated", String(id));
+    if (updatedTicket.room_id) {
+      publishRealtime("rooms.updated", String(updatedTicket.room_id));
+    }
     return NextResponse.json(updatedTicket);
   } catch (error) {
     console.error("Error updating maintenance ticket:", error);

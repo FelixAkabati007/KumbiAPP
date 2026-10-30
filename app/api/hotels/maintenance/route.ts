@@ -16,8 +16,11 @@ async function generateTicketNumber(): Promise<string> {
 // Get all maintenance tickets with optional filtering
 export async function GET(request: NextRequest) {
   try {
-    const { error } = await requirePermission("maintenance");
-    if (error) return error;
+    const maintenanceAccess = await requirePermission("maintenance");
+    if (maintenanceAccess.error) {
+      const operationsAccess = await requirePermission("operations");
+      if (operationsAccess.error) return maintenanceAccess.error;
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
@@ -25,9 +28,17 @@ export async function GET(request: NextRequest) {
     const roomId = searchParams.get("roomId");
 
     let sql = `
-      SELECT mt.*, r.room_number, u.name as assigned_to_name, creator.name as created_by_name
+      SELECT mt.*,
+             r.room_number,
+             r.floor as room_floor,
+             r.building as room_building,
+             r.status as room_status,
+             COALESCE(rt.name, 'Standard Room') as room_type_name,
+             u.name as assigned_to_name,
+             creator.name as created_by_name
       FROM maintenance_tickets mt
       LEFT JOIN rooms r ON mt.room_id = r.id
+      LEFT JOIN room_types rt ON r.room_type_id = rt.id
       LEFT JOIN users u ON mt.assigned_to = u.id
       LEFT JOIN users creator ON mt.created_by = creator.id
     `;
@@ -77,8 +88,12 @@ export async function GET(request: NextRequest) {
 // Create a new maintenance ticket
 export async function POST(request: NextRequest) {
   try {
-    const { session, error } = await requirePermission("maintenance");
-    if (error) return error;
+    let authResult = await requirePermission("maintenance");
+    if (authResult.error) {
+      authResult = await requirePermission("operations");
+      if (authResult.error) return authResult.error;
+    }
+    const { session } = authResult;
     const { roomId, issueDescription, severity, assignedTo, notes, markRoomMaintenance } =
       await request.json();
 
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!["admin", "manager", "operationsManager", "housekeeping", "frontDesk", "restaurantManager"].includes(session.role)) {
+    if (!["admin", "manager", "hotelManager", "operationsManager", "housekeeping", "frontDesk", "restaurantManager"].includes(session.role)) {
       return NextResponse.json({ error: "Only authorized operational or management staff can issue maintenance tickets" }, { status: 403 });
     }
 
@@ -115,6 +130,15 @@ export async function POST(request: NextRequest) {
         : ["urgent", "high"].includes(severity || "normal"));
 
     const ticket = await transaction(async (client) => {
+      let roomNumberLabel: string | null = null;
+      if (roomId) {
+        const roomLookup = await client.query(
+          `SELECT room_number FROM rooms WHERE id = $1 LIMIT 1`,
+          [roomId],
+        );
+        roomNumberLabel = roomLookup.rows[0]?.room_number || null;
+      }
+
       const result = await client.query(
         `
         INSERT INTO maintenance_tickets (
@@ -137,17 +161,17 @@ export async function POST(request: NextRequest) {
       const createdTicket = result.rows[0];
       if (roomId && shouldMarkRoomMaintenance) {
         await client.query(
-          `UPDATE rooms SET status = 'maintenance', updated_at = NOW() WHERE id = $1 AND status = 'available'`,
+          `UPDATE rooms SET status = 'maintenance', updated_at = NOW() WHERE id = $1 AND status <> 'occupied'`,
           [roomId],
         );
       }
       await client.query(
         `INSERT INTO notifications (recipient_user_id, title, message, type)
          SELECT id, $1, $2, $3 FROM users
-         WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
+         WHERE (role IN ('admin', 'manager', 'hotelManager', 'operationsManager') OR id = $5) AND id <> $4`,
         [
           `New maintenance ticket ${ticketNumber}`,
-          `${severity || "normal"} priority ticket created for ${roomId ? `room ${roomId}` : "restaurant / shared area"}.`,
+          `${severity || "normal"} priority ticket created for ${roomNumberLabel ? `Room ${roomNumberLabel}` : roomId ? `room ${roomId}` : "restaurant / shared area"}.`,
           "maintenance",
           session.id,
           routedRecipient,
@@ -161,6 +185,9 @@ export async function POST(request: NextRequest) {
       return createdTicket;
     });
     publishRealtime("maintenance.updated", String(ticket.id));
+    if (roomId && shouldMarkRoomMaintenance) {
+      publishRealtime("rooms.updated", String(roomId));
+    }
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
     console.error("Error creating maintenance ticket:", error);
