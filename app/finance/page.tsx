@@ -29,6 +29,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { StaffRewardsPanel } from "@/components/finance/staff-rewards-panel";
+import { LogoDisplay } from "@/components/logo-display";
 
 type Transaction = {
   transaction_id?: string;
@@ -431,88 +432,86 @@ export default function FinancePage() {
 
   return (
     <RoleGuard section="finance">
-      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 lg:p-8">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
-          <header className="flex flex-col gap-4 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between md:p-6">
-            <div className="flex items-start gap-3">
-              <Button
-                asChild
-                variant="outline"
-                size="icon"
-                className="shrink-0 rounded-md"
-                aria-label="Back to dashboard"
-              >
-                <Link href="/">
-                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-              <div>
-                <p className="text-sm font-medium text-primary">
-                  Finance workspace
-                </p>
-                <h1 className="text-3xl font-bold tracking-tight text-balance">
-                  Reconciliation and cash flow
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Review completed transactions, refunds, and payment activity.
-                </p>
-              </div>
+      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+        <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/80 px-3 py-3 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80 sm:px-4 md:px-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="shrink-0 rounded-xl border-orange-200 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80"
+              aria-label="Back to dashboard"
+            >
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+              </Link>
+            </Button>
+            <LogoDisplay size="sm" />
+            <div>
+              <p className="text-xs font-medium text-primary">
+                Finance workspace
+              </p>
+              <h1 className="text-lg font-bold tracking-tight text-balance sm:text-2xl">
+                Reconciliation and cash flow
+              </h1>
             </div>
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-              <Select value={source} onValueChange={setSource}>
-                <SelectTrigger
-                  className="w-full sm:w-[150px]"
-                  aria-label="Transaction source"
-                >
-                  <SelectValue placeholder="All sources" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sources</SelectItem>
-                  <SelectItem value="hotel">Hotel activity</SelectItem>
-                  <SelectItem value="restaurant">Restaurant sales</SelectItem>
-                  <SelectItem value="event">Event organization</SelectItem>
-                  <SelectItem value="shared_event">Shared Event</SelectItem>
-                  <SelectItem value="shared">Shared Operations</SelectItem>
-                  <SelectItem value="refund">Refunds</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger
-                  className="w-full sm:w-[170px]"
-                  aria-label="Profit and loss department"
-                >
-                  <SelectValue placeholder="All departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All departments</SelectItem>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="restaurant">Restaurant</SelectItem>
-                  <SelectItem value="event">Event Organization</SelectItem>
-                  <SelectItem value="shared_event">Shared Event</SelectItem>
-                  <SelectItem value="shared">Shared / Corporate</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                onClick={() => void loadTransactions()}
-                disabled={loading}
-                aria-label="Refresh finance transactions"
+          </div>
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger
+                className="w-full sm:w-[150px]"
+                aria-label="Transaction source"
               >
-                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{" "}
-                Refresh
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/expenses">Operating expenses</Link>
-              </Button>
-              <Button
-                onClick={() => exportExcel()}
-                disabled={!transactions.length}
+                <SelectValue placeholder="All sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="hotel">Hotel activity</SelectItem>
+                <SelectItem value="restaurant">Restaurant sales</SelectItem>
+                <SelectItem value="event">Event organization</SelectItem>
+                <SelectItem value="shared_event">Shared Event</SelectItem>
+                <SelectItem value="shared">Shared Operations</SelectItem>
+                <SelectItem value="refund">Refunds</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={department} onValueChange={setDepartment}>
+              <SelectTrigger
+                className="w-full sm:w-[170px]"
+                aria-label="Profit and loss department"
               >
-                <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export
-                Excel
-              </Button>
-            </div>
-          </header>
+                <SelectValue placeholder="All departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                <SelectItem value="hotel">Hotel</SelectItem>
+                <SelectItem value="restaurant">Restaurant</SelectItem>
+                <SelectItem value="event">Event Organization</SelectItem>
+                <SelectItem value="shared_event">Shared Event</SelectItem>
+                <SelectItem value="shared">Shared / Corporate</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => void loadTransactions()}
+              disabled={loading}
+              aria-label="Refresh finance transactions"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{" "}
+              Refresh
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/expenses">Operating expenses</Link>
+            </Button>
+            <Button
+              onClick={() => exportExcel()}
+              disabled={!transactions.length}
+            >
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export
+              Excel
+            </Button>
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-3 sm:gap-6 sm:p-4 lg:p-8">
           <section
             aria-labelledby="finance-areas-heading"
             className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"

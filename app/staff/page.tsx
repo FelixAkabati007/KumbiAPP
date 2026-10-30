@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { LogoDisplay } from "@/components/logo-display";
+import { enqueueOfflineAttendance } from "@/lib/offline-storage";
 
 interface AttendanceRecord {
   check_in_at?: string;
@@ -118,20 +120,46 @@ export default function StaffPage() {
     setBusy(true);
     setMessage("");
     setMessageTone("neutral");
-    const response = await fetch("/api/attendance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const data = await response.json();
-    const successMessage = action === "check_in" ? "Check-in successful" : "Check-out successful";
-    setMessage(response.ok ? successMessage : data.error ?? `Check-${action === "check_in" ? "in" : "out"} failed`);
-    setMessageTone(response.ok ? "success" : "error");
-    if (response.ok) {
-      setNextAction(data.nextAction ?? (action === "check_in" ? "check_out" : "complete"));
-      await load();
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOfflineAttendance({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        payload: { action },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+      setMessage(action === "check_in" ? "Check-in recorded locally (offline mode). Will sync automatically." : "Check-out recorded locally (offline mode). Will sync automatically.");
+      setMessageTone("success");
+      setBusy(false);
+      return;
     }
-    setBusy(false);
+    try {
+      const response = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      const successMessage = action === "check_in" ? "Check-in successful" : "Check-out successful";
+      setMessage(response.ok ? successMessage : data.error ?? `Check-${action === "check_in" ? "in" : "out"} failed`);
+      setMessageTone(response.ok ? "success" : "error");
+      if (response.ok) {
+        setNextAction(data.nextAction ?? (action === "check_in" ? "check_out" : "complete"));
+        await load();
+      }
+      setBusy(false);
+    } catch {
+      enqueueOfflineAttendance({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        payload: { action },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+      setMessage("Recorded locally (offline mode). Will sync automatically when connection is restored.");
+      setMessageTone("success");
+      setBusy(false);
+    }
   }
 
   if (isLoading || !user || user.role !== "staff") return null;
@@ -139,18 +167,25 @@ export default function StaffPage() {
   const open = nextAction === "check_out";
   const canCheckIn = nextAction === "check_in";
   return (
-    <main className="min-h-screen bg-muted/30 p-4 text-foreground sm:p-8">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <header className="space-y-4">
-          <Link href="/" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold transition hover:bg-muted">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to dashboard
+    <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/80 px-3 py-3 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80 sm:px-4 md:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-sm font-semibold transition hover:bg-orange-50 dark:border-orange-700 dark:bg-gray-800/80">
+            <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" aria-hidden="true" /> Back to dashboard
           </Link>
-          <div>
-            <p className="text-sm font-medium text-primary">Staff workspace</p>
-            <h1 className="text-3xl font-bold tracking-tight">Staff Attendance</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use this page to record your shift start and finish.</p>
+          <LogoDisplay size="sm" />
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+            <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">Staff Attendance</span>
           </div>
-        </header>
+        </div>
+      </header>
+      <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
+        <div>
+          <p className="text-sm font-medium text-primary">Staff workspace</p>
+          <h1 className="text-3xl font-bold tracking-tight">Staff Attendance</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Use this page to record your shift start and finish.</p>
+        </div>
         <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm sm:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-background p-3 text-primary"><CalendarDays className="h-6 w-6" aria-hidden="true" /></div>

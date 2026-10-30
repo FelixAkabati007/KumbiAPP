@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RoleGuard } from "@/components/role-guard";
+import { LogoDisplay } from "@/components/logo-display";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -24,13 +25,14 @@ function OperationsWorkspace() {
   const [savingTicket, setSavingTicket] = useState(false);
   const [ticketForm, setTicketForm] = useState({ roomNumber: "", issueDescription: "", severity: "normal", notes: "" });
 
+  const loadTickets = async (filterStatus = status) => {
+    const response = await fetch(`/api/hotels/maintenance${filterStatus === "all" ? "" : `?status=${encodeURIComponent(filterStatus)}`}`, { cache: "no-store" });
+    if (response.ok) setTickets(await response.json());
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const response = await fetch(`/api/hotels/maintenance${status === "all" ? "" : `?status=${encodeURIComponent(status)}`}`);
-      if (response.ok) setTickets(await response.json());
-      setLoading(false);
-    };
-    load();
+    void loadTickets(status);
   }, [status]);
 
   useEffect(() => {
@@ -38,14 +40,15 @@ function OperationsWorkspace() {
   }, []);
 
   const createTicket = async () => {
-    const roomId = rooms.find((room) => room.room_number === ticketForm.roomNumber)?.id;
-    if (!roomId || !ticketForm.issueDescription) { toast({ title: "Room and issue description are required", variant: "destructive" }); return; }
+    const isSharedArea = ticketForm.roomNumber === "shared";
+    const roomId = isSharedArea ? null : rooms.find((room) => room.room_number === ticketForm.roomNumber)?.id;
+    if ((!roomId && !isSharedArea) || !ticketForm.issueDescription) { toast({ title: "Location and issue description are required", variant: "destructive" }); return; }
     setSavingTicket(true);
     try {
       const response = await fetch("/api/hotels/maintenance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roomId, issueDescription: ticketForm.issueDescription, severity: ticketForm.severity, notes: ticketForm.notes || null }) });
       if (!response.ok) throw new Error("Failed to create ticket");
       toast({ title: "Maintenance ticket created" }); setShowNewTicketDialog(false); setTicketForm({ roomNumber: "", issueDescription: "", severity: "normal", notes: "" });
-      window.location.reload();
+      await loadTickets(status);
     } catch { toast({ title: "Failed to create maintenance ticket", variant: "destructive" }); } finally { setSavingTicket(false); }
   };
 
@@ -65,12 +68,31 @@ function OperationsWorkspace() {
 
   const statCards: Array<{ label: string; value: number; Icon: typeof Wrench }> = [["Open issues", stats.open, Wrench], ["Urgent or high", stats.urgent, AlertTriangle], ["Assigned", stats.assigned, Clock3], ["Resolved", stats.resolved, CheckCircle2]].map(([label, value, Icon]) => ({ label: String(label), value: Number(value), Icon: Icon as typeof Wrench }));
 
-  return <main className="min-h-screen space-y-4 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 pt-5 sm:p-4 md:p-8 md:pt-6 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 border-b border-orange-200 pb-6 md:flex-row md:items-end md:justify-between dark:border-orange-700">
-        <div><p className="text-sm font-medium text-orange-600 dark:text-orange-400">Operations control</p><h1 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">Technical Operations</h1><p className="mt-2 max-w-2xl text-muted-foreground">Create, assign, and resolve maintenance tickets across hotel and restaurant operations. For official broadcasts and staff notices, use Announcements.</p></div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"><Button asChild variant="outline" className="w-full rounded-2xl border-orange-200 bg-white/70 dark:border-orange-700 dark:bg-gray-800/70 sm:w-auto"><Link href="/"><ArrowLeft data-icon="inline-start" />Back to Dashboard</Link></Button><Button asChild variant="outline" className="w-full sm:w-auto"><Link href="/announcements">Announcements</Link></Button><Badge variant="outline" className="w-fit">Reports to General Manager</Badge><Button onClick={() => setShowNewTicketDialog(true)} className="w-full rounded-2xl bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"><Plus className="mr-2 h-4 w-4" />New Ticket</Button><Select value={status} onValueChange={setStatus}><SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Filter status" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="assigned">Assigned</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="resolved">Resolved</SelectItem></SelectContent></Select></div>
-      </header>
+  return <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+    <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/80 px-3 py-3 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80 sm:px-4 md:px-6">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Button asChild variant="outline" size="sm" className="rounded-xl border-orange-200 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80">
+          <Link href="/"><ArrowLeft data-icon="inline-start" />Back to Dashboard</Link>
+        </Button>
+        <LogoDisplay size="sm" />
+        <div className="flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+          <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">Technical Operations</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="sm" className="rounded-xl border-orange-200 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80"><Link href="/announcements">Announcements</Link></Button>
+        <Badge variant="outline" className="w-fit">Reports to General Manager</Badge>
+        <Button onClick={() => setShowNewTicketDialog(true)} size="sm" className="rounded-xl bg-orange-500 text-white hover:bg-orange-600"><Plus className="mr-1.5 h-4 w-4" />New Ticket</Button>
+        <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-9 w-36 sm:w-44"><SelectValue placeholder="Filter status" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="assigned">Assigned</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="resolved">Resolved</SelectItem></SelectContent></Select>
+      </div>
+    </header>
+    <div className="mx-auto max-w-7xl space-y-6 p-3 pt-5 sm:p-4 md:p-8 md:pt-6">
+      <div className="border-b border-orange-200 pb-4 dark:border-orange-700">
+        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Operations control</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-800 dark:text-gray-200">Technical Operations</h1>
+        <p className="mt-2 max-w-2xl text-muted-foreground">Create, assign, and resolve maintenance tickets across hotel and restaurant operations. For official broadcasts and staff notices, use Announcements.</p>
+      </div>
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Operations summary">
         {statCards.map(({ label, value, Icon }) => <Card key={label} className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white/70 shadow-sm backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:border-orange-700 dark:bg-gray-800/70"><div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" /><CardContent className="relative z-10 flex items-center justify-between p-5"><div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-bold text-orange-700 dark:text-orange-300">{value}</p></div><Icon className="size-5 text-orange-600 dark:text-orange-400" aria-hidden="true" /></CardContent></Card>)}
       </section>
@@ -79,7 +101,7 @@ function OperationsWorkspace() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Create Maintenance Ticket</DialogTitle><DialogDescription>Report a repair or technical issue for the operations team.</DialogDescription></DialogHeader>
           <div className="grid gap-4">
-            <div><Label htmlFor="operations-room">Room Number</Label><select id="operations-room" value={ticketForm.roomNumber} onChange={(event) => setTicketForm({ ...ticketForm, roomNumber: event.target.value })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="">Select a room</option>{rooms.filter((room) => room.status !== "inactive").map((room) => <option key={room.id} value={room.room_number}>Room {room.room_number}</option>)}</select></div>
+            <div><Label htmlFor="operations-room">Room Number / Area</Label><select id="operations-room" value={ticketForm.roomNumber} onChange={(event) => setTicketForm({ ...ticketForm, roomNumber: event.target.value })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="">Select a room or area</option><option value="shared">Restaurant / Kitchen / Shared Area</option>{rooms.filter((room) => room.status !== "inactive").map((room) => <option key={room.id} value={room.room_number}>Room {room.room_number}</option>)}</select></div>
             <div><Label htmlFor="operations-issue">Issue Description</Label><textarea id="operations-issue" value={ticketForm.issueDescription} onChange={(event) => setTicketForm({ ...ticketForm, issueDescription: event.target.value })} className="min-h-24 w-full rounded-lg border bg-background px-3 py-2" placeholder="Describe the issue..." /></div>
             <div><Label htmlFor="operations-severity">Severity</Label><select id="operations-severity" value={ticketForm.severity} onChange={(event) => setTicketForm({ ...ticketForm, severity: event.target.value })} className="h-10 w-full rounded-lg border bg-background px-3 text-sm"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
             <div><Label htmlFor="operations-notes">Notes</Label><textarea id="operations-notes" value={ticketForm.notes} onChange={(event) => setTicketForm({ ...ticketForm, notes: event.target.value })} className="min-h-20 w-full rounded-lg border bg-background px-3 py-2" placeholder="Additional details..." /></div>

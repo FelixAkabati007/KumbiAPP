@@ -37,6 +37,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecipeManager } from "@/components/menu/recipe-manager";
 import { useAuth } from "@/components/auth-provider";
+import { LogoDisplay } from "@/components/logo-display";
 import {
   getMenuItems,
   createMenuItem,
@@ -580,7 +581,9 @@ function MenuContent() {
         >
           <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
         </Button>
-        <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200 ml-2">
+        <LogoDisplay size="sm" />
+        <UtensilsCrossed className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+        <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
           Menu Management
         </h1>
         <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">

@@ -193,7 +193,7 @@ function SystemContent() {
             </TabsContent>
 
             <TabsContent value="hardware" className="mt-6">
-              <Card className="border-blue-200 dark:border-blue-700 bg-white/50 dark:bg-gray-800/50">
+              <Card className="border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <HardDrive className="h-5 w-5" />

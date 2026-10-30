@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Download, FileBarChart2, Users, XCircle } from "lucide-react";
+import { LogoDisplay } from "@/components/logo-display";
 
 interface AttendanceRecord {
   id: string;
@@ -69,16 +70,20 @@ export default function AttendanceReportsPage() {
   }, [range]);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Link href="/attendance" className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Attendance control center</Link>
-            <div className="flex items-center gap-3"><div className="rounded-2xl bg-primary/10 p-3 text-primary"><FileBarChart2 className="h-6 w-6" /></div><div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Management report</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Attendance Register</h1></div></div>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Approved attendance only. Review Early, Mid, and Late shift performance for management decisions.</p>
-          </div>
-          <button type="button" onClick={() => window.print()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold hover:bg-muted"><Download className="h-4 w-4" /> Export / print</button>
-        </header>
+    <main className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 text-foreground dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/80 px-3 py-3 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/80 sm:px-4 md:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/attendance" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-sm font-semibold transition hover:bg-orange-50 dark:border-orange-700 dark:bg-gray-800/80"><ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" /> Attendance control center</Link>
+          <LogoDisplay size="sm" />
+          <div className="flex items-center gap-2"><FileBarChart2 className="h-5 w-5 text-orange-600 dark:text-orange-400" /><h1 className="text-lg font-semibold tracking-tight sm:text-xl">Attendance Register</h1></div>
+        </div>
+        <button type="button" onClick={() => window.print()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-4 py-2 text-sm font-semibold hover:bg-orange-50 dark:border-orange-700 dark:bg-gray-800/80"><Download className="h-4 w-4" /> Export / print</button>
+      </header>
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Management report</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Approved attendance only. Review Early, Mid, and Late shift performance for management decisions.</p>
+        </div>
 
         <nav aria-label="Report period" className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2">
           {ranges.map(([value, label]) => <button key={value} type="button" onClick={() => setRange(value)} className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition ${range === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{label}</button>)}

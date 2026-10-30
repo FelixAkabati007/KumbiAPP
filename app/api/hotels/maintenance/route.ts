@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only Admins, Managers, or Housekeeping can issue maintenance tickets" }, { status: 403 });
     }
 
-    if (!roomId || !issueDescription) {
+    if ((roomId === undefined || roomId === "") || !issueDescription) {
       return NextResponse.json(
         { error: "Room and issue description are required" },
         { status: 400 }
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       `,
       [
         ticketNumber,
-        roomId,
+        roomId || null,
         issueDescription,
         severity || "normal",
         routedRecipient,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
        WHERE (role IN ('admin', 'manager', 'operationsManager') OR id = $5) AND id <> $4`,
       [
         `New maintenance ticket ${ticketNumber}`,
-        `${severity || "normal"} priority ticket created for room ${roomId}.`,
+        `${severity || "normal"} priority ticket created for ${roomId ? `room ${roomId}` : "restaurant / shared area"}.`,
         "maintenance",
         session.id,
         routedRecipient,
