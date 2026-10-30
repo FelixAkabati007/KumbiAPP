@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Home, ArrowLeft, Edit2, Trash2, Image as ImageIcon, X, Upload } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LogoDisplay } from "@/components/logo-display";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface RoomImage {
@@ -263,43 +264,53 @@ function RoomsPage() {
   const liveSync = useHotelLiveSync(fetchRooms);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+      <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/90 px-3 py-2 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/90 sm:min-h-16 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button
-          onClick={() => router.back()}
+            onClick={() => router.back()}
             variant="outline"
             size="icon"
-            className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+            aria-label="Back to dashboard"
+            className="shrink-0 rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Rooms</h2>
+          <LogoDisplay size="sm" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">
+              Hotel Inventory &amp; Rates
+            </p>
+            <h2 className="truncate text-lg font-bold tracking-tight sm:text-2xl">Rooms</h2>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
           <Button
-          onClick={() => {
-            setEditingRoom(null);
-            setFormData({
-              roomNumber: "",
-              roomTypeId: roomTypes[0]?.id || "",
-              floor: 1,
-              building: "Main",
-              notes: "",
-              price: roomTypes[0]?.base_price?.toString() || "",
-              images: [],
-            });
-            setPreviewImages([]);
-            setImageInput("");
-            setShowAddDialog(true);
-          }}
-          className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Room
-        </Button>
+            onClick={() => {
+              setEditingRoom(null);
+              setFormData({
+                roomNumber: "",
+                roomTypeId: roomTypes[0]?.id || "",
+                floor: 1,
+                building: "Main",
+                notes: "",
+                price: roomTypes[0]?.base_price?.toString() || "",
+                images: [],
+              });
+              setPreviewImages([]);
+              setImageInput("");
+              setShowAddDialog(true);
+            }}
+            className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Room
+          </Button>
         </div>
-      </div>
+      </header>
+
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
 
       {/* Room Status Summary */}
       <div className="grid min-w-0 gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -934,6 +945,7 @@ function RoomsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

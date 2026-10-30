@@ -45,6 +45,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
+import { LogoDisplay } from "@/components/logo-display";
 import { printHotelReceipt } from "@/lib/hotel-receipt-print";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useSettings } from "@/components/settings-provider";
@@ -753,27 +754,36 @@ function CheckInPage() {
   });
 
   return (
-    <div className="min-w-0 flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
+    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+      <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-orange-200 bg-white/90 px-3 py-2 backdrop-blur-md dark:border-orange-700 dark:bg-gray-900/90 sm:min-h-16 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button
             onClick={() => router.back()}
             variant="outline"
             size="icon"
-            className="rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+            aria-label="Back to dashboard"
+            className="shrink-0 rounded-full border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
           >
             <ArrowLeft className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </Button>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Check-In / Check-Out
-          </h2>
+          <LogoDisplay size="sm" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">
+              Front Desk Operations
+            </p>
+            <h2 className="truncate text-lg font-bold tracking-tight sm:text-2xl">
+              Check-In / Check-Out
+            </h2>
+          </div>
         </div>
         <LiveSyncToolbar
           connected={liveSync.connected}
           refreshing={liveSync.refreshing}
           onRefresh={() => void liveSync.refresh()}
         />
-      </div>
+      </header>
+
+      <div className="min-w-0 flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
 
       <Dialog
         open={Boolean(latestRestaurantOrder?.printRequested)}
@@ -1702,6 +1712,7 @@ Select active menu items, take payment immediately, and send the
       </Dialog>
 
       <ComplimentaryAuthorizationsPanel />
+      </div>
     </div>
   );
 }
