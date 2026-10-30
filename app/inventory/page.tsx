@@ -1296,6 +1296,7 @@ function InventoryContent() {
                       <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
                         <span className="text-muted-foreground">Photo Evidence:</span>
                         <div className="mt-2 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname)}`}
                             alt="Stock issue evidence"
