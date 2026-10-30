@@ -342,6 +342,10 @@ function InventoryContent() {
   };
   const getStockGroup = (item: InventoryItem) => getStockGroupLabel(item.category, item.name);
 
+  const isLowStock = (item: InventoryItem) => {
+    return Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel);
+  };
+
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -771,10 +775,6 @@ function InventoryContent() {
       default:
         return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-300 dark:border-gray-700";
     }
-  };
-
-  const isLowStock = (item: InventoryItem) => {
-  return Number.parseFloat(item.quantity) <= Number.parseFloat(item.reorderLevel)
   };
 
   const openTopUpHistory = async (item: InventoryItem) => {
