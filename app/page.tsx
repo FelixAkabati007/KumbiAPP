@@ -350,8 +350,7 @@ function DashboardContent() {
   const isAttendanceExempt = attendanceExemptRoles.includes(user.role);
   const requiresAttendanceApproval = !isAttendanceExempt;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
-  const isExplicitlyRejected = attendanceStatus === "rejected";
-  const attendanceApproved = isAttendanceExempt || !isExplicitlyRejected;
+  const attendanceApproved = isAttendanceExempt || ["verified", "approved", "approved_late"].includes(attendanceStatus);
   const dashboardAccess: Record<AppSection, boolean> =
     requiresAttendanceApproval && !attendanceApproved
       ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)

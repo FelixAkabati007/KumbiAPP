@@ -39,43 +39,21 @@ export async function requireSession(): Promise<AuthResult> {
  * etc.) so the server enforces the same rule the UI's RoleGuard shows.
  */
 async function hasApprovedAttendance(session: ApiSession) {
-  // All management roles are exempt from the attendance gate.
+  // Management roles are exempt from the operational staff attendance gate;
+  // operational staff (frontDesk, kitchen, waiterWaitress, restaurantFrontDesk, housekeeping, staff)
+  // must have a verified attendance record for today.
   if (managementRoles.includes(session.role)) return true;
-
-  // Only enforce strict attendance blocking when explicitly enabled via environment variable,
-  // or if an attendance record for today was explicitly rejected by a manager.
-  if (process.env.ENFORCE_STRICT_ATTENDANCE_GATE !== "true") {
-    try {
-      const rejectedCheck = await query(
-        `SELECT 1
-         FROM attendance_records
-         WHERE user_id = $1
-           AND created_at::date = ${propertyDayExpression()}
-           AND verification_status = 'rejected'
-         LIMIT 1`,
-        [session.id],
-      );
-      return rejectedCheck.rows.length === 0;
-    } catch {
-      return true;
-    }
-  }
-
-  try {
-    const result = await query(
-      `SELECT 1
-       FROM attendance_records
-       WHERE user_id = $1
-         AND created_at::date = ${propertyDayExpression()}
-         AND verification_status = 'verified'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [session.id],
-    );
-    return result.rows.length > 0;
-  } catch {
-    return true;
-  }
+  const result = await query(
+    `SELECT 1
+     FROM attendance_records
+     WHERE user_id = $1
+       AND created_at::date = ${propertyDayExpression()}
+       AND verification_status = 'verified'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [session.id],
+  );
+  return result.rows.length > 0;
 }
 
 function attendanceGateError() {
