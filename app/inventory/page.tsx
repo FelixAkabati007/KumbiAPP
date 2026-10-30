@@ -25,6 +25,9 @@ import {
   Download,
   Printer,
   Loader2,
+  CheckCircle2,
+  XCircle,
+  Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,7 +61,8 @@ import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
 import { getInventoryBaseUnit } from "@/lib/inventory-units";
-import { canTopUpInventory } from "@/lib/roles";
+import { canTopUpInventory, canReviewInventoryVariance } from "@/lib/roles";
+import { useRealtime } from "@/components/realtime-provider";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -114,6 +118,48 @@ function InventoryContent() {
   const [varianceExplanation, setVarianceExplanation] = useState("");
   const [varianceEvidence, setVarianceEvidence] = useState<File | null>(null);
   const [isSubmittingVariance, setIsSubmittingVariance] = useState(false);
+  const canReviewVariance = canReviewInventoryVariance(user?.role);
+  const [pendingVariances, setPendingVariances] = useState<Array<{
+    id: string;
+    inventory_item_id: string;
+    item_name: string;
+    item_sku: string;
+    item_unit: string;
+    current_stock: string | number;
+    reported_by_name: string;
+    reported_by_role: string;
+    reason: string;
+    quantity: string | number;
+    explanation: string;
+    evidence_pathname: string | null;
+    status: "pending" | "approved" | "rejected";
+    created_at: string;
+    reviewed_by_name?: string | null;
+    reviewer_notes?: string | null;
+    reviewed_at?: string | null;
+  }>>([]);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [selectedVariance, setSelectedVariance] = useState<{
+    id: string;
+    inventory_item_id: string;
+    item_name: string;
+    item_sku: string;
+    item_unit: string;
+    current_stock: string | number;
+    reported_by_name: string;
+    reported_by_role: string;
+    reason: string;
+    quantity: string | number;
+    explanation: string;
+    evidence_pathname: string | null;
+    status: "pending" | "approved" | "rejected";
+    created_at: string;
+    reviewed_by_name?: string | null;
+    reviewer_notes?: string | null;
+    reviewed_at?: string | null;
+  } | null>(null);
+  const [varianceReviewNotes, setVarianceReviewNotes] = useState("");
+  const [isProcessingVarianceAction, setIsProcessingVarianceAction] = useState(false);
   const [topUpItem, setTopUpItem] = useState<InventoryItem | null>(null);
   const [topUpQuantity, setTopUpQuantity] = useState("");
   const [topUpReason, setTopUpReason] = useState("");
@@ -224,6 +270,69 @@ function InventoryContent() {
       .then((events) => setHotelActivityCount(Array.isArray(events) ? events.length : 0))
       .catch(() => setHotelActivityCount(0));
   }, []);
+
+  const loadPendingVariances = useCallback(async () => {
+    if (!canReviewVariance) return;
+    try {
+      const res = await fetch("/api/inventory/variance?status=pending");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setPendingVariances(data);
+      }
+    } catch {
+      // offline or silent fail
+    }
+  }, [canReviewVariance]);
+
+  useEffect(() => {
+    if (canReviewVariance) {
+      void loadPendingVariances();
+    }
+  }, [canReviewVariance, loadPendingVariances]);
+
+  const { lastEvent } = useRealtime();
+  useEffect(() => {
+    if (lastEvent?.topic === "inventory.updated" || lastEvent?.topic === "notifications.updated") {
+      void loadInventory();
+      if (canReviewVariance) {
+        void loadPendingVariances();
+      }
+    }
+  }, [lastEvent, loadInventory, canReviewVariance, loadPendingVariances]);
+
+  const handleVarianceAction = async (action: "approve" | "reject") => {
+    if (!selectedVariance) return;
+    setIsProcessingVarianceAction(true);
+    try {
+      const response = await fetch(`/api/inventory/variance/${selectedVariance.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, notes: varianceReviewNotes.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Failed to ${action} variance`);
+      toast({
+        title: action === "approve" ? "Stock Issue Approved" : "Stock Issue Rejected",
+        description: action === "approve"
+          ? `Approved write-off of ${selectedVariance.quantity} ${selectedVariance.item_unit} for ${selectedVariance.item_name}.`
+          : `Rejected stock issue report for ${selectedVariance.item_name}.`,
+      });
+      setSelectedVariance(null);
+      setVarianceReviewNotes("");
+      setIsReviewDialogOpen(false);
+      await loadInventory();
+      await loadPendingVariances();
+    } catch (error) {
+      toast({
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Unable to process request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingVarianceAction(false);
+    }
+  };
 
   const getStockGroupLabel = (category: string | undefined, name: string | undefined) => {
     const value = `${category ?? ""} ${name ?? ""}`.toLowerCase();
@@ -553,6 +662,9 @@ function InventoryContent() {
       setVarianceQuantity("");
       setVarianceExplanation("");
       setVarianceEvidence(null);
+      if (canReviewVariance) {
+        void loadPendingVariances();
+      }
     } catch (error) {
       toast({ title: "Submission failed", description: error instanceof Error ? error.message : "Unable to submit report", variant: "destructive" });
     } finally {
@@ -743,6 +855,30 @@ function InventoryContent() {
                 <Printer className="mr-2 h-4 w-4" />
               )}
               {isPrintingInventory ? "Printing..." : "Print"}
+            </Button>
+          )}
+          {canReviewVariance && (
+            <Button
+              variant={pendingVariances.length > 0 ? "default" : "outline"}
+              onClick={() => {
+                setSelectedVariance(null);
+                setVarianceReviewNotes("");
+                setIsReviewDialogOpen(true);
+              }}
+              className={`rounded-2xl relative ${
+                pendingVariances.length > 0
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md animate-pulse"
+                  : "border-rose-200 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-700 dark:text-rose-300"
+              }`}
+              title="Review stock issues submitted by staff"
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              <span>Stock Issues</span>
+              {pendingVariances.length > 0 && (
+                <Badge className="ml-2 bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
+                  {pendingVariances.length}
+                </Badge>
+              )}
             </Button>
           )}
           <Button
@@ -1051,6 +1187,207 @@ function InventoryContent() {
               <div className="grid gap-2"><Label htmlFor="variance-evidence">Photo evidence</Label><Input id="variance-evidence" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setVarianceEvidence(event.target.files?.[0] ?? null)} /><p className="text-xs text-muted-foreground">Required. Maximum 5MB. Evidence is stored privately for management review.</p></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setVarianceItem(null)}>Cancel</Button><Button onClick={handleSubmitVariance} disabled={isSubmittingVariance}>{isSubmittingVariance ? "Submitting..." : "Submit for review"}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manager Stock Issues Review Dialog */}
+        <Dialog
+          open={isReviewDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsReviewDialogOpen(false);
+              setSelectedVariance(null);
+              setVarianceReviewNotes("");
+            }
+          }}
+        >
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border-rose-200 dark:border-rose-900 overflow-hidden">
+            <DialogHeader className="shrink-0 border-b pb-3">
+              <DialogTitle className="text-lg font-bold text-rose-950 dark:text-rose-100 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-rose-600" />
+                Pending Stock Issue Reports ({pendingVariances.length})
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                Authorized managers review reported damages, expiry, and discrepancies to approve stock write-offs or reject.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto p-1 space-y-4">
+              {pendingVariances.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-base font-semibold text-muted-foreground">No pending stock issue reports</p>
+                  <p className="text-xs text-muted-foreground/80 mt-1">
+                    When staff report damaged, expired, or missing stock, reports will appear here for manager action.
+                  </p>
+                </div>
+              ) : selectedVariance ? (
+                <div className="space-y-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedVariance(null);
+                      setVarianceReviewNotes("");
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground mb-1 -ml-2"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                    Back to all reports
+                  </Button>
+
+                  <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-base text-foreground">{selectedVariance.item_name}</h4>
+                        <p className="text-xs text-muted-foreground">SKU: {selectedVariance.item_sku || "N/A"}</p>
+                      </div>
+                      <Badge variant="outline" className="capitalize border-rose-300 text-rose-700 dark:text-rose-300 font-semibold">
+                        {selectedVariance.reason.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                      <div>
+                        <span className="text-muted-foreground">Current in Stock:</span>
+                        <p className="font-semibold text-sm">{selectedVariance.current_stock} {selectedVariance.item_unit}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Reported Write-Off:</span>
+                        <p className="font-semibold text-sm text-rose-600 dark:text-rose-400">
+                          - {selectedVariance.quantity} {selectedVariance.item_unit}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                      <span className="text-muted-foreground">Reported By:</span>
+                      <p className="font-medium text-foreground">
+                        {selectedVariance.reported_by_name} ({selectedVariance.reported_by_role})
+                        <span className="text-muted-foreground font-normal ml-2">
+                          {new Date(selectedVariance.created_at).toLocaleString()}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                      <span className="text-muted-foreground">Staff Explanation:</span>
+                      <p className="mt-1 p-2.5 rounded-xl bg-background border text-xs text-foreground whitespace-pre-wrap">
+                        {selectedVariance.explanation}
+                      </p>
+                    </div>
+
+                    {selectedVariance.evidence_pathname && (
+                      <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                        <span className="text-muted-foreground">Photo Evidence:</span>
+                        <div className="mt-2 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center">
+                          <img
+                            src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname)}`}
+                            alt="Stock issue evidence"
+                            className="max-h-60 w-auto object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="review-notes" className="text-xs font-semibold">
+                      Manager Review Notes (optional for approval, recommended for rejection):
+                    </Label>
+                    <Textarea
+                      id="review-notes"
+                      placeholder="Add an explanation or action details for staff records..."
+                      value={varianceReviewNotes}
+                      onChange={(e) => setVarianceReviewNotes(e.target.value)}
+                      className="text-xs min-h-[60px]"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleVarianceAction("reject")}
+                      disabled={isProcessingVarianceAction}
+                      className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    >
+                      {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                      Reject Report
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleVarianceAction("approve")}
+                      disabled={isProcessingVarianceAction}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                      Approve & Write Off {selectedVariance.quantity} {selectedVariance.item_unit}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingVariances.map((variance) => (
+                    <div
+                      key={variance.id}
+                      className="rounded-2xl border p-3 hover:border-rose-400 dark:hover:border-rose-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm truncate">{variance.item_name}</span>
+                          <Badge variant="outline" className="text-[10px] uppercase font-semibold border-rose-300 text-rose-700">
+                            {variance.reason.replace(/_/g, " ")}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[10px]">
+                            -{variance.quantity} {variance.item_unit}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {variance.explanation}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          By <span className="font-medium text-foreground">{variance.reported_by_name}</span> ({variance.reported_by_role}) · {new Date(variance.created_at).toLocaleDateString()} {new Date(variance.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedVariance(variance);
+                            setVarianceReviewNotes("");
+                          }}
+                          className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Review & Act
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="shrink-0 border-t pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsReviewDialogOpen(false);
+                  setSelectedVariance(null);
+                  setVarianceReviewNotes("");
+                }}
+              >
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 

@@ -56,6 +56,13 @@ export function canTopUpInventory(role?: string | null): boolean {
   return Boolean(role && inventoryTopUpRoles.includes(role as UserRole));
 }
 
+/** Roles authorized to review, approve (write off), or reject inventory stock issue variance reports. */
+export const inventoryVarianceReviewRoles: readonly UserRole[] = ["admin", "manager", "restaurantManager"];
+
+export function canReviewInventoryVariance(role?: string | null): boolean {
+  return Boolean(role && inventoryVarianceReviewRoles.includes(role as UserRole));
+}
+
 /** Chefs may edit recipe ingredients, but not create/edit/delete menu items. */
 export function canEditRecipes(role?: string | null): boolean {
   return role === "admin" || role === "restaurantManager" || role === "manager" || role === "kitchen";

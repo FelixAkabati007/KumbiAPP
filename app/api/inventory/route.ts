@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 import { updateSystemState } from "@/lib/system-sync";
+import { publishRealtime } from "@/lib/realtime";
 import {
   isInventoryUnit,
   validateInventoryNumber,
@@ -315,6 +316,7 @@ export async function POST(req: Request) {
       occurredAt: canonicalNow,
     });
     await updateSystemState("inventory");
+    await publishRealtime("inventory.updated", res.rows[0].id);
     return NextResponse.json({ id: res.rows[0].id }, { status: 201 });
   } catch (error) {
     console.error("Inventory POST failed:", error);

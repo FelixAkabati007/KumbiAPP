@@ -483,89 +483,111 @@ function DashboardContent() {
           </div>
           <nav
             aria-label="Dashboard navigation"
-            className="flex w-full flex-wrap items-center gap-2 overflow-hidden pb-0 sm:gap-1.5 md:flex-nowrap md:gap-1 lg:gap-1.5"
+            className="flex w-full flex-wrap items-center justify-between gap-1.5 sm:gap-2 md:flex-nowrap lg:gap-2.5"
           >
-            <div className="order-1 basis-full flex min-w-0 shrink-0 flex-col items-start rounded-2xl border border-orange-200 bg-orange-50 px-2.5 py-1 md:basis-auto md:max-w-[min(17rem,24vw)] lg:max-w-[min(20rem,26vw)]">
-              <span className="whitespace-nowrap text-sm font-semibold leading-5 text-orange-700 dark:text-orange-300">
-                Welcome, {user.name}
-              </span>
-              <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                {getRoleDisplayName(user.role)}
-              </span>
+            {/* Left Cluster: Welcome & Workspaces */}
+            <div className="flex flex-1 min-w-0 items-center gap-1.5 sm:gap-2">
+              <div className="flex min-w-0 shrink-0 max-w-[14rem] sm:max-w-[18rem] md:max-w-[20rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2.5 py-0.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
+                <span className="truncate text-xs sm:text-sm font-semibold leading-tight text-orange-700 dark:text-orange-300">
+                  Welcome, {user.name}
+                </span>
+                <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
+                  {getRoleDisplayName(user.role)}
+                </span>
+              </div>
+
+              {/* Split Workspaces: hidden on very small (<640px), icon-only on medium (640-1024px), full label on large (>=1024px) */}
+              <div className="hidden min-w-0 sm:flex items-center gap-1 sm:gap-1.5">
+                {dashboardAccess.pos && dashboardAccess.kitchen && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link className="shrink-0" href="/split-workspace">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="Open split POS and Kitchen workspace"
+                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
+                          >
+                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                            <span className="hidden lg:inline text-xs font-medium">
+                              Split POS + Kitchen
+                            </span>
+                          </Button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent className="lg:hidden">
+                        <p>Split POS + Kitchen Workspace</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {dashboardAccess.reservations && dashboardAccess.checkIn && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link className="shrink-0" href="/hotel-split-workspace">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="Open split Reservations and Check-In workspace"
+                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
+                          >
+                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                            <span className="hidden lg:inline text-xs font-medium">Split Hotel Desk</span>
+                          </Button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent className="lg:hidden">
+                        <p>Split Hotel Desk Workspace</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {dashboardAccess.menu && dashboardAccess.inventory && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link className="shrink-0" href="/menu-inventory-split-workspace">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="Open split Menu Management and Inventory workspace"
+                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
+                          >
+                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                            <span className="hidden lg:inline text-xs font-medium">
+                              Split Menu + Inventory
+                            </span>
+                          </Button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent className="lg:hidden">
+                        <p>Split Menu + Inventory Workspace</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
             </div>
-            <div className="order-2 hidden min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:max-w-full md:flex-none md:gap-1 md:overflow-visible">
-              {dashboardAccess.pos && dashboardAccess.kitchen && (
-                <Link
-                  className="shrink-0"
-                  href="/split-workspace"
-                  prefetch={false}
+
+            {/* Right Cluster: Utilities + Search + Profile */}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2">
+              <Link className="shrink-0" href="/settings">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Settings"
+                  title="Settings"
+                  className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
                 >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Open split POS and Kitchen workspace"
-                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
-                  >
-                    <SplitSquareHorizontal className="h-4 w-4" />
-                    <span className="hidden lg:inline">
-                      Split POS + Kitchen
-                    </span>
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.reservations && dashboardAccess.checkIn && (
-                <Link
-                  className="shrink-0"
-                  href="/hotel-split-workspace"
-                  prefetch={false}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Open split Reservations and Check-In workspace"
-                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
-                  >
-                    <SplitSquareHorizontal className="h-4 w-4" />
-                    <span className="hidden lg:inline">Split Hotel Desk</span>
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.menu && dashboardAccess.inventory && (
-                <Link
-                  className="shrink-0"
-                  href="/menu-inventory-split-workspace"
-                  prefetch={false}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Open split Menu Management and Inventory workspace"
-                    className="h-9 shrink-0 gap-1 rounded-xl border-orange-300 bg-orange-100/80 px-2 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 sm:px-2.5 lg:px-3"
-                  >
-                    <SplitSquareHorizontal className="h-4 w-4" />
-                    <span className="hidden lg:inline">
-                      Split Menu + Inventory
-                    </span>
-                  </Button>
-                </Link>
-              )}
-            </div>
-            <Link
-              className="order-3 shrink-0"
-              href="/settings"
-              prefetch={false}
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-xl border-orange-200 bg-transparent px-2 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20 lg:px-2.5"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </Link>
-            <div className="order-4 flex shrink-0 items-center gap-1 md:gap-1.5">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </Link>
+
               <OfflineSyncIndicator />
               <AppUpdateMenu />
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -573,7 +595,9 @@ function DashboardContent() {
                       variant="outline"
                       size="sm"
                       onClick={handleLogout}
-                      className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent relative group"
+                      aria-label="Sign out"
+                      title="Sign Out"
+                      className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
                     >
                       <LogOut className="h-4 w-4" />
                     </Button>
@@ -583,12 +607,14 @@ function DashboardContent() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
               <Button
                 variant="outline"
                 size="sm"
                 aria-label={isFullscreen ? "Minimize" : "Maximize"}
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 onClick={handleToggleFullscreen}
-                className="border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-2xl bg-transparent"
+                className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
               >
                 {isFullscreen ? (
                   <Minimize2 className="h-4 w-4" />
@@ -596,17 +622,19 @@ function DashboardContent() {
                   <Maximize2 className="h-4 w-4" />
                 )}
               </Button>
-            </div>
-            <div className="order-5 flex shrink-0 items-center gap-2 md:ml-auto md:gap-1.5">
-              <GlobalSearch role={user?.role} />
+
+              <div className="w-[6.5rem] xs:w-28 sm:w-36 md:w-48 lg:w-56 shrink-0">
+                <GlobalSearch role={user?.role} />
+              </div>
+
               <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
                 title="Notifications"
               >
                 <NotificationBell />
               </div>
-              <div className="flex shrink-0 justify-end md:order-6 md:ml-0 md:basis-auto">
-                {/* User avatar menu */}
+
+              <div className="flex shrink-0 justify-end">
                 <UserNav />
               </div>
             </div>

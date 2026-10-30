@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/api-auth";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { updateSystemState } from "@/lib/system-sync";
+import { publishRealtime } from "@/lib/realtime";
 import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 import { canTopUpInventory } from "@/lib/roles";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
@@ -86,9 +87,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await client.query(`INSERT INTO inventory_events (inventory_id, event_type, quantity_before, quantity_delta, quantity_after, purchase_packaging_price_before, purchase_packaging_price_after, cost_per_item_before, cost_per_item_after, reason, staff_id, staff_name, staff_role, correlation_id, idempotency_key, metadata, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::timestamptz)`, [id, hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", before, quantityAdded, after, priceBefore, priceAfter, Number(item.rows[0].cost_per_item ?? 0), costPerItem, reason, session.id, session.name || session.email || session.id, session.role, idempotencyKey, idempotencyKey, JSON.stringify(metadata)]);
       return { item: updated.rows[0], audit: audit.rows[0], duplicate: false };
     });
+
     if (!result.duplicate) {
-      await updateSystemState("inventory");
+      // Notify active General Managers, Admins, and Restaurant Managers
+      const managers = await query(
+        `SELECT id, email, role FROM users WHERE role IN ('admin', 'manager', 'restaurantManager') AND is_active = true`
+      );
+
+      const staffName = session.name || session.email;
+      const notifTitle = `Stock Topped Up: ${result.item.name}`;
+      const notifMessage = `${staffName} (${session.role}) topped up ${result.item.name} (+${enteredQuantity} ${result.item.unit}, new balance: ${result.item.quantity} ${result.item.unit})${hasPriceChange ? ` with packaging price set to GHS ${purchasePackagingPrice}` : ""}${reason ? `. Reason: ${reason}` : ""}`;
+
+      for (const manager of managers.rows) {
+        await query(
+          `INSERT INTO notifications (recipient_user_id, title, message, type)
+           VALUES ($1, $2, $3, 'inventory_topup')`,
+          [manager.id, notifTitle, notifMessage]
+        );
+      }
+
+      await Promise.all([
+        publishRealtime("inventory.updated", id),
+        publishRealtime("notifications.updated", id),
+        updateSystemState("inventory"),
+      ]);
     }
+
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
     const typed = error as { code?: string };

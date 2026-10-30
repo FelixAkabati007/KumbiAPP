@@ -138,6 +138,10 @@ export class OfflineQueueService {
   getQueueLength(): number {
     return this.queue.length;
   }
+
+  getQueue(): readonly QueuedRequest[] {
+    return this.queue;
+  }
 }
 
 export const offlineQueue = OfflineQueueService.getInstance();

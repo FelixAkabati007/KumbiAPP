@@ -412,7 +412,10 @@
 
   button,
   [role="button"],
-  a {
+  a,
+  input,
+  select,
+  textarea {
     touch-action: manipulation;
   }
   img,
