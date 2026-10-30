@@ -569,9 +569,9 @@ function MenuContent() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+    <div className="flex h-dvh max-h-dvh w-full flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-3 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
+      <header className="shrink-0 z-10 flex min-h-16 flex-wrap items-center gap-3 border-b bg-white/80 px-3 py-3 backdrop-blur-md dark:bg-gray-900/80 sm:px-4 md:flex-nowrap md:px-6 border-orange-200 dark:border-orange-700">
         <Button
           variant="ghost"
           size="sm"
@@ -599,8 +599,8 @@ function MenuContent() {
       </header>
 
       {/* Filters */}
-      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
-        <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-center sm:gap-4 sm:mb-6">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
+        <div className="shrink-0 flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:gap-4 sm:pb-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -627,8 +627,10 @@ function MenuContent() {
           </Select>
         </div>
 
-        {/* Menu Items Grid */}
-        <div className="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
+        {/* Scrollable Menu Items Viewport */}
+        <div className="unit-selector-scroll-viewport min-h-0 flex-1 overflow-y-auto pr-1">
+          {/* Menu Items Grid */}
+          <div className="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
           {memoizedFilteredItems.map((item) => (
             <Card
               key={item.id}
@@ -777,31 +779,32 @@ function MenuContent() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        {/* Empty State */}
-        {memoizedFilteredItems.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full flex items-center justify-center mb-4">
-              <UtensilsCrossed className="h-12 w-12 text-orange-600 dark:text-orange-400" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No menu items found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm || selectedCategory !== "all"
-                ? "Try adjusting your search or filter criteria"
-                : "Get started by adding your first menu item"}
-            </p>
-            {!searchTerm && selectedCategory === "all" && (
-              <Button
-                onClick={handleAddItem}
-                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg flex items-center gap-2 mx-auto"
-              >
-                <Plus className="h-4 w-4" />
-                Add Menu Item
-              </Button>
-            )}
           </div>
-        )}
+
+          {/* Empty State */}
+          {memoizedFilteredItems.length === 0 && (
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full flex items-center justify-center mb-4">
+                <UtensilsCrossed className="h-12 w-12 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No menu items found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || selectedCategory !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "Get started by adding your first menu item"}
+              </p>
+              {!searchTerm && selectedCategory === "all" && (
+                <Button
+                  onClick={handleAddItem}
+                  className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg flex items-center gap-2 mx-auto"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Menu Item
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
