@@ -86,7 +86,7 @@ function OperationsWorkspace() {
   const loadRooms = async () => {
     setRoomsLoading(true);
     try {
-      const response = await fetch("/api/hotels/rooms", { cache: "no-store" });
+      const response = await fetch(`/api/hotels/rooms?t=${Date.now()}`, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) setRooms(data);
@@ -508,7 +508,7 @@ function OperationsWorkspace() {
           </CardContent>
         </Card>
         <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
-          <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogContent className="unit-selector-scroll-viewport max-h-[90vh] max-w-xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Maintenance Ticket</DialogTitle>
               <DialogDescription>Report a repair or technical issue across hotel rooms, kitchen, or shared areas.</DialogDescription>
@@ -608,7 +608,7 @@ function OperationsWorkspace() {
                 <div
                   role="listbox"
                   aria-label="Scrollable Room Number and Facility Area list"
-                  className="max-h-56 overflow-y-scroll rounded-xl border border-orange-200/80 bg-white/70 p-2 pr-1.5 shadow-inner dark:border-orange-800/80 dark:bg-gray-900/50"
+                  className="unit-selector-scroll-viewport max-h-56 overflow-y-scroll rounded-xl border border-orange-200/80 bg-white/70 p-2 pr-1.5 shadow-inner dark:border-orange-800/80 dark:bg-gray-900/50"
                 >
                   <div className="space-y-2">
                     {locationTab !== "shared" && (

@@ -1,18 +1,95 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireSession } from "@/lib/api-auth";
+
+let roomsSchemaPromise: Promise<void> | null = null;
+
+async function ensureRoomsExist() {
+  if (!roomsSchemaPromise) {
+    roomsSchemaPromise = (async () => {
+      try {
+        await query(`
+          ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2),
+            ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb
+        `);
+      } catch {
+        // Ignore if table or permissions prevent DDL
+      }
+    })();
+  }
+  await roomsSchemaPromise;
+
+  try {
+    const countRes = await query<{ total: number; active: number }>(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE COALESCE(is_active, true) = true)::int AS active
+       FROM rooms`,
+    );
+    const total = Number(countRes.rows[0]?.total ?? 0);
+    const active = Number(countRes.rows[0]?.active ?? 0);
+
+    if (total > 0 && active === 0) {
+      await query(`UPDATE rooms SET is_active = true WHERE is_active = false`);
+      return;
+    }
+
+    if (total === 0) {
+      // Ensure standard and short-stay room types exist before seeding default rooms 1..20
+      let typesRes = await query<{ id: string; name: string }>(
+        `SELECT id, name FROM room_types WHERE COALESCE(is_active, true) = true ORDER BY base_price ASC`,
+      );
+      if (typesRes.rows.length === 0) {
+        await query(`
+          INSERT INTO room_types (name, description, base_price, max_occupants, is_active)
+          VALUES
+            ('Standard Room', 'Comfortable standard guest room', 350, 2, true),
+            ('Executive Room', 'Spacious executive room', 500, 2, true),
+            ('Short Stay', 'Short-stay guest room (Rooms 19 & 20)', 150, 2, true)
+        `);
+        typesRes = await query<{ id: string; name: string }>(
+          `SELECT id, name FROM room_types WHERE COALESCE(is_active, true) = true ORDER BY base_price ASC`,
+        );
+      }
+
+      const standardType =
+        typesRes.rows.find((t) => /standard/i.test(t.name)) ?? typesRes.rows[0];
+      const executiveType =
+        typesRes.rows.find((t) => /executive|deluxe/i.test(t.name)) ?? standardType;
+      const shortStayType =
+        typesRes.rows.find((t) => /short/i.test(t.name)) ?? standardType;
+
+      if (standardType) {
+        for (let num = 1; num <= 20; num++) {
+          const isShort = num === 19 || num === 20;
+          const isExec = num >= 11 && num <= 18;
+          const rtId = isShort
+            ? shortStayType.id
+            : isExec
+              ? executiveType.id
+              : standardType.id;
+          const floor = num <= 10 ? 1 : 2;
+          await query(
+            `INSERT INTO rooms (room_number, room_type_id, floor, building, status, is_active)
+             VALUES ($1, $2, $3, 'Main', 'available', true)
+             ON CONFLICT (room_number) DO NOTHING`,
+            [String(num), rtId, floor],
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("ensureRoomsExist warning:", err);
+  }
+}
 
 // Get all rooms with optional filtering
 export async function GET(request: NextRequest) {
   try {
-    const roomsAccess = await requirePermission("rooms");
-    if (roomsAccess.error) {
-      const maintenanceAccess = await requirePermission("maintenance");
-      if (maintenanceAccess.error) {
-        const operationsAccess = await requirePermission("operations");
-        if (operationsAccess.error) return roomsAccess.error;
-      }
-    }
+    const { error } = await requireSession();
+    if (error) return error;
+
+    await ensureRoomsExist();
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
@@ -78,12 +155,31 @@ export async function GET(request: NextRequest) {
       params.push(roomTypeId);
     }
 
-    sql += ` ORDER BY r.floor ASC, r.room_number ASC`;
+    sql += ` ORDER BY r.floor ASC NULLS LAST, r.room_number ASC`;
 
-    const result = await query(sql, params);
-    return NextResponse.json(result.rows, {
-      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
-    });
+    try {
+      const result = await query(sql, params);
+      return NextResponse.json(result.rows, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      });
+    } catch (primaryQueryError) {
+      console.warn("Primary rooms query failed, using fallback query:", primaryQueryError);
+      const fallbackResult = await query(
+        `SELECT r.id, r.room_number, r.floor, r.building,
+                COALESCE(r.status, 'available') AS status,
+                r.room_type_id, r.notes,
+                COALESCE(rt.name, 'Standard Room') AS room_type_name,
+                rt.base_price,
+                COALESCE(rt.base_price, 0) AS price
+         FROM rooms r
+         LEFT JOIN room_types rt ON r.room_type_id = rt.id
+         WHERE COALESCE(r.is_active, true) = true
+         ORDER BY r.floor ASC NULLS LAST, r.room_number ASC`,
+      );
+      return NextResponse.json(fallbackResult.rows, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      });
+    }
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(

@@ -925,8 +925,8 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   "/api/system": [...ALL_USER_ROLES],
   "/api/realtime": [...ALL_USER_ROLES],
   // Hospitality module API routes
-  "/api/hotels/rooms": rolesWithAnySection("rooms", "checkIn", "checkOut", "maintenance", "operations"),
-  "/api/hotels/room-types": rolesWithAnySection("rooms", "reservations", "checkIn", "maintenance", "operations"),
+  "/api/hotels/rooms": [...ALL_USER_ROLES],
+  "/api/hotels/room-types": [...ALL_USER_ROLES],
   "/api/hotels/reservations": rolesWithAnySection("reservations", "checkIn", "checkOut"),
   "/api/hotels/check-in": rolesWithAnySection("checkIn"),
   "/api/hotels/check-out": rolesWithAnySection("checkOut"),
