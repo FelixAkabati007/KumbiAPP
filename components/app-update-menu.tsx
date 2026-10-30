@@ -41,6 +41,7 @@ import type {
 } from "@/lib/software-updates";
 import { compareSemver } from "@/lib/software-updates";
 import { OfflineQueueService } from "@/lib/services/offline-queue";
+import { processOfflineQueue, getOfflineQueueStats } from "@/lib/offline-storage";
 
 const fetcher = async (url: string): Promise<SoftwareUpdateResponse> => {
   const currentBuild =
@@ -255,7 +256,12 @@ export function AppUpdateMenu({
           description: "Checking updates, refreshing service worker cache, and syncing pending data...",
         });
 
-        // 1. Process offline sync queue if anything is pending
+        // 1. Process unified offline sync queues (localStorage + IndexedDB) if anything is pending
+        try {
+          await processOfflineQueue();
+        } catch {
+          // non-blocking
+        }
         try {
           const offlineQueue = OfflineQueueService.getInstance();
           await offlineQueue.processQueue();
@@ -320,11 +326,19 @@ export function AppUpdateMenu({
           console.warn("Offline cache check warning:", cErr);
         }
 
-        // 2. Verify queue integrity
+        // 2. Verify unified queue integrity (localStorage + IndexedDB)
+        let pendingTotal = 0;
+        try {
+          const stats = getOfflineQueueStats();
+          pendingTotal += stats.total;
+        } catch {
+          // non-blocking
+        }
         try {
           const offlineQueue = OfflineQueueService.getInstance();
           const queue = offlineQueue.getQueue();
-          console.log(`Offline queue verified: ${queue.length} pending items.`);
+          pendingTotal += queue.length;
+          console.log(`Offline queue verified: ${pendingTotal} pending items.`);
         } catch {
           // non-blocking
         }

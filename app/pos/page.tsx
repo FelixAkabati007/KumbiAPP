@@ -183,13 +183,16 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   }, []);
 
   useEffect(() => {
-    if (lastEvent?.topic === "menu.updated") {
+    if (lastEvent?.topic === "menu.updated" || lastEvent?.topic === "inventory.updated") {
       setMenuLoading(true);
       void getMenuItems().then((items) => { setMenuItems(items); setMenuLoading(false); });
     }
   }, [lastEvent]);
 
   useEffect(() => {
+    if (!user || !hasPermission(user.role as UserRole, "inventory")) {
+      return;
+    }
     let cancelled = false;
     let inFlight = false;
     const controller = new AbortController();
@@ -230,7 +233,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", loadAvailability);
     };
-  }, []);
+  }, [user]);
 
   // Reload menu items periodically or when triggered (via polling if needed)
   // We can add a refresh button or poll. For now, initial load is enough.
@@ -429,7 +432,58 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         });
         return;
       }
-      // Use integrated payment processing
+      const orderPayload = {
+        orderNumber,
+        total: calculateTotal(),
+        orderType,
+        tableNumber,
+        customerName,
+        paymentMethod,
+        items: currentOrder.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category,
+          quantity: item.quantity,
+          discountPercent: item.discountPercent || 0,
+          notes: item.notes,
+          prepTime: getPrepTimeForItem(item.category),
+        })),
+        estimatedTime: calculateEstimatedTime(currentOrder),
+      };
+
+      // 1. Validate stock & persist order first before logging payment/sale
+      let savedRemotely = false;
+      try {
+        if (typeof navigator === "undefined" || navigator.onLine) {
+          const completionResponse = await fetch("/api/orders/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(orderPayload),
+          });
+          if (completionResponse.ok) {
+            savedRemotely = true;
+          } else {
+            const completionError = await completionResponse.json().catch(() => null);
+            if (completionResponse.status >= 500) {
+              // Server 5xx error, will fallback to local offline queue
+              savedRemotely = false;
+            } else {
+              throw new Error(completionError?.error || "Order could not be saved");
+            }
+          }
+        }
+      } catch (netErr: unknown) {
+        const errName = netErr instanceof Error ? netErr.name : "";
+        const errMsg = netErr instanceof Error ? netErr.message : String(netErr);
+        if ((typeof navigator !== "undefined" && !navigator.onLine) || errName === "TypeError" || errMsg.includes("fetch")) {
+          savedRemotely = false;
+        } else {
+          throw netErr;
+        }
+      }
+
+      // 2. Run integrated payment & receipt notification
       const paymentData = {
         amount: calculateTotal(),
         method: paymentMethod,
@@ -443,56 +497,6 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       const success = await processPaymentWithIntegration(paymentData);
 
       if (success) {
-        const orderPayload = {
-          orderNumber,
-          total: calculateTotal(),
-          orderType,
-          tableNumber,
-          customerName,
-          paymentMethod,
-          items: currentOrder.map((item) => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            category: item.category,
-            quantity: item.quantity,
-            discountPercent: item.discountPercent || 0,
-            notes: item.notes,
-            prepTime: getPrepTimeForItem(item.category),
-          })),
-          estimatedTime: calculateEstimatedTime(currentOrder),
-        };
-
-        let savedRemotely = false;
-        try {
-          if (typeof navigator === "undefined" || navigator.onLine) {
-            const completionResponse = await fetch("/api/orders/complete", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(orderPayload),
-            });
-            if (completionResponse.ok) {
-              savedRemotely = true;
-            } else {
-              const completionError = await completionResponse.json().catch(() => null);
-              if (completionResponse.status >= 500) {
-                // Server 5xx error, will fallback to local offline queue
-                savedRemotely = false;
-              } else {
-                throw new Error(completionError?.error || "Order could not be saved");
-              }
-            }
-          }
-        } catch (netErr: unknown) {
-          const errName = netErr instanceof Error ? netErr.name : "";
-          const errMsg = netErr instanceof Error ? netErr.message : String(netErr);
-          if ((typeof navigator !== "undefined" && !navigator.onLine) || errName === "TypeError" || errMsg.includes("fetch")) {
-            savedRemotely = false;
-          } else {
-            throw netErr;
-          }
-        }
-
         if (!savedRemotely) {
           enqueueOfflineOrder({
             id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

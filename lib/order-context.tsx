@@ -9,7 +9,6 @@ import {
   useCallback,
 } from "react";
 import type { OrderItem } from "./types";
-import { addSaleData, getSalesData } from "./data";
 import { apiFetch, isExpectedRequestError } from "./api-client";
 import { useRealtime } from "@/components/realtime-provider";
 
@@ -144,7 +143,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
 
-      // API Update
+      // API Update (canonical financial ledger & sales persistence handled atomically by backend /api/orders/complete)
       try {
         await fetch(`/api/orders/${orderId}`, {
           method: "PATCH",
@@ -153,40 +152,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (error) {
         console.error("Failed to update order status:", error);
-        // Could revert state here if needed
-      }
-
-      // Archive logic (simplified for now, ideally backend handles this)
-      if (status === "completed") {
-        const order = orders.find((o) => o.id === orderId);
-        if (order) {
-          // Client-side archiving logic... (optional, maybe move to backend later)
-          // Keeping existing logic for now
-          getSalesData().then((sales) => {
-            const alreadyArchived = sales.some(
-              (s) => s.orderNumber === order.orderNumber
-            );
-            if (!alreadyArchived) {
-              addSaleData({
-                id: order.id,
-                orderNumber: order.orderNumber,
-                orderId: order.orderId,
-                date: new Date().toISOString(),
-                items: order.items,
-                total: order.total,
-                orderType: order.orderType,
-                tableNumber: order.tableNumber,
-                customerName: order.customerRefused ? "" : order.customerName,
-                customerRefused: !!order.customerRefused,
-                paymentMethod: order.paymentMethod,
-                skipFinancialLedger: true,
-              });
-            }
-          });
-        }
       }
     },
-    [orders, saveOrders]
+    [saveOrders]
   );
 
   const updateOrderItemStatus = useCallback(

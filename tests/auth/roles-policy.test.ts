@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAccessApiRoute,
+  canAccessPageRoute,
   canManageFeatureToggles,
   canPerformAction,
   getRoleAccessSummary,
@@ -46,5 +48,37 @@ describe("RBAC policy", () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toEqual(["Reception cannot be assigned to the restaurant scope."]);
     expect(validateStaffAccessProfile({ role: "admin", classification: "chef", scope: "general" }).valid).toBe(true);
+  });
+
+  it("aligns middleware page & API route permissions with canonical rolePermissions for all 12 roles", () => {
+    // Restaurant Manager must access POS, Kitchen, Menu, Inventory, Reports
+    expect(canAccessPageRoute("restaurantManager", "/pos")).toBe(true);
+    expect(canAccessPageRoute("restaurantManager", "/inventory")).toBe(true);
+    expect(canAccessPageRoute("restaurantManager", "/menu")).toBe(true);
+    expect(canAccessPageRoute("restaurantManager", "/reports")).toBe(true);
+    expect(canAccessApiRoute("restaurantManager", "/api/inventory")).toBe(true);
+    expect(canAccessApiRoute("restaurantManager", "/api/menu")).toBe(true);
+    expect(canAccessApiRoute("restaurantManager", "/api/orders")).toBe(true);
+
+    // Waiter/Waitress and Restaurant Front Desk must access POS, Order Display, Menu API, Orders API
+    expect(canAccessPageRoute("waiterWaitress", "/pos")).toBe(true);
+    expect(canAccessPageRoute("waiterWaitress", "/order-display")).toBe(true);
+    expect(canAccessApiRoute("waiterWaitress", "/api/orders")).toBe(true);
+    expect(canAccessApiRoute("waiterWaitress", "/api/menu")).toBe(true);
+    expect(canAccessPageRoute("restaurantFrontDesk", "/pos")).toBe(true);
+    expect(canAccessApiRoute("restaurantFrontDesk", "/api/orders")).toBe(true);
+    expect(canAccessApiRoute("restaurantFrontDesk", "/api/transactions/log")).toBe(true);
+
+    // Hotel Manager & Front Desk must access Hotel routes & Reports/Inventory where permitted
+    expect(canAccessPageRoute("hotelManager", "/hotels/rooms")).toBe(true);
+    expect(canAccessPageRoute("hotelManager", "/reports")).toBe(true);
+    expect(canAccessApiRoute("hotelManager", "/api/reports")).toBe(true);
+    expect(canAccessPageRoute("frontDesk", "/inventory")).toBe(true);
+    expect(canAccessApiRoute("frontDesk", "/api/inventory")).toBe(true);
+
+    // Kitchen can access /menu for recipe management and /inventory
+    expect(canAccessPageRoute("kitchen", "/menu")).toBe(true);
+    expect(canAccessPageRoute("kitchen", "/inventory")).toBe(true);
+    expect(canAccessPageRoute("kitchen", "/finance")).toBe(false);
   });
 });

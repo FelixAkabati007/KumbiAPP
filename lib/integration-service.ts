@@ -4,7 +4,7 @@ import { getBarcodeScannerService } from "./barcode-scanner";
 import { getThermalPrinterService } from "./thermal-printer";
 import { getRefundService } from "./refund-service";
 import { playNotificationSound } from "./notifications";
-import { addSaleData } from "./data";
+import { addSaleData, getMenuItems } from "./data";
 import { transactionLogger } from "./services/transaction-logger";
 import type { OrderItem, MenuItem } from "./types";
 import type { AppSettings } from "./settings";
@@ -427,23 +427,36 @@ class IntegrationService {
     }
   }
 
-  // Process barcode scan with integrated lookup
+  // Process barcode scan with integrated lookup (live catalog + offline fallback)
   async processBarcodeScan(barcode: string): Promise<MenuItem | null> {
     try {
-      // In a real implementation, this would look up the barcode in the menu/inventory
-      const menuItem = this.findMenuItemByBarcode(barcode);
+      const normalized = barcode.trim();
+      let menuItem: MenuItem | undefined;
+
+      try {
+        const liveCatalog = await getMenuItems();
+        menuItem = liveCatalog.find(
+          (item) => item.barcode === normalized || item.id === normalized,
+        );
+      } catch {
+        // Fallback to built-in catalog if menu fetch fails
+      }
+
+      if (!menuItem) {
+        menuItem = this.findMenuItemByBarcode(normalized);
+      }
 
       if (menuItem) {
         this.emitEvent({
           type: "barcode_scanned",
           source: "barcode_scanner",
-          data: { barcode, menuItem },
+          data: { barcode: normalized, menuItem },
           timestamp: new Date(),
         });
 
         return menuItem;
       } else {
-        console.warn(`Barcode not found: ${barcode}`);
+        console.warn(`Barcode not found: ${normalized}`);
         return null;
       }
     } catch (error) {

@@ -846,3 +846,124 @@ export function canManageFeatureToggles(
 ): boolean {
   return isAdmin(role);
 }
+
+export const ALL_USER_ROLES: readonly UserRole[] = [
+  "admin",
+  "manager",
+  "hotelManager",
+  "restaurantManager",
+  "operationsManager",
+  "finance",
+  "staff",
+  "kitchen",
+  "frontDesk",
+  "restaurantFrontDesk",
+  "waiterWaitress",
+  "housekeeping",
+];
+
+function rolesWithAnySection(...sections: AppSection[]): UserRole[] {
+  return ALL_USER_ROLES.filter((role) =>
+    sections.some((section) => hasPermission(role, section)),
+  );
+}
+
+/**
+ * Canonical Page Route RBAC Matrix derived directly from rolePermissions.
+ * More specific paths are listed before broader prefixes.
+ */
+export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
+  "/admin": ["admin"],
+  "/sign-up": ["admin"],
+  "/signup": ["admin"],
+  "/settings": ["admin", "manager"],
+  "/pos": rolesWithAnySection("pos"),
+  "/kitchen": rolesWithAnySection("kitchen"),
+  "/inventory": rolesWithAnySection("inventory"),
+  "/reports": rolesWithAnySection("reports"),
+  "/finance": rolesWithAnySection("finance"),
+  "/expenses": rolesWithAnySection("finance"),
+  "/menu": ALL_USER_ROLES.filter(
+    (role) => hasPermission(role, "menu") || canEditRecipes(role),
+  ),
+  "/refunds": rolesWithAnySection("refunds"),
+  "/order-display": rolesWithAnySection("orderBoard"),
+  "/receipt": rolesWithAnySection("receipt"),
+  "/payments": rolesWithAnySection("payments"),
+  "/system": ["admin", "manager"],
+  "/operations": rolesWithAnySection("operations"),
+  "/complaints": [...ALL_USER_ROLES],
+  // Hospitality module routes
+  "/hotels/rooms": rolesWithAnySection("rooms"),
+  "/hotels/reservations": rolesWithAnySection("reservations"),
+  "/hotels/check-in": rolesWithAnySection("checkIn"),
+  "/hotels/check-out": rolesWithAnySection("checkOut"),
+  "/hotels/housekeeping": rolesWithAnySection("housekeeping"),
+  "/hotels/maintenance": rolesWithAnySection("maintenance"),
+};
+
+/**
+ * Canonical API Route RBAC Matrix derived directly from rolePermissions.
+ * More specific paths are listed before broader prefixes.
+ */
+export const API_PERMISSIONS: Record<string, UserRole[]> = {
+  "/api/admin/staff-approvals": ["admin", "manager"],
+  "/api/admin": ["admin"],
+  "/api/inventory": rolesWithAnySection("inventory"),
+  "/api/menu": rolesWithAnySection("menu", "pos", "kitchen", "orderBoard"),
+  "/api/refunds": rolesWithAnySection("refunds"),
+  "/api/orders": rolesWithAnySection("pos", "kitchen", "orderBoard", "guestFolio"),
+  "/api/receipts": rolesWithAnySection("receipt", "pos", "finance", "guestFolio"),
+  "/api/reports": rolesWithAnySection("reports"),
+  "/api/finance": rolesWithAnySection("finance"),
+  "/api/expenses": rolesWithAnySection("finance"),
+  "/api/payroll": ["admin", "manager", "finance"],
+  "/api/transactions/log": rolesWithAnySection("payments", "pos"),
+  "/api/transactions": rolesWithAnySection("finance", "reports"),
+  "/api/release": [...ALL_USER_ROLES],
+  "/api/software-updates": [...ALL_USER_ROLES],
+  "/api/system": [...ALL_USER_ROLES],
+  "/api/realtime": [...ALL_USER_ROLES],
+  // Hospitality module API routes
+  "/api/hotels/rooms": rolesWithAnySection("rooms", "checkIn", "checkOut"),
+  "/api/hotels/room-types": rolesWithAnySection("rooms", "reservations", "checkIn"),
+  "/api/hotels/reservations": rolesWithAnySection("reservations", "checkIn", "checkOut"),
+  "/api/hotels/check-in": rolesWithAnySection("checkIn"),
+  "/api/hotels/check-out": rolesWithAnySection("checkOut"),
+  "/api/hotels/checked-in": rolesWithAnySection("checkIn", "checkOut", "guestFolio", "pos"),
+  "/api/hotels/folios": rolesWithAnySection("guestFolio", "checkIn", "checkOut", "pos", "finance"),
+  "/api/hotels/guests": rolesWithAnySection("reservations", "checkIn", "checkOut", "guestFolio"),
+  "/api/hotels/housekeeping": rolesWithAnySection("housekeeping", "rooms"),
+  "/api/hotels/maintenance": rolesWithAnySection("maintenance", "operations"),
+  "/api/complaints": [...ALL_USER_ROLES],
+};
+
+export function getProtectedPageAllowedRoles(pathname: string): UserRole[] | null {
+  const matched = Object.keys(ROUTE_PERMISSIONS).find((route) =>
+    pathname.startsWith(route),
+  );
+  return matched ? ROUTE_PERMISSIONS[matched] : null;
+}
+
+export function getProtectedApiAllowedRoles(normalizedApiPath: string): UserRole[] | null {
+  if (normalizedApiPath === "/api/auth/signup") return ["admin"];
+  const matched = Object.keys(API_PERMISSIONS).find((route) =>
+    normalizedApiPath.startsWith(route),
+  );
+  return matched ? API_PERMISSIONS[matched] : null;
+}
+
+export function canAccessPageRoute(role: string | null | undefined, pathname: string): boolean {
+  const allowed = getProtectedPageAllowedRoles(pathname);
+  if (!allowed) return true;
+  if (!isUserRole(role)) return false;
+  return allowed.includes(role);
+}
+
+export function canAccessApiRoute(role: string | null | undefined, normalizedApiPath: string): boolean {
+  const allowed = getProtectedApiAllowedRoles(normalizedApiPath);
+  if (!allowed) return true;
+  if (!isUserRole(role)) return false;
+  return allowed.includes(role);
+}
+

@@ -1,14 +1,14 @@
-import { LoadingSpinner } from "@/components/ui/spinner";
-
-export default function Loading() {
+export default function AppLoadingSkeleton() {
   return (
-    <div className="flex h-[50vh] w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <LoadingSpinner size="lg" variant="orange" />
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-          Loading...
-        </p>
-      </div>
+    <div
+      className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-3 p-6"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-200 border-t-amber-600 dark:border-amber-900 dark:border-t-amber-400" />
+      <p className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400">
+        Loading Kumbisaly Heritage Workspace...
+      </p>
     </div>
   );
 }

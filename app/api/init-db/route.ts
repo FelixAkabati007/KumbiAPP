@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
+import { ensureCoreSchemaAndIndexes } from "@/lib/db/ensure-core-indexes";
 
 export async function GET() {
   try {
     const { error } = await requireRole("admin");
     if (error) return error;
 
-    const results = [];
+    const results: string[] = [];
 
     // 1. Enable UUID extension
     try {
@@ -32,7 +33,7 @@ export async function GET() {
       results.push(`Settings table error: ${e}`);
     }
 
-    // 3. Create Kitchen Orders Table
+    // 3. Create Kitchen Orders Table (canonical column names created_at / updated_at)
     try {
       await query(`
         CREATE TABLE IF NOT EXISTS public.kitchenorders (
@@ -45,14 +46,16 @@ export async function GET() {
           paymentmethod VARCHAR NOT NULL,
           status VARCHAR NOT NULL DEFAULT 'pending',
           priority VARCHAR NOT NULL DEFAULT 'normal',
-          createdat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
-          updatedat TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
           estimatedtime INT,
           notes TEXT,
-          chefnotes TEXT
+          chefnotes TEXT,
+          performed_by UUID,
+          kitchen_closed_at TIMESTAMPTZ
         );
       `);
-      results.push("KitchenOrders table created");
+      results.push("KitchenOrders table verified");
     } catch (e) {
       results.push(`KitchenOrders table error: ${e}`);
     }
@@ -60,20 +63,20 @@ export async function GET() {
     // 4. Create Menu Items Table
     try {
       await query(`
-        CREATE TABLE IF NOT EXISTS public.menuitems (
+        CREATE TABLE IF NOT EXISTS public.menu_items (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           name VARCHAR NOT NULL,
           description TEXT,
           price NUMERIC NOT NULL,
-          category VARCHAR NOT NULL,
+          category_id UUID,
           barcode VARCHAR,
-          instock BOOLEAN NOT NULL DEFAULT true,
-          image VARCHAR,
+          is_available BOOLEAN NOT NULL DEFAULT true,
+          image_url TEXT,
           created_at TIMESTAMPTZ DEFAULT timezone('utc', now()),
           updated_at TIMESTAMPTZ DEFAULT timezone('utc', now())
         );
       `);
-      results.push("MenuItems table created");
+      results.push("MenuItems table verified");
     } catch (e) {
       results.push(`MenuItems table error: ${e}`);
     }
@@ -97,24 +100,24 @@ export async function GET() {
           preptime INT,
           notes TEXT,
           created_at TIMESTAMPTZ DEFAULT timezone('utc', now()),
-          CONSTRAINT kitchen_orderitems_kitchenorderid_fkey FOREIGN KEY (kitchenorderid) REFERENCES public.kitchenorders(id) ON DELETE CASCADE,
-          CONSTRAINT kitchen_orderitems_menuitemid_fkey FOREIGN KEY (menuitemid) REFERENCES public.menuitems(id) ON DELETE SET NULL
+          CONSTRAINT kitchen_orderitems_kitchenorderid_fkey FOREIGN KEY (kitchenorderid) REFERENCES public.kitchenorders(id) ON DELETE CASCADE
         );
       `);
-      results.push("KitchenOrderItems table created");
+      results.push("KitchenOrderItems table verified");
     } catch (e) {
       results.push(`KitchenOrderItems table error: ${e}`);
     }
 
-    // 6. Create Indexes
+    // 6. Create Indexes & Canonical Roles
     try {
       await query(
-        `CREATE INDEX IF NOT EXISTS idx_kitchenorders_status ON public.kitchenorders(status);`
+        `CREATE INDEX IF NOT EXISTS idx_kitchenorders_status ON public.kitchenorders(status);`,
       );
       await query(
-        `CREATE INDEX IF NOT EXISTS idx_kitchenorders_date ON public.kitchenorders(created_at);`
+        `CREATE INDEX IF NOT EXISTS idx_kitchenorders_date ON public.kitchenorders(created_at);`,
       );
-      results.push("Indexes created");
+      await ensureCoreSchemaAndIndexes();
+      results.push("Core schema, roles, and composite indexes verified");
     } catch (e) {
       results.push(`Indexes error: ${e}`);
     }
@@ -122,14 +125,13 @@ export async function GET() {
     return NextResponse.json({ success: true, results });
   } catch (error) {
     console.error("Database initialization failed:", error);
-    // Return 200 to see the error in client
     return NextResponse.json(
       {
         success: false,
         error: "Database initialization failed",
         details: String(error),
       },
-      { status: 200 }
+      { status: 500 },
     );
   }
 }

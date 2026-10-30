@@ -4,13 +4,33 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enums (Create if not exists pattern)
-DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'manager', 'staff', 'kitchen');
+DO $$ BEGIN CREATE TYPE user_role AS ENUM (
+  'admin',
+  'manager',
+  'hotelManager',
+  'restaurantManager',
+  'operationsManager',
+  'finance',
+  'staff',
+  'kitchen',
+  'frontDesk',
+  'restaurantFrontDesk',
+  'waiterWaitress',
+  'housekeeping'
+);
   EXCEPTION
   WHEN duplicate_object THEN null;
   END $$;
 
 DO $$ BEGIN
   ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'operationsManager';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'hotelManager';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'restaurantManager';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'finance';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'frontDesk';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'restaurantFrontDesk';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'waiterWaitress';
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'housekeeping';
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
