@@ -9,11 +9,9 @@ import { Button } from "@/components/ui/button";
 import { AuthShell, AuthSpinner } from "@/components/auth-shell";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, ShieldCheck, Users } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { useLoading } from "@/components/loading-provider";
-import { DEFAULT_ROLE_ACCOUNTS, type DefaultAccountSpec } from "@/lib/default-accounts";
-import { getRoleDisplayName } from "@/lib/roles";
 import {
   Form,
   FormControl,
@@ -27,7 +25,6 @@ export function SignInForm() {
   const { login, isDatabaseReady } = useAuth();
   const { showLoading, hideLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
-  const [showQuickAccess, setShowQuickAccess] = useState(false);
   const [error, setError] = useState("");
 
   const form = useForm<LoginInput>({
@@ -59,12 +56,6 @@ export function SignInForm() {
     }
   };
 
-  const handleQuickRoleSelect = async (acct: DefaultAccountSpec) => {
-    form.setValue("email", acct.email, { shouldValidate: true });
-    form.setValue("password", acct.defaultPassword, { shouldValidate: true });
-    await onSubmit({ email: acct.email, password: acct.defaultPassword });
-  };
-
   return (
     <AuthShell
       title="Sign into Sales Terminal"
@@ -77,19 +68,6 @@ export function SignInForm() {
             </span>
           )}
         </>
-      }
-      footer={
-        <div className="space-y-1 text-center text-sm text-gray-600 dark:text-gray-400">
-          <p>
-            Need an account?{" "}
-            <Link
-              href="/sign-up"
-              className="font-semibold text-orange-600 hover:text-orange-700 dark:text-orange-400 hover:underline"
-            >
-              Create an account
-            </Link>
-          </p>
-        </div>
       }
     >
       {error && (
@@ -196,57 +174,6 @@ export function SignInForm() {
           </Button>
         </form>
       </Form>
-
-      {/* Quick Role Sign-In Panel for Admin & All Staff Roles */}
-      <div className="mt-4 rounded-2xl border border-orange-200/80 bg-orange-50/60 p-3 dark:border-orange-800/60 dark:bg-orange-950/25">
-        <button
-          type="button"
-          onClick={() => setShowQuickAccess((prev) => !prev)}
-          className="flex w-full items-center justify-between text-left text-xs font-semibold text-orange-800 dark:text-orange-300"
-        >
-          <span className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-            Quick Role Sign-In (Admin &amp; All Department Accounts)
-          </span>
-          {showQuickAccess ? (
-            <ChevronUp className="h-4 w-4 text-orange-600" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-orange-600" />
-          )}
-        </button>
-
-        {showQuickAccess && (
-          <div className="mt-3 space-y-2">
-            <p className="text-[11px] text-gray-600 dark:text-gray-400">
-              Click any role below to sign in immediately or use its credentials directly:
-            </p>
-            <div className="grid max-h-60 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
-              {DEFAULT_ROLE_ACCOUNTS.map((acct) => (
-                <button
-                  key={acct.role}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => void handleQuickRoleSelect(acct)}
-                  className="flex flex-col items-start rounded-xl border border-orange-200/90 bg-white px-2.5 py-2 text-left transition hover:border-orange-400 hover:bg-orange-50/80 disabled:opacity-50 dark:border-orange-800/70 dark:bg-gray-900 dark:hover:bg-orange-950/50"
-                >
-                  <span className="flex items-center gap-1 text-xs font-bold text-gray-900 dark:text-gray-100">
-                    {acct.role === "admin" && (
-                      <ShieldCheck className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-                    )}
-                    {getRoleDisplayName(acct.role)}
-                  </span>
-                  <span className="w-full truncate font-mono text-[10px] text-gray-500 dark:text-gray-400">
-                    {acct.email}
-                  </span>
-                  <span className="font-mono text-[10px] text-orange-700 dark:text-orange-300">
-                    Pwd: {acct.defaultPassword}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
     </AuthShell>
   );
 }
