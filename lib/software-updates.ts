@@ -42,6 +42,27 @@ export interface SoftwareUpdateResponse {
  */
 export const CANONICAL_SOFTWARE_UPDATES: SoftwareUpdate[] = [
   {
+    id: "update-1.2.6",
+    version: "1.2.6",
+    build: "prod-2026-10-31-0e385ab",
+    title: "Enterprise POS Concession Engine, Dynamic Settings & Modern Layouts",
+    description: "Dual-tier restaurant concession authorization, Ghana GRA compliant receipts, floating settings save bar, and scrollable operations workspaces.",
+    releaseDate: "2026-10-31T12:00:00.000Z",
+    type: "feature",
+    isCritical: false,
+    source: "Core Team & Operations",
+    details: [
+      "Enterprise POS discount engine: Item-level and whole-ticket concessions with percentage and flat GHS support",
+      "Manager PIN authorization and supervisory sign-off for concessions exceeding staff thresholds",
+      "Mathematically transparent receipt printing with explicit savings breakdown across browser and thermal slips",
+      "Floating sticky settings action bar with dirty field detection and instant discard revert",
+      "Live 80mm/58mm thermal receipt preview in settings with real-time GRA levy calculations",
+      "Mobile-responsive dropdown category switcher eliminating horizontal overflow on settings tabs",
+      "Dedicated scrollable viewports for Menu Management items and Technical Operations room selectors",
+      "Automated post-update release details and changelog presentation dialog",
+    ],
+  },
+  {
     id: "update-1.2.5",
     version: "1.2.5",
     build: "prod-2026-10-28-55e6ba1",

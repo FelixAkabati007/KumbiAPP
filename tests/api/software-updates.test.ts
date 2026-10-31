@@ -60,8 +60,8 @@ describe("Software Updates Backend & API", () => {
 
       const updates = await getSoftwareUpdates();
       expect(updates.length).toBe(CANONICAL_SOFTWARE_UPDATES.length);
-      expect(updates[0].version).toBe("1.2.5");
-      expect(updates[0].title).toBe("Unified Blob Storage & Neon Connection Architecture");
+      expect(updates[0].version).toBe(CANONICAL_SOFTWARE_UPDATES[0].version);
+      expect(updates[0].title).toBe(CANONICAL_SOFTWARE_UPDATES[0].title);
     });
 
     test("retrieves updates from database and merges canonical items", async () => {
@@ -80,7 +80,7 @@ describe("Software Updates Backend & API", () => {
               is_critical: false,
               details: ["Added custom chart widgets", "Automated daily CSV exports"],
               source: "Production",
-              release_date: "2026-10-30T10:00:00.000Z",
+              release_date: "2026-11-01T10:00:00.000Z",
             },
           ],
         });

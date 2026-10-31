@@ -40,6 +40,8 @@ import type {
   UpdateCategory,
 } from "@/lib/software-updates";
 import { compareSemver } from "@/lib/software-updates";
+import { AppReleaseDialog } from "@/components/app-release-dialog";
+import { History } from "lucide-react";
 import { OfflineQueueService } from "@/lib/services/offline-queue";
 import { processOfflineQueue, getOfflineQueueStats } from "@/lib/offline-storage";
 
@@ -97,6 +99,8 @@ export function AppUpdateMenu({
   const [isManualChecking, setIsManualChecking] = useState(false);
   const [lastCheckedTime, setLastCheckedTime] = useState<string | null>(null);
   const [expandedUpdateIds, setExpandedUpdateIds] = useState<Record<string, boolean>>({});
+  const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
+  const [isJustUpdatedState, setIsJustUpdatedState] = useState(false);
 
   // Real-time synchronization via SWR: polls every 15s, revalidates on window focus & reconnect
   const { data, error, isValidating, mutate } = useSWR<SoftwareUpdateResponse>(
@@ -150,6 +154,20 @@ export function AppUpdateMenu({
       window.removeEventListener("kumbi:software-update", handleCustomUpdate);
     };
   }, [mutate]);
+
+  // Check if an update was recently completed to show release history and details automatically
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kumbi_post_update_info");
+      if (saved) {
+        localStorage.removeItem("kumbi_post_update_info");
+        setIsJustUpdatedState(true);
+        setIsReleaseDialogOpen(true);
+      }
+    } catch {
+      // non-blocking
+    }
+  }, []);
 
   // Format last checked timestamp
   useEffect(() => {
@@ -301,6 +319,20 @@ export function AppUpdateMenu({
           // non-blocking
         }
 
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              "kumbi_post_update_info",
+              JSON.stringify({
+                version: latestVersion,
+                timestamp: Date.now(),
+              })
+            );
+          } catch {
+            // non-blocking
+          }
+        }
+
         toast({
           title: "Update Installed",
           description: "Application successfully updated to the latest build. Refreshing view...",
@@ -349,6 +381,8 @@ export function AppUpdateMenu({
         });
 
         setIsUpdatingApp(false);
+        setIsJustUpdatedState(true);
+        setIsReleaseDialogOpen(true);
       }
     } catch (err) {
       toast({
@@ -377,6 +411,7 @@ export function AppUpdateMenu({
   const isChecking = isValidating || isManualChecking;
 
   return (
+    <>
     <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
       <TooltipProvider>
         <Tooltip>
@@ -456,6 +491,26 @@ export function AppUpdateMenu({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+
+          {/* Release History & Details Quick Jump */}
+          <div className="flex items-center justify-between px-3 py-1.5 bg-orange-50/50 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/40">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <History className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+              Release History & Update Notes
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsJustUpdatedState(false);
+                setIsReleaseDialogOpen(true);
+              }}
+              className="h-6 text-[11px] px-2 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 rounded-lg"
+            >
+              View Details
+            </Button>
           </div>
 
           {/* Prominent Update Action Bar (Works Online and Offline) */}
@@ -690,5 +745,15 @@ export function AppUpdateMenu({
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* Full Release History & Details Presentation Dialog */}
+    <AppReleaseDialog
+      isOpen={isReleaseDialogOpen}
+      onClose={() => setIsReleaseDialogOpen(false)}
+      updates={updatesList}
+      currentVersion={currentVersion}
+      isJustUpdated={isJustUpdatedState}
+    />
+  </>
   );
 }
