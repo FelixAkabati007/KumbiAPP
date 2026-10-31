@@ -26,6 +26,9 @@ export interface OrderItem extends MenuItem {
   skipFinancialLedger?: boolean; // Unique order ID for this specific product
   orderNumber?: string; // Unique order number for this specific product
   discountPercent?: number;
+  discountAmount?: number;
+  discountReason?: string;
+  approvedBy?: string;
 }
 
 export interface InventoryItem {
@@ -125,7 +128,13 @@ export interface ReceiptData {
     price: number;
     total: number;
     barcode?: string;
+    originalPrice?: number;
+    discountPercent?: number;
+    discountAmount?: number;
+    discountReason?: string;
   }[];
+  discountAmount?: number;
+  discountReason?: string;
   subtotal: number;
   tax: number;
   total: number;

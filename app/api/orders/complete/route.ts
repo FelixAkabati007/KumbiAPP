@@ -20,6 +20,16 @@ type OrderItem = {
   notes?: string;
   prepTime?: number;
   discountPercent?: number;
+  discountAmount?: number;
+  discountReason?: string;
+  approvedBy?: string;
+};
+
+type OrderDiscount = {
+  type: "percent" | "fixed";
+  value: number;
+  reason: string;
+  approvedBy?: string;
 };
 
 export async function POST(req: Request) {
@@ -38,6 +48,7 @@ export async function POST(req: Request) {
       items,
       priority = "normal",
       estimatedTime,
+      orderDiscount,
     } = body as {
       orderNumber: string;
       total: number;
@@ -49,6 +60,7 @@ export async function POST(req: Request) {
       items: OrderItem[];
       priority?: string;
       estimatedTime?: number;
+      orderDiscount?: OrderDiscount;
     };
 
     if (!orderNumber || !Number.isFinite(Number(total)) || !Array.isArray(items) || items.length === 0) {
@@ -87,10 +99,18 @@ export async function POST(req: Request) {
       discountPercent: Number(item.discountPercent ?? 0),
       price: Number(item.price) * (1 - Number(item.discountPercent ?? 0) / 100),
     }));
-    const computedSubtotal = pricedItems.reduce(
+    let rawSubtotal = pricedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
+    if (orderDiscount && Number(orderDiscount.value) > 0) {
+      if (orderDiscount.type === "fixed") {
+        rawSubtotal = Math.max(0, rawSubtotal - Number(orderDiscount.value));
+      } else if (orderDiscount.type === "percent") {
+        rawSubtotal = Math.max(0, rawSubtotal * (1 - Math.min(100, Number(orderDiscount.value)) / 100));
+      }
+    }
+    const computedSubtotal = rawSubtotal;
 
     // Support both tax-exclusive totals and tax-inclusive POS totals
     const numericTotal = Number(total);
@@ -186,8 +206,8 @@ export async function POST(req: Request) {
               item.price,
               item.discountPercent,
               item.quantity,
-              session.id,
-              "POS item discount",
+              item.approvedBy || session.id,
+              item.discountReason || "POS item discount",
             ],
           );
         }
@@ -275,6 +295,27 @@ export async function POST(req: Request) {
             );
           }
         }
+      }
+
+      if (orderDiscount && Number(orderDiscount.value) > 0) {
+        const rawGross = items.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0);
+        const concessionAmount = orderDiscount.type === "fixed"
+          ? Math.min(rawGross, Number(orderDiscount.value))
+          : (rawGross * Math.min(100, Number(orderDiscount.value))) / 100;
+        await client.query(
+          `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            orderId,
+            "Ticket Concession",
+            rawGross,
+            Math.max(0, rawGross - concessionAmount),
+            orderDiscount.type === "percent" ? orderDiscount.value : Number(((concessionAmount / (rawGross || 1)) * 100).toFixed(2)),
+            1,
+            orderDiscount.approvedBy || session.id,
+            orderDiscount.reason || "Ticket concession",
+          ],
+        );
       }
 
       const finance = await client.query(

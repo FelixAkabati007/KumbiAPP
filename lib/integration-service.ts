@@ -332,13 +332,20 @@ class IntegrationService {
           orderId: paymentData.orderId,
           date: new Date().toLocaleDateString(),
           time: new Date().toLocaleTimeString(),
-          items: paymentData.items.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            total: item.price * item.quantity,
-            barcode: item.barcode,
-          })),
+          items: paymentData.items.map((item) => {
+            const discountPercent = Number(item.discountPercent || 0);
+            const unitPrice = discountPercent > 0 ? item.price * (1 - discountPercent / 100) : item.price;
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              originalPrice: item.price,
+              discountPercent: discountPercent > 0 ? discountPercent : undefined,
+              discountAmount: discountPercent > 0 ? Number(((item.price - unitPrice) * item.quantity).toFixed(2)) : undefined,
+              price: Number(unitPrice.toFixed(2)),
+              total: Number((unitPrice * item.quantity).toFixed(2)),
+              barcode: item.barcode,
+            };
+          }),
           subtotal: paymentData.amount,
           tax: calculateTaxes(paymentData.amount, this.settings.system.taxConfiguration, "pos").tax,
           total: paymentData.amount,

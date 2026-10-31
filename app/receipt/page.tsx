@@ -161,7 +161,10 @@ function ReceiptContent() {
         // Calculate subtotal, tax, and total if not present
         const subtotal =
           (parsed.items?.reduce(
-            (sum: number, item: OrderItem) => sum + item.price * item.quantity,
+            (sum: number, item: OrderItem) => {
+              const unitPrice = item.discountPercent ? item.price * (1 - item.discountPercent / 100) : item.price;
+              return sum + unitPrice * item.quantity;
+            },
             0,
           ) as number) || 0;
         const tax = parsed.tax ?? +(subtotal * 0.125).toFixed(2);
@@ -581,25 +584,27 @@ function ReceiptContent() {
                       </div>
                       <div className="space-y-1">
                         {foundSale.items.map(
-                          (item: OrderItem, index: number) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-xs"
-                            >
-                              <span className="flex-1 truncate mr-2">
-                                {item.name}
-                              </span>
-                              <span className="w-8 text-center">
-                                {item.quantity}
-                              </span>
-                              <span className="w-12 text-right">
-                                ₵{item.price.toFixed(2)}
-                              </span>
-                              <span className="w-16 text-right font-semibold">
-                                ₵{(item.price * item.quantity).toFixed(2)}
-                              </span>
-                            </div>
-                          ),
+                          (item: OrderItem, index: number) => {
+                            const pct = Number(item.discountPercent || 0);
+                            const unitPrice = pct > 0 ? item.price * (1 - pct / 100) : item.price;
+                            const lineTotal = unitPrice * item.quantity;
+                            return (
+                              <div key={index} className="space-y-0.5">
+                                <div className="flex justify-between text-xs">
+                                  <span className="flex-1 truncate mr-2">{item.name}</span>
+                                  <span className="w-8 text-center">{item.quantity}</span>
+                                  <span className="w-12 text-right">₵{unitPrice.toFixed(2)}</span>
+                                  <span className="w-16 text-right font-semibold">₵{lineTotal.toFixed(2)}</span>
+                                </div>
+                                {pct > 0 && (
+                                  <div className="flex justify-between text-[10px] text-orange-600 dark:text-orange-400 pl-2">
+                                    <span>Original ₵{item.price.toFixed(2)} (-{pct}% off)</span>
+                                    <span>Save ₵{((item.price - unitPrice) * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          },
                         )}
                       </div>
                     </div>

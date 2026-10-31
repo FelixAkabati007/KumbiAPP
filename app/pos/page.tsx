@@ -69,6 +69,8 @@ import { enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@
 import { calculateTaxes } from "@/lib/tax";
 import { levyRowsHtml } from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
+import { DiscountModal, type DiscountConfig } from "@/components/pos/discount-modal";
+import { Tag } from "lucide-react";
 import {
   PaymentCompletionConfirmation,
   usePaymentCompletionConfirmation,
@@ -98,6 +100,11 @@ function POSContent() {
   const [inventoryAvailability, setInventoryAvailability] = useState<Record<string, number>>({});
   const [inventoryCategories, setInventoryCategories] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
+  const [orderDiscount, setOrderDiscount] = useState<DiscountConfig | null>(null);
+  const [discountModalState, setDiscountModalState] = useState<{
+    isOpen: boolean;
+    target: "order" | { itemId: string; name: string; price: number };
+  }>({ isOpen: false, target: "order" });
   const [sessionItemQuantities, setSessionItemQuantities] = useState<Record<string, number>>({});
 const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   type OrderType = (typeof ORDER_TYPES)[number];
@@ -359,17 +366,42 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     setCurrentOrder((prev) => prev.filter((item) => item.id !== itemId));
   };
 
-  // Calculate order total
-  const getDiscountedUnitPrice = (item: OrderItem) => {
-    const discount = Math.min(100, Math.max(0, Number(item.discountPercent || 0)));
-    return item.price * (1 - discount / 100);
+  // Calculate item and order concession pricing
+  const getItemDiscountPercent = (item: OrderItem): number => {
+    if (item.discountPercent && item.discountPercent > 0) {
+      return Math.min(100, Math.max(0, Number(item.discountPercent)));
+    }
+    if (orderDiscount && orderDiscount.type === "percent") {
+      return Math.min(100, Math.max(0, Number(orderDiscount.value)));
+    }
+    return 0;
   };
 
-  const calculateTotal = () => {
-  return currentOrder.reduce(
-    (total, item) => total + getDiscountedUnitPrice(item) * item.quantity,
-    0
-  );
+  const getDiscountedUnitPrice = (item: OrderItem): number => {
+    const percent = getItemDiscountPercent(item);
+    return item.price * (1 - percent / 100);
+  };
+
+  const calculateGrossSubtotal = (): number => {
+    return currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  };
+
+  const calculateTotalDiscount = (): number => {
+    const gross = calculateGrossSubtotal();
+    if (orderDiscount && orderDiscount.type === "fixed") {
+      return Math.min(gross, Number(orderDiscount.value) || 0);
+    }
+    const itemDiscountSum = currentOrder.reduce((sum, item) => {
+      const pct = getItemDiscountPercent(item);
+      return sum + (item.price * (pct / 100)) * item.quantity;
+    }, 0);
+    return itemDiscountSum;
+  };
+
+  const calculateTotal = (): number => {
+    const gross = calculateGrossSubtotal();
+    const discount = calculateTotalDiscount();
+    return Math.max(0, gross - discount);
   };
 
   // Get prep time for item category
@@ -435,17 +467,22 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       const orderPayload = {
         orderNumber,
         total: calculateTotal(),
+        tax: calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax,
         orderType,
         tableNumber,
         customerName,
         paymentMethod,
+        orderDiscount: orderDiscount || undefined,
         items: currentOrder.map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
+          originalPrice: item.price,
           category: item.category,
           quantity: item.quantity,
-          discountPercent: item.discountPercent || 0,
+          discountPercent: getItemDiscountPercent(item),
+          discountReason: item.discountReason || orderDiscount?.reason || undefined,
+          approvedBy: item.approvedBy || orderDiscount?.approvedBy || undefined,
           notes: item.notes,
           prepTime: getPrepTimeForItem(item.category),
         })),
@@ -695,21 +732,32 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         <div class="items-head"><span>ITEM</span><span>QTY</span><span>PRICE</span><span>TOTAL</span></div>
         <div>
           ${currentOrder
-            .map(
-              (item) => `
+            .map((item) => {
+              const pct = getItemDiscountPercent(item);
+              const unitPrice = getDiscountedUnitPrice(item);
+              const lineTotal = unitPrice * item.quantity;
+              return `
             <div class="item">
               <span class="name">${item.name}</span>
               <span>${item.quantity}</span>
-              <span class="price">₵${item.price.toFixed(2)}</span>
-              <span class="line-total">₵${(item.price * item.quantity).toFixed(2)}</span>
+              <span class="price">₵${unitPrice.toFixed(2)}</span>
+              <span class="line-total">₵${lineTotal.toFixed(2)}</span>
             </div>
-          `
-            )
+            ${pct > 0 ? `
+            <div class="item" style="font-size: 10px; color: #c2410c; margin-top: -3px; margin-bottom: 3px;">
+              <span style="grid-column: span 3;">Original ₵${item.price.toFixed(2)} (- ${pct}% concession)</span>
+              <span class="line-total">-₵${((item.price - unitPrice) * item.quantity).toFixed(2)}</span>
+            </div>
+            ` : ""}
+          `;
+            })
             .join("")}
         </div>
         
         <div class="total">
-          <div class="item"><span>Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
+          <div class="item"><span>Gross Subtotal:</span><span></span><span></span><span>₵${calculateGrossSubtotal().toFixed(2)}</span></div>
+          ${calculateTotalDiscount() > 0 ? `<div class="item" style="color: #c2410c;"><span>Concessions / Discounts:</span><span></span><span></span><span>-₵${calculateTotalDiscount().toFixed(2)}</span></div>` : ""}
+          <div class="item"><span>Taxable Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
 ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ") ? `<div class="levy-header">GRA E-VAT / statutory levies:</div>${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}` : ""}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
@@ -1155,6 +1203,34 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </div>
 
           <ScrollArea className="list-scroll-container min-h-0 flex-1 p-4">
+            {/* Whole Order Ticket Concession Action */}
+            {currentOrder.length > 0 && (
+              <div className="mb-3 flex items-center justify-between p-2.5 rounded-2xl bg-orange-100/60 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                  <Tag className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
+                  <span className="truncate text-gray-800 dark:text-gray-200">
+                    {orderDiscount ? (
+                      <span>
+                        Ticket Concession: <strong className="text-orange-700 dark:text-orange-300">
+                          {orderDiscount.type === "percent" ? `${orderDiscount.value}%` : `₵${orderDiscount.value}`} off
+                        </strong> {orderDiscount.reason ? `(${orderDiscount.reason})` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Standard ticket pricing</span>
+                    )}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDiscountModalState({ isOpen: true, target: "order" })}
+                  className="h-7 text-xs px-2.5 rounded-xl border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-200/50 dark:hover:bg-orange-900/40 shrink-0"
+                >
+                  {orderDiscount ? "Edit Concession" : "Ticket Concession"}
+                </Button>
+              </div>
+            )}
             {currentOrder.length > 0 ? (
               <div className="space-y-4">
                 {currentOrder.map((item) => (
@@ -1181,22 +1257,31 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                         {item.description}
                       </p>
-                      <div className="mb-2 flex items-center gap-2">
-                        <Label htmlFor={`discount-${item.id}`} className="text-xs text-orange-700 dark:text-orange-300">Discount %</Label>
-                        <Input
-                          id={`discount-${item.id}`}
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={item.discountPercent ?? ""}
-                          onChange={(event) => {
-                            const value = Math.min(100, Math.max(0, Number(event.target.value) || 0));
-                            setCurrentOrder((previous) => previous.map((orderItem) => orderItem.id === item.id ? { ...orderItem, discountPercent: value } : orderItem));
-                          }}
-                          className="h-8 w-20"
-                          aria-label={`Discount percentage for ${item.name}`}
-                        />
+                      <div className="mb-2 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDiscountModalState({
+                              isOpen: true,
+                              target: { itemId: item.id, name: item.name, price: item.price },
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border border-orange-200 dark:border-orange-800 bg-orange-50/60 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 hover:bg-orange-100 transition-colors"
+                        >
+                          <Tag className="h-3 w-3" />
+                          {item.discountPercent && item.discountPercent > 0 ? (
+                            <span className="font-semibold text-orange-800 dark:text-orange-200">
+                              -{item.discountPercent}% off {item.discountReason ? `(${item.discountReason})` : ""}
+                            </span>
+                          ) : (
+                            <span>+ Add Concession</span>
+                          )}
+                        </button>
+                        {item.discountPercent && item.discountPercent > 0 && (
+                          <span className="text-[11px] text-orange-600 dark:text-orange-400 font-mono">
+                            Saved ₵{((item.price * (item.discountPercent / 100)) * item.quantity).toFixed(2)}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
@@ -1225,11 +1310,22 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                           </Button>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">
-                            ₵{(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            ₵{getDiscountedUnitPrice(item).toFixed(2)} each{item.discountPercent ? ` · ${item.discountPercent}% off` : ""}
+                          {getItemDiscountPercent(item) > 0 ? (
+                            <div>
+                              <span className="text-xs text-muted-foreground line-through mr-1 font-mono">
+                                ₵{(item.price * item.quantity).toFixed(2)}
+                              </span>
+                              <span className="text-sm font-bold text-orange-800 dark:text-orange-200 font-mono">
+                                ₵{(getDiscountedUnitPrice(item) * item.quantity).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-semibold text-orange-800 dark:text-orange-200 font-mono">
+                              ₵{(item.price * item.quantity).toFixed(2)}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            ₵{getDiscountedUnitPrice(item).toFixed(2)} each
                           </p>
                         </div>
                       </div>
@@ -1363,20 +1459,43 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
 
               {/* Payment Summary */}
               {currentOrder.length > 0 && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 rounded-2xl border border-orange-200 dark:border-orange-700">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                      Total Amount:
+                <div className="mt-4 p-3.5 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 rounded-2xl border border-orange-200 dark:border-orange-700 space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
+                    <span>Gross Subtotal:</span>
+                    <span className="font-mono">₵{calculateGrossSubtotal().toFixed(2)}</span>
+                  </div>
+
+                  {calculateTotalDiscount() > 0 && (
+                    <div className="flex justify-between items-center text-orange-700 dark:text-orange-300 font-semibold">
+                      <span>Total Concessions / Discounts:</span>
+                      <span className="font-mono">-₵{calculateTotalDiscount().toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                    <span>Taxable Subtotal:</span>
+                    <span className="font-mono">₵{calculateTotal().toFixed(2)}</span>
+                  </div>
+
+                  {appSettings.system.taxConfiguration.enabled && (
+                    <div className="flex justify-between items-center text-gray-500 dark:text-gray-400 text-[11px]">
+                      <span>GRA Statutory Levies & Taxes:</span>
+                      <span className="font-mono">₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-2 border-t border-orange-200 dark:border-orange-700">
+                    <span className="text-sm font-bold text-orange-900 dark:text-orange-100">
+                      Total Payable:
                     </span>
-                    <span className="text-lg font-bold text-orange-800 dark:text-orange-200">
-                      ₵{(calculateTotal() * 1.125).toFixed(2)}
+                    <span className="text-lg font-bold text-orange-800 dark:text-orange-200 font-mono">
+                      ₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").total.toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">
-                      Payment Method:
-                    </span>
-                    <span className="text-sm font-medium text-orange-700 dark:text-orange-300 capitalize">
+
+                  <div className="flex justify-between items-center pt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    <span>Payment Method:</span>
+                    <span className="font-medium capitalize text-orange-700 dark:text-orange-300">
                       {paymentMethod}
                     </span>
                   </div>
@@ -1503,25 +1622,27 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                     </div>
                     <div className="space-y-1">
                       {currentOrder.length > 0 ? (
-                        currentOrder.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex justify-between text-xs"
-                          >
-                            <span className="flex-1 truncate mr-2">
-                              {item.name}
-                            </span>
-                            <span className="w-8 text-center">
-                              {item.quantity}
-                            </span>
-                            <span className="w-12 text-right">
-                              ₵{item.price.toFixed(2)}
-                            </span>
-                            <span className="w-16 text-right font-semibold">
-                              ₵{(item.price * item.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        ))
+                        currentOrder.map((item) => {
+                          const pct = getItemDiscountPercent(item);
+                          const unitPrice = getDiscountedUnitPrice(item);
+                          const lineTotal = unitPrice * item.quantity;
+                          return (
+                            <div key={item.id} className="space-y-0.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="flex-1 truncate mr-2">{item.name}</span>
+                                <span className="w-8 text-center">{item.quantity}</span>
+                                <span className="w-12 text-right">₵{unitPrice.toFixed(2)}</span>
+                                <span className="w-16 text-right font-semibold font-mono">₵{lineTotal.toFixed(2)}</span>
+                              </div>
+                              {pct > 0 && (
+                                <div className="flex justify-between text-[10px] text-orange-600 dark:text-orange-400 pl-2 font-mono">
+                                  <span>Original ₵{item.price.toFixed(2)} (-{pct}% off)</span>
+                                  <span>Save ₵{((item.price - unitPrice) * item.quantity).toFixed(2)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       ) : (
                         <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-4">
                           No items in order
@@ -1533,8 +1654,18 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   {/* Totals */}
                   <div className="border-t-2 border-orange-300 dark:border-orange-600 pt-3 space-y-1">
                     <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>₵{calculateTotal().toFixed(2)}</span>
+                      <span>Gross Subtotal:</span>
+                      <span className="font-mono">₵{calculateGrossSubtotal().toFixed(2)}</span>
+                    </div>
+                    {calculateTotalDiscount() > 0 && (
+                      <div className="flex justify-between text-orange-700 dark:text-orange-400 font-medium">
+                        <span>Concessions / Discounts:</span>
+                        <span className="font-mono">-₵{calculateTotalDiscount().toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Taxable Subtotal:</span>
+                      <span className="font-mono">₵{calculateTotal().toFixed(2)}</span>
                     </div>
 {appSettings.system.taxConfiguration.enabled && calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax > 0 && <div className="flex justify-between">
   <span>GRA E-VAT / statutory levies:</span>
@@ -1562,6 +1693,49 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             </div>
           </div>
         </div>
+        {/* Ticket & Item Concession Modal */}
+        <DiscountModal
+          isOpen={discountModalState.isOpen}
+          onClose={() => setDiscountModalState((prev) => ({ ...prev, isOpen: false }))}
+          targetName={discountModalState.target === "order" ? "Entire Ticket / Order" : discountModalState.target.name}
+          originalPrice={discountModalState.target === "order" ? calculateGrossSubtotal() : discountModalState.target.price}
+          currentDiscount={
+            discountModalState.target === "order"
+              ? orderDiscount
+              : (() => {
+                  const it = currentOrder.find((i) => i.id === (discountModalState.target as { itemId: string }).itemId);
+                  if (!it || !it.discountPercent) return null;
+                  return {
+                    type: "percent" as const,
+                    value: it.discountPercent,
+                    reason: it.discountReason || "Item concession",
+                    approvedBy: it.approvedBy,
+                  };
+                })()
+          }
+          currentUserRole={user?.role || "staff"}
+          currentUserName={user?.name || user?.email || "Staff"}
+          onApply={(discount) => {
+            if (discountModalState.target === "order") {
+              setOrderDiscount(discount);
+            } else {
+              const targetId = (discountModalState.target as { itemId: string }).itemId;
+              setCurrentOrder((prev) =>
+                prev.map((it) =>
+                  it.id === targetId
+                    ? {
+                        ...it,
+                        discountPercent: discount ? (discount.type === "percent" ? discount.value : Number(((discount.value / (it.price || 1)) * 100).toFixed(2))) : 0,
+                        discountAmount: discount ? (discount.type === "fixed" ? discount.value : (it.price * discount.value) / 100) : 0,
+                        discountReason: discount?.reason,
+                        approvedBy: discount?.approvedBy,
+                      }
+                    : it
+                )
+              );
+            }
+          }}
+        />
       </main>
       <PaymentCompletionConfirmation
         mounted={paymentConfirmation.mounted}

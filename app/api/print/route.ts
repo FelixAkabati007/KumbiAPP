@@ -63,6 +63,14 @@ async function generateReceipt(
       { text: item.quantity.toString(), align: "CENTER", width: 0.15 },
       { text: item.total.toFixed(2), align: "RIGHT", width: 0.35 },
     ]);
+    if (item.discountPercent && item.discountPercent > 0) {
+      const saved = ((item.originalPrice ?? item.price) * item.quantity - item.total).toFixed(2);
+      printer.tableCustom([
+        { text: "  (-" + item.discountPercent + "% off)", align: "LEFT", width: 0.5 },
+        { text: "SAVE", align: "CENTER", width: 0.15 },
+        { text: "-" + saved, align: "RIGHT", width: 0.35 },
+      ]);
+    }
   });
   printer.drawLine();
 
