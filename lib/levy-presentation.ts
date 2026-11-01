@@ -1,5 +1,7 @@
 import type { TaxConfiguration } from "@/lib/settings";
 
+export const STATUTORY_LEVIES_HEADER = "GRA E-VAT / Statutory Levies:";
+
 export const STATUTORY_LEVY_LABELS = [
   ["nhil", "NHIL", "nhilRate"],
   ["getFund", "GETFund", "getFundRate"],
@@ -7,6 +9,15 @@ export const STATUTORY_LEVY_LABELS = [
   ["covidLevy", "COVID-19 Health Recovery", "covidLevyRate"],
   ["vat", "VAT (Standard)", "vatRate"],
 ] as const;
+
+export function formatStatutoryLevyLabel(key: string, baseLabel: string, rate: number): string {
+  if (key === "nhil") return `NHIL (${rate.toFixed(1)}%)`;
+  if (key === "getFund") return `GETFund (${rate.toFixed(1)}%)`;
+  if (key === "tourism") return `Tourism Levy (GTA) (${rate.toFixed(1)}%)`;
+  if (key === "covidLevy") return `COVID-19 Health Recovery (${rate.toFixed(1)}%)`;
+  if (key === "vat") return `VAT (Standard ${rate.toFixed(0)}% on compounded base)`;
+  return baseLabel;
+}
 
 export type StatutoryLevyKey = (typeof STATUTORY_LEVY_LABELS)[number][0];
 export type LevyBreakdown = Partial<Record<StatutoryLevyKey | "vatTaxableBase" | "graEVat", number>>;
@@ -42,9 +53,14 @@ export function levyRows(
     if (key === "vat") return config?.vatEnabled !== false;
     return true;
   })
-    .map(([key, label, rateKey]) => {
+    .map(([key, baseLabel, rateKey]) => {
       const amount = Number(breakdown[key] ?? 0);
-      const rate = Number(config?.[rateKey as keyof TaxConfiguration] ?? 0);
+      const rate = Number(
+        config?.[rateKey as keyof TaxConfiguration] ?? (
+          key === "nhil" ? 2.5 : key === "getFund" ? 2.5 : key === "tourism" ? 1.0 : key === "covidLevy" ? 1.0 : 15.0
+        )
+      );
+      const label = formatStatutoryLevyLabel(key, baseLabel, rate);
       return {
         key,
         label,
@@ -68,12 +84,41 @@ export function levyRowsHtml(
   subtotal = 0,
   prefix = "₵"
 ): string {
+  if (config?.enabled === false) {
+    return "";
+  }
   return levyRows(breakdown, config, subtotal, prefix)
     .map(
       ({ label, formatted }) =>
-        `<div class="levy-line" style="display: flex; justify-content: space-between; font-size: 11px;"><span>${label}:</span><span style="font-family: monospace;">${formatted}</span></div>`
+        `<div class="levy-line" style="display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0;"><span>${label}:</span><span style="font-family: monospace;">${formatted}</span></div>`
     )
     .join("");
+}
+
+export function statutoryLeviesTotalsHtml(
+  breakdown: LevyBreakdown,
+  config?: Partial<TaxConfiguration>,
+  subtotal = 0,
+  prefix = "₵"
+): string {
+  if (config?.enabled === false) {
+    return "";
+  }
+  const rows = levyRows(breakdown, config, subtotal, prefix);
+  if (rows.length === 0) return "";
+  const lines = rows
+    .map(
+      ({ label, formatted }) =>
+        `<div class="item" style="display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin: 2px 0;"><span style="color: #444;">${label}:</span><span style="font-family: monospace;">${formatted}</span></div>`
+    )
+    .join("");
+
+  return `
+    <div class="statutory-levies-block" style="border-top: 1px dashed #bbb; margin-top: 4px; padding-top: 4px;">
+      <div style="font-weight: 600; font-size: 11px; margin-bottom: 2px;">${STATUTORY_LEVIES_HEADER}</div>
+      ${lines}
+    </div>
+  `;
 }
 
 export function levyRowsText(

@@ -4,6 +4,8 @@ import {
   levyRows,
   graFiscalHeaderHtml,
   graFiscalFooterHtml,
+  statutoryLeviesTotalsHtml,
+  STATUTORY_LEVIES_HEADER,
 } from "@/lib/levy-presentation";
 
 describe("GRA Statutory Compounded Tax Engine & E-VAT Compliance", () => {
@@ -99,10 +101,10 @@ describe("GRA Statutory Compounded Tax Engine & E-VAT Compliance", () => {
     const rows = levyRows(result.breakdown, config, 100.0, "₵");
 
     const labels = rows.map((r) => r.label);
-    expect(labels).toContain("NHIL");
-    expect(labels).toContain("GETFund");
-    expect(labels).toContain("Tourism Levy (GTA)");
-    expect(labels).toContain("VAT (Standard)");
+    expect(labels).toContain("NHIL (2.5%)");
+    expect(labels).toContain("GETFund (2.5%)");
+    expect(labels).toContain("Tourism Levy (GTA) (1.0%)");
+    expect(labels).toContain("VAT (Standard 15% on compounded base)");
 
     // No confusing "GRA E-VAT (invoice channel): ₵0.00" in levy line items
     expect(labels).not.toContain("GRA E-VAT (invoice channel)");
@@ -177,9 +179,44 @@ describe("GRA Statutory Compounded Tax Engine & E-VAT Compliance", () => {
 
     expect(rows.length).toBeGreaterThanOrEqual(4);
     const rowMap = Object.fromEntries(rows.map((r) => [r.label, r.formatted]));
-    expect(rowMap["NHIL"]).toBe("₵5.00");
-    expect(rowMap["GETFund"]).toBe("₵5.00");
-    expect(rowMap["Tourism Levy (GTA)"]).toBe("₵2.00");
-    expect(rowMap["VAT (Standard)"]).toBe("₵31.80");
+    expect(rowMap["NHIL (2.5%)"]).toBe("₵5.00");
+    expect(rowMap["GETFund (2.5%)"]).toBe("₵5.00");
+    expect(rowMap["Tourism Levy (GTA) (1.0%)"]).toBe("₵2.00");
+    expect(rowMap["VAT (Standard 15% on compounded base)"]).toBe("₵31.80");
+  });
+
+  it("renders standardized statutory levies HTML block with exact header and rates when enabled", () => {
+    const activeConfig = {
+      ...defaultTaxConfiguration,
+      enabled: true,
+      vatRate: 15.0,
+      nhilRate: 2.5,
+      getfundRate: 2.5,
+      tourismLevyRate: 1.0,
+      tourismLevyEnabled: true,
+      covidLevyRate: 1.0,
+      covidLevyEnabled: true,
+    };
+
+    const result = calculateTaxes(100.0, activeConfig, "pos");
+    const html = statutoryLeviesTotalsHtml(result.breakdown, activeConfig, 100.0, "₵");
+
+    expect(html).toContain(STATUTORY_LEVIES_HEADER);
+    expect(html).toContain("NHIL (2.5%):");
+    expect(html).toContain("GETFund (2.5%):");
+    expect(html).toContain("Tourism Levy (GTA) (1.0%):");
+    expect(html).toContain("COVID-19 Health Recovery (1.0%):");
+    expect(html).toContain("VAT (Standard 15% on compounded base):");
+  });
+
+  it("returns empty string from statutoryLeviesTotalsHtml when tax is turned off in settings", () => {
+    const disabledConfig = {
+      ...defaultTaxConfiguration,
+      enabled: false,
+    };
+
+    const result = calculateTaxes(100.0, disabledConfig, "pos");
+    const html = statutoryLeviesTotalsHtml(result.breakdown, disabledConfig, 100.0, "₵");
+    expect(html).toBe("");
   });
 });

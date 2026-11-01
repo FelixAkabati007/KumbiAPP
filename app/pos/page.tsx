@@ -72,6 +72,7 @@ import {
   levyRowsHtml,
   graFiscalHeaderHtml,
   graFiscalFooterHtml,
+  STATUTORY_LEVIES_HEADER,
 } from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
 import { DiscountModal, type DiscountConfig } from "@/components/pos/discount-modal";
@@ -788,7 +789,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
           <div class="item"><span>Gross Subtotal:</span><span></span><span></span><span>₵${calculateGrossSubtotal().toFixed(2)}</span></div>
           ${calculateTotalDiscount() > 0 ? `<div class="item" style="color: #c2410c;"><span>Concessions / Discounts:</span><span></span><span></span><span>-₵${calculateTotalDiscount().toFixed(2)}</span></div>` : ""}
           <div class="item"><span>Taxable Subtotal:</span><span></span><span></span><span>₵${subtotal.toFixed(2)}</span></div>
-${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ") ? `<div class="levy-header">GRA E-VAT / statutory levies:</div>${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}` : ""}
+${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ") ? `<div class="levy-header">${STATUTORY_LEVIES_HEADER}</div>${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtotal, "GHS ")}` : ""}
           <div class="item"><strong>TOTAL:</strong><span></span><span></span><strong>₵${total.toFixed(2)}</strong></div>
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
@@ -1519,7 +1520,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   {isPosTaxEnabled && posTaxResult.tax > 0 && (
                     <div className="space-y-1 pt-1.5 border-t border-dashed border-orange-200 dark:border-orange-700/60">
                       <div className="flex justify-between items-center text-gray-700 dark:text-gray-300 font-semibold">
-                        <span>GRA Statutory Levies & Taxes:</span>
+                        <span>{STATUTORY_LEVIES_HEADER}</span>
                         <span className="font-mono">₵{posTaxResult.tax.toFixed(2)}</span>
                       </div>
                       {levyRows(posTaxResult.breakdown, appSettings.system.taxConfiguration, taxableSubtotal, "₵").map((levy) => (
@@ -1726,7 +1727,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                     {isPosTaxEnabled && posTaxResult.tax > 0 && (
                       <div className="space-y-0.5 pt-1.5 border-t border-dashed border-orange-200 dark:border-orange-700">
                         <div className="flex justify-between font-semibold text-xs text-orange-950 dark:text-orange-200">
-                          <span>GRA E-VAT / statutory levies:</span>
+                          <span>{STATUTORY_LEVIES_HEADER}</span>
                           <span className="font-mono">₵{posTaxResult.tax.toFixed(2)}</span>
                         </div>
                         {levyRows(posTaxResult.breakdown, appSettings.system.taxConfiguration, taxableSubtotal, "₵").map((levy) => (

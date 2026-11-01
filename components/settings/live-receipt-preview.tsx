@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Printer, Receipt, Eye, CheckCircle2 } from "lucide-react";
 import type { PrinterConfig } from "@/lib/settings";
+import { STATUTORY_LEVIES_HEADER } from "@/lib/levy-presentation";
 
 interface LiveReceiptPreviewProps {
   account: {
@@ -222,34 +223,35 @@ export function LiveReceiptPreview({
 
             {taxesEnabled && (
               <div className="py-1 border-y border-dashed border-zinc-200 dark:border-zinc-800 space-y-0.5 text-[10px] text-zinc-600 dark:text-zinc-400">
+                <div className="font-semibold text-[10px] text-zinc-800 dark:text-zinc-200">{STATUTORY_LEVIES_HEADER}</div>
                 {isNhilEnabled && (
-                  <div className="flex justify-between">
-                    <span>NHIL ({nhilRate}%):</span>
-                    <span>{displayMode === "percentage" ? `${nhilRate}%` : `${curr} ${nhilAmount.toFixed(2)}`}</span>
+                  <div className="flex justify-between pl-1">
+                    <span>NHIL ({nhilRate.toFixed(1)}%):</span>
+                    <span>{displayMode === "percentage" ? `${nhilRate.toFixed(1)}%` : `${curr} ${nhilAmount.toFixed(2)}`}</span>
                   </div>
                 )}
                 {isGetFundEnabled && (
-                  <div className="flex justify-between">
-                    <span>GETFund ({getFundRate}%):</span>
-                    <span>{displayMode === "percentage" ? `${getFundRate}%` : `${curr} ${getFundAmount.toFixed(2)}`}</span>
+                  <div className="flex justify-between pl-1">
+                    <span>GETFund ({getFundRate.toFixed(1)}%):</span>
+                    <span>{displayMode === "percentage" ? `${getFundRate.toFixed(1)}%` : `${curr} ${getFundAmount.toFixed(2)}`}</span>
                   </div>
                 )}
                 {isTourismEnabled && (
-                  <div className="flex justify-between">
-                    <span>Tourism Levy ({tourismRate}%):</span>
-                    <span>{displayMode === "percentage" ? `${tourismRate}%` : `${curr} ${tourismAmount.toFixed(2)}`}</span>
+                  <div className="flex justify-between pl-1">
+                    <span>Tourism Levy (GTA) ({tourismRate.toFixed(1)}%):</span>
+                    <span>{displayMode === "percentage" ? `${tourismRate.toFixed(1)}%` : `${curr} ${tourismAmount.toFixed(2)}`}</span>
                   </div>
                 )}
                 {isCovidEnabled && (
-                  <div className="flex justify-between">
-                    <span>COVID-19 ({covidRate}%):</span>
-                    <span>{displayMode === "percentage" ? `${covidRate}%` : `${curr} ${covidAmount.toFixed(2)}`}</span>
+                  <div className="flex justify-between pl-1">
+                    <span>COVID-19 Health Recovery ({covidRate.toFixed(1)}%):</span>
+                    <span>{displayMode === "percentage" ? `${covidRate.toFixed(1)}%` : `${curr} ${covidAmount.toFixed(2)}`}</span>
                   </div>
                 )}
                 {isVatEnabled && (
-                  <div className="flex justify-between">
-                    <span>Standard VAT ({vatRate}%):</span>
-                    <span>{displayMode === "percentage" ? `${vatRate}%` : `${curr} ${vatAmount.toFixed(2)}`}</span>
+                  <div className="flex justify-between pl-1">
+                    <span>VAT (Standard {vatRate.toFixed(0)}% on compounded base):</span>
+                    <span>{displayMode === "percentage" ? `${vatRate.toFixed(0)}%` : `${curr} ${vatAmount.toFixed(2)}`}</span>
                   </div>
                 )}
               </div>

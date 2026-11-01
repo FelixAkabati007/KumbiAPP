@@ -9,5 +9,10 @@ describe("hotel receipt print preview", () => {
     expect(source).toContain("printWindow.document.open();");
     expect(source).toContain("printWindow.document.write(markup);");
     expect(source).toContain("Guest folio charge");
+    expect(source).toContain("STATUTORY_LEVIES_HEADER");
+    expect(source).toContain("levyRowsBlock");
+    expect(source).toContain("Taxable Subtotal");
+    expect(source).toContain("graFiscalHeaderHtml");
+    expect(source).toContain("graFiscalFooterHtml");
   });
 });

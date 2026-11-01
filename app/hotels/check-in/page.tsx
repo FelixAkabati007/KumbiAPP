@@ -850,6 +850,8 @@ function CheckInPage() {
                     },
                   ],
                   total: Number(latestRestaurantOrder?.total || 0),
+                  taxConfig: appSettings.system.taxConfiguration,
+                  module: "pos",
                   footer: receiptSettings.includeFooter
                     ? "Charged to guest folio"
                     : "",
@@ -892,6 +894,8 @@ function CheckInPage() {
                       title: "Hotel check-in receipt",
                       ...latestHotelReceipt,
                       hotel: hotelReceiptIdentity,
+                      taxConfig: appSettings.system.taxConfiguration,
+                      module: "rooms",
                       footer: receiptSettings.includeFooter
                         ? "Accommodation settled at check-in"
                         : "",

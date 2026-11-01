@@ -18,7 +18,12 @@ import { RoleGuard } from "@/components/role-guard";
 import { useReceiptStats } from "@/hooks/use-receipt-stats";
 import { useAuth } from "@/components/auth-provider";
 import { calculateTaxes } from "@/lib/tax";
-import { levyRows } from "@/lib/levy-presentation";
+import {
+  levyRows,
+  STATUTORY_LEVIES_HEADER,
+  graFiscalHeaderHtml,
+  graFiscalFooterHtml,
+} from "@/lib/levy-presentation";
 import { canonicalizeReceipt } from "@/lib/canonical-receipts";
 
 interface ReceiptData {
@@ -467,31 +472,85 @@ function ReceiptContent() {
               )}
               {/* Preview or Empty State */}
               {hotelActivity ? (
-                <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-orange-200 bg-white p-5 text-orange-900 shadow-sm dark:border-orange-700 dark:bg-gray-900 dark:text-orange-100">
-                  <h3 className="font-bold">Hotel Activity Receipt</h3>
-                  <p className="text-sm">
-                    {hotelActivity.metadata?.description ??
-                      hotelActivity.metadata?.eventType ??
-                      "Hotel activity"}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <span>Reservation</span>
-                    <strong>
-                      {hotelActivity.metadata?.reservationId ??
-                        searchOrderNumber}
-                    </strong>
-                    <span>Room</span>
-                    <strong>{hotelActivity.metadata?.roomId ?? "—"}</strong>
-                    <span>Amount</span>
-                    <strong>
-                      ₵{Number(hotelActivity.amount ?? 0).toFixed(2)}
-                    </strong>
-                    <span>Date</span>
-                    <strong>
-                      {new Date(hotelActivity.created_at).toLocaleString()}
-                    </strong>
-                  </div>
-                </div>
+                (() => {
+                  const isHotelTaxEnabled =
+                    Boolean(appSettings.system.taxConfiguration?.enabled) &&
+                    appSettings.system.taxConfiguration?.appliesToRooms !== false;
+                  const rawAmount = Number(hotelActivity.amount ?? 0);
+                  const hotelTax = isHotelTaxEnabled
+                    ? calculateTaxes(rawAmount, appSettings.system.taxConfiguration, "rooms")
+                    : { breakdown: {}, tax: 0, total: rawAmount, subtotal: rawAmount };
+                  const rows = isHotelTaxEnabled ? levyRows(hotelTax.breakdown, appSettings.system.taxConfiguration, rawAmount, "₵") : [];
+                  const isHotelFiscal = isHotelTaxEnabled && appSettings.system.taxConfiguration?.graEVatEnabled !== false;
+                  const resId = String(hotelActivity.metadata?.reservationId ?? searchOrderNumber);
+
+                  return (
+                    <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-orange-200 bg-white p-5 text-orange-900 shadow-sm dark:border-orange-700 dark:bg-gray-900 dark:text-orange-100 font-mono text-xs">
+                      <div className="text-center border-b border-orange-200 dark:border-orange-700 pb-2">
+                        <h3 className="font-bold text-sm">Hotel Folio & Activity Receipt</h3>
+                        <p className="text-[11px] text-muted-foreground">
+                          {hotelActivity.metadata?.description ??
+                            hotelActivity.metadata?.eventType ??
+                            "Guest Folio Activity"}
+                        </p>
+                      </div>
+
+                      {isHotelFiscal && (
+                        <div className="my-1.5 border-y border-dashed border-gray-400 py-1 text-center font-mono text-[10px] text-gray-700 dark:text-gray-300">
+                          <div className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</div>
+                          <div>TIN: {appSettings.system.taxConfiguration?.tin || "C0029384756"}</div>
+                          <div>SDC ID: SDC-KMB-{resId.replace(/[^0-9A-Z]/gi, "").slice(-6)} | INVOICE: {resId}</div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <span>Reservation</span>
+                        <strong className="text-right">{resId}</strong>
+                        <span>Room</span>
+                        <strong className="text-right">{hotelActivity.metadata?.roomId ?? "—"}</strong>
+                        <span>Date</span>
+                        <strong className="text-right">
+                          {new Date(hotelActivity.created_at).toLocaleString()}
+                        </strong>
+                      </div>
+
+                      <div className="border-t border-orange-200 dark:border-orange-700 pt-2 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Taxable Subtotal:</span>
+                          <span className="font-mono">₵{hotelTax.subtotal.toFixed(2)}</span>
+                        </div>
+
+                        {isHotelTaxEnabled && rows.length > 0 && (
+                          <div className="space-y-0.5 pt-1 border-t border-dashed border-orange-200 dark:border-orange-700">
+                            <div className="flex justify-between font-semibold text-[11px] text-orange-950 dark:text-orange-200">
+                              <span>{STATUTORY_LEVIES_HEADER}</span>
+                              <span className="font-mono">₵{hotelTax.tax.toFixed(2)}</span>
+                            </div>
+                            {rows.map((levy) => (
+                              <div key={levy.key} className="flex justify-between pl-2 text-[10px] text-gray-600 dark:text-gray-400">
+                                <span>{levy.label}:</span>
+                                <span className="font-mono">{levy.formatted}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex justify-between font-bold text-sm text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-700 pt-1.5">
+                          <span>TOTAL:</span>
+                          <span className="font-mono">₵{hotelTax.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {isHotelFiscal && (
+                        <div className="mt-2 border-t border-dashed border-gray-300 dark:border-gray-700 pt-1.5 text-center font-mono text-[8px] text-gray-500">
+                          <div className="font-bold text-[9px] text-gray-700 dark:text-gray-300">[ GRA E-VAT VERIFIED FISCAL RECEIPT ]</div>
+                          <div className="truncate">https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={resId}&tot={hotelTax.total.toFixed(2)}</div>
+                          <div className="mt-0.5">Powered by KumbiAPP · Certified Fiscal Channel</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : foundSale ? (
                 <ScrollArea className="h-[600px]">
                   <div
@@ -618,18 +677,46 @@ function ReceiptContent() {
                     {/* Totals */}
                     <div className="border-t-2 border-orange-300 dark:border-orange-600 pt-3 space-y-1">
                       <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span>
+                        <span>Taxable Subtotal:</span>
+                        <span className="font-mono">
                           ₵{Number(foundSale.subtotal ?? 0).toFixed(2)}
                         </span>
                       </div>
-                      <div className="font-semibold">Statutory taxes and levies:</div><div className="text-xs text-muted-foreground">GRA E-VAT is the invoice channel; it is not added as a separate tax.</div>
-                      {receiptSource === "event" ? (
-                        <div className="flex justify-between pl-3 text-xs"><span>Event taxes and levies:</span><span>₵{Number(foundSale.tax ?? 0).toFixed(2)}</span></div>
-                      ) : levyRows(calculateTaxes(Number(foundSale.subtotal ?? 0), appSettings.system.taxConfiguration, "pos").breakdown, appSettings.system.taxConfiguration, foundSale.subtotal, "GHS ").map((levy) => <div key={levy.key} className="flex justify-between pl-3 text-xs"><span>{levy.label}:</span><span>{levy.formatted}</span></div>)}
-                      <div className="flex justify-between font-semibold">
-                        <span>Total:</span>
-                        <span>₵{foundSale.total.toFixed(2)}</span>
+                      {(() => {
+                        const moduleName = receiptSource === "event" ? "events" : receiptSource === "hotel" ? "rooms" : "pos";
+                        const isTaxEnabled =
+                          Boolean(appSettings.system.taxConfiguration?.enabled) &&
+                          (moduleName === "events"
+                            ? appSettings.system.taxConfiguration?.appliesToEvents !== false
+                            : moduleName === "rooms"
+                            ? appSettings.system.taxConfiguration?.appliesToRooms !== false
+                            : appSettings.system.taxConfiguration?.appliesToPos !== false);
+                        const subtotalVal = Number(foundSale.subtotal ?? 0);
+                        const taxRes = isTaxEnabled
+                          ? calculateTaxes(subtotalVal, appSettings.system.taxConfiguration, moduleName)
+                          : { breakdown: {}, tax: 0, total: Number(foundSale.total ?? 0) };
+                        const rows = isTaxEnabled ? levyRows(taxRes.breakdown, appSettings.system.taxConfiguration, subtotalVal, "₵") : [];
+
+                        if (!isTaxEnabled || rows.length === 0) return null;
+
+                        return (
+                          <div className="space-y-0.5 pt-1.5 border-t border-dashed border-orange-200 dark:border-orange-700">
+                            <div className="flex justify-between font-semibold text-xs text-orange-950 dark:text-orange-200">
+                              <span>{STATUTORY_LEVIES_HEADER}</span>
+                              <span className="font-mono">₵{taxRes.tax.toFixed(2)}</span>
+                            </div>
+                            {rows.map((levy) => (
+                              <div key={levy.key} className="flex justify-between pl-2 text-[11px] text-gray-600 dark:text-gray-400">
+                                <span>{levy.label}:</span>
+                                <span className="font-mono">{levy.formatted}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
+                        <span>TOTAL:</span>
+                        <span className="font-mono">₵{foundSale.total.toFixed(2)}</span>
                       </div>
                     </div>
                     {/* Payment Method */}
