@@ -21,7 +21,7 @@ interface IntegrationContextType {
   isInitialized: boolean;
   systemStatus: SystemStatus | null;
   events: IntegrationEvent[];
-  initialize: () => Promise<boolean>;
+  initialize: (options?: { notifyOnFailure?: boolean }) => Promise<boolean>;
   refreshStatus: () => void;
 }
 
@@ -39,31 +39,36 @@ export function IntegrationProvider({
   const [events, setEvents] = useState<IntegrationEvent[]>([]);
   const { toast } = useToast();
 
-  const initialize = useCallback(async (): Promise<boolean> => {
-    try {
-      const success = await initializeIntegrationService();
-      setIsInitialized(success);
+  const initialize = useCallback(
+    async (options?: { notifyOnFailure?: boolean }): Promise<boolean> => {
+      try {
+        const success = await initializeIntegrationService();
+        setIsInitialized(success);
 
-      if (!success) {
-        toast({
-          title: "Initialization Warning",
-          description: "Some hardware services failed to initialize",
-          variant: "destructive",
-        });
+        if (!success && options?.notifyOnFailure) {
+          toast({
+            title: "Initialization Warning",
+            description: "Some hardware services failed to initialize",
+            variant: "destructive",
+          });
+        }
+
+        return success;
+      } catch (error) {
+        console.error("Failed to initialize integration service:", error);
+        if (options?.notifyOnFailure) {
+          toast({
+            title: "Initialization Error",
+            description:
+              error instanceof Error ? error.message : "Unknown error occurred",
+            variant: "destructive",
+          });
+        }
+        return false;
       }
-
-      return success;
-    } catch (error) {
-      console.error("Failed to initialize integration service:", error);
-      toast({
-        title: "Initialization Error",
-        description:
-          error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      });
-      return false;
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   const refreshStatus = () => {
     setSystemStatus(getSystemStatus());
@@ -72,8 +77,8 @@ export function IntegrationProvider({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Initialize on mount
-    initialize();
+    // Background initialize on mount without disruptive global toast
+    initialize({ notifyOnFailure: false });
 
     // Subscribe to status changes
     const unsubscribeStatus = subscribeToSystemStatus((status) => {

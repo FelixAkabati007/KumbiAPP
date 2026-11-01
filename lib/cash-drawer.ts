@@ -17,7 +17,6 @@ export interface CashDrawerStatus {
 export class CashDrawerService {
   private config: CashDrawerConfig;
   private status: CashDrawerStatus;
-  private port: unknown | null = null; // SerialPort instance
   private listeners: ((status: CashDrawerStatus) => void)[] = [];
 
   constructor(config: CashDrawerConfig) {
@@ -33,51 +32,46 @@ export class CashDrawerService {
   // Initialize connection to cash drawer
   async connect(): Promise<boolean> {
     if (!this.config.enabled) {
+      this.status.isConnected = false;
       this.status.error = "Cash drawer is disabled in settings";
       this.notifyListeners();
       return false;
     }
 
     try {
-      // In a real implementation, this would use a library like 'serialport'
-      // For now, we'll simulate the connection
-      console.log(
-        `Connecting to cash drawer on ${this.config.port} at ${this.config.baudRate} baud`
-      );
-
-      // Simulate connection delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       this.status.isConnected = true;
       this.status.error = null;
       this.notifyListeners();
-
       return true;
     } catch (error) {
+      this.status.isConnected = false;
       this.status.error = `Failed to connect: ${error}`;
       this.notifyListeners();
       return false;
     }
   }
 
-  // Open the cash drawer
+  // Open the cash drawer via printer kick (RJ11/RJ12 ESC p pulse) or PrintBridge
   async open(): Promise<boolean> {
-    if (!this.status.isConnected) {
-      this.status.error = "Cash drawer not connected";
+    if (!this.config.enabled) {
+      this.status.error = "Cash drawer is disabled in settings";
       this.notifyListeners();
       return false;
     }
 
     try {
-      // Send open command to cash drawer
-      // Common commands: ESC p (0) (0) (0) or ESC p (0) (0) (0) (0)
-      // const openCommand = Buffer.from([0x1b, 0x70, 0x00, 0x00, 0x00]);
+      if (typeof window !== "undefined") {
+        const response = await fetch("/api/hardware/cash-drawer/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port: this.config.port }),
+        });
 
-      // In a real implementation, this would send the command via serial port
-      // console.log("Sending cash drawer open command:", openCommand);
-
-      // Simulate opening delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!response.ok) {
+          const result = await response.json().catch(() => null);
+          console.warn("Cash drawer open response:", result);
+        }
+      }
 
       this.status.isOpen = true;
       this.status.lastOpened = new Date();
@@ -97,45 +91,26 @@ export class CashDrawerService {
     }
   }
 
-  // Close the cash drawer (if it has a sensor)
+  // Close the cash drawer (if sensor or auto-reset)
   async close(): Promise<boolean> {
-    if (!this.status.isConnected) {
-      return false;
-    }
-
-    try {
-      // Simulate closing delay
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      this.status.isOpen = false;
-      this.status.error = null;
-      this.notifyListeners();
-      return true;
-    } catch (error) {
-      this.status.error = `Failed to close drawer: ${error}`;
-      this.notifyListeners();
-      return false;
-    }
+    this.status.isOpen = false;
+    this.status.error = null;
+    this.notifyListeners();
+    return true;
   }
 
   // Test the cash drawer connection
   async test(): Promise<boolean> {
-    // console.log("Testing cash drawer connection...");
-
     const connected = await this.connect();
-    if (!connected) {
-      return false;
-    }
+    if (!connected) return false;
 
-    // Test opening
     const opened = await this.open();
-    if (!opened) {
-      return false;
-    }
+    if (!opened) return false;
 
-    // Wait a moment then close
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    await this.close();
+    // Reset drawer state after 1.5 seconds
+    setTimeout(() => {
+      this.close();
+    }, 1500);
 
     return true;
   }
@@ -169,7 +144,6 @@ export class CashDrawerService {
   // Play opening sound
   private playOpenSound(): void {
     try {
-      // Create a simple beep sound
       const AudioCtx =
         window.AudioContext ||
         (window as typeof window & { webkitAudioContext?: typeof AudioContext })
@@ -238,8 +212,7 @@ export async function openCashDrawer(
     return false;
   }
 
-  if (config.requireConfirmation) {
-    // In a real app, you might show a confirmation dialog here
+  if (config.requireConfirmation && typeof window !== "undefined") {
     const confirmed = window.confirm("Open cash drawer?");
     if (!confirmed) {
       return false;

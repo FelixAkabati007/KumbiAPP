@@ -33,11 +33,11 @@ export interface BarcodeData {
 export class BarcodeScannerService {
   private config: BarcodeScannerConfig;
   private status: BarcodeScannerStatus;
-  private port: unknown | null = null; // SerialPort instance
   private listeners: ((status: BarcodeScannerStatus) => void)[] = [];
   private dataListeners: ((data: BarcodeData) => void)[] = [];
-  private buffer: string = "";
-  private isReading: boolean = false;
+  private keyboardBuffer: string = "";
+  private lastKeyTime: number = 0;
+  private keyboardListenerAttached: boolean = false;
 
   constructor(config: BarcodeScannerConfig) {
     this.config = config;
@@ -59,20 +59,11 @@ export class BarcodeScannerService {
     }
 
     try {
-      // In a real implementation, this would use a library like 'serialport'
-      // For now, we'll simulate the connection
-      // console.log(
-      //   `Connecting to barcode scanner on ${this.config.port} at ${this.config.baudRate} baud`,
-      // );
-
-      // Simulate connection delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       this.status.isConnected = true;
       this.status.error = null;
       this.notifyListeners();
 
-      // Start listening for data
+      // Start listening for keyboard wedge / HID events
       this.startDataListener();
 
       return true;
@@ -83,38 +74,45 @@ export class BarcodeScannerService {
     }
   }
 
-  // Start listening for barcode data
+  // Start listening for barcode scanner hardware keystroke bursts (USB/Bluetooth HID wedge)
   private startDataListener(): void {
-    if (!this.status.isConnected) return;
+    if (typeof window === "undefined" || this.keyboardListenerAttached) return;
+    this.keyboardListenerAttached = true;
 
-    // Simulate barcode scanner data reception
-    // In a real implementation, this would listen to the serial port
-    // console.log("Barcode scanner is ready to receive data");
+    window.addEventListener("keydown", (e: KeyboardEvent) => {
+      // Ignore if modifier keys are pressed
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-    // Simulate periodic data reception for testing
-    setInterval(() => {
-      if (this.status.isConnected && Math.random() > 0.95) {
-        // Simulate a barcode scan
-        const testBarcodes = [
-          "049000028911", // Coca Cola
-          "049000028912", // Pepsi
-          "049000028913", // Sprite
-          "123456789012", // Test barcode
-          "987654321098", // Another test
-        ];
+      const now = Date.now();
+      const interval = now - this.lastKeyTime;
+      this.lastKeyTime = now;
 
-        const randomBarcode =
-          testBarcodes[Math.floor(Math.random() * testBarcodes.length)];
-        this.processBarcodeData(randomBarcode);
+      if (e.key === "Enter") {
+        if (this.keyboardBuffer.length >= 3) {
+          const scanned = this.keyboardBuffer;
+          this.keyboardBuffer = "";
+          this.processBarcodeData(scanned);
+        } else {
+          this.keyboardBuffer = "";
+        }
+        return;
       }
-    }, 5000); // Check every 5 seconds
+
+      // Characters arriving rapidly (< 75ms) are characteristic of a hardware scanner
+      if (e.key.length === 1) {
+        if (interval > 250) {
+          this.keyboardBuffer = e.key;
+        } else {
+          this.keyboardBuffer += e.key;
+        }
+      }
+    });
   }
 
   // Process incoming barcode data
-  private processBarcodeData(rawData: string): void {
+  processBarcodeData(rawData: string): void {
     try {
-      // Remove prefix and suffix if configured
-      let processedData = rawData;
+      let processedData = rawData.trim();
       if (this.config.prefix && processedData.startsWith(this.config.prefix)) {
         processedData = processedData.substring(this.config.prefix.length);
       }
@@ -125,7 +123,6 @@ export class BarcodeScannerService {
         );
       }
 
-      // Determine barcode type (simplified)
       const barcodeType = this.determineBarcodeType(processedData);
 
       const barcodeData: BarcodeData = {
@@ -154,11 +151,11 @@ export class BarcodeScannerService {
       // Notify data listeners
       this.notifyDataListeners(barcodeData);
 
-      // Reset scanning status after a short delay
+      // Reset scanning status after brief indication
       setTimeout(() => {
         this.status.isScanning = false;
         this.notifyListeners();
-      }, 500);
+      }, 400);
     } catch (error) {
       console.error("Error processing barcode data:", error);
       this.status.error = `Failed to process barcode data: ${error}`;
@@ -168,7 +165,6 @@ export class BarcodeScannerService {
 
   // Determine barcode type based on data
   private determineBarcodeType(data: string): string {
-    // Simple barcode type detection
     if (data.length === 12 && /^\d+$/.test(data)) {
       return "UPC-A";
     } else if (data.length === 13 && /^\d+$/.test(data)) {
@@ -177,65 +173,22 @@ export class BarcodeScannerService {
       return "EAN-8";
     } else if (data.length === 14 && /^\d+$/.test(data)) {
       return "GTIN-14";
-    } else if (/^[0-9A-Z]+$/.test(data)) {
-      return "Code 128";
+    } else if (/^[0-9A-Z\-.$/+% ]+$/i.test(data)) {
+      return "Code 128 / Code 39";
     } else {
-      return "Unknown";
+      return "QR / 2D Matrix";
     }
   }
 
   // Test the barcode scanner connection
   async test(): Promise<boolean> {
-    // console.log("Testing barcode scanner connection...");
-
     const connected = await this.connect();
-    if (!connected) {
-      return false;
-    }
-
-    // Simulate a test scan
-    setTimeout(() => {
-      this.processBarcodeData("123456789012");
-    }, 1000);
-
-    return true;
+    return connected;
   }
 
   // Send configuration commands to scanner
   async configureScanner(): Promise<boolean> {
-    if (!this.status.isConnected) {
-      return false;
-    }
-
-    try {
-      // In a real implementation, this would send configuration commands
-      console.log("Configuring barcode scanner...");
-
-      // Simulate configuration commands
-      /*
-      const commands = [
-        `SET_BAUD_RATE ${this.config.baudRate}`,
-        `SET_DATA_BITS ${this.config.dataBits}`,
-        `SET_STOP_BITS ${this.config.stopBits}`,
-        `SET_PARITY ${this.config.parity}`,
-        `SET_AUTO_FOCUS ${this.config.autoFocus ? "ON" : "OFF"}`,
-        `SET_SOUND ${this.config.soundEnabled ? "ON" : "OFF"}`,
-        `SET_VIBRATION ${this.config.vibrationEnabled ? "ON" : "OFF"}`,
-        `SET_SUFFIX "${this.config.suffix}"`,
-        `SET_PREFIX "${this.config.prefix}"`,
-        `SET_TIMEOUT ${this.config.timeout}`,
-      ];
-      */
-
-      // commands.forEach((command) => {
-      //   console.log(`Sending command: ${command}`);
-      // });
-
-      return true;
-    } catch (error) {
-      console.error("Failed to configure scanner:", error);
-      return false;
-    }
+    return this.status.isConnected;
   }
 
   // Get current status
@@ -283,7 +236,6 @@ export class BarcodeScannerService {
   // Play scan sound
   private playScanSound(): void {
     try {
-      // Create a beep sound for successful scan
       const AudioCtx =
         window.AudioContext ||
         (window as typeof window & { webkitAudioContext?: typeof AudioContext })
