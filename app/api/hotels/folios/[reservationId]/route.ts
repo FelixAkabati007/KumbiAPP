@@ -20,6 +20,8 @@ const addChargeSchema = z.object({
     .positive({ message: "Amount must be greater than zero" })
     .max(1_000_000, { message: "Amount is too large" }),
   description: z.string().max(255).optional(),
+  inventoryItemId: z.string().uuid().optional(),
+  quantity: z.coerce.number().positive().optional(),
 });
 
 const chargeColumn: Record<
@@ -226,6 +228,28 @@ export async function PATCH(
         entityId: reservationId,
         metadata: chargeMetadata,
       });
+
+      if (validationResult.data.inventoryItemId && validationResult.data.quantity) {
+        const deductQty = Number(validationResult.data.quantity);
+        const invRow = await client.query(
+          `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1 RETURNING id`,
+          [deductQty, validationResult.data.inventoryItemId]
+        );
+        if (invRow.rowCount !== 1) {
+          throw new Error("Selected inventory item is out of stock");
+        }
+        await client.query(
+          `INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, actor_id, reason)
+           VALUES ($1, $2, 'sale', 'hotel_folio_charge', $3, $4, $5)`,
+          [
+            validationResult.data.inventoryItemId,
+            -deductQty,
+            chargeReference,
+            session.id,
+            `Manual folio charge: ${validationResult.data.description || chargeType}`,
+          ]
+        );
+      }
 
       const updated = await client.query(
         `UPDATE guest_folios

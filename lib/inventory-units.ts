@@ -259,15 +259,7 @@ export function getRecipeDeductionQuantity(
   const chefRecipeKey = resolveChefUnitKey(recipeUnit);
   const chefStockKey = resolveChefUnitKey(stockUnit);
 
-  // 1. Identical canonical unit
-  if (recipeKey && stockKey && recipeKey === stockKey) {
-    if (Number.isFinite(ratio) && ratio > 0 && ratio < 1) {
-      return quantity / ratio;
-    }
-    return quantity;
-  }
-
-  // 2. Culinary volume measures (tsp, tbsp)
+  // 1. Culinary volume measures (tsp, tbsp)
   let effectiveQuantity = quantity;
   let effectiveRecipeUnit = recipeUnit;
   if (normalizedRecipe === "tsp" || normalizedRecipe === "teaspoon" || normalizedRecipe === "teaspoons") {
@@ -280,6 +272,20 @@ export function getRecipeDeductionQuantity(
 
   const recipeDim = getInventoryUnitDimension(effectiveRecipeUnit);
   const stockDim = getInventoryUnitDimension(stockUnit);
+
+  // 2. Identical canonical unit
+  if (recipeKey && stockKey && recipeKey === stockKey) {
+    if (recipeDim === "count" || stockDim === "count") {
+      if (Number.isFinite(ratio) && ratio > 0 && ratio !== 1) {
+        return effectiveQuantity / ratio;
+      }
+      return effectiveQuantity;
+    }
+    if (Number.isFinite(ratio) && ratio > 0 && ratio < 1) {
+      return effectiveQuantity / ratio;
+    }
+    return effectiveQuantity;
+  }
 
   // 3. Same physical dimension (mass <-> mass, volume <-> volume)
   if (

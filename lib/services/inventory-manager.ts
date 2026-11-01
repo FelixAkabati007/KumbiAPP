@@ -64,7 +64,8 @@ export class InventoryManager {
                    AND u.is_active = true AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
                  ORDER BY u.effective_from DESC LIMIT 1
                ) active_uom ON true
-               WHERE r.menu_item_id = $1`,
+               WHERE r.menu_item_id = $1
+               FOR UPDATE OF i`,
               [item.menu_item_id]
             )).rows;
 

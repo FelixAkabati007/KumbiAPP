@@ -3,7 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { requirePermission, requireRole } from "@/lib/api-auth";
 import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity, isInventoryUnit } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
 import { calculateInventoryLineCost } from "@/lib/inventory-cost";
 import { recordMenuChange } from "@/lib/menu-change-events";
 
@@ -21,7 +21,7 @@ export async function GET(
               i.quantity AS inventory_quantity,
               COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
               i.recipe_unit AS inventory_recipe_unit,
-              COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
+              COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
               i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.cost_per_item AS inventory_cost_price
        FROM recipe_ingredients r
        JOIN inventory i ON r.inventory_item_id = i.id

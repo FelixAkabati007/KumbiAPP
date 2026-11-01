@@ -73,7 +73,7 @@ export async function PATCH(
              AND NOT EXISTS (
                SELECT 1 FROM inventory_movements rev
                WHERE (rev.order_id::text = $1::text OR rev.source_id = $2)
-                 AND LOWER(rev.movement_type) IN ('return', 'reversal')
+                 AND LOWER(rev.movement_type) IN ('return', 'reversal', 'cancellation_reversal')
              )`,
           [id, previousOrder.ordernumber || ""],
         );

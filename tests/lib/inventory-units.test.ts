@@ -98,4 +98,22 @@ describe("5-star industry standard recipe deduction engine", () => {
     const invalidCount = getRecipeDeductionQuantity(2, "slice", "kg", null, null);
     expect(invalidCount).toBeNull();
   });
+
+  it("accurately handles discrete packaging count deductions (cans to carton, pieces to crate/pack)", () => {
+    // 1 can from a 24-can carton must deduct 1 / 24 cartons (0.04167)
+    const canResult = getRecipeDeductionQuantity(1, "can", "carton", 24, null);
+    expect(canResult).toBeCloseTo(1 / 24, 5);
+
+    // 6 bottles from a 24-bottle crate
+    const bottleResult = getRecipeDeductionQuantity(6, "bottle", "crate", 24, null);
+    expect(bottleResult).toBeCloseTo(0.25, 4);
+
+    // 2 eggs from a 30-egg crate
+    const eggResult = getRecipeDeductionQuantity(2, "piece", "crate", 30, null);
+    expect(eggResult).toBeCloseTo(2 / 30, 5);
+
+    // 1 unit when ratio is 1 (direct 1:1)
+    const directResult = getRecipeDeductionQuantity(1, "unit", "unit", 1, null);
+    expect(directResult).toBeCloseTo(1, 4);
+  });
 });

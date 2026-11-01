@@ -6,7 +6,7 @@ import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
 
 const paramsSchema = z.object({ reservationId: z.string().uuid() });
 const orderSchema = z.object({
@@ -111,7 +111,8 @@ export async function POST(
                AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
              ORDER BY u.effective_from DESC LIMIT 1
            ) active_uom ON true
-           WHERE r.menu_item_id = $1`,
+           WHERE r.menu_item_id = $1
+           FOR UPDATE OF i`,
           [item.menuItem.id]
         );
         if (recipeResult.rowCount) {
@@ -134,14 +135,6 @@ export async function POST(
             if (ingredientUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} cannot be prepared because an ingredient is out of stock`);
             await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [ingredient.inventory_item_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Recipe sale: ${item.menuItem.name}`]);
           }
-        } else {
-          const legacyUpdate = await client.query(
-            `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
-             WHERE name = $2 AND quantity >= $1 RETURNING id`,
-            [item.quantity, item.menuItem.name]
-          );
-            if (legacyUpdate.rowCount !== 0 && legacyUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} inventory could not be updated`);
-            if (legacyUpdate.rowCount === 1) await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [legacyUpdate.rows[0].id, -item.quantity, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Legacy sale: ${item.menuItem.name}`]);
         }
       }
 

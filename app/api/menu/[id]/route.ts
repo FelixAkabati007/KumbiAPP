@@ -8,7 +8,7 @@ import { calculateMenuAvailability } from "@/lib/menu-availability";
 import { recordMenuChange } from "@/lib/menu-change-events";
 import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
 
-const inventoryUnitSql = getInventoryUnitSqlExpression("i.unit");
+const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
 
 interface MenuRow {
   id: string;
@@ -51,7 +51,7 @@ export async function GET(
 
     const r = res.rows[0];
     const recipeRes = await query<{ name: string; requiredQuantity: number | string; recipeUnit: string | null; availableQuantity: number | string | null; stockUnit: string | null; conversionRatio: number | string | null; densityGPerMl: number | string | null }>(
-      `SELECT i.name, ri.quantity AS "requiredQuantity", ri.unit AS "recipeUnit", i.quantity AS "availableQuantity", COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS "stockUnit", COALESCE(active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS "conversionRatio", i.density_g_per_ml AS "densityGPerMl"
+      `SELECT i.name, ri.quantity AS "requiredQuantity", ri.unit AS "recipeUnit", i.quantity AS "availableQuantity", COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS "stockUnit", COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS "conversionRatio", i.density_g_per_ml AS "densityGPerMl"
        FROM recipe_ingredients ri
        JOIN inventory i ON i.id = ri.inventory_item_id
        LEFT JOIN LATERAL (
