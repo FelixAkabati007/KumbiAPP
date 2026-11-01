@@ -29,6 +29,9 @@ export function levyRows(
   subtotal = 0,
   prefix = "₵"
 ): LevyRowItem[] {
+  if (config?.enabled === false) {
+    return [];
+  }
   const mode: LevyDisplayMode = config?.levyDisplayMode ?? "amount";
 
   return STATUTORY_LEVY_LABELS.filter(([key]) => {

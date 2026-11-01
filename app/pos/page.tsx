@@ -67,7 +67,12 @@ import {
 import { hasPermission, UserRole } from "@/lib/roles";
 import { enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { calculateTaxes } from "@/lib/tax";
-import { levyRowsHtml, graFiscalHeaderHtml, graFiscalFooterHtml } from "@/lib/levy-presentation";
+import {
+  levyRows,
+  levyRowsHtml,
+  graFiscalHeaderHtml,
+  graFiscalFooterHtml,
+} from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
 import { DiscountModal, type DiscountConfig } from "@/components/pos/discount-modal";
 import { Tag } from "lucide-react";
@@ -698,7 +703,10 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     const levyResult = calculateTaxes(subtotal, appSettings.system.taxConfiguration, "pos");
     const tax = levyResult.tax;
     const total = levyResult.total;
-    const isFiscal = appSettings.system.taxConfiguration?.graEVatEnabled !== false;
+    const isTaxEnabled =
+      Boolean(appSettings.system.taxConfiguration?.enabled) &&
+      Boolean(appSettings.system.taxConfiguration?.appliesToPos);
+    const isFiscal = isTaxEnabled && appSettings.system.taxConfiguration?.graEVatEnabled !== false;
     const fiscalHeader = isFiscal
       ? graFiscalHeaderHtml({
           tin: appSettings.system.taxConfiguration?.tin,
@@ -815,6 +823,14 @@ ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtot
       </div>
     );
   }
+
+  const taxableSubtotal = calculateTotal();
+  const isPosTaxEnabled =
+    Boolean(appSettings.system.taxConfiguration?.enabled) &&
+    Boolean(appSettings.system.taxConfiguration?.appliesToPos);
+  const isGraEVatFiscal =
+    isPosTaxEnabled && appSettings.system.taxConfiguration?.graEVatEnabled !== false;
+  const posTaxResult = calculateTaxes(taxableSubtotal, appSettings.system.taxConfiguration, "pos");
 
   return (
     <div className="flex min-h-[100dvh] w-full min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
@@ -1497,13 +1513,21 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
 
                   <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                     <span>Taxable Subtotal:</span>
-                    <span className="font-mono">₵{calculateTotal().toFixed(2)}</span>
+                    <span className="font-mono">₵{taxableSubtotal.toFixed(2)}</span>
                   </div>
 
-                  {appSettings.system.taxConfiguration.enabled && (
-                    <div className="flex justify-between items-center text-gray-500 dark:text-gray-400 text-[11px]">
-                      <span>GRA Statutory Levies & Taxes:</span>
-                      <span className="font-mono">₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
+                  {isPosTaxEnabled && posTaxResult.tax > 0 && (
+                    <div className="space-y-1 pt-1.5 border-t border-dashed border-orange-200 dark:border-orange-700/60">
+                      <div className="flex justify-between items-center text-gray-700 dark:text-gray-300 font-semibold">
+                        <span>GRA Statutory Levies & Taxes:</span>
+                        <span className="font-mono">₵{posTaxResult.tax.toFixed(2)}</span>
+                      </div>
+                      {levyRows(posTaxResult.breakdown, appSettings.system.taxConfiguration, taxableSubtotal, "₵").map((levy) => (
+                        <div key={levy.key} className="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 pl-2">
+                          <span>{levy.label}:</span>
+                          <span className="font-mono">{levy.formatted}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -1512,7 +1536,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       Total Payable:
                     </span>
                     <span className="text-lg font-bold text-orange-800 dark:text-orange-200 font-mono">
-                      ₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").total.toFixed(2)}
+                      ₵{posTaxResult.total.toFixed(2)}
                     </span>
                   </div>
 
@@ -1638,6 +1662,15 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                     )}
                   </div>
 
+                  {/* GRA E-VAT Fiscal Compliance Header */}
+                  {isGraEVatFiscal && (
+                    <div className="my-2 border-y border-dashed border-gray-400 py-1.5 text-center font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                      <div className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</div>
+                      <div>TIN: {appSettings.system.taxConfiguration?.tin || "C0029384756"}</div>
+                      <div>SDC ID: SDC-KMB-{(orderNumber || "000000").replace(/[^0-9A-Z]/gi, "").slice(-6)} | INVOICE: {orderNumber || "N/A"}</div>
+                    </div>
+                  )}
+
                   {/* Items */}
                   <div className="border-t border-orange-200 dark:border-orange-600 pt-3 mb-4">
                     <div className="text-center text-xs text-gray-600 dark:text-gray-400 mb-2">
@@ -1688,17 +1721,42 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                     )}
                     <div className="flex justify-between">
                       <span>Taxable Subtotal:</span>
-                      <span className="font-mono">₵{calculateTotal().toFixed(2)}</span>
+                      <span className="font-mono">₵{taxableSubtotal.toFixed(2)}</span>
                     </div>
-{appSettings.system.taxConfiguration.enabled && calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax > 0 && <div className="flex justify-between">
-  <span>GRA E-VAT / statutory levies:</span>
-  <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax.toFixed(2)}</span>
-  </div>}
+                    {isPosTaxEnabled && posTaxResult.tax > 0 && (
+                      <div className="space-y-0.5 pt-1.5 border-t border-dashed border-orange-200 dark:border-orange-700">
+                        <div className="flex justify-between font-semibold text-xs text-orange-950 dark:text-orange-200">
+                          <span>GRA E-VAT / statutory levies:</span>
+                          <span className="font-mono">₵{posTaxResult.tax.toFixed(2)}</span>
+                        </div>
+                        {levyRows(posTaxResult.breakdown, appSettings.system.taxConfiguration, taxableSubtotal, "₵").map((levy) => (
+                          <div key={levy.key} className="flex justify-between pl-2 text-[11px] text-gray-600 dark:text-gray-400">
+                            <span>{levy.label}:</span>
+                            <span className="font-mono">{levy.formatted}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
                       <span>TOTAL:</span>
-                      <span>₵{calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").total.toFixed(2)}</span>
+                      <span className="font-mono">₵{posTaxResult.total.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 pt-1">
+                      <span>Payment:</span>
+                      <span className="capitalize">{paymentMethod}</span>
                     </div>
                   </div>
+
+                  {/* GRA E-VAT Verification Footer */}
+                  {isGraEVatFiscal && (
+                    <div className="mt-3 border-t border-dashed border-gray-300 dark:border-gray-600 pt-2 text-center font-mono text-[9px] text-gray-500">
+                      <div className="font-bold text-[10px] text-gray-700 dark:text-gray-300">[ GRA E-VAT VERIFIED FISCAL RECEIPT ]</div>
+                      <div className="truncate text-[8px] text-gray-500">
+                        https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={orderNumber || "ORD-POS"}&tot={posTaxResult.total.toFixed(2)}
+                      </div>
+                      <div className="mt-1 text-[8px]">Powered by KumbiAPP · Certified Fiscal Channel</div>
+                    </div>
+                  )}
 
                   {/* Footer */}
                   <div className="text-center mt-4 pt-3 border-t border-orange-200 dark:border-orange-600">

@@ -127,4 +127,59 @@ describe("GRA Statutory Compounded Tax Engine & E-VAT Compliance", () => {
     expect(footer).toContain("https://efiscal.gra.gov.gh/verify?tin=C0029384756&inv=ORD-20261101-0099&tot=121.90");
     expect(footer).toContain("Powered by KumbiAPP");
   });
+
+  it("suppresses statutory levy rows when tax configuration is turned off from settings", () => {
+    const disabledConfig = {
+      ...defaultTaxConfiguration,
+      enabled: false,
+      appliesToPos: true,
+      vatRate: 15.0,
+      nhilRate: 2.5,
+      getfundRate: 2.5,
+    };
+
+    const result = calculateTaxes(100.0, disabledConfig, "pos");
+    const rows = levyRows(result.breakdown, disabledConfig, 100.0, "₵");
+
+    expect(result.tax).toBe(0);
+    expect(result.total).toBe(100.0);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("reflects full statutory levy breakdown on receipt when turned on from settings", () => {
+    const activeConfig = {
+      ...defaultTaxConfiguration,
+      enabled: true,
+      appliesToPos: true,
+      graEVatEnabled: true,
+      tin: "C0029384756",
+      vatRate: 15.0,
+      nhilRate: 2.5,
+      getfundRate: 2.5,
+      tourismLevyRate: 1.0,
+      tourismLevyEnabled: true,
+    };
+
+    const result = calculateTaxes(200.0, activeConfig, "pos");
+    const rows = levyRows(result.breakdown, activeConfig, 200.0, "₵");
+
+    // NHIL 2.5% on 200 = 5.00
+    // GETFund 2.5% on 200 = 5.00
+    // Tourism 1.0% on 200 = 2.00
+    // Compounded VAT base = 212.00, VAT 15% = 31.80
+    // Total Tax = 43.80, Total = 243.80
+    expect(result.breakdown.nhil).toBe(5.0);
+    expect(result.breakdown.getFund).toBe(5.0);
+    expect(result.breakdown.tourism).toBe(2.0);
+    expect(result.breakdown.vat).toBe(31.8);
+    expect(result.tax).toBe(43.8);
+    expect(result.total).toBe(243.8);
+
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    const rowMap = Object.fromEntries(rows.map((r) => [r.label, r.formatted]));
+    expect(rowMap["NHIL"]).toBe("₵5.00");
+    expect(rowMap["GETFund"]).toBe("₵5.00");
+    expect(rowMap["Tourism Levy (GTA)"]).toBe("₵2.00");
+    expect(rowMap["VAT (Standard)"]).toBe("₵31.80");
+  });
 });
