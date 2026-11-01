@@ -1091,37 +1091,74 @@ function SettingsPageContent() {
                         <Label>GRA E-VAT / statutory levies</Label>
                         <p className="text-sm text-muted-foreground">One authoritative configuration used by Restaurant POS, Hotel room billing, and Event receipts. Current Ghana VAT reform defaults apply from January 1, 2026.</p>
                       </div>
-                      <Switch checked={settings.system.taxConfiguration?.enabled ?? true} onCheckedChange={(enabled) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, enabled })} disabled={!isAdmin} />
+                      <Switch checked={settings.system.taxConfiguration?.enabled ?? true} onCheckedChange={(enabled) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, enabled })} disabled={!canManageOperationalSettings} />
                     </div>
-                    <div className="mb-4 grid gap-2 sm:max-w-sm">
-                      <Label htmlFor="levyDisplayMode">Receipt levy display</Label>
-                      <Select value={settings.system.taxConfiguration?.levyDisplayMode ?? "amount"} onValueChange={(value) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, levyDisplayMode: value as "amount" | "percentage" })} disabled={!isAdmin}>
-                        <SelectTrigger id="levyDisplayMode"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="amount">GHS amount</SelectItem><SelectItem value="percentage">Percentage</SelectItem></SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">Receipt lines show each levy separately using this display method. Tax calculations remain rate-based.</p>
+                    <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="taxTin">Taxpayer Identification Number (TIN)</Label>
+                        <Input
+                          id="taxTin"
+                          placeholder="e.g. C0029384756"
+                          value={settings.system.taxConfiguration?.tin ?? "C0029384756"}
+                          onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, tin: e.target.value })}
+                          disabled={!canManageOperationalSettings}
+                          className="h-10 rounded-xl"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="pricingMode">Pricing Structure</Label>
+                        <Select value={settings.system.taxConfiguration?.pricingMode ?? "exclusive"} onValueChange={(value) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, pricingMode: value as "inclusive" | "exclusive" })} disabled={!canManageOperationalSettings}>
+                          <SelectTrigger id="pricingMode" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="exclusive">Tax-Exclusive (Added at checkout)</SelectItem>
+                            <SelectItem value="inclusive">Tax-Inclusive (Built into menu prices)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="levyDisplayMode">Receipt levy display</Label>
+                        <Select value={settings.system.taxConfiguration?.levyDisplayMode ?? "amount"} onValueChange={(value) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, levyDisplayMode: value as "amount" | "percentage" })} disabled={!canManageOperationalSettings}>
+                          <SelectTrigger id="levyDisplayMode" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="amount">GHS amount</SelectItem><SelectItem value="percentage">Percentage</SelectItem></SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {([["graEVatRate", "graEVatEnabled", "GRA E-VAT invoice channel (not a tax)"], ["vatRate", "vatEnabled", "VAT (%)"], ["nhilRate", "nhilEnabled", "NHIL (%)"], ["getFundRate", "getFundEnabled", "GETFund (%)"], ["covidLevyRate", "covidLevyEnabled", "COVID-19 levy (%) — abolished"]] as const).map(([rateKey, enabledKey, label]) => {
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {([
+                        ["vatRate", "vatEnabled", "VAT (Standard 15%)", 15],
+                        ["nhilRate", "nhilEnabled", "NHIL (2.5%)", 2.5],
+                        ["getFundRate", "getFundEnabled", "GETFund (2.5%)", 2.5],
+                        ["tourismLevyRate", "tourismLevyEnabled", "Tourism Levy GTA (1.0%)", 1.0],
+                        ["covidLevyRate", "covidLevyEnabled", "COVID-19 Levy (Optional)", 0],
+                      ] as const).map(([rateKey, enabledKey, label, defaultRate]) => {
                         const enabled = settings.system.taxConfiguration?.[enabledKey] !== false;
                         return (
                           <div className="rounded-xl border p-3" key={rateKey}>
                             <div className="flex items-center justify-between gap-3">
-                              <Label htmlFor={rateKey}>{label}</Label>
-                              <Switch checked={enabled} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: checked })} disabled={!isAdmin} aria-label={`${label} enabled`} />
+                              <Label htmlFor={rateKey} className="text-xs font-semibold">{label}</Label>
+                              <Switch checked={enabled} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: checked })} disabled={!canManageOperationalSettings} aria-label={`${label} enabled`} />
                             </div>
                             <div className="mt-2 flex items-center gap-2">
-                              <Input id={rateKey} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[rateKey] ?? 0} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [rateKey]: Number.parseFloat(e.target.value) || 0 })} disabled={!isAdmin || !enabled} />
-                              {isAdmin && enabled && <Button type="button" variant="outline" size="icon" onClick={() => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: false })} aria-label={`Remove ${label}`} title={`Remove ${label}`}><Trash2 className="h-4 w-4" /></Button>}
+                              <Input id={rateKey} type="number" min="0" max="100" step="0.01" value={settings.system.taxConfiguration?.[rateKey] ?? defaultRate} onChange={(e) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [rateKey]: Number.parseFloat(e.target.value) || 0 })} disabled={!canManageOperationalSettings || !enabled} className="h-9 rounded-lg" />
+                              {canManageOperationalSettings && enabled && <Button type="button" variant="outline" size="icon" onClick={() => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [enabledKey]: false })} aria-label={`Remove ${label}`} title={`Remove ${label}`}><Trash2 className="h-4 w-4" /></Button>}
                             </div>
-                            {!enabled && <p className="mt-1 text-xs text-muted-foreground">Removed from future calculations and receipts.</p>}
+                            {!enabled && <p className="mt-1 text-xs text-muted-foreground">Excluded from calculations.</p>}
                           </div>
                         );
                       })}
+                      <div className="rounded-xl border border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label htmlFor="graEVatEnabled" className="text-xs font-semibold text-orange-900 dark:text-orange-200">GRA E-VAT Electronic Fiscalization</Label>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Prints SDC fiscal invoice header and GRA verification QR code</p>
+                          </div>
+                          <Switch checked={settings.system.taxConfiguration?.graEVatEnabled !== false} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, graEVatEnabled: checked })} disabled={!canManageOperationalSettings} id="graEVatEnabled" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
                       {([["appliesToPos", "Apply to restaurant POS"], ["appliesToRooms", "Apply to room billing"], ["appliesToEvents", "Apply to event receipts"]] as const).map(([key, label]) => (
-                        <label className="flex items-center justify-between rounded-xl border p-3 text-sm" key={key}><span>{label}</span><Switch checked={settings.system.taxConfiguration?.[key] ?? true} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: checked })} disabled={!isAdmin} /></label>
+                        <label className="flex items-center justify-between rounded-xl border p-3 text-sm" key={key}><span>{label}</span><Switch checked={settings.system.taxConfiguration?.[key] ?? true} onCheckedChange={(checked) => handleInputChange("system", "taxConfiguration", { ...settings.system.taxConfiguration, [key]: checked })} disabled={!canManageOperationalSettings} /></label>
                       ))}
                     </div>
                   </div>

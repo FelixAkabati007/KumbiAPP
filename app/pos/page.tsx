@@ -67,7 +67,7 @@ import {
 import { hasPermission, UserRole } from "@/lib/roles";
 import { enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { calculateTaxes } from "@/lib/tax";
-import { levyRowsHtml } from "@/lib/levy-presentation";
+import { levyRowsHtml, graFiscalHeaderHtml, graFiscalFooterHtml } from "@/lib/levy-presentation";
 import { RoleGuard } from "@/components/role-guard";
 import { DiscountModal, type DiscountConfig } from "@/components/pos/discount-modal";
 import { Tag } from "lucide-react";
@@ -464,10 +464,14 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         });
         return;
       }
+      const taxableSubtotal = calculateTotal();
+      const taxResult = calculateTaxes(taxableSubtotal, appSettings.system.taxConfiguration, "pos");
+      const finalPayableTotal = taxResult.total;
+
       const orderPayload = {
         orderNumber,
-        total: calculateTotal(),
-        tax: calculateTaxes(calculateTotal(), appSettings.system.taxConfiguration, "pos").tax,
+        total: finalPayableTotal,
+        tax: taxResult.tax,
         orderType,
         tableNumber,
         customerName,
@@ -522,7 +526,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
 
       // 2. Run integrated payment & receipt notification
       const paymentData = {
-        amount: calculateTotal(),
+        amount: finalPayableTotal,
         method: paymentMethod,
         orderNumber,
         orderId,
@@ -694,6 +698,23 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     const levyResult = calculateTaxes(subtotal, appSettings.system.taxConfiguration, "pos");
     const tax = levyResult.tax;
     const total = levyResult.total;
+    const isFiscal = appSettings.system.taxConfiguration?.graEVatEnabled !== false;
+    const fiscalHeader = isFiscal
+      ? graFiscalHeaderHtml({
+          tin: appSettings.system.taxConfiguration?.tin,
+          orderNumber: orderNumber || "N/A",
+          total,
+          date: date.toISOString().slice(0, 10),
+        })
+      : "";
+    const fiscalFooter = isFiscal
+      ? graFiscalFooterHtml({
+          tin: appSettings.system.taxConfiguration?.tin,
+          orderNumber: orderNumber || "N/A",
+          total,
+          date: date.toISOString().slice(0, 10),
+        })
+      : "";
 
     const businessName =
       appSettings.account.restaurantName ||
@@ -726,6 +747,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
           <p><strong>Account:</strong><span>${user?.name || user?.email || "Unknown account"}</span></p>
           ${customerNameRefused ? `<p><strong>Customer:</strong><span>Refused</span></p>` : customerName ? `<p><strong>Customer:</strong><span>${customerName}</span></p>` : ""}
         </div>
+        ${fiscalHeader}
         
         <hr>
         
@@ -763,6 +785,7 @@ ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtot
           <div class="item"><span>Payment:</span><span></span><span></span><span>${paymentMethod}</span></div>
         </div>
         
+        ${fiscalFooter}
         <div class="footer">
           <p>${
             appSettings.system.thermalPrinter.footerText ||

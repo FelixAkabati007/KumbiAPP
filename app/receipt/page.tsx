@@ -577,6 +577,13 @@ function ReceiptContent() {
                         )
                       )}
                     </div>
+                    {appSettings.system.taxConfiguration?.graEVatEnabled !== false && (
+                      <div className="my-2 border-y border-dashed border-gray-400 py-1.5 text-center font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                        <div className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</div>
+                        <div>TIN: {appSettings.system.taxConfiguration?.tin || "C0029384756"}</div>
+                        <div>SDC ID: SDC-KMB-{(foundSale.orderNumber || "").replace(/[^0-9A-Z]/gi, "").slice(-6)} | INVOICE: {foundSale.orderNumber}</div>
+                      </div>
+                    )}
                     {/* Items */}
                     <div className="border-t border-orange-200 dark:border-orange-600 pt-3 mb-4">
                       <div className="text-center text-xs text-gray-600 dark:text-gray-400 mb-2">
@@ -643,6 +650,13 @@ function ReceiptContent() {
                         Please come again
                       </p>
                     </div>
+                    {appSettings.system.taxConfiguration?.graEVatEnabled !== false && (
+                      <div className="mt-3 border-t border-dashed border-gray-300 pt-2 text-center font-mono text-[9px] text-gray-500">
+                        <div className="font-bold text-[10px] text-gray-700 dark:text-gray-300">[ GRA E-VAT VERIFIED FISCAL RECEIPT ]</div>
+                        <div className="truncate text-[8px] text-gray-500">https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={foundSale.orderNumber}&tot={Number(foundSale.total || 0).toFixed(2)}</div>
+                        <div className="mt-1 text-[8px]">Powered by KumbiAPP · Certified Fiscal Channel</div>
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
               ) : searchTouched ? (

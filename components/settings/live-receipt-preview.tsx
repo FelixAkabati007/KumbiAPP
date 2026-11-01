@@ -21,16 +21,20 @@ interface LiveReceiptPreviewProps {
     appliesToPos?: boolean;
     appliesToRooms?: boolean;
     appliesToEvents?: boolean;
+    tin?: string;
     graEVatRate?: number;
     vatRate?: number;
     nhilRate?: number;
     getFundRate?: number;
+    tourismLevyRate?: number;
     covidLevyRate?: number;
     graEVatEnabled?: boolean;
     vatEnabled?: boolean;
     nhilEnabled?: boolean;
     getFundEnabled?: boolean;
+    tourismLevyEnabled?: boolean;
     covidLevyEnabled?: boolean;
+    pricingMode?: "inclusive" | "exclusive";
     levyDisplayMode?: "amount" | "percentage";
   };
   printerConfig?: PrinterConfig;
@@ -61,21 +65,25 @@ export function LiveReceiptPreview({
   const isVatEnabled = taxesEnabled && (taxConfiguration?.vatEnabled !== false);
   const isNhilEnabled = taxesEnabled && (taxConfiguration?.nhilEnabled !== false);
   const isGetFundEnabled = taxesEnabled && (taxConfiguration?.getFundEnabled !== false);
+  const isTourismEnabled = taxesEnabled && (taxConfiguration?.tourismLevyEnabled !== false);
   const isCovidEnabled = taxesEnabled && Boolean(taxConfiguration?.covidLevyEnabled);
   const isGraEVatChannel = taxesEnabled && (taxConfiguration?.graEVatEnabled !== false);
+  const tin = taxConfiguration?.tin || "C0029384756";
 
   const vatRate = taxConfiguration?.vatRate ?? 15;
   const nhilRate = taxConfiguration?.nhilRate ?? 2.5;
   const getFundRate = taxConfiguration?.getFundRate ?? 2.5;
+  const tourismRate = taxConfiguration?.tourismLevyRate ?? 1.0;
   const covidRate = taxConfiguration?.covidLevyRate ?? 0;
 
   const nhilAmount = isNhilEnabled ? Number((subtotal * (nhilRate / 100)).toFixed(2)) : 0;
   const getFundAmount = isGetFundEnabled ? Number((subtotal * (getFundRate / 100)).toFixed(2)) : 0;
+  const tourismAmount = isTourismEnabled ? Number((subtotal * (tourismRate / 100)).toFixed(2)) : 0;
   const covidAmount = isCovidEnabled ? Number((subtotal * (covidRate / 100)).toFixed(2)) : 0;
-  const vatTaxableBase = subtotal + nhilAmount + getFundAmount + covidAmount;
+  const vatTaxableBase = subtotal + nhilAmount + getFundAmount + tourismAmount + covidAmount;
   const vatAmount = isVatEnabled ? Number((vatTaxableBase * (vatRate / 100)).toFixed(2)) : 0;
 
-  const totalTax = nhilAmount + getFundAmount + covidAmount + vatAmount;
+  const totalTax = nhilAmount + getFundAmount + tourismAmount + covidAmount + vatAmount;
   const grandTotal = subtotal + totalTax;
 
   const displayMode = taxConfiguration?.levyDisplayMode || "amount";
@@ -164,8 +172,9 @@ export function LiveReceiptPreview({
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400">Tel: {account.phone}</p>
             )}
             {isGraEVatChannel && (
-              <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700">
-                <span>GRA E-VAT CERTIFIED</span>
+              <div className="mt-1 flex flex-col items-center gap-0.5 px-2 py-1 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                <span className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</span>
+                <span>TIN: {tin}</span>
               </div>
             )}
           </div>
@@ -223,6 +232,12 @@ export function LiveReceiptPreview({
                   <div className="flex justify-between">
                     <span>GETFund ({getFundRate}%):</span>
                     <span>{displayMode === "percentage" ? `${getFundRate}%` : `${curr} ${getFundAmount.toFixed(2)}`}</span>
+                  </div>
+                )}
+                {isTourismEnabled && (
+                  <div className="flex justify-between">
+                    <span>Tourism Levy ({tourismRate}%):</span>
+                    <span>{displayMode === "percentage" ? `${tourismRate}%` : `${curr} ${tourismAmount.toFixed(2)}`}</span>
                   </div>
                 )}
                 {isCovidEnabled && (

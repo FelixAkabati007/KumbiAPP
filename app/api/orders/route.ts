@@ -114,7 +114,26 @@ export async function POST(req: Request) {
       }
     }
 
-    const subtotal = Array.isArray(items) ? items.reduce((sum: number, item: { price?: number; quantity?: number }) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) : Number(total || 0);
+    let netSubtotal = Array.isArray(items)
+      ? items.reduce((sum: number, item: { price?: number; quantity?: number; discountPercent?: number }) => {
+          const price = Number(item.price || 0);
+          const quantity = Number(item.quantity || 0);
+          const discountPct = Math.min(100, Math.max(0, Number(item.discountPercent || 0)));
+          const unitPrice = price * (1 - discountPct / 100);
+          return sum + unitPrice * quantity;
+        }, 0)
+      : Number(total || 0);
+
+    const orderDiscount = body.orderDiscount;
+    if (orderDiscount && typeof orderDiscount === "object") {
+      if (orderDiscount.type === "fixed" && Number(orderDiscount.value) > 0) {
+        netSubtotal = Math.max(0, netSubtotal - Number(orderDiscount.value));
+      } else if (orderDiscount.type === "percent" && Number(orderDiscount.value) > 0) {
+        netSubtotal = Math.max(0, netSubtotal * (1 - Math.min(100, Number(orderDiscount.value)) / 100));
+      }
+    }
+
+    const subtotal = Math.max(0, netSubtotal);
     const taxes = calculateTaxes(subtotal, await getTaxConfiguration(), "pos");
     const billableTotal = roundMoney(taxes.total);
     const orderId = await transaction(async (client) => {

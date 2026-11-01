@@ -27,16 +27,20 @@ export interface TaxConfiguration {
   appliesToPos: boolean;
   appliesToRooms: boolean;
   appliesToEvents: boolean;
-  graEVatRate: number;
+  tin?: string;
+  graEVatRate?: number;
   vatRate: number;
   nhilRate: number;
   getFundRate: number;
+  tourismLevyRate?: number;
   covidLevyRate: number;
   graEVatEnabled?: boolean;
   vatEnabled?: boolean;
   nhilEnabled?: boolean;
   getFundEnabled?: boolean;
+  tourismLevyEnabled?: boolean;
   covidLevyEnabled?: boolean;
+  pricingMode?: "inclusive" | "exclusive";
   levyDisplayMode?: "amount" | "percentage";
 }
 
@@ -143,19 +147,23 @@ const defaultSettings: AppSettings = {
   taxConfiguration: {
       enabled: true,
       appliesToPos: true,
-    appliesToRooms: true,
-    appliesToEvents: true,
-    graEVatRate: 0,
+      appliesToRooms: true,
+      appliesToEvents: true,
+      tin: "C0029384756",
+      graEVatRate: 0,
       vatRate: 15,
       nhilRate: 2.5,
       getFundRate: 2.5,
-    covidLevyRate: 0,
-    graEVatEnabled: true,
-    vatEnabled: true,
-    nhilEnabled: true,
-    getFundEnabled: true,
-    covidLevyEnabled: false,
-    levyDisplayMode: "amount",
+      tourismLevyRate: 1.0,
+      covidLevyRate: 0,
+      graEVatEnabled: true,
+      vatEnabled: true,
+      nhilEnabled: true,
+      getFundEnabled: true,
+      tourismLevyEnabled: true,
+      covidLevyEnabled: false,
+      pricingMode: "exclusive",
+      levyDisplayMode: "amount",
   },
     currency: "GHS",
     language: "en",

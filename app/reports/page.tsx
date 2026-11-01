@@ -15,6 +15,7 @@ import {
   Calendar,
   Download,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,6 +29,8 @@ import {
 import { LogoDisplay } from "@/components/logo-display";
 import type { SalesData, OrderItem, RefundRequest } from "@/lib/types";
 import { RoleGuard } from "@/components/role-guard";
+import { useSettings } from "@/components/settings-provider";
+import { calculateTaxes } from "@/lib/tax";
 import * as XLSX from "xlsx";
 
 const SalesCharts = dynamic(() => import("@/components/reports/sales-charts"), {
@@ -80,6 +83,7 @@ interface Transaction {
 }
 
 function ReportsPage() {
+  const { settings: appSettings } = useSettings();
   const [data, setData] = useState<SalesData[]>([]);
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("today");
@@ -395,8 +399,13 @@ function ReportsPage() {
         (paymentMethods[order.paymentMethod] || 0) + 1;
     });
 
+    // Statutory GRA Tax & Levies aggregation
+    const netRevenue = Math.max(0, totalRevenue - totalRefunded);
+    const taxSummary = calculateTaxes(netRevenue, appSettings.system.taxConfiguration, "pos");
+
     return {
       totalRevenue,
+      netRevenue,
       totalOrders,
       averageOrderValue,
       totalRefunded,
@@ -404,8 +413,9 @@ function ReportsPage() {
       categoryBreakdown,
       topItems,
       paymentMethods,
+      taxSummary,
     };
-  }, [filteredData, refunds]);
+  }, [filteredData, refunds, appSettings.system.taxConfiguration]);
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -425,17 +435,44 @@ function ReportsPage() {
   };
 
   const exportData = () => {
-    const rows = filteredData.map((order) => ({
-      "Order Number": order.orderNumber,
-      Date: order.date,
-      Customer: order.customerName || order.tableNumber || "N/A",
-      Items: order.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
-      "Total (₵)": order.total,
-      "Payment Method": order.paymentMethod,
-    }));
+    const rows = filteredData.map((order) => {
+      const orderTax = calculateTaxes(order.total, appSettings.system.taxConfiguration, "pos");
+      return {
+        "Order Number": order.orderNumber,
+        Date: order.date,
+        Customer: order.customerName || order.tableNumber || "N/A",
+        Items: order.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
+        "Taxable Base (₵)": orderTax.breakdown.taxableBase,
+        "NHIL 2.5% (₵)": orderTax.breakdown.nhil,
+        "GETFund 2.5% (₵)": orderTax.breakdown.getfund,
+        "Tourism Levy 1% (₵)": orderTax.breakdown.tourism,
+        "Standard VAT 15% (₵)": orderTax.breakdown.standardVat,
+        "Total Tax & Levies (₵)": orderTax.breakdown.totalTax,
+        "Total (₵)": order.total,
+        "Payment Method": order.paymentMethod,
+      };
+    });
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Report");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Transactions");
+
+    const taxRows = [
+      { Parameter: "Taxpayer Identification Number (TIN)", Value: appSettings.system.taxConfiguration?.tin || "C0029384756" },
+      { Parameter: "Tax Filing Period", Value: dateFilter.toUpperCase() },
+      { Parameter: "Pricing Mode", Value: appSettings.system.taxConfiguration?.pricingMode || "exclusive" },
+      { Parameter: "Total Gross Revenue (₵)", Value: analytics.totalRevenue.toFixed(2) },
+      { Parameter: "Total Approved Refunds (₵)", Value: analytics.totalRefunded.toFixed(2) },
+      { Parameter: "Net Taxable Turnover (₵)", Value: analytics.taxSummary.breakdown.taxableBase.toFixed(2) },
+      { Parameter: "NHIL 2.5% (Act 857) (₵)", Value: analytics.taxSummary.breakdown.nhil.toFixed(2) },
+      { Parameter: "GETFund 2.5% (Act 581) (₵)", Value: analytics.taxSummary.breakdown.getFund.toFixed(2) },
+      { Parameter: "GTA Tourism Levy 1.0% (Act 817) (₵)", Value: analytics.taxSummary.breakdown.tourism.toFixed(2) },
+      { Parameter: "Standard VAT 15% on Compounded Base (Act 870) (₵)", Value: analytics.taxSummary.breakdown.vat.toFixed(2) },
+      { Parameter: "Grand Statutory Tax & Levies Due to GRA (₵)", Value: analytics.taxSummary.breakdown.totalTax.toFixed(2) },
+      { Parameter: "Effective Statutory Rate (%)", Value: `${analytics.taxSummary.effectiveRate}%` },
+    ];
+    const taxWorksheet = XLSX.utils.json_to_sheet(taxRows);
+    XLSX.utils.book_append_sheet(workbook, taxWorksheet, "GRA Form 125 Summary");
+
     XLSX.writeFile(workbook, `sales-report-${dateFilter}-${
       new Date().toISOString().split("T")[0]
     }.xlsx`);
@@ -618,6 +655,84 @@ function ReportsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Statutory Tax & Levies Compliance (GRA Form 125 Summary) */}
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden mb-6">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10"></div>
+            <CardHeader className="relative z-10 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  GRA E-VAT & Statutory Levies (Form 125 Filing Summary)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
+                    TIN: {appSettings.system.taxConfiguration?.tin || "C0029384756"}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs uppercase">
+                    {appSettings.system.taxConfiguration?.pricingMode || "exclusive"} pricing
+                  </Badge>
+                  <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                    {analytics.taxSummary.effectiveRate}% Total Rate
+                  </Badge>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Official statutory returns breakdown computed under Ghana VAT Act 870 §3, Act 857 (NHIL), Act 581 (GETFund), and Act 817 (GTA Tourism).
+              </p>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 text-center">
+                  <div className="text-xs text-muted-foreground">Taxable Base</div>
+                  <div className="text-lg font-bold font-mono text-gray-800 dark:text-gray-200 mt-1">
+                    ₵{analytics.taxSummary.breakdown.taxableBase.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Net Sales Base</div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-3 text-center">
+                  <div className="text-xs text-blue-700 dark:text-blue-300 font-medium">NHIL (2.5%)</div>
+                  <div className="text-lg font-bold font-mono text-blue-800 dark:text-blue-200 mt-1">
+                    ₵{analytics.taxSummary.breakdown.nhil.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-blue-600/80 dark:text-blue-400/80">Health Insurance</div>
+                </div>
+
+                <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 text-center">
+                  <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">GETFund (2.5%)</div>
+                  <div className="text-lg font-bold font-mono text-indigo-800 dark:text-indigo-200 mt-1">
+                    ₵{analytics.taxSummary.breakdown.getFund.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80">Education Trust</div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3 text-center">
+                  <div className="text-xs text-amber-700 dark:text-amber-300 font-medium">Tourism (1.0%)</div>
+                  <div className="text-lg font-bold font-mono text-amber-800 dark:text-amber-200 mt-1">
+                    ₵{analytics.taxSummary.breakdown.tourism.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-amber-600/80 dark:text-amber-400/80">GTA Tourism Dev</div>
+                </div>
+
+                <div className="rounded-2xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/20 p-3 text-center">
+                  <div className="text-xs text-teal-700 dark:text-teal-300 font-medium">VAT (15.0%)</div>
+                  <div className="text-lg font-bold font-mono text-teal-800 dark:text-teal-200 mt-1">
+                    ₵{analytics.taxSummary.breakdown.vat.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-teal-600/80 dark:text-teal-400/80">On Compounded Base</div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-100/60 dark:bg-emerald-950/40 p-3 text-center">
+                  <div className="text-xs text-emerald-800 dark:text-emerald-200 font-semibold">Total GRA Tax</div>
+                  <div className="text-lg font-bold font-mono text-emerald-900 dark:text-emerald-100 mt-1">
+                    ₵{analytics.taxSummary.breakdown.totalTax.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium">Tax Payable to GRA</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Charts */}
           <SalesCharts data={filteredData} />
