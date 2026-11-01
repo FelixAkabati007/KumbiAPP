@@ -250,6 +250,38 @@ const defaultSettings: AppSettings = {
   },
 };
 
+// Helper to fetch public brand metadata (logo, restaurant name, contact) for unauthenticated surfaces
+export async function fetchPublicBrand(): Promise<Partial<AppSettings["account"]> | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const res = await fetch(`/api/public/brand?t=${Date.now()}`);
+    if (res.ok) {
+      const brand = await res.json();
+      if (brand && typeof brand === "object") {
+        if (brand.logo) {
+          try {
+            localStorage.setItem("kumbi_cached_logo", brand.logo);
+            localStorage.setItem("kumbi_brand_updated_at", String(Date.now()));
+          } catch {
+            // ignore localStorage quota/errors
+          }
+        }
+        return {
+          restaurantName: brand.restaurantName || "Kumbisaly Heritage Restaurant",
+          ownerName: brand.ownerName || "",
+          email: brand.email || "",
+          phone: brand.phone || "",
+          address: brand.address || "Offinso - Abofour, Ashanti, Ghana.",
+          logo: brand.logo || "",
+        };
+      }
+    }
+  } catch {
+    // ignore network errors
+  }
+  return null;
+}
+
 // Async function to fetch settings from API
 export async function fetchSettings(): Promise<AppSettings> {
   if (typeof window === "undefined") return defaultSettings;
@@ -257,12 +289,30 @@ export async function fetchSettings(): Promise<AppSettings> {
     const res = await fetch("/api/v1/settings");
     if (!res.ok) {
       if (res.status === 404 || res.status === 401 || res.status === 403) {
-        return defaultSettings;
+        // Fallback to public brand endpoint when unauthenticated (e.g. login, sign-up pages)
+        const publicBrand = await fetchPublicBrand();
+        const base = getSettings();
+        if (publicBrand) {
+          return {
+            ...base,
+            account: { ...base.account, ...publicBrand },
+          };
+        }
+        return base;
       }
       throw new Error(`Failed to fetch settings: ${res.statusText}`);
     }
     const data = await res.json();
-    if (Object.keys(data).length === 0) return defaultSettings;
+    if (Object.keys(data).length === 0) return getSettings();
+
+    // Cache updated brand logo in localStorage for instant cold-starts and cross-tab sync
+    if (data.account?.logo && typeof window !== "undefined") {
+      try {
+        localStorage.setItem("kumbi_cached_logo", data.account.logo);
+      } catch {
+        // ignore
+      }
+    }
 
     // Deep merge with default settings to ensure all fields exist
     return {
@@ -299,15 +349,37 @@ export async function fetchSettings(): Promise<AppSettings> {
     };
   } catch {
     // Public surfaces can render before the authenticated settings API is available.
-    return defaultSettings;
+    const publicBrand = await fetchPublicBrand();
+    const base = getSettings();
+    if (publicBrand) {
+      return {
+        ...base,
+        account: { ...base.account, ...publicBrand },
+      };
+    }
+    return base;
   }
 }
 
 // Kept for synchronous compatibility during migration, but prefers API if possible
 export function getSettings(_useDefaults = false): AppSettings {
   void _useDefaults;
-  // Synchronous access is deprecated in Neon-only mode.
-  // Returns defaults to avoid blocking render. Components must use fetchSettings().
+  if (typeof window !== "undefined") {
+    try {
+      const cachedLogo = localStorage.getItem("kumbi_cached_logo");
+      if (cachedLogo) {
+        return {
+          ...defaultSettings,
+          account: {
+            ...defaultSettings.account,
+            logo: cachedLogo,
+          },
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
   return defaultSettings;
 }
 
@@ -325,10 +397,30 @@ export async function saveSettings(settings: AppSettings): Promise<{ success: tr
   }
 
   const payload = await response.json().catch(() => ({}));
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("kumbi_brand_updated_at", String(Date.now()));
+      if (settings.account?.logo) {
+        localStorage.setItem("kumbi_cached_logo", settings.account.logo);
+      }
+      window.dispatchEvent(new CustomEvent("settingsUpdated", { detail: settings }));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
   return { success: true, version: payload.version };
 }
 
 export function getCurrentLogo(): string {
-  // Deprecated synchronous access
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem("kumbi_cached_logo");
+      if (cached) return cached;
+    } catch {
+      // ignore
+    }
+  }
   return defaultSettings.account.logo || "";
 }

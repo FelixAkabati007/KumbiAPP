@@ -725,7 +725,7 @@ function SettingsPageContent() {
                           )
                         }
                         className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                        disabled={!isAdmin}
+                        disabled={!canManageOperationalSettings}
                       />
                     </div>
                     <div className="grid gap-2">
@@ -747,7 +747,7 @@ function SettingsPageContent() {
                           )
                         }
                         className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                        disabled={!isAdmin}
+                        disabled={!canManageOperationalSettings}
                       />
                     </div>
                   </div>
@@ -766,7 +766,7 @@ function SettingsPageContent() {
                         handleInputChange("account", "email", e.target.value)
                       }
                       className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                      disabled={!isAdmin}
+                      disabled={!canManageOperationalSettings}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -784,7 +784,7 @@ function SettingsPageContent() {
                         handleInputChange("account", "phone", e.target.value)
                       }
                       className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                      disabled={!isAdmin}
+                      disabled={!canManageOperationalSettings}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -802,7 +802,7 @@ function SettingsPageContent() {
                         handleInputChange("account", "address", e.target.value)
                       }
                       className="w-full rounded-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                      disabled={!isAdmin}
+                      disabled={!canManageOperationalSettings}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -826,12 +826,12 @@ function SettingsPageContent() {
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         className="bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-700 dark:text-orange-300"
-                        disabled={!isAdmin}
+                        disabled={!canManageOperationalSettings}
                       >
                         Upload Logo
                       </Button>
                       {/* Show Save button if logo is changed and not yet saved */}
-                      {isAdmin && settings.account.logo && (
+                      {canManageOperationalSettings && settings.account.logo && (
                         <Button
                           variant="default"
                           onClick={handleSaveSettings}
@@ -847,7 +847,7 @@ function SettingsPageContent() {
                       accept="image/*"
                       onChange={handleFileUpload}
                       className="hidden"
-                      disabled={!isAdmin}
+                      disabled={!canManageOperationalSettings}
                       aria-label="Upload restaurant logo"
                       title="Upload restaurant logo"
                     />

@@ -12,6 +12,36 @@ interface LogoDisplayProps {
   loadSettings?: boolean;
 }
 
+/**
+ * Updates browser favicon tags and forces immediate tab icon refresh across modern browsers.
+ */
+function updateBrowserFavicon(logoSource: string) {
+  if (typeof document === "undefined" || !logoSource) return;
+
+  // Compute a content-dependent hash to bust browser disk caches only when logo actually changes
+  let hash = 0;
+  for (let i = 0; i < logoSource.length; i++) {
+    hash = ((hash << 5) - hash) + logoSource.charCodeAt(i);
+    hash |= 0;
+  }
+  const version = Math.abs(hash).toString(36) + "-" + logoSource.length;
+  const faviconUrl = `/favicon.ico?v=${version}`;
+
+  const existingIcons = document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]');
+  if (existingIcons.length > 0) {
+    existingIcons.forEach((link) => {
+      // Re-setting href with unique version forces browser re-render
+      link.href = faviconUrl;
+    });
+  } else {
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/png";
+    link.href = faviconUrl;
+    document.head.appendChild(link);
+  }
+}
+
 export function LogoDisplay({
   size = "md",
   className = "",
@@ -19,11 +49,17 @@ export function LogoDisplay({
   loadSettings = true,
 }: LogoDisplayProps) {
   const { settings } = useSettings();
-  const currentLogo = settings.account.logo?.trim() || fallbackSrc;
+  const currentLogo = settings.account?.logo?.trim() || fallbackSrc;
   const [logo, setLogo] = useState<string>(currentLogo);
   const [isValidImage, setIsValidImage] = useState(true);
 
   const validateLogo = useCallback(async (source: string) => {
+    if (!source) {
+      setLogo(fallbackSrc);
+      setIsValidImage(true);
+      return;
+    }
+
     await new Promise<void>((resolve) => {
       const image = new window.Image();
       const finish = () => resolve();
@@ -31,19 +67,19 @@ export function LogoDisplay({
       image.onerror = finish;
       image.src = source;
     });
+
     setLogo(source);
     setIsValidImage(true);
-  }, []);
+  }, [fallbackSrc]);
 
   useEffect(() => {
     if (!loadSettings) {
       setLogo(fallbackSrc);
       return;
     }
+    setLogo(currentLogo);
     void validateLogo(currentLogo);
-    document.querySelectorAll('link[rel*="icon"]').forEach((link) => {
-      (link as HTMLLinkElement).href = `/favicon.ico?v=${encodeURIComponent(currentLogo.slice(0, 32))}`;
-    });
+    updateBrowserFavicon(currentLogo);
   }, [currentLogo, fallbackSrc, loadSettings, validateLogo]);
 
   const sizeClasses = {
@@ -68,6 +104,7 @@ export function LogoDisplay({
           alt="Company Logo"
           width={size === "sm" ? 32 : size === "md" ? 40 : 64}
           height={size === "sm" ? 32 : size === "md" ? 40 : 64}
+          unoptimized={Boolean(logo?.startsWith("data:"))}
           className="pointer-events-none h-full w-full object-contain rounded-full"
           sizes={size === "sm" ? "32px" : size === "md" ? "40px" : "64px"}
           onError={() => setIsValidImage(false)}
