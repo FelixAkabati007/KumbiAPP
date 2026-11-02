@@ -260,7 +260,17 @@ export async function PATCH(
          WHERE reservation_id = $2 RETURNING *`,
         [amount, reservationId],
       );
-      return updated.rows[0] || null;
+      if (!updated.rows[0]) return null;
+      const items = await client.query(
+        `SELECT i.id, i.category, i.description, i.quantity, i.unit_amount, i.total_amount, i.source_type, i.source_id, i.created_at,
+                i.created_by,
+                u.name AS performed_by_name, u.email AS performed_by_email, u.role AS performed_by_role
+         FROM guest_folio_items i
+         LEFT JOIN users u ON u.id = i.created_by
+         WHERE i.folio_id = $1 ORDER BY i.created_at ASC`,
+        [folio.id],
+      );
+      return { ...updated.rows[0], items: items.rows };
     });
 
     if (!result) {

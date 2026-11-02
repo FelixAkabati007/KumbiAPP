@@ -676,7 +676,10 @@ function CheckInPage() {
       const payload = await response.json().catch(() => null);
       if (!response.ok)
         throw new Error(payload?.error || "Failed to send restaurant order");
-      setFolio(payload.folio);
+      // Room-service orders are paid at order time and never touch the room folio,
+      // so refresh the full folio instead of replacing it with the partial payload.
+      const folioResponse = await fetch(`/api/hotels/folios/${folioGuest.id}`, { cache: "no-store" });
+      if (folioResponse.ok) setFolio(await folioResponse.json());
       setLatestRestaurantOrder({
         orderNumber: payload.orderNumber,
         total: payload.total,
@@ -687,7 +690,7 @@ function CheckInPage() {
       window.dispatchEvent(new Event("ordersUpdated"));
       toast({
         title: "Order sent to restaurant",
-        description: `${payload.orderNumber} was charged to the guest folio.`,
+        description: `${payload.orderNumber} sent to the kitchen (paid at order; room folio unchanged).`,
       });
       // The receipt dialog owns printing after the receipt data has rendered. Printing here
       // raced the state update and could open a blank browser print surface.

@@ -19,7 +19,8 @@ export async function GET(
     const result = await query(
       `SELECT r.id, r.inventory_item_id, r.quantity, r.unit, i.name AS inventory_name, i.category AS inventory_category,
               i.quantity AS inventory_quantity,
-              COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_unit,
+              i.unit AS inventory_unit,
+              COALESCE(active_uom.base_unit, i.base_unit, i.unit) AS inventory_base_unit,
               i.recipe_unit AS inventory_recipe_unit,
               COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
               i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.cost_per_item AS inventory_cost_price

@@ -135,6 +135,11 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
 );
 CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_menu_item ON recipe_ingredients(menu_item_id);
 
+-- Fractional packaging deductions (e.g. 1 can of a 24-can carton = 0.0417) need 4 decimal
+-- places; DECIMAL(10,2) truncated them and caused stock drift. Idempotent widening.
+ALTER TABLE inventory ALTER COLUMN quantity TYPE NUMERIC(14, 4);
+ALTER TABLE inventory ALTER COLUMN reorder_level TYPE NUMERIC(14, 4);
+
 -- Immutable inventory top-up ledger. Inventory balance updates and ledger inserts
 -- are performed together by the authenticated top-up transaction.
 CREATE TABLE IF NOT EXISTS inventory_top_up_audit (

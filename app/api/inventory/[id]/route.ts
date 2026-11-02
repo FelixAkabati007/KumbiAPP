@@ -187,15 +187,15 @@ export async function PUT(
     let idx = 1;
 
     if (name !== undefined) {
-      fields.push(`name = ${idx++}`);
+      fields.push(`name = $${idx++}`);
       values.push(String(name).trim());
     }
     if (sku !== undefined) {
-      fields.push(`sku = ${idx++}`);
+      fields.push(`sku = $${idx++}`);
       values.push(String(sku).trim());
     }
     if (category !== undefined) {
-      fields.push(`category = ${idx++}`);
+      fields.push(`category = $${idx++}`);
       values.push(String(category).trim());
     }
     if (quantity !== undefined) {

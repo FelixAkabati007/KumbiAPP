@@ -302,11 +302,14 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   // Add item to current order
   const isItemAvailable = (item: MenuItem) => {
     if (item.isAvailable === false) return false;
-    const inventoryKey = item.inventoryMode === "direct" ? item.directInventoryId : item.id;
-    const quantity = inventoryKey ? inventoryAvailability[inventoryKey] : undefined;
-    return quantity === undefined
-      ? item.inStock
-      : isInventoryAvailable({ quantity, category: inventoryKey ? inventoryCategories[inventoryKey] : undefined, menuItemId: item.inventoryMode === "direct" ? undefined : item.id });
+    // Recipe items: the menu API evaluates every ingredient with the shared unit engine,
+    // so its verdict is authoritative for all roles (cashiers and managers alike).
+    if (item.inventoryMode !== "direct" || !item.directInventoryId) return item.inStock !== false;
+    // Direct-stock items: prefer the live polled quantity when available.
+    const quantity = inventoryAvailability[item.directInventoryId];
+    if (quantity === undefined) return item.inStock !== false;
+    return isInventoryAvailable({ quantity, category: inventoryCategories[item.directInventoryId] })
+      && Number(quantity) >= Number(item.directUnitsPerSale ?? 1);
   };
 
   const addItemToOrder = (item: MenuItem) => {

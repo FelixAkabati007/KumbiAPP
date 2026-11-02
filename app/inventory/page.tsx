@@ -1587,10 +1587,9 @@ function InventoryContent() {
                   <div className="grid gap-2">
                     <Label
                       htmlFor="reorderLevel"
-                      aria-label="Reorder level"
                       className="text-orange-700 dark:text-orange-300"
                     >
-                      Reorder Level
+                      Reorder Level ({editingItem.unit || "units"})
                     </Label>
                     <Input
                       id="reorderLevel"
