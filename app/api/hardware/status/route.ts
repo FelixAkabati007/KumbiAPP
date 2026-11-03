@@ -71,7 +71,7 @@ export async function GET() {
     const bridgeOnline = await checkPrintBridge(bridgeUrl);
 
     // Thermal Printer Status
-    let printerStatus: {
+    const printerStatus: {
       name: string;
       enabled: boolean;
       interfaceType: string;

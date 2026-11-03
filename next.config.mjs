@@ -7,18 +7,17 @@ const nextConfig = {
   // Allow the preview hosts so CSS and client chunks are served instead of raw HTML.
   allowedDevOrigins: ["*.vercel.run", "*.v0.build"],
   productionBrowserSourceMaps: false,
-  optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
   // Keep output file tracing stable when multiple lockfiles exist
   outputFileTracingRoot: process.cwd(),
-  // Standalone tracing is for production builds; enabling it in dev can leave
-  // the preview serving HTML while client chunks are still being rebuilt.
-  output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
+  // Standalone tracing is for self-hosted Docker builds; Vercel handles serverless output natively.
+  output: process.env.NODE_ENV === "production" && !process.env.VERCEL ? "standalone" : undefined,
   // Performance optimizations
   experimental: {
     webpackMemoryOptimizations: true,
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
   },
   images: {
     domains: ["scontent.facc5-2.fna.fbcdn.net", "images.unsplash.com"],
