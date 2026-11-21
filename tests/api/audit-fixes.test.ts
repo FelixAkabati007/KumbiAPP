@@ -70,7 +70,6 @@ describe("Audit fixes and operational invariants", () => {
     expect(inventoryPage).toContain("Bulk packaging (crates, cases, boxes)");
     expect(inventoryPage).toContain("Stock unit (how item is counted)");
     expect(inventoryPage).toContain("useChefConversion");
-    expect(inventoryPage).toContain('editingItem.category !== "beverage"');
-    expect(inventoryPage).toContain("Chef Recipe & Portion Conversion");
+    expect(inventoryPage).toContain("Recipe & Portion Conversion");
   });
 });

@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UnitSelect } from "@/components/ui/unit-select";
-import { getCompatibleRecipeUnits, getInventoryUnitCompatibilityError } from "@/lib/inventory-units";
+import {
+  canConvertInventoryUnits,
+  getCompatibleRecipeUnits,
+  getInventoryUnitCompatibilityError,
+  getInventoryUnitDimension,
+  getInventoryUnitLabel,
+  getRecipeDeductionQuantity,
+  requiresChefYield,
+} from "@/lib/inventory-units";
 import {
   ArrowLeft,
   Edit,
@@ -88,11 +96,62 @@ function getEditorComparable(item: InventoryItem | null) {
 
 function getUnitSelectionHint(purchaseUnit?: string | null) {
   const unit = (purchaseUnit ?? "").toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/, "");
-  if (["kg", "kilogram", "kilograms"].includes(unit)) return "Automatic: g, kg, oz, and lb. Chef units such as Slice require an explicit yield.";
-  if (["g", "gram", "grams"].includes(unit)) return "These are compatible weight units. Choose Slice only when you know the chef yield per g.";
-  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "Automatic: ml, l, fl oz, qt, and gal. Chef units such as Ladle require an explicit yield.";
-  if (["ml", "millilitre", "millilitres", "milliliter", "milliliters"].includes(unit)) return "These are compatible liquid units. Choose Ladle only when you know the chef yield per ml.";
-  return "Choose a matching count unit, or use Chef yield for a measured chef unit such as Slice.";
+  if (["kg", "kilogram", "kilograms"].includes(unit)) return "Automatic: g, kg, oz, and lb. Portions such as Slice require an explicit yield.";
+  if (["g", "gram", "grams"].includes(unit)) return "Compatible weight units. Choose Slice or portion only when you know the yield per g.";
+  if (["l", "litre", "litres", "liter", "liters"].includes(unit)) return "Automatic: shot (1.5 oz / 44 ml), cl, ml, l, and fl oz. Ladle or portion requires an explicit yield.";
+  if (["ml", "millilitre", "millilitres", "milliliter", "milliliters"].includes(unit)) return "Automatic: shot (1.5 oz / 44 ml), cl, ml, l, and fl oz. Choose Ladle only when you know the yield per ml.";
+  return "Choose a matching count unit, or specify yield per stock unit for portions like Slice or Scoop.";
+}
+
+function getRecipeConversionPreview(
+  stockUnit?: string | null,
+  recipeUnit?: string | null,
+  chefYield?: string | null,
+  densityGPerMl?: string | null,
+  quantityPerContainer?: string | null,
+  containerUnit?: string | null,
+): string | null {
+  if (!stockUnit || !recipeUnit) return null;
+  const sUnit = stockUnit.trim().toLowerCase();
+  const rUnit = recipeUnit.trim().toLowerCase();
+  if (sUnit === rUnit && (!chefYield || Number(chefYield) === 1)) {
+    return `Direct 1:1 usage: 1 ${getInventoryUnitLabel(stockUnit)} = 1 ${getInventoryUnitLabel(recipeUnit)}.`;
+  }
+
+  const density = densityGPerMl ? Number(densityGPerMl) : null;
+  const yieldNum = chefYield ? Number(chefYield) : null;
+  const sDim = getInventoryUnitDimension(stockUnit);
+  const rDim = getInventoryUnitDimension(recipeUnit);
+
+  // Cross-family portion/yield (e.g. slice, scoop, portion)
+  if (yieldNum && yieldNum > 0 && (requiresChefYield(stockUnit, recipeUnit) || sDim === "count" || rDim === "count")) {
+    const deductionPerPortion = (1 / yieldNum).toFixed(4).replace(/\.?0+$/, "");
+    return `✓ Portion yield: 1 ${getInventoryUnitLabel(stockUnit)} yields ${yieldNum} ${getInventoryUnitLabel(recipeUnit)}s. Each order deducts ${deductionPerPortion} ${stockUnit} from stock.`;
+  }
+
+  // Cross-dimensional mass <-> volume with density
+  if (density && density > 0 && ((sDim === "mass" && rDim === "volume") || (sDim === "volume" && rDim === "mass"))) {
+    const sampleDeduction = getRecipeDeductionQuantity(1, recipeUnit, stockUnit, null, density);
+    if (sampleDeduction) {
+      return `✓ Density conversion (${density} g/ml): 1 ${recipeUnit} = ${sampleDeduction.toFixed(4).replace(/\.?0+$/, "")} ${stockUnit}. Deducted automatically with density physics.`;
+    }
+  }
+
+  // Same measurement family (e.g. ml <-> shot, cl, l; kg <-> g)
+  if (sDim !== "unknown" && rDim !== "unknown" && sDim === rDim && sDim !== "count") {
+    const sampleDeduction = getRecipeDeductionQuantity(1, recipeUnit, stockUnit, null, density);
+    if (sampleDeduction) {
+      let preview = `✓ Automatic physics conversion: 1 ${getInventoryUnitLabel(recipeUnit)} = ${sampleDeduction.toFixed(4).replace(/\.?0+$/, "")} ${stockUnit}.`;
+      const qtyCont = Number(quantityPerContainer || 0);
+      if (qtyCont > 0 && containerUnit) {
+        const perCont = (qtyCont / sampleDeduction).toFixed(1).replace(/\.0$/, "");
+        preview += ` One ${containerUnit} (${qtyCont} ${stockUnit}) supplies approximately ${perCont} ${getInventoryUnitLabel(recipeUnit)}s.`;
+      }
+      return preview;
+    }
+  }
+
+  return null;
 }
 
 function InventoryContent() {
@@ -490,14 +549,12 @@ function InventoryContent() {
         Number(item.quantityPerContainer) > 1
       );
       setUseBulkPackaging(hasBulk);
-      const isBeverage = String(item.category || "").toLowerCase() === "beverage";
-      const hasChef = Boolean(
-        !isBeverage && (
-          (item.chefYieldPerStockUnit && Number(item.chefYieldPerStockUnit) > 0) ||
-          (item.recipeUnit && item.unit && item.recipeUnit.toLowerCase() !== item.unit.toLowerCase() && Number(item.conversionRatio || 1) !== 1)
-        )
+      const hasConversion = Boolean(
+        (item.chefYieldPerStockUnit && Number(item.chefYieldPerStockUnit) > 0) ||
+        (item.densityGPerMl && Number(item.densityGPerMl) > 0) ||
+        (item.recipeUnit && item.unit && item.recipeUnit.toLowerCase() !== item.unit.toLowerCase())
       );
-      setUseChefConversion(hasChef);
+      setUseChefConversion(hasConversion);
       setIsDialogOpen(true);
     } catch (error) {
       console.error("Failed to prepare item for editing:", error);
@@ -604,15 +661,30 @@ function InventoryContent() {
       if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
       if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
     }
-    const isBeverage = editingItem.category === "beverage";
-    const effectiveChefConversion = !isBeverage && useChefConversion;
+    const effectiveChefConversion = useChefConversion;
     if (effectiveChefConversion) {
       const stockUnit = editingItem.unit || "unit";
-      const hasChefYield = editingItem.chefYieldPerStockUnit !== "" && Boolean(editingItem.recipeUnit);
-      if (!hasChefYield && (!Number.isFinite(conversionRatio) || conversionRatio <= 0)) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
-      if (hasChefYield && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
-      const compatibilityError = getInventoryUnitCompatibilityError(editingItem.recipeUnit, stockUnit, editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null);
-      if (compatibilityError && !hasChefYield) nextErrors.conversionRatio = compatibilityError;
+      const recipeUnit = editingItem.recipeUnit || stockUnit;
+      const density = editingItem.densityGPerMl ? Number(editingItem.densityGPerMl) : null;
+      const stockDim = getInventoryUnitDimension(stockUnit);
+      const recipeDim = getInventoryUnitDimension(recipeUnit);
+      const isCrossMassVolume =
+        (stockDim === "mass" && recipeDim === "volume") ||
+        (stockDim === "volume" && recipeDim === "mass");
+      const requiresYield = requiresChefYield(stockUnit, recipeUnit);
+
+      if (isCrossMassVolume && (!density || density <= 0)) {
+        nextErrors.densityGPerMl = "Enter a valid density (e.g. 1.42 for honey) for mass ↔ volume conversions.";
+      }
+      if (requiresYield) {
+        if (!editingItem.chefYieldPerStockUnit || Number(editingItem.chefYieldPerStockUnit) <= 0) {
+          nextErrors.chefYieldPerStockUnit = `Enter the number of ${recipeUnit} portions supplied by one ${stockUnit}.`;
+        }
+      }
+      const compatibilityError = getInventoryUnitCompatibilityError(recipeUnit, stockUnit, density);
+      if (compatibilityError && !editingItem.chefYieldPerStockUnit) {
+        nextErrors.recipeUnit = compatibilityError;
+      }
     }
     setEditorErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -663,6 +735,7 @@ function InventoryContent() {
     const finalConversionType = effectiveChefConversion
       ? (editingItem.conversionType || "standard")
       : "standard";
+    const finalDensity = effectiveChefConversion && editingItem.densityGPerMl ? editingItem.densityGPerMl : undefined;
     const finalBaseUnit = getInventoryBaseUnit(editingItem.unit) || undefined;
 
     setIsSavingItem(true);
@@ -687,6 +760,7 @@ function InventoryContent() {
           conversionRatio: finalConversionRatio,
           chefYieldPerStockUnit: finalChefYield,
           conversionType: finalConversionType,
+          densityGPerMl: finalDensity,
           baseUnit: finalBaseUnit,
           lastUpdated: new Date().toISOString(),
         };
@@ -712,6 +786,7 @@ function InventoryContent() {
           conversionRatio: finalConversionRatio,
           chefYieldPerStockUnit: finalChefYield,
           conversionType: finalConversionType,
+          densityGPerMl: finalDensity,
           baseUnit: finalBaseUnit,
           lastUpdated: new Date().toISOString(),
         };
@@ -1856,87 +1931,189 @@ function InventoryContent() {
                     </span>
                   </div>
                 </div>
-                {editingItem.category !== "beverage" && (
-                  <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="mb-0.5 text-sm font-medium text-orange-800 dark:text-orange-200">
-                          Chef Recipe & Portion Conversion
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {useChefConversion
-                            ? "Configure custom recipe portions or chef yields (e.g. slices per loaf, grams per kg)."
-                            : "Standard 1:1 conversion. Enable only if kitchen recipes use portions, slices, or different units."}
-                        </p>
-                      </div>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-orange-900 shadow-sm transition hover:bg-orange-100/50 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100">
-                        <input
-                          type="checkbox"
-                          checked={useChefConversion}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setUseChefConversion(checked);
-                            if (!checked) {
-                              setEditingItem((prev) => {
-                                if (!prev) return prev;
-                                return {
-                                  ...prev,
-                                  recipeUnit: prev.unit || "units",
-                                  conversionRatio: "1",
-                                  chefYieldPerStockUnit: "",
-                                  conversionType: "standard",
-                                };
-                              });
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500 dark:border-orange-600 dark:bg-gray-800"
-                        />
-                        <span>Enable custom recipe conversion</span>
-                      </label>
+                {/* Recipe & Portion Conversion (Bar & Kitchen) */}
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="mb-0.5 text-sm font-medium text-orange-800 dark:text-orange-200">
+                        Recipe & Portion Conversion (Bar & Kitchen)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {useChefConversion
+                          ? "Configure how this item is used in recipes, cocktails, or portions (e.g. shots, slices, scoops, grams)."
+                          : "Standard 1:1 usage. Enable only if recipes or bar drinks use portions, shots, slices, or different units."}
+                      </p>
                     </div>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-orange-900 shadow-sm transition hover:bg-orange-100/50 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100">
+                      <input
+                        type="checkbox"
+                        checked={useChefConversion}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUseChefConversion(checked);
+                          if (!checked) {
+                            setEditingItem((prev) => {
+                              if (!prev) return prev;
+                              return {
+                                ...prev,
+                                recipeUnit: prev.unit || "units",
+                                conversionRatio: "1",
+                                chefYieldPerStockUnit: "",
+                                conversionType: "standard",
+                              };
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500 dark:border-orange-600 dark:bg-gray-800"
+                      />
+                      <span>Enable recipe & portion conversion</span>
+                    </label>
+                  </div>
 
-                    {useChefConversion && (
+                  {useChefConversion && (() => {
+                    const stockUnit = editingItem.unit || "unit";
+                    const recipeUnit = editingItem.recipeUnit || stockUnit;
+                    const stockDim = getInventoryUnitDimension(stockUnit);
+                    const recipeDim = getInventoryUnitDimension(recipeUnit);
+                    const isSameFamily = stockDim !== "unknown" && recipeDim !== "unknown" && stockDim === recipeDim && stockDim !== "count";
+                    const isCrossMassVolume = (stockDim === "mass" && recipeDim === "volume") || (stockDim === "volume" && recipeDim === "mass");
+                    const isCustomPortion = requiresChefYield(stockUnit, recipeUnit) || stockDim === "count" || recipeDim === "count";
+                    const previewText = getRecipeConversionPreview(
+                      stockUnit,
+                      recipeUnit,
+                      editingItem.chefYieldPerStockUnit,
+                      editingItem.densityGPerMl,
+                      editingItem.quantityPerContainer,
+                      editingItem.containerUnit
+                    );
+
+                    return (
                       <div className="mt-3 border-t border-orange-200/60 pt-3 dark:border-orange-800/60">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          {/* Recipe Unit selection */}
                           <div className="grid gap-2">
-                            <Label htmlFor="recipeUnit" className="text-orange-700 dark:text-orange-300">Used in recipes as</Label>
-                            <UnitSelect value={editingItem.recipeUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value) })} placeholder="Grams, pieces..." />
+                            <Label htmlFor="recipeUnit" className="text-orange-700 dark:text-orange-300">Used in recipes / bar pours as</Label>
+                            <UnitSelect
+                              value={editingItem.recipeUnit || ""}
+                              onChange={(value) => setEditingItem({ ...editingItem, recipeUnit: String(value), conversionRatio: "1" })}
+                              placeholder="Shots, slices, grams..."
+                            />
                             <div className="rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100" aria-live="polite">
-                              <p><strong>Suggested units:</strong> automatic conversions; units marked * require Chef yield.</p>
+                              <p><strong>Suggested units:</strong> automatic conversions; units marked * require Yield.</p>
                               <div className="mt-2 flex flex-wrap gap-2">
-                                {getCompatibleRecipeUnits(editingItem.unit || "unit").map((suggestion) => (
-                                  <button key={suggestion.value} type="button" className={`rounded-full border px-2.5 py-1 transition-colors ${editingItem.recipeUnit === suggestion.value ? "border-orange-600 bg-orange-100 font-semibold dark:border-orange-300 dark:bg-orange-900/50" : "border-orange-200 bg-background hover:border-orange-500 dark:border-orange-700"}`} onClick={() => setEditingItem({ ...editingItem, recipeUnit: suggestion.value })} aria-pressed={editingItem.recipeUnit === suggestion.value}>{suggestion.label}{suggestion.kind === "yield" ? "*" : ""}</button>
+                                {getCompatibleRecipeUnits(stockUnit).map((suggestion) => (
+                                  <button
+                                    key={suggestion.value}
+                                    type="button"
+                                    className={`rounded-full border px-2.5 py-1 transition-colors ${
+                                      editingItem.recipeUnit === suggestion.value
+                                        ? "border-orange-600 bg-orange-100 font-semibold dark:border-orange-300 dark:bg-orange-900/50"
+                                        : "border-orange-200 bg-background hover:border-orange-500 dark:border-orange-700"
+                                    }`}
+                                    onClick={() => setEditingItem({ ...editingItem, recipeUnit: suggestion.value, conversionRatio: "1" })}
+                                    aria-pressed={editingItem.recipeUnit === suggestion.value}
+                                  >
+                                    {suggestion.label}{suggestion.kind === "yield" ? "*" : ""}
+                                  </button>
                                 ))}
                               </div>
-                              <p className="mt-2">{getUnitSelectionHint(editingItem.unit || "unit")} Cross-family choices require a Chef yield.</p>
+                              <p className="mt-2">{getUnitSelectionHint(stockUnit)}</p>
                             </div>
-                            <p className="text-xs leading-relaxed text-muted-foreground">{editingItem.recipeUnit ? `Chef selected ${editingItem.recipeUnit}. Enter how many ${editingItem.recipeUnit} one ${editingItem.unit || "stock unit"} provides.` : "The suggestions update immediately when Stock Unit changes."}</p>
+                            {editorErrors.recipeUnit && <p className="text-xs text-destructive">{editorErrors.recipeUnit}</p>}
                           </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Base units per stock unit <span aria-hidden="true">*</span></Label>
-                            <Input id="conversionRatio" type="number" min="0.000001" step="0.01" aria-invalid={Boolean(editorErrors.conversionRatio)} aria-describedby={editorErrors.conversionRatio ? "conversion-ratio-error" : undefined} value={editingItem.conversionRatio || "1"} onChange={(e) => setEditingItem({ ...editingItem, conversionRatio: e.target.value })} />
-                            {editorErrors.conversionRatio && <p id="conversion-ratio-error" className="text-xs text-destructive">{editorErrors.conversionRatio}</p>}
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="chefYieldPerStockUnit" className="text-orange-700 dark:text-orange-300">Chef yield per stock unit</Label>
-                            <Input id="chefYieldPerStockUnit" type="number" min="0.000001" step="0.01" placeholder="e.g. 20 slices per kg" aria-invalid={Boolean(editorErrors.chefYieldPerStockUnit)} aria-describedby="chef-yield-help" value={editingItem.chefYieldPerStockUnit || ""} onChange={(e) => setEditingItem({ ...editingItem, chefYieldPerStockUnit: e.target.value })} />
-                            <p id="chef-yield-help" className="text-xs leading-relaxed text-muted-foreground">Use only when the recipe unit is not directly compatible with the stock unit. Example: stock unit <strong>{editingItem.unit || "kg"}</strong> → recipe <strong>{editingItem.recipeUnit || "slice"}</strong>: enter the number of recipe units supplied by one stock unit.</p>
-                          </div>
+
+                          {/* Dynamic Configuration field based on dimension relationship */}
+                          {isCrossMassVolume ? (
+                            <div className="grid gap-2">
+                              <Label htmlFor="densityGPerMl" className="text-orange-700 dark:text-orange-300">
+                                Density (g/ml) <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="densityGPerMl"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="e.g. 1.42 for honey, 0.92 for oil"
+                                aria-invalid={Boolean(editorErrors.densityGPerMl)}
+                                value={editingItem.densityGPerMl || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, densityGPerMl: e.target.value })}
+                              />
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                Required for mass ↔ volume conversions. Water = 1.0, Honey ≈ 1.42, Cooking oil ≈ 0.92.
+                              </p>
+                              {editorErrors.densityGPerMl && <p className="text-xs text-destructive">{editorErrors.densityGPerMl}</p>}
+                            </div>
+                          ) : isCustomPortion ? (
+                            <div className="grid gap-2">
+                              <Label htmlFor="chefYieldPerStockUnit" className="text-orange-700 dark:text-orange-300">
+                                Portions / Yield per {stockUnit} <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="chefYieldPerStockUnit"
+                                type="number"
+                                min="0.0001"
+                                step="any"
+                                placeholder="e.g. 20 slices per loaf, 30 scoops per tub"
+                                aria-invalid={Boolean(editorErrors.chefYieldPerStockUnit)}
+                                aria-describedby="chef-yield-help"
+                                value={editingItem.chefYieldPerStockUnit || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, chefYieldPerStockUnit: e.target.value })}
+                              />
+                              <p id="chef-yield-help" className="text-xs leading-relaxed text-muted-foreground">
+                                How many {recipeUnit} portions one {stockUnit} provides.
+                              </p>
+                              {editorErrors.chefYieldPerStockUnit && <p className="text-xs text-destructive">{editorErrors.chefYieldPerStockUnit}</p>}
+                            </div>
+                          ) : isSameFamily ? (
+                            <div className="grid gap-2">
+                              <Label className="text-orange-700 dark:text-orange-300">Conversion Mode</Label>
+                              <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 p-3 text-xs text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-100">
+                                <p className="font-semibold text-emerald-800 dark:text-emerald-200">✓ Fully Automatic</p>
+                                <p className="mt-1 leading-relaxed">
+                                  {getInventoryUnitLabel(stockUnit)} and {getInventoryUnitLabel(recipeUnit)} belong to the same measurement family. The system handles deductions automatically with zero manual math.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid gap-2">
+                              <Label htmlFor="chefYieldPerStockUnit" className="text-orange-700 dark:text-orange-300">
+                                Yield / Ratio per {stockUnit}
+                              </Label>
+                              <Input
+                                id="chefYieldPerStockUnit"
+                                type="number"
+                                min="0.0001"
+                                step="any"
+                                placeholder="e.g. 1"
+                                value={editingItem.chefYieldPerStockUnit || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, chefYieldPerStockUnit: e.target.value })}
+                              />
+                            </div>
+                          )}
+
+                          {/* Setup type */}
                           <div className="grid gap-2">
                             <Label htmlFor="conversionType" className="text-orange-700 dark:text-orange-300">Conversion setup</Label>
                             <Select value={editingItem.conversionType || "standard"} onValueChange={(value) => setEditingItem({ ...editingItem, conversionType: value as "standard" | "pack" })}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent><SelectItem value="standard">Automatic</SelectItem><SelectItem value="pack">Pack / container</SelectItem></SelectContent>
                             </Select>
+                            <p className="text-xs leading-relaxed text-muted-foreground">
+                              Standard automatic converts dynamically by formula; pack mode ties directly to packaging container count.
+                            </p>
                           </div>
                         </div>
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          Example: stock unit <strong>{editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.chefYieldPerStockUnit || editingItem.conversionRatio || "1"}</strong>. One {editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
-                        </p>
+
+                        {previewText && (
+                          <div className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs leading-relaxed text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100">
+                            <p className="font-semibold text-emerald-800 dark:text-emerald-200">Live Recipe & Portion Preview:</p>
+                            <p className="mt-0.5">{previewText}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label
