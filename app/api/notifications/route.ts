@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { ensureTopUpReviewSchema } from "@/lib/db/ensure-topup-schema";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await ensureTopUpReviewSchema();
 
   await query(
     `INSERT INTO notification_logs (notification_id, recipient_user_id, title, message, type, created_at, opened_at, archived_at, archived_reason)
@@ -13,20 +16,29 @@ export async function GET() {
      WHERE n.recipient_user_id = $1 AND n.archived_at IS NULL AND n.expires_at IS NOT NULL AND n.expires_at <= CURRENT_TIMESTAMP
        AND NOT EXISTS (SELECT 1 FROM notification_logs l WHERE l.notification_id = n.id)`,
     [session.id],
-  );
+  ).catch(() => null);
   await query(
     `UPDATE notifications SET archived_at = CURRENT_TIMESTAMP, archived_reason = 'opened_notification_expired'
      WHERE recipient_user_id = $1 AND archived_at IS NULL AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP`,
     [session.id],
-  );
+  ).catch(() => null);
   const result = await query(
-    `SELECT id, title, message, type, read_at, opened_at, created_at
+    `SELECT id, title, message, type, read_at, opened_at, created_at, metadata
      FROM notifications
      WHERE recipient_user_id = $1 AND archived_at IS NULL
      ORDER BY created_at DESC
      LIMIT 50`,
     [session.id],
-  );
+  ).catch(async () => {
+    return query(
+      `SELECT id, title, message, type, read_at, opened_at, created_at
+       FROM notifications
+       WHERE recipient_user_id = $1 AND archived_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [session.id],
+    );
+  });
   return NextResponse.json({ notifications: result.rows });
 }
 

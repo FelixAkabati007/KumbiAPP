@@ -7,6 +7,8 @@ import { parsePositiveQuantity } from "@/lib/inventory-top-up-validation";
 import { canTopUpInventory } from "@/lib/roles";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 import { getInventoryUnitSqlExpression } from "@/lib/inventory-units";
+import { putBlob } from "@/lib/blob-storage";
+import { ensureTopUpReviewSchema } from "@/lib/db/ensure-topup-schema";
 
 const inventoryUnitSql = getInventoryUnitSqlExpression("purchase_unit");
 
@@ -25,7 +27,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
               e.created_at AS performed_at, e.event_type AS source, e.reason,
               e.purchase_packaging_price_before, e.purchase_packaging_price_after,
               e.staff_name AS performed_by_name, e.staff_role AS performed_by_role,
-              e.correlation_id, e.idempotency_key
+              e.correlation_id, e.idempotency_key,
+              COALESCE(e.metadata->>'evidencePathname', e.metadata->>'evidence_pathname') as evidence_pathname,
+              COALESCE(e.metadata->>'status', 'pending_review') as status,
+              e.metadata->>'reviewed_by_name' as reviewed_by_name,
+              e.metadata->>'review_notes' as review_notes
        FROM inventory_events e
        WHERE e.inventory_id = $1 ORDER BY e.created_at DESC LIMIT $2`, [id, limit]
     ));
@@ -45,7 +51,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
+    const contentType = req.headers.get("content-type") || "";
+    let body: any = {};
+    let evidenceFile: File | null = null;
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData().catch(() => new FormData());
+      body = {
+        quantityAdded: formData.get("quantityAdded"),
+        purchaseUnit: formData.get("purchaseUnit"),
+        purchasePackagingPrice: formData.get("purchasePackagingPrice") ?? formData.get("costPerContainer"),
+        reason: formData.get("reason"),
+        idempotencyKey: formData.get("idempotencyKey"),
+      };
+      const rawEvidence = formData.get("evidence");
+      if (rawEvidence instanceof File && rawEvidence.size > 0) {
+        evidenceFile = rawEvidence;
+      }
+    } else {
+      body = await req.json().catch(() => ({}));
+    }
+
     const enteredQuantity = parsePositiveQuantity(body.quantityAdded);
     if (enteredQuantity === null) return NextResponse.json({ error: "Top-up quantity must be a positive number", code: "INVALID_QUANTITY" }, { status: 400 });
     const purchaseUnit = body.purchaseUnit ? String(body.purchaseUnit).trim().toLowerCase() : null;
@@ -59,6 +84,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (hasPriceChange && !reason) return NextResponse.json({ error: "Explain the local market price change before saving it", code: "PRICE_CHANGE_REASON_REQUIRED" }, { status: 400 });
     const idempotencyKey = String(body.idempotencyKey || req.headers.get("Idempotency-Key") || crypto.randomUUID()).trim();
     if (!idempotencyKey || idempotencyKey.length > 120) return NextResponse.json({ error: "Invalid idempotency key", code: "INVALID_IDEMPOTENCY_KEY" }, { status: 400 });
+
+    let evidencePathname: string | null = null;
+    let evidenceUrl: string | null = null;
+    if (evidenceFile) {
+      const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+      const MAX_EVIDENCE_SIZE = 5 * 1024 * 1024;
+      if (!IMAGE_TYPES.has(evidenceFile.type) || evidenceFile.size > MAX_EVIDENCE_SIZE) {
+        return NextResponse.json({ error: "Evidence must be a JPEG, PNG, or WebP image under 5MB", code: "INVALID_EVIDENCE" }, { status: 400 });
+      }
+      const ext = evidenceFile.type.split("/")[1] || "jpeg";
+      const blob = await putBlob(
+        `inventory-evidence/top-up/${id}/${crypto.randomUUID()}.${ext}`,
+        evidenceFile,
+        { access: "private", addRandomSuffix: false }
+      );
+      evidencePathname = blob.pathname;
+      evidenceUrl = blob.url;
+    }
 
     const canonicalNow = await getCanonicalTransactionTimestamp();
     const result = await transaction(async (client) => {
@@ -102,7 +145,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         [quantityAdded, priceAfter, costPerItem, id, hasPriceChange]
       );
       const after = Number(updated.rows[0].quantity);
-      const metadata = { eventType: hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", reason, staffName: session.name || session.email, staffRole: session.role, priceField: "Purchase Packaging", purchasePackagingPriceBefore: priceBefore, purchasePackagingPriceAfter: priceAfter, enteredQuantity, purchaseUnit, appliedConversion };
+      const metadata = {
+        eventType: hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK",
+        reason,
+        staffName: session.name || session.email,
+        staffRole: session.role,
+        priceField: "Purchase Packaging",
+        purchasePackagingPriceBefore: priceBefore,
+        purchasePackagingPriceAfter: priceAfter,
+        enteredQuantity,
+        purchaseUnit,
+        appliedConversion,
+        evidencePathname,
+        evidenceUrl,
+        status: "pending_review",
+      };
       const audit = await client.query(
         `INSERT INTO inventory_top_up_audit (
            inventory_item_id, quantity_before, quantity_added, quantity_after,
@@ -120,10 +177,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::timestamptz)`,
         [id, hasPriceChange ? "RESTOCK_AND_PRICE_CHANGE" : "RESTOCK", before, quantityAdded, after, priceBefore, priceAfter, Number(item.rows[0].cost_per_item ?? 0), costPerItem, reason, session.id, session.name || session.email || session.id, session.role, idempotencyKey, idempotencyKey, JSON.stringify(metadata), canonicalNow]
       );
-      return { item: updated.rows[0], audit: audit.rows[0], duplicate: false };
+      return { item: updated.rows[0], audit: audit.rows[0], duplicate: false, priceBefore };
     });
 
     if (!result.duplicate) {
+      await ensureTopUpReviewSchema();
+
       // Notify active General Managers, Admins, and Restaurant Managers
       const managers = await query(
         `SELECT id, email, role FROM users WHERE role IN ('admin', 'manager', 'restaurantManager') AND is_active = true`
@@ -133,12 +192,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const notifTitle = `Stock Topped Up: ${result.item.name}`;
       const notifMessage = `${staffName} (${session.role}) topped up ${result.item.name} (+${enteredQuantity} ${result.item.unit}, new balance: ${result.item.quantity} ${result.item.unit})${hasPriceChange ? ` with packaging price set to GHS ${purchasePackagingPrice}` : ""}${reason ? `. Reason: ${reason}` : ""}`;
 
+      const notifMetadata = {
+        auditId: result.audit.id,
+        inventoryItemId: id,
+        itemName: result.item.name,
+        quantityAdded: enteredQuantity,
+        unit: result.item.unit,
+        newBalance: result.item.quantity,
+        hasPriceChange,
+        purchasePackagingPrice: hasPriceChange ? purchasePackagingPrice : null,
+        previousPackagingPrice: result.priceBefore ?? null,
+        reason: reason || null,
+        performedBy: session.id,
+        performedByName: staffName,
+        performedByRole: session.role,
+        evidencePathname,
+        status: "pending_review",
+      };
+
       for (const manager of managers.rows) {
-        await query(
-          `INSERT INTO notifications (recipient_user_id, title, message, type)
-           VALUES ($1, $2, $3, 'inventory_topup')`,
-          [manager.id, notifTitle, notifMessage]
-        );
+        try {
+          await query(
+            `INSERT INTO notifications (recipient_user_id, title, message, type, metadata)
+             VALUES ($1, $2, $3, 'inventory_topup', $4)`,
+            [manager.id, notifTitle, notifMessage, JSON.stringify(notifMetadata)]
+          );
+        } catch {
+          await query(
+            `INSERT INTO notifications (recipient_user_id, title, message, type)
+             VALUES ($1, $2, $3, 'inventory_topup')`,
+            [manager.id, notifTitle, notifMessage]
+          );
+        }
       }
 
       await Promise.all([

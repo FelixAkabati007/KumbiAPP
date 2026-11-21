@@ -7,10 +7,16 @@ export async function GET(request: NextRequest) {
   const access = await requireRole("admin", "manager", "restaurantManager");
   if (access.error) return access.error;
   const pathname = request.nextUrl.searchParams.get("pathname");
-  if (!pathname || !pathname.startsWith("inventory-evidence/")) return NextResponse.json({ error: "Invalid evidence reference" }, { status: 400 });
+  if (!pathname || (!pathname.startsWith("inventory-evidence/") && !pathname.startsWith("inventory-top-up/"))) {
+    return NextResponse.json({ error: "Invalid evidence reference" }, { status: 400 });
+  }
   try {
     const allowed = await query(
-      "SELECT 1 FROM audit_logs WHERE action = 'SUBMIT_INVENTORY_VARIANCE' AND details->>'evidencePathname' = $1 UNION SELECT 1 FROM inventory_variances WHERE evidence_pathname = $1 LIMIT 1",
+      `SELECT 1 FROM audit_logs WHERE action IN ('SUBMIT_INVENTORY_VARIANCE', 'INVENTORY_TOP_UP') AND (details->>'evidencePathname' = $1 OR details->>'evidence_pathname' = $1)
+       UNION SELECT 1 FROM inventory_variances WHERE evidence_pathname = $1
+       UNION SELECT 1 FROM inventory_top_up_audit WHERE request_metadata->>'evidencePathname' = $1 OR evidence_pathname = $1
+       UNION SELECT 1 FROM notifications WHERE metadata->>'evidencePathname' = $1
+       LIMIT 1`,
       [pathname]
     );
     if (!allowed.rows[0]) return NextResponse.json({ error: "Evidence not found" }, { status: 404 });

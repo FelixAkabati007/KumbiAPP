@@ -36,6 +36,7 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
+  ImageIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -225,10 +226,31 @@ function InventoryContent() {
   const [topUpQuantity, setTopUpQuantity] = useState("");
   const [topUpReason, setTopUpReason] = useState("");
   const [topUpPurchasePackagingPrice, setTopUpPurchasePackagingPrice] = useState("");
+  const [topUpEvidence, setTopUpEvidence] = useState<File | null>(null);
+  const [topUpEvidencePreview, setTopUpEvidencePreview] = useState<string | null>(null);
   const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
   const [topUpHistoryItem, setTopUpHistoryItem] = useState<InventoryItem | null>(null);
-  const [topUpHistory, setTopUpHistory] = useState<Array<{ id: string; quantity_before: string | number; quantity_added: string | number; quantity_after: string | number; performed_at: string; performed_by?: string | null; performed_by_name?: string | null; performed_by_role?: string | null; reason?: string | null; correlation_id?: string | null; idempotency_key?: string | null; purchase_packaging_price_before?: string | number | null; purchase_packaging_price_after?: string | number | null }>>([]);
+  const [topUpHistory, setTopUpHistory] = useState<Array<{
+    id: string;
+    quantity_before: string | number;
+    quantity_added: string | number;
+    quantity_after: string | number;
+    performed_at: string;
+    performed_by?: string | null;
+    performed_by_name?: string | null;
+    performed_by_role?: string | null;
+    reason?: string | null;
+    correlation_id?: string | null;
+    idempotency_key?: string | null;
+    purchase_packaging_price_before?: string | number | null;
+    purchase_packaging_price_after?: string | number | null;
+    evidence_pathname?: string | null;
+    status?: string | null;
+    reviewed_by_name?: string | null;
+    review_notes?: string | null;
+  }>>([]);
   const [isLoadingTopUpHistory, setIsLoadingTopUpHistory] = useState(false);
+  const [historyEvidenceModalUrl, setHistoryEvidenceModalUrl] = useState<string | null>(null);
   const summary = useMemo(() => {
     const categories: Record<string, number> = {};
     for (const item of items) categories[item.category] = (categories[item.category] ?? 0) + 1;
@@ -968,7 +990,31 @@ function InventoryContent() {
     }
     setIsSubmittingTopUp(true);
     try {
-      const response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ quantityAdded: quantity, reason: topUpReason, purchasePackagingPrice: topUpPurchasePackagingPrice === "" ? undefined : Number(topUpPurchasePackagingPrice) }) });
+      let response: Response;
+      const idempotencyKey = crypto.randomUUID();
+      if (topUpEvidence) {
+        const formData = new FormData();
+        formData.append("quantityAdded", String(quantity));
+        if (topUpReason) formData.append("reason", topUpReason);
+        if (topUpPurchasePackagingPrice !== "") formData.append("purchasePackagingPrice", topUpPurchasePackagingPrice);
+        formData.append("idempotencyKey", idempotencyKey);
+        formData.append("evidence", topUpEvidence);
+        response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, {
+          method: "POST",
+          headers: { "Idempotency-Key": idempotencyKey },
+          body: formData,
+        });
+      } else {
+        response = await fetch(`/api/inventory/${topUpItem.id}/top-up`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+          body: JSON.stringify({
+            quantityAdded: quantity,
+            reason: topUpReason,
+            purchasePackagingPrice: topUpPurchasePackagingPrice === "" ? undefined : Number(topUpPurchasePackagingPrice),
+          }),
+        });
+      }
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || "Unable to top up stock");
       const updated = result.item;
@@ -983,6 +1029,7 @@ function InventoryContent() {
       } : item));
       toast({ title: "Stock topped up", description: `${topUpItem.name} is now at ${updated.quantity} ${topUpItem.unit}.` });
       setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice("");
+      setTopUpEvidence(null); setTopUpEvidencePreview(null);
     } catch (error) {
       toast({ title: "Top-up failed", description: error instanceof Error ? error.message : "Unable to top up stock.", variant: "destructive" });
     } finally { setIsSubmittingTopUp(false); }
@@ -2205,22 +2252,132 @@ function InventoryContent() {
           <DialogContent className="max-w-3xl rounded-3xl">
             <DialogHeader><DialogTitle>Top-up history</DialogTitle><DialogDescription>Immutable stock replenishment records for {topUpHistoryItem?.name ?? "this item"}. Timestamps are shown in UTC.</DialogDescription></DialogHeader>
             <div className="max-h-[55vh] overflow-y-auto rounded-2xl border">
-              {isLoadingTopUpHistory ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading history...</div> : topUpHistory.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No top-ups recorded yet.</p> : <div className="divide-y">{topUpHistory.map((entry) => <div key={entry.id} className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="font-medium">{entry.quantity_before} + {entry.quantity_added} = {entry.quantity_after} {topUpHistoryItem?.unit}</p><p className="text-muted-foreground">{entry.reason || "Manual stock top-up"}</p><p className="text-xs text-muted-foreground">Staff ID: {entry.performed_by || "Unavailable"} · Role: {entry.performed_by_role || "Unavailable"}</p><p className="text-xs text-muted-foreground">Price: {entry.purchase_packaging_price_before ?? "—"} → {entry.purchase_packaging_price_after ?? "—"}</p><p className="break-all text-xs text-muted-foreground">Correlation: {entry.correlation_id || "Unavailable"} · Idempotency: {entry.idempotency_key || "Unavailable"}</p></div><div className="text-left text-xs text-muted-foreground sm:text-right"><p>{new Date(entry.performed_at).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p><p>{entry.performed_by_name || "Authenticated user"}</p></div></div>)}</div>}
+              {isLoadingTopUpHistory ? (
+                <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />Loading history...
+                </div>
+              ) : topUpHistory.length === 0 ? (
+                <p className="p-8 text-center text-sm text-muted-foreground">No top-ups recorded yet.</p>
+              ) : (
+                <div className="divide-y">
+                  {topUpHistory.map((entry) => {
+                    const status = entry.status ?? "pending_review";
+                    return (
+                      <div key={entry.id} className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">{entry.quantity_before} + {entry.quantity_added} = {entry.quantity_after} {topUpHistoryItem?.unit}</p>
+                            {status === "approved" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">Approved</span>
+                            ) : status === "disapproved" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">Reverted</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Pending Review</span>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground">{entry.reason || "Manual stock top-up"}</p>
+                          <p className="text-xs text-muted-foreground">Staff ID: {entry.performed_by || "Unavailable"} · Role: {entry.performed_by_role || "Unavailable"}</p>
+                          <p className="text-xs text-muted-foreground">Price: {entry.purchase_packaging_price_before ?? "—"} → {entry.purchase_packaging_price_after ?? "—"}</p>
+                          {entry.review_notes && <p className="text-xs text-amber-700 dark:text-amber-300">Review note: {entry.review_notes} (by {entry.reviewed_by_name || "Manager"})</p>}
+                          {entry.evidence_pathname && (
+                            <div className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/evidence?pathname=${encodeURIComponent(entry.evidence_pathname!)}`)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 transition-colors"
+                              >
+                                <ImageIcon className="h-3.5 w-3.5" /> View Evidence Photo
+                              </button>
+                            </div>
+                          )}
+                          <p className="break-all text-[11px] text-muted-foreground/70">Correlation: {entry.correlation_id || "Unavailable"} · Idempotency: {entry.idempotency_key || "Unavailable"}</p>
+                        </div>
+                        <div className="text-left text-xs text-muted-foreground sm:text-right">
+                          <p>{new Date(entry.performed_at).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p>
+                          <p>{entry.performed_by_name || "Authenticated user"}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice(""); } }}>
+        <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice(""); setTopUpEvidence(null); setTopUpEvidencePreview(null); } }}>
           <DialogContent className="max-w-md rounded-3xl border-emerald-200 dark:border-emerald-800">
-            <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
+            <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update, evidence, and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="rounded-2xl bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30"><span className="text-muted-foreground">Current balance</span><p className="text-xl font-semibold">{topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</p></div>
               <div className="grid gap-2"><Label htmlFor="top-up-quantity">Quantity to add ({topUpItem?.unit ?? "units"})</Label><Input id="top-up-quantity" type="number" min="0.001" step="any" value={topUpQuantity} onChange={(event) => setTopUpQuantity(event.target.value)} placeholder="Enter a positive quantity" autoFocus /></div>
               <div className="grid gap-2"><Label htmlFor="top-up-reason">Reason {topUpPurchasePackagingPrice ? <span className="font-medium text-orange-600 dark:text-orange-400">* (required for price change)</span> : "(optional)"}</Label><Input id="top-up-reason" value={topUpReason} onChange={(event) => setTopUpReason(event.target.value)} placeholder="Purchase, delivery, adjustment..." maxLength={500} /></div>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-800 dark:bg-emerald-950/20"><p className="mb-2 text-sm font-medium">Purchase Packaging</p><Label htmlFor="top-up-packaging-price">Change Price (₵)</Label><Input id="top-up-packaging-price" type="number" min="0" step="0.01" value={topUpPurchasePackagingPrice} onChange={(event) => setTopUpPurchasePackagingPrice(event.target.value)} placeholder="Leave blank to keep current price" /><p className="mt-2 text-xs text-muted-foreground">Only the purchase packaging price is changed here. Explain a market increase in the reason field.</p></div>
+              <div className="grid gap-2">
+                <Label htmlFor="top-up-evidence" className="flex items-center gap-1.5 text-xs font-semibold">
+                  <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  Delivery note / Receipt / Photo evidence <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="top-up-evidence"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setTopUpEvidence(file);
+                    if (file) {
+                      setTopUpEvidencePreview(URL.createObjectURL(file));
+                    } else {
+                      setTopUpEvidencePreview(null);
+                    }
+                  }}
+                />
+                {topUpEvidencePreview && (
+                  <div className="relative mt-1 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+                    <img
+                      src={topUpEvidencePreview}
+                      alt="Evidence preview"
+                      className="h-16 w-16 rounded-lg object-cover border"
+                    />
+                    <div className="text-xs">
+                      <p className="font-medium text-emerald-900 dark:text-emerald-200">{topUpEvidence?.name}</p>
+                      <p className="text-muted-foreground">{topUpEvidence ? `${(topUpEvidence.size / 1024).toFixed(1)} KB` : ""}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopUpEvidence(null);
+                          setTopUpEvidencePreview(null);
+                        }}
+                        className="mt-1 text-xs text-rose-600 hover:underline font-medium"
+                      >
+                        Remove photo
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Attach a photo of the delivery invoice or receipt for management verification.</p>
+              </div>
               <p className="text-sm text-muted-foreground">New balance: <strong>{topUpQuantity && Number(topUpQuantity) > 0 ? (Number(topUpItem?.quantity ?? 0) + Number(topUpQuantity)).toLocaleString() : topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</strong></p>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>Top up stock</Button></DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>{isSubmittingTopUp ? "Adding stock..." : "Top up stock"}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* History Evidence Photo Modal */}
+        <Dialog open={Boolean(historyEvidenceModalUrl)} onOpenChange={(open) => !open && setHistoryEvidenceModalUrl(null)}>
+          <DialogContent className="max-w-xl rounded-3xl p-6">
+            <DialogHeader>
+              <DialogTitle>Stock Replenishment Evidence</DialogTitle>
+              <DialogDescription>Delivery note, invoice, or goods photo recorded during stock replenishment.</DialogDescription>
+            </DialogHeader>
+            {historyEvidenceModalUrl && (
+              <div className="mt-2 flex max-h-[65vh] items-center justify-center overflow-auto rounded-2xl border bg-muted/30 p-2">
+                <img src={historyEvidenceModalUrl} alt="Evidence" className="max-h-[60vh] w-auto rounded-xl object-contain shadow-md" />
+              </div>
+            )}
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setHistoryEvidenceModalUrl(null)} className="rounded-2xl">Close</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
