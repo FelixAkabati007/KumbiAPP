@@ -18,8 +18,10 @@ const FACTORS: Record<
   oz: { dimension: "mass", toBase: 28.349523125 },
   lb: { dimension: "mass", toBase: 453.59237 },
   ml: { dimension: "volume", toBase: 1 },
+  cl: { dimension: "volume", toBase: 10 },
   l: { dimension: "volume", toBase: 1000 },
   fl_oz: { dimension: "volume", toBase: 29.5735295625 },
+  shot: { dimension: "volume", toBase: 44.36029434375 }, // 1.5 US fluid ounces (standard bar shot / miniature mug)
   qt: { dimension: "volume", toBase: 946.352946 },
   gal: { dimension: "volume", toBase: 3785.411784 },
   unit: { dimension: "count", toBase: 1 },
@@ -93,6 +95,18 @@ const UNIT_ALIASES: Record<string, keyof typeof FACTORS> = {
   "fl oz": "fl_oz",
   "fluid ounce": "fl_oz",
   "fluid ounces": "fl_oz",
+  cl: "cl",
+  centilitre: "cl",
+  centilitres: "cl",
+  centiliter: "cl",
+  centiliters: "cl",
+  shot: "shot",
+  shots: "shot",
+  tot: "shot",
+  tots: "shot",
+  "shot glass": "shot",
+  "miniature mug": "shot",
+  "beer mug shot": "shot",
   qt: "qt",
   quart: "qt",
   quarts: "qt",
@@ -177,7 +191,7 @@ export function getCompatibleRecipeUnits(purchaseUnit?: string | null): Inventor
   const automatic = dimension === "mass"
     ? ["g", "kg", "oz", "lb"]
     : dimension === "volume"
-      ? ["ml", "l", "fl_oz", "qt", "gal"]
+      ? ["ml", "cl", "l", "fl_oz", "shot", "qt", "gal"]
       : dimension === "count"
         ? ["unit"]
         : [];
@@ -494,7 +508,7 @@ export function getInventoryUnitLabel(unit?: string | null): string {
   if (normalized in CHEF_UNIT_LABELS) return CHEF_UNIT_LABELS[normalized];
   const labels: Record<string, string> = {
     g: "Gram (g)", kg: "Kilogram (kg)", oz: "Ounce (oz)", lb: "Pound (lb)",
-    ml: "Millilitre (ml)", l: "Litre (l)", fl_oz: "Fluid ounce (fl oz)", qt: "Quart (qt)", gal: "Gallon (gal)", unit: "Unit",
+    ml: "Millilitre (ml)", cl: "Centilitre (cl)", l: "Litre (l)", fl_oz: "Fluid ounce (fl oz)", shot: "Shot / Tot (1.5 oz / 44 ml)", qt: "Quart (qt)", gal: "Gallon (gal)", unit: "Unit",
   };
   const canonical = normalizeInventoryUnit(unit);
   return (canonical && labels[canonical]) || unit || "units";

@@ -141,15 +141,13 @@ export async function PUT(
       normalizedContainerUnit === undefined
         ? before.container_unit
         : normalizedContainerUnit;
-    const effectiveUnit =
-      effectiveContainerUnit || effectiveStockUnit || "unit";
     const effectiveRecipeUnit =
       recipeUnit === undefined ? before.recipe_unit : recipeUnit;
     const unitCompatibilityError =
-      effectiveRecipeUnit && effectiveUnit
+      effectiveRecipeUnit && effectiveStockUnit
         ? getInventoryUnitCompatibilityError(
             normalizeInventoryUnit(String(effectiveRecipeUnit)) ?? String(effectiveRecipeUnit),
-            normalizeInventoryUnit(String(effectiveUnit)) ?? String(effectiveUnit),
+            normalizeInventoryUnit(String(effectiveStockUnit)) ?? String(effectiveStockUnit),
             densityGPerMl === undefined
               ? Number(before.density_g_per_ml ?? 0) || null
               : Number(densityGPerMl) || null,

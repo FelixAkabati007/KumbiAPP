@@ -166,15 +166,15 @@ export async function POST(req: Request) {
         { error: "Invalid recipe unit" },
         { status: 400 },
       );
-    const normalizedUnit = (containerUnit || unit) ? normalizeInventoryUnit(String(containerUnit || unit)) : null;
+    const normalizedStockUnit = unit ? normalizeInventoryUnit(String(unit)) : null;
     const normalizedRecipeUnit = recipeUnit
       ? normalizeInventoryUnit(String(recipeUnit))
-      : normalizedUnit;
+      : normalizedStockUnit;
     const unitCompatibilityError =
-      normalizedRecipeUnit && normalizedUnit
+      normalizedRecipeUnit && normalizedStockUnit
         ? getInventoryUnitCompatibilityError(
             normalizedRecipeUnit,
-            normalizedUnit,
+            normalizedStockUnit,
             densityGPerMl ? Number(densityGPerMl) : null,
           )
         : null;
@@ -235,7 +235,7 @@ export async function POST(req: Request) {
     const resolvedDensity = densityGPerMl ? Number(densityGPerMl) : null;
     const resolvedRecipeUnit =
       recipeUnit || getInventoryBaseUnit(unit) || unit || "unit";
-    const autoRatio = (normalizedUnit && normalizedRecipeUnit) ? getInventoryDeductionQuantity(1, normalizedUnit, normalizedRecipeUnit, resolvedDensity) : null;
+    const autoRatio = (normalizedStockUnit && normalizedRecipeUnit) ? getInventoryDeductionQuantity(1, normalizedStockUnit, normalizedRecipeUnit, resolvedDensity) : null;
     const resolvedConversionRatio = conversionRatio ? Number(conversionRatio) : (quantityPerContainer && Number(quantityPerContainer) > 0) ? Number(quantityPerContainer) : (autoRatio && autoRatio > 0) ? autoRatio : 1;
     const resolvedConversionType =
       conversionType === "pack" ? "pack" : "standard";

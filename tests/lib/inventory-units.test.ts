@@ -48,6 +48,31 @@ describe("5-star industry standard recipe deduction engine", () => {
     expect(result).toBeCloseTo(0.5, 4);
   });
 
+  it("accurately handles bar and beverage volume measurements (shot, cl, fl_oz -> ml or L)", () => {
+    // 1 standard bar shot (miniature mug) = 1.5 fl oz = 44.36 ml
+    const shotMl = getRecipeDeductionQuantity(1, "shot", "ml");
+    expect(shotMl).toBeCloseTo(44.36, 2);
+
+    // 1 shot in fluid ounces = 1.5 fl_oz
+    const shotFlOz = getRecipeDeductionQuantity(1, "shot", "fl_oz");
+    expect(shotFlOz).toBeCloseTo(1.5, 3);
+
+    // 1 shot from 750 ml bottle (stock stored in L)
+    const shotL = getRecipeDeductionQuantity(1, "shot", "l");
+    expect(shotL).toBeCloseTo(0.04436, 4);
+
+    // 2 cl = 20 ml
+    const clMl = getRecipeDeductionQuantity(2, "cl", "ml");
+    expect(clMl).toBeCloseTo(20, 2);
+
+    // Compatible recipe units for ml include cl and shot
+    const volUnits = getCompatibleRecipeUnits("ml").map((u) => u.value);
+    expect(volUnits).toContain("shot");
+    expect(volUnits).toContain("cl");
+    expect(getInventoryUnitCompatibilityError("shot", "ml")).toBeNull();
+    expect(getInventoryUnitCompatibilityError("cl", "ml")).toBeNull();
+  });
+
   it("accurately handles culinary volume measurements (tsp, tbsp -> ml or L)", () => {
     // 1 tsp = 4.92892 ml
     const tspMl = getRecipeDeductionQuantity(1, "tsp", "ml");

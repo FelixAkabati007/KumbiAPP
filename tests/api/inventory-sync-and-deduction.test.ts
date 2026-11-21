@@ -262,5 +262,102 @@ describe("Inventory API Synchronization & Deduction Suite", () => {
         costPerItem: "6.00",
       });
     });
+
+    it("permits saving and updating bulk packaged beverages (bottle packaging + ml stock unit) without unit compatibility errors", async () => {
+      const { POST } = await import("@/app/api/inventory/route");
+      const { PUT } = await import("@/app/api/inventory/[id]/route");
+
+      mockTransaction.mockImplementation(async (cb) => {
+        const client = {
+          query: vi.fn().mockImplementation((sql: string) => {
+            if (sql.includes("INSERT INTO inventory (name")) {
+              return {
+                rows: [{ id: "inv-adonko", quantity: 3750 }],
+              };
+            }
+            if (sql.includes("UPDATE inventory SET")) {
+              return {
+                rowCount: 1,
+                rows: [
+                  {
+                    id: "inv-adonko",
+                    name: "Adonko Bitters",
+                    unit: "ml",
+                    container_unit: "bottle",
+                    quantity: "3750.00",
+                    recipe_unit: "shot",
+                    reorder_level: "750",
+                    cost_price: "240.00",
+                  },
+                ],
+              };
+            }
+            return { rows: [] };
+          }),
+        };
+        return cb(client as unknown as { query: typeof mockQuery });
+      });
+
+      // 1. Test POST with bulk packaging bottle (750 ml each, 5 bottles, stock unit ml)
+      const postReq = new Request("http://localhost/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Adonko Bitters",
+          category: "beverage",
+          unit: "ml",
+          containerUnit: "bottle",
+          quantityPerContainer: "750",
+          containerCount: "5",
+          costPerContainer: "48",
+          cost: "240",
+          reorderLevel: "750",
+        }),
+      });
+
+      const postRes = await POST(postReq);
+      expect(postRes.status).toBe(201);
+      const postData = await postRes.json();
+      expect(postData.id).toBe("inv-adonko");
+
+      // 2. Test PUT updating recipe unit to "shot" (bar miniature mug / shot pour)
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: "inv-adonko",
+            name: "Adonko Bitters",
+            sku: "ADONKO-01",
+            category: "beverage",
+            quantity: "3750",
+            unit: "ml",
+            container_unit: "bottle",
+            supplier: "Distillery",
+            cost_price: "240",
+            cost_per_container: "48",
+            quantity_per_container: "750",
+            cost_per_item: "0.064",
+            recipe_unit: null,
+            density_g_per_ml: null,
+            chef_yield_per_stock_unit: null,
+          },
+        ],
+      });
+
+      const putReq = new Request("http://localhost/api/inventory/inv-adonko", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeUnit: "shot",
+        }),
+      });
+
+      const putRes = await PUT(putReq, {
+        params: Promise.resolve({ id: "inv-adonko" }),
+      });
+      expect(putRes.status).toBe(200);
+      const putData = await putRes.json();
+      expect(putData.success).toBe(true);
+      expect(putData.item.recipeUnit).toBe("shot");
+    });
   });
 });

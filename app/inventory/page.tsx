@@ -607,7 +607,7 @@ function InventoryContent() {
     const isBeverage = editingItem.category === "beverage";
     const effectiveChefConversion = !isBeverage && useChefConversion;
     if (effectiveChefConversion) {
-      const stockUnit = useBulkPackaging && editingItem.containerUnit ? editingItem.containerUnit : editingItem.unit;
+      const stockUnit = editingItem.unit || "unit";
       const hasChefYield = editingItem.chefYieldPerStockUnit !== "" && Boolean(editingItem.recipeUnit);
       if (!hasChefYield && (!Number.isFinite(conversionRatio) || conversionRatio <= 0)) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
       if (hasChefYield && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
@@ -1896,13 +1896,13 @@ function InventoryContent() {
                             <div className="rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100" aria-live="polite">
                               <p><strong>Suggested units:</strong> automatic conversions; units marked * require Chef yield.</p>
                               <div className="mt-2 flex flex-wrap gap-2">
-                                {getCompatibleRecipeUnits(editingItem.containerUnit || editingItem.unit).map((suggestion) => (
+                                {getCompatibleRecipeUnits(editingItem.unit || "unit").map((suggestion) => (
                                   <button key={suggestion.value} type="button" className={`rounded-full border px-2.5 py-1 transition-colors ${editingItem.recipeUnit === suggestion.value ? "border-orange-600 bg-orange-100 font-semibold dark:border-orange-300 dark:bg-orange-900/50" : "border-orange-200 bg-background hover:border-orange-500 dark:border-orange-700"}`} onClick={() => setEditingItem({ ...editingItem, recipeUnit: suggestion.value })} aria-pressed={editingItem.recipeUnit === suggestion.value}>{suggestion.label}{suggestion.kind === "yield" ? "*" : ""}</button>
                                 ))}
                               </div>
-                              <p className="mt-2">{getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Cross-family choices require a Chef yield.</p>
+                              <p className="mt-2">{getUnitSelectionHint(editingItem.unit || "unit")} Cross-family choices require a Chef yield.</p>
                             </div>
-                            <p className="text-xs leading-relaxed text-muted-foreground">{editingItem.recipeUnit ? `Chef selected ${editingItem.recipeUnit}. Enter how many ${editingItem.recipeUnit} one ${editingItem.containerUnit || editingItem.unit || "purchase unit"} provides.` : "The suggestions update immediately when Purchase Packaging changes."}</p>
+                            <p className="text-xs leading-relaxed text-muted-foreground">{editingItem.recipeUnit ? `Chef selected ${editingItem.recipeUnit}. Enter how many ${editingItem.recipeUnit} one ${editingItem.unit || "stock unit"} provides.` : "The suggestions update immediately when Stock Unit changes."}</p>
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="conversionRatio" className="text-orange-700 dark:text-orange-300">Base units per stock unit <span aria-hidden="true">*</span></Label>
@@ -1912,7 +1912,7 @@ function InventoryContent() {
                           <div className="grid gap-2">
                             <Label htmlFor="chefYieldPerStockUnit" className="text-orange-700 dark:text-orange-300">Chef yield per stock unit</Label>
                             <Input id="chefYieldPerStockUnit" type="number" min="0.000001" step="0.01" placeholder="e.g. 20 slices per kg" aria-invalid={Boolean(editorErrors.chefYieldPerStockUnit)} aria-describedby="chef-yield-help" value={editingItem.chefYieldPerStockUnit || ""} onChange={(e) => setEditingItem({ ...editingItem, chefYieldPerStockUnit: e.target.value })} />
-                            <p id="chef-yield-help" className="text-xs leading-relaxed text-muted-foreground">Use only when the recipe unit is not directly compatible with the purchase unit. Example: purchase <strong>{editingItem.containerUnit || editingItem.unit || "kg"}</strong> → recipe <strong>{editingItem.recipeUnit || "slice"}</strong>: enter the number of recipe units supplied by one purchase unit.</p>
+                            <p id="chef-yield-help" className="text-xs leading-relaxed text-muted-foreground">Use only when the recipe unit is not directly compatible with the stock unit. Example: stock unit <strong>{editingItem.unit || "kg"}</strong> → recipe <strong>{editingItem.recipeUnit || "slice"}</strong>: enter the number of recipe units supplied by one stock unit.</p>
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="conversionType" className="text-orange-700 dark:text-orange-300">Conversion setup</Label>
@@ -1923,7 +1923,7 @@ function InventoryContent() {
                           </div>
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                          Example: stock unit <strong>{editingItem.containerUnit || editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.chefYieldPerStockUnit || editingItem.conversionRatio || "1"}</strong>. One {editingItem.containerUnit || editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
+                          Example: stock unit <strong>{editingItem.unit || "unit"}</strong>, recipe unit <strong>{editingItem.recipeUnit || "unit"}</strong>, ratio <strong>{editingItem.chefYieldPerStockUnit || editingItem.conversionRatio || "1"}</strong>. One {editingItem.unit || "unit"} supplies that many {editingItem.recipeUnit || "recipe units"}.
                         </p>
                       </div>
                     )}

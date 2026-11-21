@@ -53,6 +53,8 @@ const UNIT_CATEGORIES = [
     units: [
       { value: "fl_oz", label: "Fluid Ounce (FL OZ)" },
       { value: "ml", label: "Milliliter (ML)" },
+      { value: "cl", label: "Centiliter (CL)" },
+      { value: "shot", label: "Shot / Tot (1.5 oz / 44 ml)" },
       { value: "scoop", label: "Scoop / Disher Number" },
       { value: "ladle", label: "Ladle (OZ)" },
       { value: "slice", label: "Slice" },
@@ -81,6 +83,8 @@ const UNIT_DESCRIPTIONS: Record<string, string> = {
   box: "Purchase packaging only; configure pieces per box separately.",
   bag: "Purchase packaging only; configure pieces per bag separately.",
   bottle: "Purchase packaging; use ml for liquid recipe quantities when known.",
+  cl: "Centiliter (10 ml) commonly used in beverage and bar recipes.",
+  shot: "Standard bar shot / miniature mug (1.5 fl oz / 44.4 ml) for alcohol pours and cocktails.",
   tsp: "Recipe portion unit; use for small measured ingredients.",
   tbsp: "Recipe portion unit; use for measured ingredients.",
   c: "Recipe cup measure; use for measured ingredients.",
