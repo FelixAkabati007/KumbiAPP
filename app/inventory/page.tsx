@@ -37,6 +37,11 @@ import {
   XCircle,
   Eye,
   ImageIcon,
+  PackagePlus,
+  Check,
+  X,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -200,6 +205,53 @@ function InventoryContent() {
     reviewer_notes?: string | null;
     reviewed_at?: string | null;
   }>>([]);
+  const [pendingTopUps, setPendingTopUps] = useState<Array<{
+    id: string;
+    inventory_item_id: string;
+    item_name: string;
+    item_sku?: string;
+    item_unit: string;
+    current_stock: string | number;
+    quantity_before: string | number;
+    quantity_added: string | number;
+    quantity_after: string | number;
+    performed_by?: string;
+    performed_by_name?: string;
+    performed_by_role?: string;
+    performed_at: string;
+    reason?: string | null;
+    purchase_packaging_price_before?: string | number | null;
+    purchase_packaging_price_after?: string | number | null;
+    evidence_pathname?: string | null;
+    status: "pending_review" | "approved" | "disapproved";
+    review_notes?: string | null;
+    reviewed_by_name?: string | null;
+  }>>([]);
+  const [reviewTab, setReviewTab] = useState<"topups" | "variances">("topups");
+  const [selectedTopUp, setSelectedTopUp] = useState<{
+    id: string;
+    inventory_item_id: string;
+    item_name: string;
+    item_sku?: string;
+    item_unit: string;
+    current_stock: string | number;
+    quantity_before: string | number;
+    quantity_added: string | number;
+    quantity_after: string | number;
+    performed_by?: string;
+    performed_by_name?: string;
+    performed_by_role?: string;
+    performed_at: string;
+    reason?: string | null;
+    purchase_packaging_price_before?: string | number | null;
+    purchase_packaging_price_after?: string | number | null;
+    evidence_pathname?: string | null;
+    status: "pending_review" | "approved" | "disapproved";
+    review_notes?: string | null;
+    reviewed_by_name?: string | null;
+  } | null>(null);
+  const [topUpDisapproveReason, setTopUpDisapproveReason] = useState("");
+  const [isProcessingTopUpAction, setIsProcessingTopUpAction] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [selectedVariance, setSelectedVariance] = useState<{
     id: string;
@@ -368,11 +420,26 @@ function InventoryContent() {
     }
   }, [canReviewVariance]);
 
+  const loadPendingTopUps = useCallback(async () => {
+    if (!canReviewVariance) return;
+    try {
+      const res = await fetch("/api/inventory/top-up/review?status=pending_review");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.topUps)) {
+        setPendingTopUps(data.topUps);
+      }
+    } catch {
+      // offline or silent fail
+    }
+  }, [canReviewVariance]);
+
   useEffect(() => {
     if (canReviewVariance) {
       void loadPendingVariances();
+      void loadPendingTopUps();
     }
-  }, [canReviewVariance, loadPendingVariances]);
+  }, [canReviewVariance, loadPendingVariances, loadPendingTopUps]);
 
   const { lastEvent } = useRealtime();
   useEffect(() => {
@@ -380,9 +447,10 @@ function InventoryContent() {
       void loadInventory();
       if (canReviewVariance) {
         void loadPendingVariances();
+        void loadPendingTopUps();
       }
     }
-  }, [lastEvent, loadInventory, canReviewVariance, loadPendingVariances]);
+  }, [lastEvent, loadInventory, canReviewVariance, loadPendingVariances, loadPendingTopUps]);
 
   const handleVarianceAction = async (action: "approve" | "reject") => {
     if (!selectedVariance) return;
@@ -414,6 +482,36 @@ function InventoryContent() {
       });
     } finally {
       setIsProcessingVarianceAction(false);
+    }
+  };
+
+  const handleTopUpReviewAction = async (topUpId: string, action: "approve" | "disapprove", reason?: string) => {
+    setIsProcessingTopUpAction(true);
+    try {
+      const response = await fetch(`/api/inventory/top-up/${topUpId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, notes: (reason ?? topUpDisapproveReason).trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Failed to ${action} stock top-up`);
+      toast({
+        title: action === "approve" ? "Stock Top-Up Approved" : "Stock Top-Up Disapproved & Reverted",
+        description: action === "approve"
+          ? "Stock top-up verified and approved successfully."
+          : "Stock top-up was disapproved and quantities/prices have been automatically rolled back.",
+      });
+      setSelectedTopUp(null);
+      setTopUpDisapproveReason("");
+      await Promise.all([loadInventory(), loadPendingTopUps()]);
+    } catch (error) {
+      toast({
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Unable to process request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingTopUpAction(false);
     }
   };
 
@@ -1030,6 +1128,9 @@ function InventoryContent() {
       toast({ title: "Stock topped up", description: `${topUpItem.name} is now at ${updated.quantity} ${topUpItem.unit}.` });
       setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice("");
       setTopUpEvidence(null); setTopUpEvidencePreview(null);
+      if (canReviewVariance) {
+        void loadPendingTopUps();
+      }
     } catch (error) {
       toast({ title: "Top-up failed", description: error instanceof Error ? error.message : "Unable to top up stock.", variant: "destructive" });
     } finally { setIsSubmittingTopUp(false); }
@@ -1083,28 +1184,57 @@ function InventoryContent() {
             </Button>
           )}
           {canReviewVariance && (
-            <Button
-              variant={pendingVariances.length > 0 ? "default" : "outline"}
-              onClick={() => {
-                setSelectedVariance(null);
-                setVarianceReviewNotes("");
-                setIsReviewDialogOpen(true);
-              }}
-              className={`rounded-2xl relative ${
-                pendingVariances.length > 0
-                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md animate-pulse"
-                  : "border-rose-200 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-700 dark:text-rose-300"
-              }`}
-              title="Review stock issues submitted by staff"
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              <span>Stock Issues</span>
-              {pendingVariances.length > 0 && (
-                <Badge className="ml-2 bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
-                  {pendingVariances.length}
-                </Badge>
-              )}
-            </Button>
+            <>
+              <Button
+                variant={pendingTopUps.length > 0 ? "default" : "outline"}
+                onClick={() => {
+                  setSelectedTopUp(null);
+                  setSelectedVariance(null);
+                  setTopUpDisapproveReason("");
+                  setReviewTab("topups");
+                  setIsReviewDialogOpen(true);
+                }}
+                className={`rounded-2xl relative ${
+                  pendingTopUps.length > 0
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md animate-pulse"
+                    : "border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                }`}
+                title="Review stock top-ups submitted by staff"
+              >
+                <PackagePlus className="mr-2 h-4 w-4" />
+                <span>Stock Top-Ups</span>
+                {pendingTopUps.length > 0 && (
+                  <Badge className="ml-2 bg-white text-emerald-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
+                    {pendingTopUps.length}
+                  </Badge>
+                )}
+              </Button>
+
+              <Button
+                variant={pendingVariances.length > 0 ? "default" : "outline"}
+                onClick={() => {
+                  setSelectedVariance(null);
+                  setSelectedTopUp(null);
+                  setVarianceReviewNotes("");
+                  setReviewTab("variances");
+                  setIsReviewDialogOpen(true);
+                }}
+                className={`rounded-2xl relative ${
+                  pendingVariances.length > 0
+                    ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md animate-pulse"
+                    : "border-rose-200 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-700 dark:text-rose-300"
+                }`}
+                title="Review stock issues submitted by staff"
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                <span>Stock Issues</span>
+                {pendingVariances.length > 0 && (
+                  <Badge className="ml-2 bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
+                    {pendingVariances.length}
+                  </Badge>
+                )}
+              </Button>
+            </>
           )}
           <Button
             variant="outline"
@@ -1429,189 +1559,466 @@ function InventoryContent() {
           </DialogContent>
         </Dialog>
 
-        {/* Manager Stock Issues Review Dialog */}
+        {/* Manager Stock Review Center Dialog */}
         <Dialog
           open={isReviewDialogOpen}
           onOpenChange={(open) => {
             if (!open) {
               setIsReviewDialogOpen(false);
               setSelectedVariance(null);
+              setSelectedTopUp(null);
               setVarianceReviewNotes("");
+              setTopUpDisapproveReason("");
             }
           }}
         >
-          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border-rose-200 dark:border-rose-900 overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border-slate-200 dark:border-slate-800 overflow-hidden">
             <DialogHeader className="shrink-0 border-b pb-3">
-              <DialogTitle className="text-lg font-bold text-rose-950 dark:text-rose-100 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-rose-600" />
-                Pending Stock Issue Reports ({pendingVariances.length})
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Authorized managers review reported damages, expiry, and discrepancies to approve stock write-offs or reject.
-              </DialogDescription>
+              <div className="flex items-center justify-between pr-6">
+                <div>
+                  <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-amber-600" />
+                    Inventory Review Center
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    Authorized managers approve stock top-ups or write-off issue reports submitted by staff.
+                  </DialogDescription>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewTab("topups");
+                    setSelectedTopUp(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    reviewTab === "topups"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  }`}
+                >
+                  <PackagePlus className="h-4 w-4" />
+                  <span>Stock Top-Ups & Restocks</span>
+                  <Badge
+                    className={`ml-1 text-[10px] px-1.5 py-0 rounded-full font-bold ${
+                      reviewTab === "topups"
+                        ? "bg-white text-emerald-700"
+                        : "bg-muted-foreground/20 text-muted-foreground"
+                    }`}
+                  >
+                    {pendingTopUps.length}
+                  </Badge>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewTab("variances");
+                    setSelectedVariance(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    reviewTab === "variances"
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  }`}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Damages & Issue Reports</span>
+                  <Badge
+                    className={`ml-1 text-[10px] px-1.5 py-0 rounded-full font-bold ${
+                      reviewTab === "variances"
+                        ? "bg-white text-rose-700"
+                        : "bg-muted-foreground/20 text-muted-foreground"
+                    }`}
+                  >
+                    {pendingVariances.length}
+                  </Badge>
+                </button>
+              </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto p-1 space-y-4">
-              {pendingVariances.length === 0 ? (
-                <div className="text-center py-12 px-4">
-                  <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-base font-semibold text-muted-foreground">No pending stock issue reports</p>
-                  <p className="text-xs text-muted-foreground/80 mt-1">
-                    When staff report damaged, expired, or missing stock, reports will appear here for manager action.
-                  </p>
-                </div>
-              ) : selectedVariance ? (
-                <div className="space-y-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedVariance(null);
-                      setVarianceReviewNotes("");
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground mb-1 -ml-2"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                    Back to all reports
-                  </Button>
+              {reviewTab === "topups" ? (
+                /* STOCK TOP-UPS TAB */
+                pendingTopUps.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-base font-semibold text-muted-foreground">No pending stock top-ups</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      When staff top up or restock inventory items using the plus (+) button, review requests will appear here for manager verification.
+                    </p>
+                  </div>
+                ) : selectedTopUp ? (
+                  <div className="space-y-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTopUp(null);
+                        setTopUpDisapproveReason("");
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground mb-1 -ml-2"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                      Back to all top-ups
+                    </Button>
 
-                  <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-base text-foreground">{selectedVariance.item_name}</h4>
-                        <p className="text-xs text-muted-foreground">SKU: {selectedVariance.item_sku || "N/A"}</p>
+                    <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-base text-foreground">{selectedTopUp.item_name}</h4>
+                          <p className="text-xs text-muted-foreground">SKU: {selectedTopUp.item_sku || "N/A"}</p>
+                        </div>
+                        <Badge variant="outline" className="border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold">
+                          +{selectedTopUp.quantity_added} {selectedTopUp.item_unit}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="capitalize border-rose-300 text-rose-700 dark:text-rose-300 font-semibold">
-                        {selectedVariance.reason.replace(/_/g, " ")}
-                      </Badge>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
-                      <div>
-                        <span className="text-muted-foreground">Current in Stock:</span>
-                        <p className="font-semibold text-sm">{selectedVariance.current_stock} {selectedVariance.item_unit}</p>
+                      <div className="grid grid-cols-3 gap-2 pt-2 text-xs border-t border-emerald-200/60 dark:border-emerald-900/60">
+                        <div>
+                          <span className="text-muted-foreground">Stock Before:</span>
+                          <p className="font-semibold text-sm">{selectedTopUp.quantity_before} {selectedTopUp.item_unit}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Quantity Added:</span>
+                          <p className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+                            +{selectedTopUp.quantity_added} {selectedTopUp.item_unit}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Stock After:</span>
+                          <p className="font-semibold text-sm">{selectedTopUp.quantity_after} {selectedTopUp.item_unit}</p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Reported Write-Off:</span>
-                        <p className="font-semibold text-sm text-rose-600 dark:text-rose-400">
-                          - {selectedVariance.quantity} {selectedVariance.item_unit}
+
+                      {selectedTopUp.purchase_packaging_price_after && (
+                        <div className="pt-2 text-xs border-t border-emerald-200/60 dark:border-emerald-900/60 flex items-center justify-between">
+                          <span className="text-muted-foreground">Packaging Price:</span>
+                          <p className="font-medium text-foreground">
+                            {selectedTopUp.purchase_packaging_price_before ? `GHS ${selectedTopUp.purchase_packaging_price_before} → ` : ""}
+                            <span className="font-bold text-emerald-700 dark:text-emerald-300">GHS {selectedTopUp.purchase_packaging_price_after}</span>
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="pt-2 text-xs border-t border-emerald-200/60 dark:border-emerald-900/60">
+                        <span className="text-muted-foreground">Topped Up By:</span>
+                        <p className="font-medium text-foreground">
+                          {selectedTopUp.performed_by_name || "Staff Member"} ({selectedTopUp.performed_by_role || "Staff"})
+                          <span className="text-muted-foreground font-normal ml-2">
+                            {new Date(selectedTopUp.performed_at).toLocaleString()}
+                          </span>
                         </p>
                       </div>
+
+                      {selectedTopUp.reason && (
+                        <div className="pt-2 text-xs border-t border-emerald-200/60 dark:border-emerald-900/60">
+                          <span className="text-muted-foreground">Notes / Description:</span>
+                          <p className="mt-1 p-2.5 rounded-xl bg-background border text-xs text-foreground whitespace-pre-wrap">
+                            {selectedTopUp.reason}
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedTopUp.evidence_pathname && (
+                        <div className="pt-2 text-xs border-t border-emerald-200/60 dark:border-emerald-900/60">
+                          <span className="text-muted-foreground font-semibold flex items-center gap-1.5 mb-2">
+                            <ImageIcon className="h-3.5 w-3.5 text-emerald-600" />
+                            Delivery Receipt / Invoice Photo Evidence:
+                          </span>
+                          <div className="rounded-xl overflow-hidden border bg-background max-h-72 flex items-center justify-center p-1">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedTopUp.evidence_pathname)}`}
+                              alt="Stock top-up receipt/delivery evidence"
+                              className="max-h-72 w-auto object-contain rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                              onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedTopUp.evidence_pathname!)}`)}
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1 text-center">Click image to enlarge</p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
-                      <span className="text-muted-foreground">Reported By:</span>
-                      <p className="font-medium text-foreground">
-                        {selectedVariance.reported_by_name} ({selectedVariance.reported_by_role})
-                        <span className="text-muted-foreground font-normal ml-2">
-                          {new Date(selectedVariance.created_at).toLocaleString()}
-                        </span>
-                      </p>
+                    <div className="space-y-1.5 pt-2">
+                      <Label htmlFor="topup-disapprove-notes" className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+                        Disapproval Reason (required if disapproving and reverting stock):
+                      </Label>
+                      <Textarea
+                        id="topup-disapprove-notes"
+                        placeholder="Explain why this top-up is being rejected and reverted back (e.g. wrong quantity, mismatched invoice)..."
+                        value={topUpDisapproveReason}
+                        onChange={(e) => setTopUpDisapproveReason(e.target.value)}
+                        className="text-xs min-h-[60px]"
+                      />
                     </div>
 
-                    <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
-                      <span className="text-muted-foreground">Staff Explanation:</span>
-                      <p className="mt-1 p-2.5 rounded-xl bg-background border text-xs text-foreground whitespace-pre-wrap">
-                        {selectedVariance.explanation}
-                      </p>
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!topUpDisapproveReason.trim()) {
+                            toast({
+                              title: "Reason required",
+                              description: "Please enter a reason before disapproving and reverting this stock top-up.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          handleTopUpReviewAction(selectedTopUp.id, "disapprove");
+                        }}
+                        disabled={isProcessingTopUpAction}
+                        className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <X className="h-4 w-4 mr-1" />}
+                        Disapprove & Revert Stock
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleTopUpReviewAction(selectedTopUp.id, "approve")}
+                        disabled={isProcessingTopUpAction}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                      >
+                        {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                        Approve Stock Top-Up
+                      </Button>
                     </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingTopUps.map((topUp) => (
+                      <div
+                        key={topUp.id}
+                        className="rounded-2xl border p-3 hover:border-emerald-400 dark:hover:border-emerald-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm truncate">{topUp.item_name}</span>
+                            <Badge variant="outline" className="text-[10px] uppercase font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-300">
+                              +{topUp.quantity_added} {topUp.item_unit}
+                            </Badge>
+                            {topUp.evidence_pathname && (
+                              <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-200">
+                                <ImageIcon className="h-3 w-3 mr-1" />
+                                Receipt Attached
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {topUp.reason || "Manual stock top-up"} · Current Stock: {topUp.current_stock} {topUp.item_unit}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Added by <span className="font-medium text-foreground">{topUp.performed_by_name || "Staff"}</span> ({topUp.performed_by_role || "Staff"}) · {new Date(topUp.performed_at).toLocaleDateString()} {new Date(topUp.performed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
 
-                    {selectedVariance.evidence_pathname && (
-                      <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
-                        <span className="text-muted-foreground">Photo Evidence:</span>
-                        <div className="mt-2 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname)}`}
-                            alt="Stock issue evidence"
-                            className="max-h-60 w-auto object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
+                        <div className="shrink-0 flex items-center gap-2">
+                          {topUp.evidence_pathname && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(topUp.evidence_pathname!)}`)}
+                              className="h-8 rounded-xl text-xs text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                              title="View receipt evidence image"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Receipt
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTopUp(topUp);
+                              setTopUpDisapproveReason("");
                             }}
-                          />
+                            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-xs font-medium"
+                          >
+                            Review & Act
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            disabled={isProcessingTopUpAction}
+                            onClick={() => handleTopUpReviewAction(topUp.id, "approve")}
+                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium h-8"
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                            Approve
+                          </Button>
                         </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-
-                  <div className="space-y-2 pt-2">
-                    <Label htmlFor="review-notes" className="text-xs font-semibold">
-                      Manager Review Notes (optional for approval, recommended for rejection):
-                    </Label>
-                    <Textarea
-                      id="review-notes"
-                      placeholder="Add an explanation or action details for staff records..."
-                      value={varianceReviewNotes}
-                      onChange={(e) => setVarianceReviewNotes(e.target.value)}
-                      className="text-xs min-h-[60px]"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleVarianceAction("reject")}
-                      disabled={isProcessingVarianceAction}
-                      className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                    >
-                      {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
-                      Reject Report
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleVarianceAction("approve")}
-                      disabled={isProcessingVarianceAction}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-                      Approve & Write Off {selectedVariance.quantity} {selectedVariance.item_unit}
-                    </Button>
-                  </div>
-                </div>
+                )
               ) : (
-                <div className="space-y-3">
-                  {pendingVariances.map((variance) => (
-                    <div
-                      key={variance.id}
-                      className="rounded-2xl border p-3 hover:border-rose-400 dark:hover:border-rose-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                /* DAMAGES & ISSUE REPORTS TAB */
+                pendingVariances.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-base font-semibold text-muted-foreground">No pending stock issue reports</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      When staff report damaged, expired, or missing stock, reports will appear here for manager action.
+                    </p>
+                  </div>
+                ) : selectedVariance ? (
+                  <div className="space-y-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedVariance(null);
+                        setVarianceReviewNotes("");
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground mb-1 -ml-2"
                     >
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm truncate">{variance.item_name}</span>
-                          <Badge variant="outline" className="text-[10px] uppercase font-semibold border-rose-300 text-rose-700">
-                            {variance.reason.replace(/_/g, " ")}
-                          </Badge>
-                          <Badge variant="secondary" className="text-[10px]">
-                            -{variance.quantity} {variance.item_unit}
-                          </Badge>
+                      <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                      Back to all reports
+                    </Button>
+
+                    <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-base text-foreground">{selectedVariance.item_name}</h4>
+                          <p className="text-xs text-muted-foreground">SKU: {selectedVariance.item_sku || "N/A"}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {variance.explanation}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          By <span className="font-medium text-foreground">{variance.reported_by_name}</span> ({variance.reported_by_role}) · {new Date(variance.created_at).toLocaleDateString()} {new Date(variance.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        <Badge variant="outline" className="capitalize border-rose-300 text-rose-700 dark:text-rose-300 font-semibold">
+                          {selectedVariance.reason.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                        <div>
+                          <span className="text-muted-foreground">Current in Stock:</span>
+                          <p className="font-semibold text-sm">{selectedVariance.current_stock} {selectedVariance.item_unit}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Reported Write-Off:</span>
+                          <p className="font-semibold text-sm text-rose-600 dark:text-rose-400">
+                            - {selectedVariance.quantity} {selectedVariance.item_unit}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                        <span className="text-muted-foreground">Reported By:</span>
+                        <p className="font-medium text-foreground">
+                          {selectedVariance.reported_by_name} ({selectedVariance.reported_by_role})
+                          <span className="text-muted-foreground font-normal ml-2">
+                            {new Date(selectedVariance.created_at).toLocaleString()}
+                          </span>
                         </p>
                       </div>
 
-                      <div className="shrink-0 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedVariance(variance);
-                            setVarianceReviewNotes("");
-                          }}
-                          className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          Review & Act
-                        </Button>
+                      <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                        <span className="text-muted-foreground">Staff Explanation:</span>
+                        <p className="mt-1 p-2.5 rounded-xl bg-background border text-xs text-foreground whitespace-pre-wrap">
+                          {selectedVariance.explanation}
+                        </p>
                       </div>
+
+                      {selectedVariance.evidence_pathname && (
+                        <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
+                          <span className="text-muted-foreground">Photo Evidence:</span>
+                          <div className="mt-2 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname)}`}
+                              alt="Stock issue evidence"
+                              className="max-h-60 w-auto object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    <div className="space-y-2 pt-2">
+                      <Label htmlFor="review-notes" className="text-xs font-semibold">
+                        Manager Review Notes (optional for approval, recommended for rejection):
+                      </Label>
+                      <Textarea
+                        id="review-notes"
+                        placeholder="Add an explanation or action details for staff records..."
+                        value={varianceReviewNotes}
+                        onChange={(e) => setVarianceReviewNotes(e.target.value)}
+                        className="text-xs min-h-[60px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleVarianceAction("reject")}
+                        disabled={isProcessingVarianceAction}
+                        className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                        Reject Report
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleVarianceAction("approve")}
+                        disabled={isProcessingVarianceAction}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                        Approve & Write Off {selectedVariance.quantity} {selectedVariance.item_unit}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingVariances.map((variance) => (
+                      <div
+                        key={variance.id}
+                        className="rounded-2xl border p-3 hover:border-rose-400 dark:hover:border-rose-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm truncate">{variance.item_name}</span>
+                            <Badge variant="outline" className="text-[10px] uppercase font-semibold border-rose-300 text-rose-700">
+                              {variance.reason.replace(/_/g, " ")}
+                            </Badge>
+                            <Badge variant="secondary" className="text-[10px]">
+                              -{variance.quantity} {variance.item_unit}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {variance.explanation}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            By <span className="font-medium text-foreground">{variance.reported_by_name}</span> ({variance.reported_by_role}) · {new Date(variance.created_at).toLocaleDateString()} {new Date(variance.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedVariance(variance);
+                              setVarianceReviewNotes("");
+                            }}
+                            className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Review & Act
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
 
@@ -1622,7 +2029,9 @@ function InventoryContent() {
                 onClick={() => {
                   setIsReviewDialogOpen(false);
                   setSelectedVariance(null);
+                  setSelectedTopUp(null);
                   setVarianceReviewNotes("");
+                  setTopUpDisapproveReason("");
                 }}
               >
                 Close

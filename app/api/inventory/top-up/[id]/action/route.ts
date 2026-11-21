@@ -18,7 +18,7 @@ export async function POST(
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const action = String(body.action ?? "").trim().toLowerCase();
-    const notes = String(body.notes ?? "").trim();
+    const notes = String(body.notes ?? body.reason ?? "").trim();
 
     if (!["approve", "disapprove"].includes(action)) {
       return NextResponse.json(
