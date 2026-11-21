@@ -160,6 +160,30 @@ function getRecipeConversionPreview(
   return null;
 }
 
+interface TopUpReviewItem {
+  id: string;
+  inventory_item_id: string;
+  item_name: string;
+  item_sku?: string;
+  item_unit: string;
+  current_stock: string | number;
+  quantity_before: string | number;
+  quantity_added: string | number;
+  quantity_after: string | number;
+  performed_by?: string;
+  performed_by_name?: string;
+  performed_by_role?: string;
+  performed_at: string;
+  reason?: string | null;
+  purchase_packaging_price_before?: string | number | null;
+  purchase_packaging_price_after?: string | number | null;
+  evidence_pathname?: string | null;
+  status: "pending_review" | "approved" | "disapproved";
+  review_notes?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+}
+
 function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -205,54 +229,50 @@ function InventoryContent() {
     reviewer_notes?: string | null;
     reviewed_at?: string | null;
   }>>([]);
-  const [pendingTopUps, setPendingTopUps] = useState<Array<{
-    id: string;
-    inventory_item_id: string;
-    item_name: string;
-    item_sku?: string;
-    item_unit: string;
-    current_stock: string | number;
-    quantity_before: string | number;
-    quantity_added: string | number;
-    quantity_after: string | number;
-    performed_by?: string;
-    performed_by_name?: string;
-    performed_by_role?: string;
-    performed_at: string;
-    reason?: string | null;
-    purchase_packaging_price_before?: string | number | null;
-    purchase_packaging_price_after?: string | number | null;
-    evidence_pathname?: string | null;
-    status: "pending_review" | "approved" | "disapproved";
-    review_notes?: string | null;
-    reviewed_by_name?: string | null;
-  }>>([]);
+  const [pendingTopUps, setPendingTopUps] = useState<TopUpReviewItem[]>([]);
+  const [allTopUps, setAllTopUps] = useState<TopUpReviewItem[]>([]);
+  const [topUpFilterStatus, setTopUpFilterStatus] = useState<"pending" | "all" | "approved">("all");
   const [reviewTab, setReviewTab] = useState<"topups" | "variances">("topups");
-  const [selectedTopUp, setSelectedTopUp] = useState<{
-    id: string;
-    inventory_item_id: string;
-    item_name: string;
-    item_sku?: string;
-    item_unit: string;
-    current_stock: string | number;
-    quantity_before: string | number;
-    quantity_added: string | number;
-    quantity_after: string | number;
-    performed_by?: string;
-    performed_by_name?: string;
-    performed_by_role?: string;
-    performed_at: string;
-    reason?: string | null;
-    purchase_packaging_price_before?: string | number | null;
-    purchase_packaging_price_after?: string | number | null;
-    evidence_pathname?: string | null;
-    status: "pending_review" | "approved" | "disapproved";
-    review_notes?: string | null;
-    reviewed_by_name?: string | null;
-  } | null>(null);
+  const [selectedTopUp, setSelectedTopUp] = useState<TopUpReviewItem | null>(null);
   const [topUpDisapproveReason, setTopUpDisapproveReason] = useState("");
   const [isProcessingTopUpAction, setIsProcessingTopUpAction] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+
+  const displayedTopUps = useMemo(() => {
+    if (topUpFilterStatus === "pending") return pendingTopUps;
+    if (topUpFilterStatus === "approved") return allTopUps.filter((t) => t.status === "approved");
+    return allTopUps;
+  }, [topUpFilterStatus, pendingTopUps, allTopUps]);
+
+  const pendingTopUpsByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of pendingTopUps) {
+      if (t.inventory_item_id) {
+        map.set(t.inventory_item_id, (map.get(t.inventory_item_id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [pendingTopUps]);
+
+  const allTopUpsByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of allTopUps) {
+      if (t.inventory_item_id) {
+        map.set(t.inventory_item_id, (map.get(t.inventory_item_id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [allTopUps]);
+
+  const pendingVariancesByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const v of pendingVariances) {
+      if (v.inventory_item_id) {
+        map.set(v.inventory_item_id, (map.get(v.inventory_item_id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [pendingVariances]);
   const [selectedVariance, setSelectedVariance] = useState<{
     id: string;
     inventory_item_id: string;
@@ -423,11 +443,13 @@ function InventoryContent() {
   const loadPendingTopUps = useCallback(async () => {
     if (!canReviewVariance) return;
     try {
-      const res = await fetch("/api/inventory/top-up/review?status=pending_review");
+      const res = await fetch("/api/inventory/top-up/review?status=all");
       if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data?.topUps)) {
-        setPendingTopUps(data.topUps);
+        setAllTopUps(data.topUps);
+        const pending = (data.topUps as TopUpReviewItem[]).filter((t) => t.status === "pending_review");
+        setPendingTopUps(pending);
       }
     } catch {
       // offline or silent fail
@@ -1186,32 +1208,39 @@ function InventoryContent() {
           {canReviewVariance && (
             <>
               <Button
-                variant={pendingTopUps.length > 0 ? "default" : "outline"}
+                variant="outline"
                 onClick={() => {
                   setSelectedTopUp(null);
                   setSelectedVariance(null);
                   setTopUpDisapproveReason("");
                   setReviewTab("topups");
+                  setTopUpFilterStatus(pendingTopUps.length > 0 ? "pending" : "all");
                   setIsReviewDialogOpen(true);
                 }}
-                className={`rounded-2xl relative ${
-                  pendingTopUps.length > 0
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md animate-pulse"
-                    : "border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
-                }`}
-                title="Review stock top-ups submitted by staff"
+                className="relative rounded-2xl border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-medium"
+                title="Review stock top-ups and view restock history"
               >
                 <PackagePlus className="mr-2 h-4 w-4" />
                 <span>Stock Top-Ups</span>
-                {pendingTopUps.length > 0 && (
-                  <Badge className="ml-2 bg-white text-emerald-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
+                {pendingTopUps.length > 0 ? (
+                  <span
+                    aria-label={`${pendingTopUps.length} pending stock top-ups`}
+                    className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse pointer-events-none"
+                  >
                     {pendingTopUps.length}
-                  </Badge>
-                )}
+                  </span>
+                ) : allTopUps.length > 0 ? (
+                  <span
+                    aria-label={`${allTopUps.length} recent stock top-ups`}
+                    className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 pointer-events-none"
+                  >
+                    {allTopUps.length}
+                  </span>
+                ) : null}
               </Button>
 
               <Button
-                variant={pendingVariances.length > 0 ? "default" : "outline"}
+                variant="outline"
                 onClick={() => {
                   setSelectedVariance(null);
                   setSelectedTopUp(null);
@@ -1219,19 +1248,18 @@ function InventoryContent() {
                   setReviewTab("variances");
                   setIsReviewDialogOpen(true);
                 }}
-                className={`rounded-2xl relative ${
-                  pendingVariances.length > 0
-                    ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md animate-pulse"
-                    : "border-rose-200 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-700 dark:text-rose-300"
-                }`}
+                className="relative rounded-2xl border-rose-300 dark:border-rose-700 bg-rose-50/50 hover:bg-rose-100/60 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-800 dark:text-rose-200 font-medium"
                 title="Review stock issues submitted by staff"
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 <span>Stock Issues</span>
                 {pendingVariances.length > 0 && (
-                  <Badge className="ml-2 bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-xs">
+                  <span
+                    aria-label={`${pendingVariances.length} pending stock issues`}
+                    className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse pointer-events-none"
+                  >
                     {pendingVariances.length}
-                  </Badge>
+                  </span>
                 )}
               </Button>
             </>
@@ -1468,11 +1496,70 @@ function InventoryContent() {
                             ₵{Number.parseFloat(item.cost).toFixed(2)}
                           </div>
                         </div>
-  <Button variant="ghost" size="icon" title="Report stock issue" aria-label={`Report stock issue for ${item.name}`} onClick={() => setVarianceItem(item)} className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto">
-  <AlertTriangle className="h-4 w-4" />
-  </Button>
-  {canTopUpStock && <Button variant="ghost" size="icon" title="Top up stock" aria-label={`Top up ${item.name}`} onClick={() => setTopUpItem(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"><Plus className="h-4 w-4" /></Button>}
-  <Button variant="ghost" size="icon" title="View top-up history" aria-label={`View top-up history for ${item.name}`} onClick={() => openTopUpHistory(item)} className="h-8 w-8 text-slate-600 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><TrendingDown className="h-4 w-4 rotate-180" /></Button>
+                        <div className="relative inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Report stock issue"
+                            aria-label={`Report stock issue for ${item.name}`}
+                            onClick={() => setVarianceItem(item)}
+                            className="h-8 w-8 justify-self-end text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20 sm:justify-self-auto"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                          </Button>
+                          {(pendingVariancesByItem.get(item.id) || 0) > 0 && (
+                            <span
+                              className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white shadow ring-1 ring-white dark:ring-gray-900 animate-pulse pointer-events-none"
+                              title={`${pendingVariancesByItem.get(item.id)} pending issue report${(pendingVariancesByItem.get(item.id) || 0) > 1 ? "s" : ""}`}
+                            >
+                              {pendingVariancesByItem.get(item.id)}
+                            </span>
+                          )}
+                        </div>
+
+                        {canTopUpStock && (
+                          <div className="relative inline-flex">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Top up stock"
+                              aria-label={`Top up ${item.name}`}
+                              onClick={() => setTopUpItem(item)}
+                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            {(pendingTopUpsByItem.get(item.id) || 0) > 0 && (
+                              <span
+                                className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow ring-1 ring-white dark:ring-gray-900 animate-pulse pointer-events-none"
+                                title={`${pendingTopUpsByItem.get(item.id)} pending top-up review`}
+                              >
+                                {pendingTopUpsByItem.get(item.id)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="relative inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="View top-up history"
+                            aria-label={`View top-up history for ${item.name}`}
+                            onClick={() => openTopUpHistory(item)}
+                            className="h-8 w-8 text-slate-600 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            <TrendingDown className="h-4 w-4 rotate-180" />
+                          </Button>
+                          {(allTopUpsByItem.get(item.id) || 0) > 0 && (
+                            <span
+                              className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[9px] font-bold text-white shadow ring-1 ring-white dark:ring-gray-900 pointer-events-none"
+                              title={`${allTopUpsByItem.get(item.id)} top-up record${(allTopUpsByItem.get(item.id) || 0) > 1 ? "s" : ""}`}
+                            >
+                              {allTopUpsByItem.get(item.id)}
+                            </span>
+                          )}
+                        </div>
   {canMutateExistingInventory && <div className="flex gap-2">
   <Button
   variant="ghost"
@@ -1587,14 +1674,14 @@ function InventoryContent() {
               </div>
 
               {/* Navigation Tabs */}
-              <div className="flex items-center gap-2 pt-3">
+              <div className="flex items-center gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => {
                     setReviewTab("topups");
                     setSelectedTopUp(null);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     reviewTab === "topups"
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -1602,15 +1689,15 @@ function InventoryContent() {
                 >
                   <PackagePlus className="h-4 w-4" />
                   <span>Stock Top-Ups & Restocks</span>
-                  <Badge
-                    className={`ml-1 text-[10px] px-1.5 py-0 rounded-full font-bold ${
-                      reviewTab === "topups"
-                        ? "bg-white text-emerald-700"
-                        : "bg-muted-foreground/20 text-muted-foreground"
-                    }`}
-                  >
-                    {pendingTopUps.length}
-                  </Badge>
+                  {pendingTopUps.length > 0 ? (
+                    <span className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse">
+                      {pendingTopUps.length}
+                    </span>
+                  ) : allTopUps.length > 0 ? (
+                    <span className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900">
+                      {allTopUps.length}
+                    </span>
+                  ) : null}
                 </button>
 
                 <button
@@ -1619,7 +1706,7 @@ function InventoryContent() {
                     setReviewTab("variances");
                     setSelectedVariance(null);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     reviewTab === "variances"
                       ? "bg-rose-600 text-white shadow-sm"
                       : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -1627,15 +1714,11 @@ function InventoryContent() {
                 >
                   <AlertTriangle className="h-4 w-4" />
                   <span>Damages & Issue Reports</span>
-                  <Badge
-                    className={`ml-1 text-[10px] px-1.5 py-0 rounded-full font-bold ${
-                      reviewTab === "variances"
-                        ? "bg-white text-rose-700"
-                        : "bg-muted-foreground/20 text-muted-foreground"
-                    }`}
-                  >
-                    {pendingVariances.length}
-                  </Badge>
+                  {pendingVariances.length > 0 && (
+                    <span className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse">
+                      {pendingVariances.length}
+                    </span>
+                  )}
                 </button>
               </div>
             </DialogHeader>
@@ -1643,15 +1726,7 @@ function InventoryContent() {
             <div className="flex-1 overflow-y-auto p-1 space-y-4">
               {reviewTab === "topups" ? (
                 /* STOCK TOP-UPS TAB */
-                pendingTopUps.length === 0 ? (
-                  <div className="text-center py-12 px-4">
-                    <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-base font-semibold text-muted-foreground">No pending stock top-ups</p>
-                    <p className="text-xs text-muted-foreground/80 mt-1">
-                      When staff top up or restock inventory items using the plus (+) button, review requests will appear here for manager verification.
-                    </p>
-                  </div>
-                ) : selectedTopUp ? (
+                selectedTopUp ? (
                   <div className="space-y-4">
                     <Button
                       variant="ghost"
@@ -1743,117 +1818,258 @@ function InventoryContent() {
                       )}
                     </div>
 
-                    <div className="space-y-1.5 pt-2">
-                      <Label htmlFor="topup-disapprove-notes" className="text-xs font-semibold text-rose-700 dark:text-rose-400">
-                        Disapproval Reason (required if disapproving and reverting stock):
-                      </Label>
-                      <Textarea
-                        id="topup-disapprove-notes"
-                        placeholder="Explain why this top-up is being rejected and reverted back (e.g. wrong quantity, mismatched invoice)..."
-                        value={topUpDisapproveReason}
-                        onChange={(e) => setTopUpDisapproveReason(e.target.value)}
-                        className="text-xs min-h-[60px]"
-                      />
-                    </div>
+                    {selectedTopUp.status === "pending_review" ? (
+                      <>
+                        <div className="space-y-1.5 pt-2">
+                          <Label htmlFor="topup-disapprove-notes" className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+                            Disapproval Reason (required if disapproving and reverting stock):
+                          </Label>
+                          <Textarea
+                            id="topup-disapprove-notes"
+                            placeholder="Explain why this top-up is being rejected and reverted back (e.g. wrong quantity, mismatched invoice)..."
+                            value={topUpDisapproveReason}
+                            onChange={(e) => setTopUpDisapproveReason(e.target.value)}
+                            className="text-xs min-h-[60px]"
+                          />
+                        </div>
 
-                    <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (!topUpDisapproveReason.trim()) {
-                            toast({
-                              title: "Reason required",
-                              description: "Please enter a reason before disapproving and reverting this stock top-up.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          handleTopUpReviewAction(selectedTopUp.id, "disapprove");
-                        }}
-                        disabled={isProcessingTopUpAction}
-                        className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                      >
-                        {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <X className="h-4 w-4 mr-1" />}
-                        Disapprove & Revert Stock
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleTopUpReviewAction(selectedTopUp.id, "approve")}
-                        disabled={isProcessingTopUpAction}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                      >
-                        {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                        Approve Stock Top-Up
-                      </Button>
-                    </div>
+                        <div className="flex items-center justify-end gap-3 pt-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (!topUpDisapproveReason.trim()) {
+                                toast({
+                                  title: "Reason required",
+                                  description: "Please enter a reason before disapproving and reverting this stock top-up.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              handleTopUpReviewAction(selectedTopUp.id, "disapprove");
+                            }}
+                            disabled={isProcessingTopUpAction}
+                            className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          >
+                            {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <X className="h-4 w-4 mr-1" />}
+                            Disapprove & Revert Stock
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleTopUpReviewAction(selectedTopUp.id, "approve")}
+                            disabled={isProcessingTopUpAction}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                          >
+                            {isProcessingTopUpAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                            Approve Stock Top-Up
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-muted/40 border text-xs flex items-center justify-between">
+                        <span className="text-muted-foreground">Status: <strong className="capitalize text-foreground">{selectedTopUp.status}</strong></span>
+                        {selectedTopUp.reviewed_by_name && (
+                          <span className="text-muted-foreground">Verified by {selectedTopUp.reviewed_by_name}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {pendingTopUps.map((topUp) => (
-                      <div
-                        key={topUp.id}
-                        className="rounded-2xl border p-3 hover:border-emerald-400 dark:hover:border-emerald-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm truncate">{topUp.item_name}</span>
-                            <Badge variant="outline" className="text-[10px] uppercase font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-300">
-                              +{topUp.quantity_added} {topUp.item_unit}
-                            </Badge>
-                            {topUp.evidence_pathname && (
-                              <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-200">
-                                <ImageIcon className="h-3 w-3 mr-1" />
-                                Receipt Attached
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {topUp.reason || "Manual stock top-up"} · Current Stock: {topUp.current_stock} {topUp.item_unit}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            Added by <span className="font-medium text-foreground">{topUp.performed_by_name || "Staff"}</span> ({topUp.performed_by_role || "Staff"}) · {new Date(topUp.performed_at).toLocaleDateString()} {new Date(topUp.performed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
+                    {/* Filter Pills */}
+                    <div className="flex items-center justify-between border-b pb-2.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setTopUpFilterStatus("pending")}
+                          className={`relative px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            topUpFilterStatus === "pending"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Pending Approval
+                          {pendingTopUps.length > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+                              {pendingTopUps.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTopUpFilterStatus("all")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            topUpFilterStatus === "all"
+                              ? "bg-muted text-foreground font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          All Recent Top-Ups ({allTopUps.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTopUpFilterStatus("approved")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            topUpFilterStatus === "approved"
+                              ? "bg-muted text-foreground font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Approved ({allTopUps.filter((t) => t.status === "approved").length})
+                        </button>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                        {displayedTopUps.length} record{displayedTopUps.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
 
-                        <div className="shrink-0 flex items-center gap-2">
-                          {topUp.evidence_pathname && (
+                    {displayedTopUps.length === 0 ? (
+                      topUpFilterStatus === "pending" ? (
+                        <div className="text-center py-10 px-4 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/10 border border-dashed border-emerald-200 dark:border-emerald-900">
+                          <Package className="h-10 w-10 text-emerald-600/50 mx-auto mb-2" />
+                          <p className="text-sm font-semibold text-foreground">No pending top-ups awaiting approval</p>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                            All recent stock top-ups are up to date. You can view all recent restocks and delivery receipts below.
+                          </p>
+                          {allTopUps.length > 0 && (
                             <Button
+                              variant="outline"
                               size="sm"
-                              variant="ghost"
-                              onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(topUp.evidence_pathname!)}`)}
-                              className="h-8 rounded-xl text-xs text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                              title="View receipt evidence image"
+                              onClick={() => setTopUpFilterStatus("all")}
+                              className="mt-3 text-xs rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 font-medium"
                             >
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              Receipt
+                              View All Recent Top-Ups ({allTopUps.length})
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedTopUp(topUp);
-                              setTopUpDisapproveReason("");
-                            }}
-                            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-xs font-medium"
-                          >
-                            Review & Act
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            disabled={isProcessingTopUpAction}
-                            onClick={() => handleTopUpReviewAction(topUp.id, "approve")}
-                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium h-8"
-                          >
-                            <Check className="h-3.5 w-3.5 mr-1" />
-                            Approve
-                          </Button>
                         </div>
+                      ) : (
+                        <div className="text-center py-12 px-4">
+                          <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                          <p className="text-base font-semibold text-muted-foreground">No stock top-ups recorded yet</p>
+                          <p className="text-xs text-muted-foreground/80 mt-1">
+                            When staff top up or restock inventory items using the plus (+) button, review requests and receipts will appear here.
+                          </p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="space-y-3">
+                        {displayedTopUps.map((topUp) => (
+                          <div
+                            key={topUp.id}
+                            className={`rounded-2xl border p-3.5 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                              topUp.status === "pending_review"
+                                ? "border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-950/10 shadow-sm"
+                                : "hover:border-emerald-300 dark:hover:border-emerald-700"
+                            }`}
+                          >
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm truncate">{topUp.item_name}</span>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] uppercase font-bold border-emerald-400 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                                >
+                                  +{topUp.quantity_added} {topUp.item_unit}
+                                </Badge>
+                                {topUp.status === "pending_review" ? (
+                                  <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-semibold">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Pending Review
+                                  </Badge>
+                                ) : topUp.status === "approved" ? (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+                                    <Check className="h-3 w-3 mr-1" />
+                                    Approved
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="text-[10px] font-semibold">
+                                    <X className="h-3 w-3 mr-1" />
+                                    Reverted
+                                  </Badge>
+                                )}
+                                {topUp.evidence_pathname && (
+                                  <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200 border border-blue-200">
+                                    <ImageIcon className="h-3 w-3 mr-1" />
+                                    Receipt Attached
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                                <span>Stock: {topUp.quantity_before} &rarr; <strong>{topUp.quantity_after} {topUp.item_unit}</strong></span>
+                                {topUp.purchase_packaging_price_after && (
+                                  <span>· Price: GHS {topUp.purchase_packaging_price_after}</span>
+                                )}
+                                {topUp.reason && <span>· &ldquo;{topUp.reason}&rdquo;</span>}
+                              </div>
+
+                              <p className="text-[11px] text-muted-foreground">
+                                Added by <span className="font-medium text-foreground">{topUp.performed_by_name || "Staff"}</span> ({topUp.performed_by_role || "Staff"}) · {new Date(topUp.performed_at).toLocaleDateString()} {new Date(topUp.performed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {topUp.reviewed_by_name && (
+                                  <span className="ml-1 text-emerald-700 dark:text-emerald-400 font-medium">
+                                    · Verified by {topUp.reviewed_by_name}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 flex items-center gap-2">
+                              {topUp.evidence_pathname && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(topUp.evidence_pathname!)}`)}
+                                  className="h-8 rounded-xl text-xs border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 font-medium"
+                                  title="View delivery / receipt evidence photo"
+                                >
+                                  <Eye className="h-3.5 w-3.5 mr-1" />
+                                  Receipt
+                                </Button>
+                              )}
+
+                              {topUp.status === "pending_review" ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedTopUp(topUp);
+                                      setTopUpDisapproveReason("");
+                                    }}
+                                    className="rounded-xl border-amber-300 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950 text-xs font-semibold h-8"
+                                  >
+                                    Review & Act
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    disabled={isProcessingTopUpAction}
+                                    onClick={() => handleTopUpReviewAction(topUp.id, "approve")}
+                                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-8"
+                                  >
+                                    <Check className="h-3.5 w-3.5 mr-1" />
+                                    Approve
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedTopUp(topUp);
+                                    setTopUpDisapproveReason("");
+                                  }}
+                                  className="rounded-xl text-xs text-muted-foreground hover:text-foreground h-8"
+                                >
+                                  View Details
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )
               ) : (
