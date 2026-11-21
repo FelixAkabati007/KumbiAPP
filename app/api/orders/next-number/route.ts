@@ -10,14 +10,12 @@ export async function GET() {
 
     const today = new Date().toISOString().split('T')[0];
     
-    // Count transactions for today to generate sequential number
-    // We assume 'transaction_logs' contains completed orders.
-    // Ideally, we would have an 'orders' table, but transaction_logs is what we have for now.
+    // Count orders from kitchenorders for today to generate sequential number
     const res = await query(
-      `SELECT COUNT(*) as count FROM transaction_logs WHERE DATE(created_at) = CURRENT_DATE`
+      `SELECT COUNT(*) as count FROM kitchenorders WHERE DATE(createdat) = CURRENT_DATE`
     );
     
-    const count = parseInt(res.rows[0].count as string) + 1;
+    const count = parseInt((res.rows[0]?.count as string) || "0") + 1;
     const dateStr = today.replace(/-/g, "");
     
     // Format: ORD-YYYYMMDD-XXXX

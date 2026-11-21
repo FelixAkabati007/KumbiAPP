@@ -111,15 +111,30 @@ export async function POST(request: NextRequest) {
       // VIP authorizations waive the guest-facing room charge while preserving the stay event.
       const vipAuthorization = await client.query(`SELECT id, room_waived, approved_amount, COALESCE((SELECT SUM(amount_used) FROM complimentary_authorization_usage WHERE authorization_id = ca.id), 0) AS used_amount FROM complimentary_authorizations ca WHERE ca.reservation_id = $1::uuid AND ca.status = 'active' AND ca.valid_until > now() AND ca.room_waived = true ORDER BY ca.created_at DESC LIMIT 1 FOR UPDATE`, [reservationId]);
       const vipRoom = vipAuthorization.rows[0];
-      const roomChargeExpression = vipRoom ? "0" : "rt.base_price";
+      const roomChargeExpression = vipRoom
+        ? "0"
+        : "COALESCE(r.total_price, rt.base_price * GREATEST(1, COALESCE(r.check_out_date - r.check_in_date, 1)))";
+
       await client.query(
         `
-        INSERT INTO guest_folios (reservation_id, room_charge, total_charges, balance)
-        SELECT $1::uuid, ${roomChargeExpression}, ${roomChargeExpression}, ${roomChargeExpression}
-         FROM reservations r
-         JOIN room_types rt ON rt.id = r.room_type_id
-         WHERE r.id = $1::uuid
-           AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1::uuid)
+        WITH prepaid AS (
+          SELECT COALESCE(SUM(amount), 0) AS amount
+          FROM transactions
+          WHERE (transaction_reference = 'HOTEL-PRECHECKIN-' || $1::text OR metadata->>'reservationId' = $1::text)
+            AND status = 'completed'
+        )
+        INSERT INTO guest_folios (reservation_id, room_charge, total_charges, paid_amount, balance)
+        SELECT 
+          $1::uuid,
+          ${roomChargeExpression},
+          ${roomChargeExpression},
+          p.amount,
+          GREATEST(0, ${roomChargeExpression} - p.amount)
+        FROM reservations r
+        JOIN room_types rt ON rt.id = r.room_type_id
+        CROSS JOIN prepaid p
+        WHERE r.id = $1::uuid
+          AND NOT EXISTS (SELECT 1 FROM guest_folios gf WHERE gf.reservation_id = $1::uuid)
         `,
         [reservationId]
       );

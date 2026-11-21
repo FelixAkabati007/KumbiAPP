@@ -59,10 +59,14 @@ export async function middleware(req: NextRequest) {
   // 1. API Route processing (Auth, RBAC, Versioning & Rewrite)
   if (normalizedApiPath) {
     // 1a. Exclude Public API Routes
-    if (
+    const isPublicApi =
       (normalizedApiPath.startsWith("/api/auth") && normalizedApiPath !== "/api/auth/signup") ||
-      normalizedApiPath.startsWith("/api/public")
-    ) {
+      normalizedApiPath.startsWith("/api/public") ||
+      normalizedApiPath === "/api/health" ||
+      normalizedApiPath === "/api/favicon" ||
+      normalizedApiPath.startsWith("/api/cron");
+
+    if (isPublicApi) {
       if (isV1Api) {
         const res = NextResponse.rewrite(new URL(normalizedApiPath + req.nextUrl.search, req.url));
         return withApiLifecycleHeaders(res, "1", false);
@@ -72,35 +76,35 @@ export async function middleware(req: NextRequest) {
         : withApiLifecycleHeaders(NextResponse.next(), isV2Api ? "2" : "1", false);
     }
 
-    // 1b. Check RBAC for API via Canonical Role Matrix
+    // 1b. Check RBAC for API via Canonical Role Matrix (Fail closed!)
     const apiAllowedRoles = getProtectedApiAllowedRoles(normalizedApiPath);
 
-    if (apiAllowedRoles) {
-      // Allow internal server-to-server realtime publish with x-internal-realtime-key
-      const internalKey = req.headers.get("x-internal-realtime-key");
-      const validInternalCall =
-        normalizedApiPath === "/api/realtime" &&
-        req.method === "POST" &&
-        internalKey &&
-        internalKey === getJwtSecret();
+    // Allow internal server-to-server realtime publish with x-internal-realtime-key
+    const internalKey = req.headers.get("x-internal-realtime-key");
+    const validInternalCall =
+      normalizedApiPath === "/api/realtime" &&
+      req.method === "POST" &&
+      internalKey &&
+      internalKey === getJwtSecret();
 
-      if (!validInternalCall) {
-        const token = req.cookies.get("auth_token")?.value;
-        if (!token) {
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!validInternalCall) {
+      const token = req.cookies.get("auth_token")?.value;
+      if (!token) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      try {
+        const secret = new TextEncoder().encode(getJwtSecret());
+        const { payload } = await jwtVerify(token, secret);
+        const userRole = payload.role as UserRole;
+
+        // If route has specific role restrictions, verify membership; otherwise require admin
+        const effectiveAllowedRoles = apiAllowedRoles || ["admin"];
+        if (!effectiveAllowedRoles.includes(userRole)) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
-
-        try {
-          const secret = new TextEncoder().encode(getJwtSecret());
-          const { payload } = await jwtVerify(token, secret);
-          const userRole = payload.role as UserRole;
-
-          if (!apiAllowedRoles.includes(userRole)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-          }
-        } catch {
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+      } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
 
@@ -110,10 +114,13 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isV1Api) {
-      // Check if a dedicated route file exists under app/api/v1 (e.g. inventory conversions & units)
+      // Check if a dedicated route file exists under app/api/v1
       const hasDedicatedRoute =
         originalPathname.startsWith("/api/v1/inventory/conversions") ||
-        originalPathname.startsWith("/api/v1/inventory/units");
+        originalPathname.startsWith("/api/v1/inventory/units") ||
+        originalPathname.startsWith("/api/v1/orders") ||
+        originalPathname.startsWith("/api/v1/hotels/reservations") ||
+        originalPathname.startsWith("/api/v1/inventory");
 
       if (hasDedicatedRoute) {
         return withApiLifecycleHeaders(NextResponse.next(), "1", false);

@@ -5,6 +5,10 @@ import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const cronAuthorized = Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
   const { session, error } = cronAuthorized ? { session: { id: "cron", role: "admin" }, error: null } : await requireRole("admin", "manager", "operationsManager");

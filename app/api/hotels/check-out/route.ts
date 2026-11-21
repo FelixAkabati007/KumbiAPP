@@ -3,6 +3,7 @@ import { query, transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { syncOverdueRoomCharges, syncShortStayRoomCharges } from "@/lib/services/hotel-folio";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 
 // Check-out guest from room
 export async function POST(request: NextRequest) {
@@ -83,8 +84,35 @@ export async function POST(request: NextRequest) {
         throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
       }
 
+      const checkoutActor = { id: session?.id ?? null, name: session?.name ?? null, email: session?.email ?? null, role: session?.role ?? null };
+
       if (paid > 0) {
         await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = $3::timestamptz WHERE reservation_id = $2::uuid`, [paid, reservationId, canonicalNow]);
+
+        const paymentRef = `HOTEL-CHECKOUT-${reservationId}`;
+        await client.query(
+          `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
+           VALUES (NULL, $1, $2, 'GHS', 'cash', 'completed', $3::jsonb, $4)
+           ON CONFLICT (transaction_reference) DO NOTHING`,
+          [
+            paymentRef,
+            paid.toFixed(2),
+            JSON.stringify({ source: "hotel-checkout", department: "hotel", departmentLabel: "Hotel", reservationId, performedBy: checkoutActor }),
+            session?.id || null,
+          ],
+        );
+
+        await recordFinancialLedgerEntry(client, {
+          eventKey: paymentRef,
+          amount: paid,
+          direction: "credit",
+          status: "posted",
+          source: "hotel_checkout",
+          paymentMethod: "cash",
+          entityType: "reservation",
+          entityId: reservationId,
+          metadata: { department: "hotel", departmentLabel: "Hotel", reservationId, performedBy: checkoutActor },
+        });
       }
 
       const resResult = await client.query(
@@ -122,7 +150,6 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
-      const checkoutActor = { id: session?.id ?? null, name: session?.name ?? null, email: session?.email ?? null, role: session?.role ?? null };
       const receiptResult = await client.query(
         `UPDATE hotel_receipts
          SET version = version + 1,

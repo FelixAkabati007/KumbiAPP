@@ -2,12 +2,15 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
-function getJwtSecret(): string {
-  return (
-    process.env.JWT_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "your-secret-key-change-me"
-  );
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET or NEXTAUTH_SECRET must be configured in production");
+    }
+    return "kumbi-app-internal-dev-secret-change-in-production";
+  }
+  return secret;
 }
 
 export type JwtPayloadData = {

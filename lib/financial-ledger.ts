@@ -117,10 +117,10 @@ export async function getPostedEntityCredits(
   entityId: string,
 ) {
   const result = await client.query<{ credits: string }>(
-    `SELECT COALESCE(SUM(amount), 0)::numeric AS credits
+    `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END), 0)::numeric AS credits
      FROM canonical_financial_ledger
-     WHERE entity_type = $1 AND entity_id = $2 AND direction = 'credit' AND status = 'posted'
-       AND source = 'event_payment'`,
+     WHERE entity_type = $1 AND entity_id = $2 AND status = 'posted'
+       AND source IN ('event_payment', 'event_payment_reversal')`,
     [entityType, entityId],
   );
   return Number(result.rows[0]?.credits ?? 0);

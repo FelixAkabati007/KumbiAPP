@@ -86,10 +86,10 @@ export async function POST(
 
     return NextResponse.json(
       {
-        message: "Password reset initiated",
+        message: "Password reset initiated successfully",
         staffEmail: staff.business_email,
         expiresAt,
-        resetToken: token, // In production, this should be sent via email, not returned
+        ...(process.env.NODE_ENV !== "production" ? { resetToken: token } : {}),
       },
       { status: 200 }
     );

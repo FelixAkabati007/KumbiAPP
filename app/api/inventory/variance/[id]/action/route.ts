@@ -59,6 +59,13 @@ export async function POST(
         );
       }
 
+      if (variance.reported_by === reviewer.id && reviewer.role !== "admin") {
+        throw Object.assign(
+          new Error("Segregation of duties: Requesters cannot review their own stock issue report"),
+          { code: "SELF_REVIEW_FORBIDDEN" }
+        );
+      }
+
       if (action === "approve") {
         const qtyToDeduct = Number(variance.quantity);
 
@@ -182,6 +189,9 @@ export async function POST(
     const err = error as { code?: string; message?: string };
     if (err.code === "NOT_FOUND") {
       return NextResponse.json({ error: "Stock issue report not found" }, { status: 404 });
+    }
+    if (err.code === "SELF_REVIEW_FORBIDDEN") {
+      return NextResponse.json({ error: err.message }, { status: 403 });
     }
     if (err.code === "ALREADY_RESOLVED") {
       return NextResponse.json({ error: err.message }, { status: 409 });

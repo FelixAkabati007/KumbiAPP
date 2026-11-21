@@ -241,13 +241,20 @@ export async function DELETE(
     const staff = staffResult.rows[0];
 
     // Soft delete or hard delete based on requirements
-    // Soft delete: Mark as inactive
-    await query(
-      `UPDATE staff_profiles 
-       SET is_active = false, employment_status = 'terminated', updated_at = NOW()
-       WHERE id = $1`,
-      [id]
-    );
+    await transaction(async (client) => {
+      await client.query(
+        `UPDATE staff_profiles 
+         SET is_active = false, employment_status = 'terminated', updated_at = NOW()
+         WHERE id = $1`,
+        [id]
+      );
+      if (staff.user_id) {
+        await client.query(
+          `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`,
+          [staff.user_id]
+        );
+      }
+    });
 
     // Log to audit trail
     await createAuditLog({

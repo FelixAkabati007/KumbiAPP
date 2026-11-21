@@ -126,7 +126,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requirePermission("refunds");
+    const { session, error } = await requirePermission("refunds");
     if (error) return error;
 
     const body = await request.json();
@@ -188,12 +188,15 @@ export async function POST(request: Request) {
       typeof orderNumber !== "string" ||
       typeof customerName !== "string" ||
       typeof paymentMethod !== "string" ||
-      typeof reason !== "string" ||
-      typeof authorizedBy !== "string" ||
-      typeof requestedBy !== "string"
+      typeof reason !== "string"
     ) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
+
+    const realActor = session?.name || session?.email || session?.id || "Staff";
+    const isManager = session.role === "admin" || session.role === "manager" || session.role === "restaurantManager" || session.role === "hotelManager";
+    const effectiveRequestedBy = realActor;
+    const effectiveAuthorizedBy = isManager ? realActor : (typeof authorizedBy === "string" ? authorizedBy : realActor);
 
     const original = Number(originalAmount);
     const refund = Number(refundAmount);
@@ -223,7 +226,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Determine initial status based on settings
+    // Determine initial status based on settings and verified managerial session
     let status = "pending";
     let approvedBy: string | null = null;
     let approvedAt: string | null = null;
@@ -235,21 +238,21 @@ export async function POST(request: Request) {
     ) {
       status = "approved";
       autoApprovalNote = "Auto-approved (Small Amount)";
-      approvedBy = authorizedBy;
+      approvedBy = "System";
       approvedAt = new Date().toISOString();
     } else if (
-      authorizedBy === "Restaurant Manager" &&
+      isManager &&
+      session.role === "restaurantManager" &&
       refund > settings.maxManagerRefund
     ) {
       status = "pending";
     } else if (
       !settings.requireApproval ||
-      (["Admin", "Restaurant Manager"].includes(authorizedBy) &&
-        refund <= settings.approvalThreshold)
+      (isManager && refund <= settings.approvalThreshold)
     ) {
       status = "approved";
       autoApprovalNote = "Auto-approved (Below Approval Threshold)";
-      approvedBy = authorizedBy;
+      approvedBy = realActor;
       approvedAt = new Date().toISOString();
     }
 
@@ -263,6 +266,16 @@ export async function POST(request: Request) {
           : null;
 
     const created = await transaction(async (client) => {
+      const priorRes = await client.query<{ total_refunded: string }>(
+        `SELECT COALESCE(SUM(refundamount), 0) AS total_refunded
+         FROM refundrequests
+         WHERE orderid = $1 AND status != 'rejected'`,
+        [orderId]
+      );
+      const priorRefunded = Number(priorRes.rows[0]?.total_refunded ?? 0);
+      if (priorRefunded + refund > original + 0.001) {
+        throw new Error("CUMULATIVE_REFUND_EXCEEDS_ORIGINAL");
+      }
       const insertRes = await client.query(
         `
           INSERT INTO refundrequests (
@@ -295,10 +308,10 @@ export async function POST(request: Request) {
           refund.toFixed(2),
           paymentMethod,
           reason,
-          authorizedBy,
+          effectiveAuthorizedBy,
           finalNotes,
           status,
-          requestedBy,
+          effectiveRequestedBy,
           typeof transactionId === "string" ? transactionId : null,
           approvedBy,
           approvedAt,
@@ -315,7 +328,7 @@ export async function POST(request: Request) {
         [
           refundRow.id,
           "requested",
-          requestedBy,
+          effectiveRequestedBy,
           "Refund requested",
           JSON.stringify({
             orderId,
@@ -338,7 +351,7 @@ export async function POST(request: Request) {
           [
             refundRow.id,
             "approved",
-            "System",
+            approvedBy || "System",
             autoApprovalNote,
             JSON.stringify({
               autoApproved: true,
@@ -354,6 +367,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created);
   } catch (error) {
+    if (error instanceof Error && error.message === "CUMULATIVE_REFUND_EXCEEDS_ORIGINAL") {
+      return NextResponse.json(
+        { error: "Cumulative refund amount exceeds original order amount" },
+        { status: 400 },
+      );
+    }
     console.error("Failed to create refund:", error);
     return NextResponse.json(
       { error: "Failed to create refund" },

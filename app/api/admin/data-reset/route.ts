@@ -4,16 +4,17 @@ import { query, transaction } from "@/lib/db";
 
 const RESETTABLES = [
   "attendance_adjustments", "attendance_exceptions", "attendance_permission_requests", "attendance_records",
-  "audit_logs", "booking_groups", "complaint_messages", "complaints", "event_quote_items", "event_quotes",
+  "booking_groups", "canonical_receipt_print_attempts", "canonical_receipts", "canonical_financial_ledger",
+  "complaint_messages", "complaints", "event_quote_items", "event_quotes",
   "event_staff_assignments", "events", "expense_approvals", "expenses", "guest_folio_items", "guest_folios",
   "guests", "hotel_activity_ledger", "hotel_receipts", "housekeeping_tasks", "kitchen_orderitems", "kitchenorders",
-  "leave_requests", "maintenance_tickets", "notifications", "notification_logs", "order_items", "orders",
-  "payroll", "payroll_records", "performance_events", "refund_audit_logs", "refund_requests", "refundrequests",
-  "reservation_room_changes", "reservations", "salesdata", "staff_audit_logs", "staff_schedule_assignments",
+  "leave_requests", "maintenance_tickets", "notifications", "notification_logs", "operational_outbox", "order_items", "orders",
+  "payroll", "payroll_records", "performance_events", "refund_requests", "refundrequests",
+  "reservation_room_changes", "reservations", "salesdata", "staff_schedule_assignments",
   "staff_shifts", "staff_termination_cases", "system_events", "transaction_logs", "transactions",
 ] as const;
 
-const PRESERVED = ["users", "staff_profiles", "attendance_feature_permissions", "categories", "inventory", "menu_items", "recipe_ingredients", "recipe_steps", "rooms", "room_types", "settings", "system_settings", "system_state", "restaurant_profile"];
+const PRESERVED = ["users", "staff_profiles", "attendance_feature_permissions", "audit_logs", "staff_audit_logs", "refund_audit_logs", "categories", "inventory", "menu_items", "recipe_ingredients", "recipe_steps", "rooms", "room_types", "settings", "system_settings", "system_state", "restaurant_profile"];
 
 async function requireAdmin() {
   const session = await getSession();
@@ -69,6 +70,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_DATA_RESET !== "true") {
+    return NextResponse.json({ error: "Operational data reset is strictly prohibited in production" }, { status: 403 });
+  }
   try {
     const actorId = await requireAdmin();
     const body = (await request.json().catch(() => null)) as { confirmation?: string } | null;

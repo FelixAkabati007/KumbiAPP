@@ -3,6 +3,10 @@ import { query } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const authorization = request.headers.get("authorization");
   if (!process.env.CRON_SECRET || authorization !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

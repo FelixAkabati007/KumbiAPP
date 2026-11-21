@@ -40,14 +40,14 @@ if (typeof WebSocket === "undefined") {
   neonConfig.webSocketConstructor = ws;
 }
 
-let pool: Pool | undefined = undefined;
+const globalForDb = globalThis as unknown as { dbPool?: Pool };
 
 /**
  * Lazy and resilient pool accessor. Re-checks environment variables on call
  * so hot reloads and late-injected env vars don't leave an empty pool.
  */
 export function getPool(): Pool {
-  if (pool) return pool;
+  if (globalForDb.dbPool) return globalForDb.dbPool;
 
   const connectionString = getDatabaseConnectionString();
   if (!connectionString) {
@@ -56,32 +56,21 @@ export function getPool(): Pool {
     );
   }
 
-  if (process.env.NODE_ENV === "production") {
-    pool = new Pool({
-      connectionString,
-      max: poolMax,
-      idleTimeoutMillis,
-      connectionTimeoutMillis,
-    });
-  } else {
-    if (!global.dbPool) {
-      global.dbPool = new Pool({
-        connectionString,
-        max: poolMax,
-        idleTimeoutMillis,
-        connectionTimeoutMillis,
-      });
-    }
-    pool = global.dbPool;
-  }
+  const poolInstance = new Pool({
+    connectionString,
+    max: poolMax,
+    idleTimeoutMillis,
+    connectionTimeoutMillis,
+  });
 
-  if (pool && pool.listenerCount("error") === 0) {
-    pool.on("error", (err: Error) => {
+  if (poolInstance.listenerCount("error") === 0) {
+    poolInstance.on("error", (err: Error) => {
       console.error("Unexpected error on idle Neon client", err);
     });
   }
 
-  return pool;
+  globalForDb.dbPool = poolInstance;
+  return poolInstance;
 }
 
 // Auto-initialize if connection string is immediately present

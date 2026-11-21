@@ -220,7 +220,7 @@ export async function PATCH(
       await recordFinancialLedgerEntry(client, {
         eventKey: `folio-charge:${chargeReference}`,
         amount,
-        direction: "credit",
+        direction: "debit",
         status: "posted",
         source: "hotel_folio",
         paymentMethod: "guest-folio",

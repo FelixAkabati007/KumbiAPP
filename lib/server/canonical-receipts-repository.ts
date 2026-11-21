@@ -16,11 +16,18 @@ export async function upsertCanonicalReceipt(input: PersistCanonicalReceiptInput
   const receipt = await query<{ id: string }>(
     `INSERT INTO canonical_receipts (identity_key, source, entity_id, receipt_number, version, print_method, payload)
      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-     ON CONFLICT (identity_key) DO UPDATE SET print_method = EXCLUDED.print_method, payload = EXCLUDED.payload, updated_at = NOW()
+     ON CONFLICT (identity_key) DO UPDATE SET print_method = EXCLUDED.print_method, updated_at = NOW()
      RETURNING id`,
     [identityKey, input.source, input.entityId.trim(), input.receiptNumber.trim().toUpperCase(), input.version, input.printMethod, JSON.stringify(input.payload)],
   );
-  const receiptId = receipt.rows[0]?.id;
+  let receiptId = receipt.rows[0]?.id;
+  if (!receiptId) {
+    const existing = await query<{ id: string }>(
+      `SELECT id FROM canonical_receipts WHERE identity_key = $1`,
+      [identityKey],
+    );
+    receiptId = existing.rows[0]?.id;
+  }
   if (!receiptId) throw new Error("CANONICAL_RECEIPT_NOT_PERSISTED");
   const idempotencyKey = `${identityKey}:${input.printMethod}`;
   const attempt = await query<{ id: string; status: string }>(

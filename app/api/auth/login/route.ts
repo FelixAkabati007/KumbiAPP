@@ -148,8 +148,7 @@ export async function POST(req: Request) {
         result = dbRes;
       }
     } catch (dbErr) {
-      // If DB is temporarily unavailable or unconfigured, allow canonical default role accounts to sign in
-      if (!isDefaultPasswordMatch) {
+      if (process.env.NODE_ENV === "production" || !isDefaultPasswordMatch) {
         throw dbErr;
       }
     }
@@ -237,7 +236,7 @@ export async function POST(req: Request) {
       is_active?: boolean;
     };
 
-    if (user.is_active === false && !isDefaultPasswordMatch) {
+    if (user.is_active === false) {
       return NextResponse.json(
         {
           success: false,
@@ -269,23 +268,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Fallback 2: If this is a canonical default account and matches its known default password
-    if (!isValid && isDefaultPasswordMatch) {
-      isValid = true;
-      try {
-        const newHash = await hashPassword(password);
-        const syncPromise = query(
-          `UPDATE users SET password_hash = $1, email_verified = TRUE, is_active = TRUE WHERE id = $2`,
-          [newHash, user.id],
-        );
-        if (syncPromise && typeof syncPromise.catch === "function") {
-          await syncPromise.catch(() => {});
-        }
-      } catch {
-        // ignore
-      }
-    }
-
     if (!isValid) {
       return NextResponse.json(
         {
@@ -297,7 +279,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!user.email_verified && !isDefaultPasswordMatch) {
+    if (!user.email_verified) {
       return NextResponse.json(
         {
           success: false,

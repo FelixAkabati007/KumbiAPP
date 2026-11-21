@@ -12,10 +12,10 @@ async function requireAuthorizationAccess() {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
-  if (session.role !== "admin" && session.role !== "frontDesk")
+  if (session.role !== "admin" && session.role !== "manager" && session.role !== "hotelManager")
     return {
       error: NextResponse.json(
-        { error: "Only Admin and Reception can manage VIP authorizations" },
+        { error: "Only Admin, General Manager, or Hotel Manager can manage VIP authorizations" },
         { status: 403 },
       ),
     };
