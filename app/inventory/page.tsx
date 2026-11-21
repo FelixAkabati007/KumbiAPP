@@ -112,6 +112,7 @@ function InventoryContent() {
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [editorErrors, setEditorErrors] = useState<Record<string, string>>({});
   const [isNewItem, setIsNewItem] = useState(false);
+  const [useBulkPackaging, setUseBulkPackaging] = useState(false);
   const [varianceItem, setVarianceItem] = useState<InventoryItem | null>(null);
   const [varianceReason, setVarianceReason] = useState("expired");
   const [varianceQuantity, setVarianceQuantity] = useState("");
@@ -441,6 +442,7 @@ function InventoryContent() {
     setOriginalEditingItem(draft);
     setEditorErrors({});
     setIsNewItem(true);
+    setUseBulkPackaging(false);
     setIsDialogOpen(true);
   };
 
@@ -479,6 +481,13 @@ function InventoryContent() {
       setOriginalEditingItem(itemToEdit);
       setEditorErrors({});
       setIsNewItem(false);
+      const hasBulk = Boolean(
+        item.containerUnit &&
+        item.containerUnit.trim() !== "" &&
+        item.containerUnit.toLowerCase() !== (item.unit || "").toLowerCase() &&
+        Number(item.quantityPerContainer) > 1
+      );
+      setUseBulkPackaging(hasBulk);
       setIsDialogOpen(true);
     } catch (error) {
       console.error("Failed to prepare item for editing:", error);
@@ -560,6 +569,7 @@ function InventoryContent() {
       setEditingItem(null);
       setOriginalEditingItem(null);
       setEditorErrors({});
+      setUseBulkPackaging(false);
     }
   };
 
@@ -579,10 +589,12 @@ function InventoryContent() {
     if (!Number.isFinite(quantity) || quantity < 0) nextErrors.quantity = "Enter a quantity of 0 or greater.";
     if (!Number.isFinite(cost) || cost < 0) nextErrors.cost = "Enter a cost of 0 or greater.";
     if (!Number.isFinite(reorderLevel) || reorderLevel < 0) nextErrors.reorderLevel = "Enter a reorder level of 0 or greater.";
-    if (editingItem.containerUnit && (!Number.isFinite(quantityPerContainer) || quantityPerContainer <= 0)) nextErrors.quantityPerContainer = "Items per container must be greater than zero.";
-    if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
-    if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
-    const stockUnit = editingItem.containerUnit || editingItem.unit;
+    if (useBulkPackaging) {
+      if (editingItem.containerUnit && (!Number.isFinite(quantityPerContainer) || quantityPerContainer <= 0)) nextErrors.quantityPerContainer = "Items per container must be greater than zero.";
+      if (!Number.isFinite(containerCount) || containerCount < 0) nextErrors.containerCount = "Container count must be 0 or greater.";
+      if (!Number.isFinite(costPerContainer) || costPerContainer < 0) nextErrors.costPerContainer = "Cost per container must be 0 or greater.";
+    }
+    const stockUnit = useBulkPackaging && editingItem.containerUnit ? editingItem.containerUnit : editingItem.unit;
     const hasChefYield = editingItem.chefYieldPerStockUnit !== "" && Boolean(editingItem.recipeUnit);
     if (!hasChefYield && (!Number.isFinite(conversionRatio) || conversionRatio <= 0)) nextErrors.conversionRatio = "Conversion ratio must be greater than zero.";
     if (hasChefYield && (!Number.isFinite(chefYieldPerStockUnit) || Number(chefYieldPerStockUnit) <= 0)) nextErrors.chefYieldPerStockUnit = "Chef yield must be greater than zero.";
@@ -595,10 +607,10 @@ function InventoryContent() {
     }
 
 
-    const effectiveContainerCount = Number(editingItem.containerCount || 0);
-    const effectiveQuantityPerContainer = Number(editingItem.quantityPerContainer || 0);
+    const effectiveContainerCount = useBulkPackaging ? Number(editingItem.containerCount || 0) : Number(editingItem.quantity || 0);
+    const effectiveQuantityPerContainer = useBulkPackaging ? Number(editingItem.quantityPerContainer || 0) : 1;
     const packagingCalculatedQuantity =
-      effectiveContainerCount > 0 && effectiveQuantityPerContainer > 0
+      useBulkPackaging && effectiveContainerCount > 0 && effectiveQuantityPerContainer > 0
         ? effectiveContainerCount * effectiveQuantityPerContainer
         : 0;
     const finalQuantity =
@@ -609,7 +621,7 @@ function InventoryContent() {
           : 0;
 
     const packagingCalculatedCost =
-      costPerContainer > 0 && effectiveContainerCount > 0
+      useBulkPackaging && costPerContainer > 0 && effectiveContainerCount > 0
         ? costPerContainer * effectiveContainerCount
         : 0;
     const finalCost =
@@ -618,6 +630,12 @@ function InventoryContent() {
         : packagingCalculatedCost > 0
           ? packagingCalculatedCost
           : 0;
+
+    const finalContainerUnit = useBulkPackaging ? (editingItem.containerUnit || "") : "";
+    const finalQuantityPerContainer = useBulkPackaging ? (editingItem.quantityPerContainer || "1") : "1";
+    const finalContainerCount = useBulkPackaging ? (editingItem.containerCount || "0") : finalQuantity.toString();
+    const finalCostPerContainer = useBulkPackaging ? (editingItem.costPerContainer || "0") : (editingItem.costPerItem || "0");
+    const finalCostPerItem = editingItem.costPerItem || (finalQuantity > 0 ? (finalCost / finalQuantity).toFixed(2) : "0");
 
     setIsSavingItem(true);
     try {
@@ -628,6 +646,11 @@ function InventoryContent() {
           ...newItemData,
           name: editingItem.name.trim(),
           sku: editingItem.sku.trim(),
+          containerUnit: finalContainerUnit,
+          quantityPerContainer: finalQuantityPerContainer,
+          containerCount: finalContainerCount,
+          costPerContainer: finalCostPerContainer,
+          costPerItem: finalCostPerItem,
           quantity: finalQuantity.toString(),
           cost: finalCost.toString(),
           unit: editingItem.unit || "units",
@@ -644,6 +667,11 @@ function InventoryContent() {
       } else {
         const updatedItem = {
           ...editingItem,
+          containerUnit: finalContainerUnit,
+          quantityPerContainer: finalQuantityPerContainer,
+          containerCount: finalContainerCount,
+          costPerContainer: finalCostPerContainer,
+          costPerItem: finalCostPerItem,
           quantity: finalQuantity.toString(),
           cost: finalCost.toString(),
           unit: editingItem.unit || "units",
@@ -1545,100 +1573,83 @@ function InventoryContent() {
                     </Select>
                   </div>
                 </div>
-                  <div className="flex items-end text-sm text-muted-foreground">
-                    Packaging cost is calculated from Cost per container.
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-4 dark:border-orange-700 dark:bg-orange-950/20">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-orange-200/60 pb-2.5 dark:border-orange-800/60">
+                    <div>
+                      <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">
+                        Stock & Unit Pricing
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Track inventory by individual units. Enable bulk packaging only if purchased in crates, cases, or boxes.
+                      </p>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-orange-900 shadow-sm transition hover:bg-orange-100/50 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100">
+                      <input
+                        type="checkbox"
+                        checked={useBulkPackaging}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUseBulkPackaging(checked);
+                          if (!checked) {
+                            setEditingItem((prev) => {
+                              if (!prev) return prev;
+                              const unitCost = Number(prev.costPerItem || 0) > 0 ? prev.costPerItem : (Number(prev.cost || 0) > 0 && Number(prev.quantity || 0) > 0 ? (Number(prev.cost) / Number(prev.quantity)).toFixed(2) : prev.cost);
+                              const totalCost = (Number(unitCost || 0) * Number(prev.quantity || 0)).toFixed(2);
+                              return {
+                                ...prev,
+                                containerUnit: "",
+                                quantityPerContainer: "1",
+                                containerCount: prev.quantity || "1",
+                                costPerContainer: unitCost,
+                                costPerItem: unitCost,
+                                cost: totalCost,
+                              };
+                            });
+                          } else {
+                            setEditingItem((prev) => {
+                              if (!prev) return prev;
+                              const defaultContainer = prev.containerUnit || "crate";
+                              const perContainer = Number(prev.quantityPerContainer || 0) > 1 ? prev.quantityPerContainer : "24";
+                              const count = Number(prev.containerCount || 0) > 0 ? prev.containerCount : "1";
+                              const qty = (Number(count) * Number(perContainer)).toString();
+                              const costPerCont = Number(prev.costPerContainer || 0) > 0 ? prev.costPerContainer : (Number(prev.cost || 0) > 0 ? prev.cost : "60.00");
+                              const perItem = (Number(costPerCont) / Number(perContainer)).toFixed(2);
+                              const totalCost = (Number(costPerCont) * Number(count)).toFixed(2);
+                              return {
+                                ...prev,
+                                containerUnit: defaultContainer,
+                                quantityPerContainer: perContainer,
+                                containerCount: count,
+                                costPerContainer: costPerCont,
+                                costPerItem: perItem,
+                                cost: totalCost,
+                                quantity: qty,
+                              };
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500 dark:border-orange-600 dark:bg-gray-800"
+                      />
+                      <span>Bulk packaging (crates, cases, boxes)</span>
+                    </label>
                   </div>
-                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
-                  <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Purchase packaging & stock units</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-2">
-                      <Label htmlFor="containerUnit" className="text-orange-700 dark:text-orange-300">Container / purchase unit</Label>
-                      <UnitSelect value={editingItem.containerUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })} placeholder="Crate, box, bag..." />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="stockUnit" className="text-orange-700 dark:text-orange-300">Stock unit (items inside)</Label>
-                      <UnitSelect value={editingItem.unit || "units"} onChange={(value) => setEditingItem({ ...editingItem, unit: String(value) || "units" })} placeholder="Bottle, can, piece, unit..." />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
-                      <Input
-                        id="quantityPerContainer"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        aria-invalid={Boolean(editorErrors.quantityPerContainer)}
-                        aria-describedby={editorErrors.quantityPerContainer ? "quantity-per-container-error" : undefined}
-                        value={editingItem.quantityPerContainer || ""}
-                        onChange={(e) => {
-                          const per = e.target.value;
-                          const count = Number(editingItem.containerCount || 0);
-                          const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1);
-                          const totalCost = Number(editingItem.costPerContainer || 0) * count;
-                          const newQty = (count * Number(per || 0)).toString();
-                          setEditingItem({
-                            ...editingItem,
-                            quantityPerContainer: per,
-                            costPerItem: perItem.toFixed(2),
-                            cost: totalCost.toFixed(2),
-                            quantity: count > 0 && Number(per) > 0 ? newQty : editingItem.quantity,
-                          });
-                        }}
+
+                  {/* Primary Stock Fields (Always Visible) */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="stockUnit" className="text-orange-700 dark:text-orange-300">
+                        Stock unit (how item is counted)
+                      </Label>
+                      <UnitSelect
+                        value={editingItem.unit || "units"}
+                        onChange={(value) => setEditingItem({ ...editingItem, unit: String(value) || "units" })}
+                        placeholder="Bottle, can, piece, kg, unit..."
                       />
-                      {editorErrors.quantityPerContainer && <p id="quantity-per-container-error" className="text-xs text-destructive">{editorErrors.quantityPerContainer}</p>}
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
-                      <Input
-                        id="containerCount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        aria-invalid={Boolean(editorErrors.containerCount)}
-                        aria-describedby={editorErrors.containerCount ? "container-count-error" : undefined}
-                        value={editingItem.containerCount || ""}
-                        onChange={(e) => {
-                          const count = e.target.value;
-                          const perContainer = Number(editingItem.quantityPerContainer || 0);
-                          const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1);
-                          const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0);
-                          const newQty = (Number(count || 0) * perContainer).toString();
-                          setEditingItem({
-                            ...editingItem,
-                            containerCount: count,
-                            costPerItem: perItem.toFixed(2),
-                            cost: totalCost.toFixed(2),
-                            quantity: Number(count) > 0 && perContainer > 0 ? newQty : editingItem.quantity,
-                          });
-                        }}
-                      />
-                      {editorErrors.containerCount && <p id="container-count-error" className="text-xs text-destructive">{editorErrors.containerCount}</p>}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
-                      <Input
-                        id="costPerContainer"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        aria-invalid={Boolean(editorErrors.costPerContainer)}
-                        aria-describedby={editorErrors.costPerContainer ? "cost-per-container-error" : undefined}
-                        value={editingItem.costPerContainer || ""}
-                        onChange={(e) => {
-                          const costPerContainer = e.target.value;
-                          const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1);
-                          const count = Number(editingItem.containerCount || 0);
-                          setEditingItem({
-                            ...editingItem,
-                            costPerContainer,
-                            costPerItem: perItem.toFixed(2),
-                            cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0),
-                          });
-                        }}
-                      />
-                      {editorErrors.costPerContainer && <p id="cost-per-container-error" className="text-xs text-destructive">{editorErrors.costPerContainer}</p>}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="stockQuantity" className="text-orange-700 dark:text-orange-300">Total units in stock</Label>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="stockQuantity" className="text-orange-700 dark:text-orange-300">
+                        Current stock ({editingItem.unit || "units"})
+                      </Label>
                       <Input
                         id="stockQuantity"
                         type="number"
@@ -1647,17 +1658,150 @@ function InventoryContent() {
                         aria-invalid={Boolean(editorErrors.quantity)}
                         aria-describedby={editorErrors.quantity ? "quantity-error" : undefined}
                         value={editingItem.quantity}
-                        onChange={(e) => setEditingItem({ ...editingItem, quantity: e.target.value })}
+                        onChange={(e) => {
+                          const qty = e.target.value;
+                          setEditingItem((prev) => {
+                            if (!prev) return prev;
+                            const unitCost = Number(prev.costPerItem || 0);
+                            const total = unitCost > 0 ? (Number(qty || 0) * unitCost).toFixed(2) : prev.cost;
+                            return { ...prev, quantity: qty, cost: total };
+                          });
+                        }}
                       />
                       {editorErrors.quantity && <p id="quantity-error" className="text-xs text-destructive">{editorErrors.quantity}</p>}
                     </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="unitCost" className="text-orange-700 dark:text-orange-300">
+                        Cost per {editingItem.unit || "unit"} (₵)
+                      </Label>
+                      <Input
+                        id="unitCost"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editingItem.costPerItem || ""}
+                        readOnly={useBulkPackaging}
+                        disabled={useBulkPackaging}
+                        className={useBulkPackaging ? "bg-orange-100/50 dark:bg-orange-950/40 opacity-80 cursor-not-allowed" : ""}
+                        onChange={(e) => {
+                          const unitCost = e.target.value;
+                          setEditingItem((prev) => {
+                            if (!prev) return prev;
+                            const total = (Number(unitCost || 0) * Number(prev.quantity || 0)).toFixed(2);
+                            return { ...prev, costPerItem: unitCost, cost: total, costPerContainer: unitCost };
+                          });
+                        }}
+                      />
+                    </div>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Total stock: <strong>{editingItem.quantity || "0"} {editingItem.unit || "units"}</strong> · Packaging: <strong>{editingItem.containerCount || "0"} {editingItem.containerUnit || "containers"} ({editingItem.quantityPerContainer || "1"} per {editingItem.containerUnit || "container"})</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong>
-                  </p>
-                  <p className="mt-2 rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100">
-                    <strong>Unit tip:</strong> {getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Stock unit is how individual items are counted in stock. Choose a chef recipe unit below based on how the item is measured in recipes.
-                  </p>
+
+                  {/* Bulk Packaging Panel (Conditional) */}
+                  {useBulkPackaging && (
+                    <div className="mt-3.5 rounded-xl border border-orange-300/80 bg-white/70 p-3 dark:border-orange-700 dark:bg-gray-900/50">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-orange-800 dark:text-orange-300">
+                        Bulk Packaging Setup
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="containerUnit" className="text-xs text-orange-700 dark:text-orange-300">
+                            Container / purchase unit
+                          </Label>
+                          <UnitSelect
+                            value={editingItem.containerUnit || ""}
+                            onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })}
+                            placeholder="Crate, box, sack..."
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="quantityPerContainer" className="text-xs text-orange-700 dark:text-orange-300">
+                            {editingItem.unit || "Units"} per container
+                          </Label>
+                          <Input
+                            id="quantityPerContainer"
+                            type="number"
+                            min="0.001"
+                            step="any"
+                            value={editingItem.quantityPerContainer || ""}
+                            onChange={(e) => {
+                              const per = e.target.value;
+                              const count = Number(editingItem.containerCount || 0);
+                              const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1);
+                              const totalCost = Number(editingItem.costPerContainer || 0) * count;
+                              const newQty = (count * Number(per || 0)).toString();
+                              setEditingItem({
+                                ...editingItem,
+                                quantityPerContainer: per,
+                                costPerItem: perItem.toFixed(2),
+                                cost: totalCost.toFixed(2),
+                                quantity: count > 0 && Number(per) > 0 ? newQty : editingItem.quantity,
+                              });
+                            }}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="containerCount" className="text-xs text-orange-700 dark:text-orange-300">
+                            Container count
+                          </Label>
+                          <Input
+                            id="containerCount"
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={editingItem.containerCount || ""}
+                            onChange={(e) => {
+                              const count = e.target.value;
+                              const perContainer = Number(editingItem.quantityPerContainer || 0);
+                              const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1);
+                              const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0);
+                              const newQty = (Number(count || 0) * perContainer).toString();
+                              setEditingItem({
+                                ...editingItem,
+                                containerCount: count,
+                                costPerItem: perItem.toFixed(2),
+                                cost: totalCost.toFixed(2),
+                                quantity: Number(count) > 0 && perContainer > 0 ? newQty : editingItem.quantity,
+                              });
+                            }}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="costPerContainer" className="text-xs text-orange-700 dark:text-orange-300">
+                            Cost per container (₵)
+                          </Label>
+                          <Input
+                            id="costPerContainer"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editingItem.costPerContainer || ""}
+                            onChange={(e) => {
+                              const costPerContainer = e.target.value;
+                              const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1);
+                              const count = Number(editingItem.containerCount || 0);
+                              setEditingItem({
+                                ...editingItem,
+                                costPerContainer,
+                                costPerItem: perItem.toFixed(2),
+                                cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0),
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <p className="mt-2.5 text-xs text-muted-foreground">
+                        Packaging summary: <strong>{editingItem.containerCount || "0"} {editingItem.containerUnit || "containers"}</strong> × <strong>{editingItem.quantityPerContainer || "1"} {editingItem.unit || "units"}</strong> = <strong>{editingItem.quantity || "0"} {editingItem.unit || "units"}</strong> in stock (₵{editingItem.costPerItem || "0"}/{editingItem.unit || "unit"}).
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-orange-200/60 pt-2.5 text-xs text-muted-foreground dark:border-orange-800/60">
+                    <span>
+                      Total Stock: <strong>{editingItem.quantity || "0"} {editingItem.unit || "units"}</strong>
+                    </span>
+                    <span>
+                      Total Inventory Value: <strong>₵{Number(editingItem.cost || 0).toFixed(2)}</strong>
+                    </span>
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
                   <p className="mb-1 text-sm font-medium text-orange-800 dark:text-orange-200">How chefs use this item</p>

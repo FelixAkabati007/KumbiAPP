@@ -64,5 +64,10 @@ describe("Audit fixes and operational invariants", () => {
     const getRoute = await readFile(path.join(rootDir, "app/api/inventory/route.ts"), "utf8");
     expect(getRoute).toContain("effectiveQuantity = rawQty > 0 ? rawQty : (effectiveContainerCount > 0 && qtyPerContainer > 0 ? effectiveContainerCount * qtyPerContainer : rawQty)");
     expect(getRoute).toContain("Auto-heal inventory items failed");
+
+    const inventoryPage = await readFile(path.join(rootDir, "app/inventory/page.tsx"), "utf8");
+    expect(inventoryPage).toContain("useBulkPackaging");
+    expect(inventoryPage).toContain("Bulk packaging (crates, cases, boxes)");
+    expect(inventoryPage).toContain("Stock unit (how item is counted)");
   });
 });
