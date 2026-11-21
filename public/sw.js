@@ -1,4 +1,4 @@
-const CACHE_NAME = "kumbi-offline-v2";
+const CACHE_NAME = "kumbi-offline-v3";
 const APP_SHELL = [
   "/",
   "/login",
