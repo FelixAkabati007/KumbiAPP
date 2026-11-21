@@ -33,8 +33,14 @@ interface TopUpAuditRecord {
 }
 
 interface NotificationMetadataRecord {
+  id?: string;
+  title?: string;
+  message?: string;
   metadata?: {
     auditId?: string;
+    inventoryItemId?: string;
+    itemName?: string;
+    status?: string;
     [key: string]: unknown;
   } | null;
 }
@@ -72,6 +78,10 @@ export async function POST(
     const reviewerName = reviewer.name || reviewer.email;
 
     const result = await transaction(async (client) => {
+      let matchedNotificationId: string | null = null;
+      let matchedInventoryItemId: string | null = null;
+
+      // 1. Try finding directly in inventory_top_up_audit by id or idempotency_key
       let auditResult = { rows: [] as TopUpAuditRecord[] };
       try {
         auditResult = await client.query(
@@ -80,41 +90,126 @@ export async function POST(
                   i.quantity_per_container
            FROM inventory_top_up_audit a
            JOIN inventory i ON i.id = a.inventory_item_id
-           WHERE a.id = $1::text OR a.id::text = $1::text
+           WHERE a.id::text = $1::text OR a.idempotency_key = $1::text
            FOR UPDATE`,
           [id]
         );
-      } catch {
+      } catch (err) {
+        console.error("Direct audit query failed:", err);
         auditResult = { rows: [] };
       }
 
+      // 2. If not found, check if id is a notification id
       if (!auditResult.rows[0]) {
-        // Fallback: check if id is a notification id
         let notifResult = { rows: [] as NotificationMetadataRecord[] };
         try {
           notifResult = await client.query(
-            `SELECT metadata FROM notifications WHERE id = $1::uuid LIMIT 1`,
+            `SELECT id, title, message, metadata FROM notifications WHERE id::text = $1::text LIMIT 1`,
             [id]
           );
-        } catch {
+        } catch (err) {
+          console.error("Notification lookup failed:", err);
           notifResult = { rows: [] };
         }
-        const auditId = notifResult.rows[0]?.metadata?.auditId;
-        if (auditId) {
-          try {
-            auditResult = await client.query(
-              `SELECT a.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
-                      i.cost_per_container as current_packaging_price, i.cost_per_item as current_cost_per_item,
-                      i.quantity_per_container
-               FROM inventory_top_up_audit a
-               JOIN inventory i ON i.id = a.inventory_item_id
-               WHERE a.id = $1::text OR a.id::text = $1::text
-               FOR UPDATE`,
-              [auditId]
-            );
-          } catch {
-            auditResult = { rows: [] };
+
+        const notif = notifResult.rows[0];
+        if (notif) {
+          matchedNotificationId = notif.id || null;
+          const auditId = notif.metadata?.auditId;
+          const notifItemName = notif.metadata?.itemName;
+          const notifInvId = notif.metadata?.inventoryItemId;
+          matchedInventoryItemId = notifInvId || null;
+
+          // 2a. Query by auditId from notification metadata
+          if (auditId) {
+            try {
+              auditResult = await client.query(
+                `SELECT a.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
+                        i.cost_per_container as current_packaging_price, i.cost_per_item as current_cost_per_item,
+                        i.quantity_per_container
+                 FROM inventory_top_up_audit a
+                 JOIN inventory i ON i.id = a.inventory_item_id
+                 WHERE a.id::text = $1::text OR a.idempotency_key = $1::text
+                 FOR UPDATE`,
+                [auditId]
+              );
+            } catch (err) {
+              console.error("Audit query by notif.auditId failed:", err);
+            }
           }
+
+          // 2b. Query by inventoryItemId from notification metadata
+          if (!auditResult.rows[0] && notifInvId) {
+            try {
+              auditResult = await client.query(
+                `SELECT a.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
+                        i.cost_per_container as current_packaging_price, i.cost_per_item as current_cost_per_item,
+                        i.quantity_per_container
+                 FROM inventory_top_up_audit a
+                 JOIN inventory i ON i.id = a.inventory_item_id
+                 WHERE a.inventory_item_id::text = $1::text
+                   AND (a.status IS NULL OR a.status = 'pending_review')
+                 ORDER BY a.performed_at DESC
+                 LIMIT 1
+                 FOR UPDATE`,
+                [notifInvId]
+              );
+            } catch (err) {
+              console.error("Audit query by notif.inventoryItemId failed:", err);
+            }
+          }
+
+          // 2c. Query by item name extracted from notification title / metadata
+          if (!auditResult.rows[0]) {
+            const rawTitle = notif.title || "";
+            const extractedName = notifItemName || rawTitle.replace(/^Stock Topped Up:\s*/i, "").trim();
+            if (extractedName) {
+              try {
+                auditResult = await client.query(
+                  `SELECT a.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
+                          i.cost_per_container as current_packaging_price, i.cost_per_item as current_cost_per_item,
+                          i.quantity_per_container
+                   FROM inventory_top_up_audit a
+                   JOIN inventory i ON i.id = a.inventory_item_id
+                   WHERE LOWER(TRIM(i.name)) = LOWER(TRIM($1))
+                     AND (a.status IS NULL OR a.status = 'pending_review')
+                   ORDER BY a.performed_at DESC
+                   LIMIT 1
+                   FOR UPDATE`,
+                  [extractedName]
+                );
+              } catch (err) {
+                console.error("Audit query by item name failed:", err);
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Fallback: Check if id is an inventory_events.id
+      if (!auditResult.rows[0]) {
+        try {
+          const eventRes = await client.query(
+            `SELECT e.id::text as id, e.inventory_id as inventory_item_id,
+                    e.quantity_before, e.quantity_delta as quantity_added, e.quantity_after,
+                    e.staff_id as performed_by, e.created_at as performed_at,
+                    e.idempotency_key, e.metadata as request_metadata,
+                    COALESCE(e.metadata->>'status', 'pending_review') as status,
+                    i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
+                    i.cost_per_container as current_packaging_price, i.cost_per_item as current_cost_per_item,
+                    i.quantity_per_container
+             FROM inventory_events e
+             JOIN inventory i ON i.id = e.inventory_id
+             WHERE (e.id::text = $1::text OR e.idempotency_key = $1::text)
+               AND e.event_type IN ('RESTOCK', 'RESTOCK_AND_PRICE_CHANGE')
+             LIMIT 1`,
+            [id]
+          );
+          if (eventRes.rows[0]) {
+            auditResult = { rows: [eventRes.rows[0] as TopUpAuditRecord] };
+          }
+        } catch (err) {
+          console.error("Event fallback query failed:", err);
         }
       }
 
@@ -145,18 +240,35 @@ export async function POST(
 
       if (action === "approve") {
         // Mark audit as approved
-        await client.query(
-          `UPDATE inventory_top_up_audit
-           SET status = 'approved',
-               reviewed_by = $1,
-               reviewed_by_name = $2,
-               reviewed_by_role = $3,
-               review_notes = $4,
-               reviewed_at = NOW(),
-               request_metadata = jsonb_set(COALESCE(request_metadata, '{}'::jsonb), '{status}', '"approved"')
-           WHERE id = $5`,
-          [reviewer.id, reviewerName, reviewer.role, notes || null, audit.id]
-        );
+        if (audit.source === "event") {
+          try {
+            await client.query(
+              `UPDATE inventory_events
+               SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{status}', '"approved"')
+               WHERE id::text = $1::text`,
+              [audit.id]
+            );
+          } catch (err) {
+            console.error("Failed to update inventory_events status:", err);
+          }
+        } else {
+          try {
+            await client.query(
+              `UPDATE inventory_top_up_audit
+               SET status = 'approved',
+                   reviewed_by = $1,
+                   reviewed_by_name = $2,
+                   reviewed_by_role = $3,
+                   review_notes = $4,
+                   reviewed_at = NOW(),
+                   request_metadata = jsonb_set(COALESCE(request_metadata, '{}'::jsonb), '{status}', '"approved"')
+               WHERE id::text = $5::text`,
+              [reviewer.id, reviewerName, reviewer.role, notes || null, audit.id]
+            );
+          } catch (err) {
+            console.error("Failed to update inventory_top_up_audit status:", err);
+          }
+        }
 
         // Update notifications
         try {
@@ -164,8 +276,8 @@ export async function POST(
             `UPDATE notifications
              SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{status}', '"approved"'),
                  read_at = COALESCE(read_at, NOW())
-             WHERE (metadata->>'auditId' = $1::text OR id::text = $2::text)`,
-            [audit.id, id]
+             WHERE (metadata->>'auditId' = $1::text OR id::text = $2::text OR id::text = $3::text)`,
+            [audit.id, id, matchedNotificationId || id]
           );
         } catch {
           // ignore
@@ -246,18 +358,35 @@ export async function POST(
         );
 
         // Mark audit as disapproved
-        await client.query(
-          `UPDATE inventory_top_up_audit
-           SET status = 'disapproved',
-               reviewed_by = $1,
-               reviewed_by_name = $2,
-               reviewed_by_role = $3,
-               review_notes = $4,
-               reviewed_at = NOW(),
-               request_metadata = jsonb_set(COALESCE(request_metadata, '{}'::jsonb), '{status}', '"disapproved"')
-           WHERE id = $5`,
-          [reviewer.id, reviewerName, reviewer.role, notes, audit.id]
-        );
+        if (audit.source === "event") {
+          try {
+            await client.query(
+              `UPDATE inventory_events
+               SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{status}', '"disapproved"')
+               WHERE id::text = $1::text`,
+              [audit.id]
+            );
+          } catch (err) {
+            console.error("Failed to update inventory_events status on disapproval:", err);
+          }
+        } else {
+          try {
+            await client.query(
+              `UPDATE inventory_top_up_audit
+               SET status = 'disapproved',
+                   reviewed_by = $1,
+                   reviewed_by_name = $2,
+                   reviewed_by_role = $3,
+                   review_notes = $4,
+                   reviewed_at = NOW(),
+                   request_metadata = jsonb_set(COALESCE(request_metadata, '{}'::jsonb), '{status}', '"disapproved"')
+               WHERE id::text = $5::text`,
+              [reviewer.id, reviewerName, reviewer.role, notes, audit.id]
+            );
+          } catch (err) {
+            console.error("Failed to update inventory_top_up_audit status on disapproval:", err);
+          }
+        }
 
         // Update notifications
         try {
@@ -265,8 +394,8 @@ export async function POST(
             `UPDATE notifications
              SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{status}', '"disapproved"'),
                  read_at = COALESCE(read_at, NOW())
-             WHERE (metadata->>'auditId' = $1::text OR id::text = $2::text)`,
-            [audit.id, id]
+             WHERE (metadata->>'auditId' = $1::text OR id::text = $2::text OR id::text = $3::text)`,
+            [audit.id, id, matchedNotificationId || id]
           );
         } catch {
           // ignore

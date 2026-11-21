@@ -40,6 +40,9 @@ vi.mock("@/lib/db", () => ({
       query: vi.fn().mockImplementation((sql: string, params: unknown[] = []) => {
         executedQueries.push({ sql, params });
         if (sql.includes("SELECT a.*, i.name as item_name")) {
+          if (params[0] === "notif-uuid-fallback" && !sql.includes("inventory_item_id")) {
+            return { rowCount: 0, rows: [] };
+          }
           return {
             rowCount: 1,
             rows: [
@@ -68,6 +71,22 @@ vi.mock("@/lib/db", () => ({
               },
             ],
           };
+        }
+        if (sql.includes("SELECT id, title, message, metadata FROM notifications")) {
+          if (params[0] === "notif-uuid-fallback") {
+            return {
+              rowCount: 1,
+              rows: [
+                {
+                  id: "notif-uuid-fallback",
+                  title: "Stock Topped Up: Jameson Irish Whiskey",
+                  message: "Staff topped up Jameson Irish Whiskey",
+                  metadata: { auditId: "audit-uuid-1", inventoryItemId: "item-whiskey" },
+                },
+              ],
+            };
+          }
+          return { rowCount: 0, rows: [] };
         }
         if (sql.includes("UPDATE inventory_top_up_audit")) {
           return { rowCount: 1, rows: [{ id: "audit-uuid-1", status: "approved" }] };
@@ -188,5 +207,24 @@ describe("POST /api/inventory/top-up/[id]/action", () => {
     expect(res.status).toBe(403);
     const data = await res.json();
     expect(data.error).toContain("Segregation of duties");
+  });
+
+  it("resolves top-up using notification ID fallback and disapproves successfully", async () => {
+    const { POST } = await import("@/app/api/inventory/top-up/[id]/action/route");
+
+    const req = new Request("http://localhost/api/inventory/top-up/notif-uuid-fallback/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "disapprove", notes: "Count mismatch" }),
+    });
+
+    const res = await POST(req, {
+      params: Promise.resolve({ id: "notif-uuid-fallback" }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe("disapproved");
+    expect(data.itemName).toBe("Jameson Irish Whiskey");
   });
 });
