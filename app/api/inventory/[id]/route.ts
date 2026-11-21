@@ -182,6 +182,29 @@ export async function PUT(
           ? Number(costPerItem)
           : Number(before.cost_per_item ?? 0);
 
+    const effectiveContainerCount =
+      containerCount !== undefined
+        ? Number(containerCount)
+        : Number(before.container_count ?? 0);
+
+    const resolvedQuantity =
+      quantity !== undefined && Number(quantity) > 0
+        ? Number(quantity)
+        : effectiveContainerCount > 0 && effectiveQuantityPerContainer > 0
+          ? effectiveContainerCount * effectiveQuantityPerContainer
+          : quantity !== undefined
+            ? Number(quantity)
+            : undefined;
+
+    const resolvedCostPrice =
+      cost !== undefined && Number(cost) > 0
+        ? Number(cost)
+        : effectiveCostPerContainer > 0 && effectiveContainerCount > 0
+          ? Number((effectiveCostPerContainer * effectiveContainerCount).toFixed(2))
+          : cost !== undefined
+            ? Number(cost)
+            : undefined;
+
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
     let idx = 1;
@@ -198,9 +221,9 @@ export async function PUT(
       fields.push(`category = $${idx++}`);
       values.push(String(category).trim());
     }
-    if (quantity !== undefined) {
+    if (resolvedQuantity !== undefined) {
       fields.push(`quantity = $${idx++}`);
-      values.push(quantity);
+      values.push(resolvedQuantity);
     }
     if (unit !== undefined) {
       fields.push(`unit = $${idx++}`);
@@ -210,9 +233,9 @@ export async function PUT(
       fields.push(`reorder_level = $${idx++}`);
       values.push(reorderLevel);
     }
-    if (cost !== undefined) {
+    if (resolvedCostPrice !== undefined) {
       fields.push(`cost_price = $${idx++}`);
-      values.push(cost);
+      values.push(resolvedCostPrice);
     }
     if (supplier !== undefined) {
       fields.push(`supplier = $${idx++}`);

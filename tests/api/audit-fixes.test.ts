@@ -55,4 +55,14 @@ describe("Audit fixes and operational invariants", () => {
     expect(checkoutRoute).toContain('direction: "credit"');
     expect(checkoutRoute).toContain('source: "hotel_checkout"');
   });
+
+  it("calculates inventory stock quantity from packaging in PUT and auto-heals zero-quantity items in GET", async () => {
+    const putRoute = await readFile(path.join(rootDir, "app/api/inventory/[id]/route.ts"), "utf8");
+    expect(putRoute).toContain("effectiveContainerCount > 0 && effectiveQuantityPerContainer > 0");
+    expect(putRoute).toContain("effectiveContainerCount * effectiveQuantityPerContainer");
+
+    const getRoute = await readFile(path.join(rootDir, "app/api/inventory/route.ts"), "utf8");
+    expect(getRoute).toContain("effectiveQuantity = rawQty > 0 ? rawQty : (effectiveContainerCount > 0 && qtyPerContainer > 0 ? effectiveContainerCount * qtyPerContainer : rawQty)");
+    expect(getRoute).toContain("Auto-heal inventory items failed");
+  });
 });

@@ -26,6 +26,22 @@ export async function GET() {
   try {
     const access = await requirePermission("inventory");
     if (access.error) return access.error;
+
+    // Auto-heal existing inventory items where packaging data exists but stock quantity or packaging costs were never initialized or synced
+    if (process.env.NODE_ENV !== "test") {
+      await query(`
+        UPDATE inventory
+        SET container_count = CASE WHEN (container_count = 0 OR container_count IS NULL) AND quantity_per_container > 0 AND (cost_per_container > 0 OR cost_price > 0) THEN 1 ELSE container_count END,
+            quantity = CASE WHEN (quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0 THEN ROUND(COALESCE(NULLIF(container_count, 0), 1) * quantity_per_container, 4) ELSE quantity END,
+            cost_price = CASE WHEN (cost_price = 0 OR cost_price IS NULL) AND cost_per_container > 0 THEN ROUND(cost_per_container * COALESCE(NULLIF(container_count, 0), 1), 2) ELSE cost_price END,
+            cost_per_item = CASE WHEN (cost_per_item = 0 OR cost_per_item IS NULL) AND cost_per_container > 0 AND quantity_per_container > 0 THEN ROUND(cost_per_container / quantity_per_container, 4) ELSE cost_per_item END,
+            last_updated = NOW()
+        WHERE ((quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0)
+           OR ((cost_price = 0 OR cost_price IS NULL) AND cost_per_container > 0)
+           OR ((cost_per_item = 0 OR cost_per_item IS NULL) AND cost_per_container > 0 AND quantity_per_container > 0)
+      `).catch((err) => console.error("Auto-heal inventory items failed:", err));
+    }
+
     const res = await query(
       `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode,
         active_uom.base_unit AS active_uom_base_unit,
@@ -47,32 +63,44 @@ export async function GET() {
     const canonicalMenuLedger = await getCanonicalInventoryMenuLedger();
     const availabilityByInventoryName = new Map(canonicalMenuLedger.map((item) => [item.name, item]));
     return NextResponse.json(
-      res.rows.map((r: Record<string, unknown>) => ({
-        id: r.id,
-        name: r.menu_item_name ?? r.name ?? "",
-        sku: r.menu_item_barcode ?? r.sku ?? "",
-        category: r.category ?? "ingredient",
-        quantity: String(r.quantity),
-        unit: r.unit ?? "units",
-        containerUnit: r.container_unit ?? "",
-        quantityPerContainer: String(r.quantity_per_container ?? 1),
-        containerCount: String(r.container_count ?? 0),
-        costPerContainer: String(r.cost_per_container ?? 0),
-        costPerItem: String(r.cost_per_item ?? 0),
-        reorderLevel: String(r.reorder_level ?? 0),
-        cost: String(r.cost_price ?? 0),
-        supplier: r.supplier ?? "",
-        lastUpdated: r.last_updated ?? undefined,
-        menuItemId: r.menu_item_id ?? undefined,
-        baseUnit: r.active_uom_base_unit ?? r.base_unit ?? undefined,
-        recipeUnit: r.active_uom_base_unit ?? r.recipe_unit ?? undefined,
-        conversionRatio: String(r.active_uom_factor ?? r.conversion_ratio ?? ""),
-        conversionType: r.conversion_type ?? "standard",
-        conversionRuleMissing: Boolean(r.conversion_rule_missing),
-        chefYieldPerStockUnit: r.chef_yield_per_stock_unit != null ? String(r.chef_yield_per_stock_unit) : undefined,
-        densityGPerMl: r.density_g_per_ml != null ? String(r.density_g_per_ml) : undefined,
-        canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
-      })),
+      res.rows.map((r: Record<string, unknown>) => {
+        const rawQty = Number(r.quantity ?? 0);
+        const qtyPerContainer = Number(r.quantity_per_container ?? 0);
+        const containerCnt = Number(r.container_count ?? 0);
+        const costPerCont = Number(r.cost_per_container ?? 0);
+        const rawCostPrice = Number(r.cost_price ?? 0);
+        const effectiveContainerCount = containerCnt > 0 ? containerCnt : ((qtyPerContainer > 0 && (costPerCont > 0 || rawCostPrice > 0)) ? 1 : 0);
+        const effectiveQuantity = rawQty > 0 ? rawQty : (effectiveContainerCount > 0 && qtyPerContainer > 0 ? effectiveContainerCount * qtyPerContainer : rawQty);
+        const effectiveCostPrice = rawCostPrice > 0 ? rawCostPrice : (costPerCont > 0 && effectiveContainerCount > 0 ? costPerCont * effectiveContainerCount : costPerCont);
+        const effectiveCostPerItem = Number(r.cost_per_item ?? 0) > 0 ? Number(r.cost_per_item) : (costPerCont > 0 && qtyPerContainer > 0 ? costPerCont / qtyPerContainer : 0);
+
+        return {
+          id: r.id,
+          name: r.menu_item_name ?? r.name ?? "",
+          sku: r.menu_item_barcode ?? r.sku ?? "",
+          category: r.category ?? "ingredient",
+          quantity: String(effectiveQuantity),
+          unit: r.unit ?? "units",
+          containerUnit: r.container_unit ?? "",
+          quantityPerContainer: String(r.quantity_per_container ?? 1),
+          containerCount: String(effectiveContainerCount),
+          costPerContainer: String(r.cost_per_container ?? 0),
+          costPerItem: String(effectiveCostPerItem),
+          reorderLevel: String(r.reorder_level ?? 0),
+          cost: String(effectiveCostPrice),
+          supplier: r.supplier ?? "",
+          lastUpdated: r.last_updated ?? undefined,
+          menuItemId: r.menu_item_id ?? undefined,
+          baseUnit: r.active_uom_base_unit ?? r.base_unit ?? undefined,
+          recipeUnit: r.active_uom_base_unit ?? r.recipe_unit ?? undefined,
+          conversionRatio: String(r.active_uom_factor ?? r.conversion_ratio ?? ""),
+          conversionType: r.conversion_type ?? "standard",
+          conversionRuleMissing: Boolean(r.conversion_rule_missing),
+          chefYieldPerStockUnit: r.chef_yield_per_stock_unit != null ? String(r.chef_yield_per_stock_unit) : undefined,
+          densityGPerMl: r.density_g_per_ml != null ? String(r.density_g_per_ml) : undefined,
+          canonicalMenuAvailability: availabilityByInventoryName.get(String(r.menu_item_name ?? r.name))?.inStock ?? null,
+        };
+      }),
     );
   } catch (error) {
     console.error("Inventory GET failed:", error);

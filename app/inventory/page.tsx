@@ -595,6 +595,30 @@ function InventoryContent() {
     }
 
 
+    const effectiveContainerCount = Number(editingItem.containerCount || 0);
+    const effectiveQuantityPerContainer = Number(editingItem.quantityPerContainer || 0);
+    const packagingCalculatedQuantity =
+      effectiveContainerCount > 0 && effectiveQuantityPerContainer > 0
+        ? effectiveContainerCount * effectiveQuantityPerContainer
+        : 0;
+    const finalQuantity =
+      quantity > 0
+        ? quantity
+        : packagingCalculatedQuantity > 0
+          ? packagingCalculatedQuantity
+          : 0;
+
+    const packagingCalculatedCost =
+      costPerContainer > 0 && effectiveContainerCount > 0
+        ? costPerContainer * effectiveContainerCount
+        : 0;
+    const finalCost =
+      cost > 0
+        ? cost
+        : packagingCalculatedCost > 0
+          ? packagingCalculatedCost
+          : 0;
+
     setIsSavingItem(true);
     try {
       if (isNewItem) {
@@ -604,8 +628,9 @@ function InventoryContent() {
           ...newItemData,
           name: editingItem.name.trim(),
           sku: editingItem.sku.trim(),
-          quantity: quantity.toString(),
-          cost: cost.toString(),
+          quantity: finalQuantity.toString(),
+          cost: finalCost.toString(),
+          unit: editingItem.unit || "units",
           reorderLevel: reorderLevel.toString(),
           lastUpdated: new Date().toISOString(),
         };
@@ -619,6 +644,9 @@ function InventoryContent() {
       } else {
         const updatedItem = {
           ...editingItem,
+          quantity: finalQuantity.toString(),
+          cost: finalCost.toString(),
+          unit: editingItem.unit || "units",
           lastUpdated: new Date().toISOString(),
         };
         const savedItem = await updateInventoryItem(updatedItem);
@@ -1521,27 +1549,115 @@ function InventoryContent() {
                     Packaging cost is calculated from Cost per container.
                   </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
-                  <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Purchase packaging</p>
+                  <p className="mb-3 text-sm font-medium text-orange-800 dark:text-orange-200">Purchase packaging & stock units</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="grid gap-2">
-                      <Label htmlFor="containerUnit" className="text-orange-700 dark:text-orange-300">Container unit</Label>
+                      <Label htmlFor="containerUnit" className="text-orange-700 dark:text-orange-300">Container / purchase unit</Label>
                       <UnitSelect value={editingItem.containerUnit || ""} onChange={(value) => setEditingItem({ ...editingItem, containerUnit: String(value) })} placeholder="Crate, box, bag..." />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label><p className="text-xs text-muted-foreground">Packaging only; does not change current stock.</p>
-                      <Input id="quantityPerContainer" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.quantityPerContainer)} aria-describedby={editorErrors.quantityPerContainer ? "quantity-per-container-error" : undefined} value={editingItem.quantityPerContainer || ""} onChange={(e) => { const per = e.target.value; const count = Number(editingItem.containerCount || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1); const totalCost = Number(editingItem.costPerContainer || 0) * count; setEditingItem({ ...editingItem, quantityPerContainer: per, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
+                      <Label htmlFor="stockUnit" className="text-orange-700 dark:text-orange-300">Stock unit (items inside)</Label>
+                      <UnitSelect value={editingItem.unit || "units"} onChange={(value) => setEditingItem({ ...editingItem, unit: String(value) || "units" })} placeholder="Bottle, can, piece, unit..." />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="quantityPerContainer" className="text-orange-700 dark:text-orange-300">Items per container</Label>
+                      <Input
+                        id="quantityPerContainer"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        aria-invalid={Boolean(editorErrors.quantityPerContainer)}
+                        aria-describedby={editorErrors.quantityPerContainer ? "quantity-per-container-error" : undefined}
+                        value={editingItem.quantityPerContainer || ""}
+                        onChange={(e) => {
+                          const per = e.target.value;
+                          const count = Number(editingItem.containerCount || 0);
+                          const perItem = Number(editingItem.costPerContainer || 0) / Math.max(Number(per || 0), 1);
+                          const totalCost = Number(editingItem.costPerContainer || 0) * count;
+                          const newQty = (count * Number(per || 0)).toString();
+                          setEditingItem({
+                            ...editingItem,
+                            quantityPerContainer: per,
+                            costPerItem: perItem.toFixed(2),
+                            cost: totalCost.toFixed(2),
+                            quantity: count > 0 && Number(per) > 0 ? newQty : editingItem.quantity,
+                          });
+                        }}
+                      />
+                      {editorErrors.quantityPerContainer && <p id="quantity-per-container-error" className="text-xs text-destructive">{editorErrors.quantityPerContainer}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="containerCount" className="text-orange-700 dark:text-orange-300">Container count</Label>
-                      <Input id="containerCount" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.containerCount)} aria-describedby={editorErrors.containerCount ? "container-count-error" : undefined} value={editingItem.containerCount || ""} onChange={(e) => { const count = e.target.value; const perContainer = Number(editingItem.quantityPerContainer || 0); const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1); const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0); setEditingItem({ ...editingItem, containerCount: count, costPerItem: perItem.toFixed(2), cost: totalCost.toFixed(2) }); }} />
+                      <Input
+                        id="containerCount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        aria-invalid={Boolean(editorErrors.containerCount)}
+                        aria-describedby={editorErrors.containerCount ? "container-count-error" : undefined}
+                        value={editingItem.containerCount || ""}
+                        onChange={(e) => {
+                          const count = e.target.value;
+                          const perContainer = Number(editingItem.quantityPerContainer || 0);
+                          const perItem = Number(editingItem.costPerContainer || 0) / Math.max(perContainer, 1);
+                          const totalCost = Number(editingItem.costPerContainer || 0) * Number(count || 0);
+                          const newQty = (Number(count || 0) * perContainer).toString();
+                          setEditingItem({
+                            ...editingItem,
+                            containerCount: count,
+                            costPerItem: perItem.toFixed(2),
+                            cost: totalCost.toFixed(2),
+                            quantity: Number(count) > 0 && perContainer > 0 ? newQty : editingItem.quantity,
+                          });
+                        }}
+                      />
+                      {editorErrors.containerCount && <p id="container-count-error" className="text-xs text-destructive">{editorErrors.containerCount}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="costPerContainer" className="text-orange-700 dark:text-orange-300">Cost per container (₵)</Label>
-                      <Input id="costPerContainer" type="number" min="0" step="0.01" aria-invalid={Boolean(editorErrors.costPerContainer)} aria-describedby={editorErrors.costPerContainer ? "cost-per-container-error" : undefined} value={editingItem.costPerContainer || ""} onChange={(e) => { const costPerContainer = e.target.value; const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1); const count = Number(editingItem.containerCount || 0); setEditingItem({ ...editingItem, costPerContainer, costPerItem: perItem.toFixed(2), cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0) }); }} />
+                      <Input
+                        id="costPerContainer"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        aria-invalid={Boolean(editorErrors.costPerContainer)}
+                        aria-describedby={editorErrors.costPerContainer ? "cost-per-container-error" : undefined}
+                        value={editingItem.costPerContainer || ""}
+                        onChange={(e) => {
+                          const costPerContainer = e.target.value;
+                          const perItem = Number(costPerContainer || 0) / Math.max(Number(editingItem.quantityPerContainer || 0), 1);
+                          const count = Number(editingItem.containerCount || 0);
+                          setEditingItem({
+                            ...editingItem,
+                            costPerContainer,
+                            costPerItem: perItem.toFixed(2),
+                            cost: String(Number((perItem * Number(editingItem.quantityPerContainer || 0) * count).toFixed(2)) || 0),
+                          });
+                        }}
+                      />
+                      {editorErrors.costPerContainer && <p id="cost-per-container-error" className="text-xs text-destructive">{editorErrors.costPerContainer}</p>}
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="stockQuantity" className="text-orange-700 dark:text-orange-300">Total units in stock</Label>
+                      <Input
+                        id="stockQuantity"
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        aria-invalid={Boolean(editorErrors.quantity)}
+                        aria-describedby={editorErrors.quantity ? "quantity-error" : undefined}
+                        value={editingItem.quantity}
+                        onChange={(e) => setEditingItem({ ...editingItem, quantity: e.target.value })}
+                      />
+                      {editorErrors.quantity && <p id="quantity-error" className="text-xs text-destructive">{editorErrors.quantity}</p>}
                     </div>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">Total items: <strong>{editingItem.quantity || "0"} {editingItem.containerUnit || editingItem.unit || "units"}</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong></p>
-                  <p className="mt-2 rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100"><strong>Unit tip:</strong> {getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Purchase unit is how stock arrives; choose a chef unit below based on how the item is measured in recipes.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Total stock: <strong>{editingItem.quantity || "0"} {editingItem.unit || "units"}</strong> · Packaging: <strong>{editingItem.containerCount || "0"} {editingItem.containerUnit || "containers"} ({editingItem.quantityPerContainer || "1"} per {editingItem.containerUnit || "container"})</strong> · Cost per item: <strong>₵{editingItem.costPerItem || "0"}</strong>
+                  </p>
+                  <p className="mt-2 rounded-xl border border-orange-200/80 bg-white/60 px-3 py-2 text-xs leading-relaxed text-orange-900 dark:border-orange-700/70 dark:bg-orange-950/20 dark:text-orange-100">
+                    <strong>Unit tip:</strong> {getUnitSelectionHint(editingItem.containerUnit || editingItem.unit)} Stock unit is how individual items are counted in stock. Choose a chef recipe unit below based on how the item is measured in recipes.
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-700 dark:bg-orange-950/20">
                   <p className="mb-1 text-sm font-medium text-orange-800 dark:text-orange-200">How chefs use this item</p>
