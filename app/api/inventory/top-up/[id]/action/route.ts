@@ -5,6 +5,40 @@ import { publishRealtime } from "@/lib/realtime";
 import { updateSystemState } from "@/lib/system-sync";
 import { ensureTopUpReviewSchema } from "@/lib/db/ensure-topup-schema";
 
+interface TopUpAuditRecord {
+  id: string;
+  inventory_item_id: string;
+  quantity_before: number | string;
+  quantity_added: number | string;
+  quantity_after: number | string;
+  performed_by: string;
+  performed_at: string;
+  source?: string;
+  status?: string;
+  reviewed_by?: string;
+  reviewed_by_name?: string;
+  reviewed_by_role?: string;
+  review_notes?: string;
+  reviewed_at?: string;
+  request_metadata?: Record<string, unknown> | null;
+  item_name?: string;
+  item_unit?: string;
+  current_stock?: number | string;
+  current_packaging_price?: number | string | null;
+  current_cost_per_item?: number | string | null;
+  quantity_per_container?: number | string | null;
+  correlation_id?: string | null;
+  idempotency_key?: string | null;
+  evidence_pathname?: string | null;
+}
+
+interface NotificationMetadataRecord {
+  metadata?: {
+    auditId?: string;
+    [key: string]: unknown;
+  } | null;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,7 +72,7 @@ export async function POST(
     const reviewerName = reviewer.name || reviewer.email;
 
     const result = await transaction(async (client) => {
-      let auditResult = { rows: [] as any[] };
+      let auditResult = { rows: [] as TopUpAuditRecord[] };
       try {
         auditResult = await client.query(
           `SELECT a.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock,
@@ -56,7 +90,7 @@ export async function POST(
 
       if (!auditResult.rows[0]) {
         // Fallback: check if id is a notification id
-        let notifResult = { rows: [] as any[] };
+        let notifResult = { rows: [] as NotificationMetadataRecord[] };
         try {
           notifResult = await client.query(
             `SELECT metadata FROM notifications WHERE id = $1::uuid LIMIT 1`,

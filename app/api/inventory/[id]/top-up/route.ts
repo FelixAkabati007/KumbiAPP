@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     const contentType = req.headers.get("content-type") || "";
-    let body: any = {};
+    let body: Record<string, unknown> = {};
     let evidenceFile: File | null = null;
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData().catch(() => new FormData());
