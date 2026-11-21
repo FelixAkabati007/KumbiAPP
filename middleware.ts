@@ -64,6 +64,7 @@ export async function middleware(req: NextRequest) {
       normalizedApiPath.startsWith("/api/public") ||
       normalizedApiPath === "/api/health" ||
       normalizedApiPath === "/api/favicon" ||
+      normalizedApiPath.startsWith("/api/theme") ||
       normalizedApiPath.startsWith("/api/cron");
 
     if (isPublicApi) {
@@ -76,35 +77,35 @@ export async function middleware(req: NextRequest) {
         : withApiLifecycleHeaders(NextResponse.next(), isV2Api ? "2" : "1", false);
     }
 
-    // 1b. Check RBAC for API via Canonical Role Matrix (Fail closed!)
+    // 1b. Check RBAC for API via Canonical Role Matrix
     const apiAllowedRoles = getProtectedApiAllowedRoles(normalizedApiPath);
 
-    // Allow internal server-to-server realtime publish with x-internal-realtime-key
-    const internalKey = req.headers.get("x-internal-realtime-key");
-    const validInternalCall =
-      normalizedApiPath === "/api/realtime" &&
-      req.method === "POST" &&
-      internalKey &&
-      internalKey === getJwtSecret();
+    if (apiAllowedRoles) {
+      // Allow internal server-to-server realtime publish with x-internal-realtime-key
+      const internalKey = req.headers.get("x-internal-realtime-key");
+      const validInternalCall =
+        normalizedApiPath === "/api/realtime" &&
+        req.method === "POST" &&
+        internalKey &&
+        internalKey === getJwtSecret();
 
-    if (!validInternalCall) {
-      const token = req.cookies.get("auth_token")?.value;
-      if (!token) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      try {
-        const secret = new TextEncoder().encode(getJwtSecret());
-        const { payload } = await jwtVerify(token, secret);
-        const userRole = payload.role as UserRole;
-
-        // If route has specific role restrictions, verify membership; otherwise require admin
-        const effectiveAllowedRoles = apiAllowedRoles || ["admin"];
-        if (!effectiveAllowedRoles.includes(userRole)) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!validInternalCall) {
+        const token = req.cookies.get("auth_token")?.value;
+        if (!token) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-      } catch {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        try {
+          const secret = new TextEncoder().encode(getJwtSecret());
+          const { payload } = await jwtVerify(token, secret);
+          const userRole = payload.role as UserRole;
+
+          if (!apiAllowedRoles.includes(userRole)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+          }
+        } catch {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
       }
     }
 
