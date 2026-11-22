@@ -37,7 +37,16 @@ import {
   Clock3,
   CalendarDays,
   SplitSquareHorizontal,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LogoDisplay } from "@/components/logo-display";
 import { useAuth } from "@/components/auth-provider";
 import { SignInForm } from "@/components/sign-in-form";
@@ -703,9 +712,9 @@ function DashboardContent() {
       className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="shrink-0 sticky top-0 z-50 w-full min-w-0 border-b border-orange-200/80 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md shadow-sm dark:border-orange-700/80 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="w-full max-w-[1920px] mx-auto flex h-14 sm:h-16 xl:h-[4.25rem] min-w-0 items-center justify-between gap-1.5 sm:gap-2.5 md:gap-3 lg:gap-4 px-2 sm:px-4 md:px-6 2xl:px-8">
-          {/* Left Cluster: Brand Identity + Welcome + Split Workspaces */}
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 md:gap-3 lg:gap-4">
+        <div className="w-full max-w-[1920px] mx-auto flex h-14 sm:h-16 xl:h-[4.25rem] min-w-0 items-center justify-between gap-2 sm:gap-3 md:gap-4 px-2 sm:px-4 md:px-6 2xl:px-8">
+          {/* Left Cluster: Brand Identity + Split Workspaces + Quick Workstations */}
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:gap-3.5">
             <Link
               href="/"
               className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 hover:opacity-90 transition-opacity"
@@ -713,166 +722,145 @@ function DashboardContent() {
               <LogoDisplay size="sm" />
               <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 dark:text-orange-400 shrink-0" />
               <div className="flex flex-col min-w-0">
-                <span className="inline-block min-w-0 truncate font-bold text-sm sm:text-base lg:text-lg xl:text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                <span className="inline-block min-w-0 truncate font-bold text-sm sm:text-base lg:text-lg text-gray-800 dark:text-gray-200 leading-tight">
                   {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
                   <span className="sm:hidden">KHRMS</span>
                   <span
-                    className="hidden min-w-0 truncate sm:inline"
+                    className="hidden min-w-0 truncate sm:inline max-w-[10rem] md:max-w-[14rem] lg:max-w-[18rem] xl:max-w-[24rem]"
                     suppressHydrationWarning
                   >
                     {settings.account.restaurantName}
                   </span>
                 </span>
-                <span className="hidden 2xl:inline-block text-[10px] text-orange-600/80 dark:text-orange-400/80 font-medium">
+                <span className="hidden xl:inline-block text-[10px] text-orange-600/80 dark:text-orange-400/80 font-medium tracking-wide">
                   Hospitality &amp; Restaurant ERP
                 </span>
               </div>
             </Link>
 
-            {/* User welcome & role pill/badge: Compact on sm, full card on md+ */}
-            <div className="hidden sm:flex min-w-0 shrink-0 max-w-[10rem] md:max-w-[14rem] lg:max-w-[18rem] 2xl:max-w-[22rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2 py-0.5 sm:px-2.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
-              <span className="truncate text-xs sm:text-sm font-semibold leading-tight text-orange-700 dark:text-orange-300">
-                Welcome, {user.name}
-              </span>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
-                  {getRoleDisplayName(user.role)}
-                </span>
-                <span className="hidden 2xl:inline-block text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded-full">
-                  Active
-                </span>
-              </div>
-            </div>
+            {/* Split Workspaces Dropdown: Clean, compact, never overflows */}
+            {Boolean(
+              (dashboardAccess.pos && dashboardAccess.kitchen) ||
+                (dashboardAccess.reservations && dashboardAccess.checkIn) ||
+                (dashboardAccess.menu && dashboardAccess.inventory),
+            ) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Split Workspaces"
+                    className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200/90 bg-orange-100/60 px-2.5 sm:px-3 text-orange-800 shadow-sm hover:bg-orange-200/80 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200 dark:hover:bg-orange-900/60 text-xs xl:text-sm font-medium"
+                  >
+                    <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+                    <span className="hidden sm:inline">Split Views</span>
+                    <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-64 rounded-2xl p-1.5 shadow-xl border-orange-200 dark:border-orange-800"
+                >
+                  <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1.5">
+                    Split Screen Workspaces
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {dashboardAccess.pos && dashboardAccess.kitchen && (
+                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                      <Link href="/split-workspace" className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300">
+                          <Utensils className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-xs text-foreground">POS + Kitchen</span>
+                          <span className="text-[10px] text-muted-foreground truncate">Live ordering &amp; ticket display</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {dashboardAccess.reservations && dashboardAccess.checkIn && (
+                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                      <Link href="/hotel-split-workspace" className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                          <DoorOpen className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-xs text-foreground">Hotel Desk</span>
+                          <span className="text-[10px] text-muted-foreground truncate">Reservations &amp; check-in desk</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {dashboardAccess.menu && dashboardAccess.inventory && (
+                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                      <Link href="/menu-inventory-split-workspace" className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-xs text-foreground">Menu + Inventory</span>
+                          <span className="text-[10px] text-muted-foreground truncate">Stock availability &amp; menu items</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
-            {/* Split Workspaces: hidden on mobile (<768px), icon on tablet, labeled on desktop */}
-            <div className="hidden md:flex min-w-0 items-center gap-1 lg:gap-1.5 xl:gap-2">
-              {dashboardAccess.pos && dashboardAccess.kitchen && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link className="shrink-0" href="/split-workspace">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label="Open split POS and Kitchen workspace"
-                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
-                        >
-                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline">
-                            Split POS + Kitchen
-                          </span>
-                        </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="xl:hidden">
-                      <p>Split POS + Kitchen Workspace</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {dashboardAccess.reservations && dashboardAccess.checkIn && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link className="shrink-0" href="/hotel-split-workspace">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label="Open split Reservations and Check-In workspace"
-                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
-                        >
-                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline">
-                            Split Hotel Desk
-                          </span>
-                        </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="xl:hidden">
-                      <p>Split Hotel Desk Workspace</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {dashboardAccess.menu && dashboardAccess.inventory && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link className="shrink-0" href="/menu-inventory-split-workspace">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label="Open split Menu Management and Inventory workspace"
-                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
-                        >
-                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline">
-                            Split Menu + Inventory
-                          </span>
-                        </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="xl:hidden">
-                      <p>Split Menu + Inventory Workspace</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-
-          {/* Right Cluster: Search + Utilities + Profile */}
-          <nav
-            aria-label="Dashboard actions"
-            className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2 xl:gap-2.5"
-          >
-            {/* Quick module jumps on ultra-wide / 2xl+ displays */}
-            <div className="hidden 2xl:flex items-center gap-1 border-r border-orange-200/80 dark:border-orange-700/80 pr-2">
+            {/* Quick Workstation Shortcuts on Ultra-Wide / 2xl+ */}
+            <div className="hidden 2xl:flex items-center gap-1 border-l border-orange-200/80 dark:border-orange-700/80 pl-3 ml-1">
               {dashboardAccess.pos && (
                 <Link href="/pos">
-                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
                     POS
                   </Button>
                 </Link>
               )}
               {dashboardAccess.kitchen && (
                 <Link href="/kitchen">
-                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
                     Kitchen
                   </Button>
                 </Link>
               )}
               {dashboardAccess.checkIn && (
                 <Link href="/hotels/check-in">
-                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
-                    Front Desk
+                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                    Hotel Desk
                   </Button>
                 </Link>
               )}
               {dashboardAccess.events && (
                 <Link href="/events">
-                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
                     Events
                   </Button>
                 </Link>
               )}
             </div>
+          </div>
 
-            {/* Global Search: auto-width on mobile icon, expanded bar on sm+ */}
-            <div className="shrink-0 sm:w-36 md:w-48 lg:w-56 xl:w-64 2xl:w-80">
+          {/* Right Cluster: Search + Utilities + User Identity & Avatar */}
+          <nav
+            aria-label="Dashboard actions"
+            className="flex shrink-0 items-center gap-1.5 sm:gap-2 md:gap-2.5"
+          >
+            {/* Global Search: Icon on mobile, proportional input on larger screens */}
+            <div className="shrink-0 w-9 sm:w-32 md:w-40 lg:w-48 xl:w-60 2xl:w-72">
               <GlobalSearch role={user?.role} />
             </div>
 
             {/* Offline Sync Status */}
             <OfflineSyncIndicator />
 
-            {/* App updates - visible on sm+ */}
-            <div className="hidden sm:inline-flex">
+            {/* App updates - visible on lg+ */}
+            <div className="hidden lg:inline-flex">
               <AppUpdateMenu />
             </div>
 
-            {/* Settings shortcut button - visible on sm+ (on mobile it is in UserNav) */}
-            <Link className="hidden sm:inline-flex shrink-0" href="/settings">
+            {/* Settings shortcut button - visible on md+ (always in UserNav on smaller screens) */}
+            <Link className="hidden md:inline-flex shrink-0" href="/settings">
               <Button
                 variant="outline"
                 size="sm"
@@ -884,14 +872,14 @@ function DashboardContent() {
               </Button>
             </Link>
 
-            {/* Fullscreen toggle on lg+ */}
+            {/* Fullscreen toggle on xl+ */}
             <Button
               variant="outline"
               size="sm"
               aria-label={isFullscreen ? "Minimize" : "Maximize"}
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               onClick={handleToggleFullscreen}
-              className="hidden lg:inline-flex h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+              className="hidden xl:inline-flex h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
             >
               {isFullscreen ? (
                 <Minimize2 className="h-4 w-4" />
@@ -899,27 +887,6 @@ function DashboardContent() {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
-
-            {/* Direct Sign Out on xl+ screens (available in UserNav on smaller screens) */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogout}
-                    aria-label="Sign out"
-                    title="Sign Out"
-                    className="hidden xl:inline-flex h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sign Out (Ctrl+Shift+L)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
             {/* Notification Bell (always visible) */}
             <div
@@ -929,8 +896,16 @@ function DashboardContent() {
               <NotificationBell />
             </div>
 
-            {/* User Profile Avatar dropdown (always visible) */}
-            <div className="flex shrink-0 justify-end">
+            {/* User Profile Info + Avatar dropdown (always visible) */}
+            <div className="flex shrink-0 items-center gap-2 pl-0.5 sm:pl-1">
+              <div className="hidden xl:flex flex-col items-end text-right min-w-0">
+                <span className="truncate text-xs font-semibold leading-tight text-gray-800 dark:text-gray-200 max-w-[8rem] 2xl:max-w-[12rem]">
+                  {user.name}
+                </span>
+                <span className="truncate text-[10px] font-medium text-orange-600 dark:text-orange-400">
+                  {getRoleDisplayName(user.role)}
+                </span>
+              </div>
               <UserNav />
             </div>
           </nav>

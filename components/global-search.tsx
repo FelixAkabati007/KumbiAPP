@@ -61,7 +61,7 @@ export function GlobalSearch({ role }: { role?: string | null }) {
         <Button
           variant="outline"
           size="sm"
-          className="h-9 sm:h-10 w-full justify-between gap-2 rounded-2xl border-orange-200/90 bg-background/90 px-2.5 sm:px-3 text-orange-700 shadow-sm hover:bg-orange-50/80 dark:border-orange-700/80 dark:text-orange-300 dark:hover:bg-orange-900/20"
+          className="h-9 w-9 sm:w-full sm:h-10 p-0 sm:px-3 justify-center sm:justify-between gap-2 rounded-2xl border-orange-200/90 bg-background/90 text-orange-700 shadow-sm hover:bg-orange-50/80 dark:border-orange-700/80 dark:text-orange-300 dark:hover:bg-orange-900/20"
           aria-label="Open global search"
         >
           <div className="flex items-center gap-2 min-w-0">
