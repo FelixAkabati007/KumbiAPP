@@ -484,22 +484,28 @@ function InventoryContent() {
     }
   }, [lastEvent, loadInventory, canReviewVariance, loadPendingVariances, loadPendingTopUps]);
 
-  const handleVarianceAction = async (action: "approve" | "reject") => {
-    if (!selectedVariance) return;
+  const handleVarianceAction = async (
+    action: "approve" | "reject",
+    targetVariance?: VarianceReviewItem,
+    customNotes?: string
+  ) => {
+    const varianceToProcess = targetVariance ?? selectedVariance;
+    if (!varianceToProcess) return;
     setIsProcessingVarianceAction(true);
     try {
-      const response = await fetch(`/api/inventory/variance/${selectedVariance.id}/action`, {
+      const notes = (customNotes ?? varianceReviewNotes).trim();
+      const response = await fetch(`/api/inventory/variance/${varianceToProcess.id}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, notes: varianceReviewNotes.trim() }),
+        body: JSON.stringify({ action, notes }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `Failed to ${action} variance`);
+      if (!response.ok) throw new Error(data.error || `Failed to ${action} stock issue`);
       toast({
         title: action === "approve" ? "Stock Issue Approved" : "Stock Issue Rejected",
         description: action === "approve"
-          ? `Approved write-off of ${selectedVariance.quantity} ${selectedVariance.item_unit} for ${selectedVariance.item_name}.`
-          : `Rejected stock issue report for ${selectedVariance.item_name}.`,
+          ? `Approved write-off of ${varianceToProcess.quantity} ${varianceToProcess.item_unit} for ${varianceToProcess.item_name}.`
+          : `Rejected stock issue report for ${varianceToProcess.item_name}.`,
       });
       setSelectedVariance(null);
       setVarianceReviewNotes("");
@@ -2434,17 +2440,29 @@ function InventoryContent() {
                               )}
 
                               {variance.status === "pending" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedVariance(variance);
-                                    setVarianceReviewNotes("");
-                                  }}
-                                  className="rounded-xl border-rose-300 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold h-8"
-                                >
-                                  Review & Act
-                                </Button>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedVariance(variance);
+                                      setVarianceReviewNotes("");
+                                    }}
+                                    className="rounded-xl border-rose-300 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold h-8"
+                                  >
+                                    Review & Act
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    disabled={isProcessingVarianceAction}
+                                    onClick={() => handleVarianceAction("approve", variance)}
+                                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-8"
+                                  >
+                                    <Check className="h-3.5 w-3.5 mr-1" />
+                                    Approve & Write Off
+                                  </Button>
+                                </>
                               ) : (
                                 <Button
                                   size="sm"

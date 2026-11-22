@@ -6,6 +6,10 @@ import { publishRealtime } from "@/lib/realtime";
 import { updateSystemState } from "@/lib/system-sync";
 import { ensureInventoryVariancesTable } from "@/lib/db/ensure-variance-table";
 
+const isValidUuid = (val: unknown): boolean =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -37,14 +41,16 @@ export async function POST(
 
     const reviewer = access.session;
     const reviewerName = reviewer.name || reviewer.email;
+    const reviewerUuid = isValidUuid(reviewer.id) ? reviewer.id : null;
 
     const result = await transaction(async (client) => {
-      // 1. Lock variance row
+      // 1. Lock variance row with scoped lock
       const varianceResult = await client.query(
         `SELECT v.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock
          FROM inventory_variances v
          JOIN inventory i ON i.id = v.inventory_item_id
-         WHERE v.id = $1 FOR UPDATE`,
+         WHERE v.id::text = $1::text
+         FOR UPDATE OF v`,
         [id]
       );
       const variance = varianceResult.rows[0];
@@ -59,7 +65,7 @@ export async function POST(
         );
       }
 
-      if (variance.reported_by === reviewer.id && reviewer.role !== "admin") {
+      if (variance.reported_by && variance.reported_by === reviewer.id && reviewer.role !== "admin") {
         throw Object.assign(
           new Error("Segregation of duties: Requesters cannot review their own stock issue report"),
           { code: "SELF_REVIEW_FORBIDDEN" }
@@ -67,32 +73,67 @@ export async function POST(
       }
 
       if (action === "approve") {
-        const qtyToDeduct = Number(variance.quantity);
+        const qtyToDeduct = Math.max(0, Number(variance.quantity));
 
         // 2. Lock and update inventory item balance
         const updatedInventory = await client.query(
           `UPDATE inventory
            SET quantity = GREATEST(0, quantity - $1), last_updated = NOW()
-           WHERE id = $2
+           WHERE id::text = $2::text
            RETURNING id, name, quantity, unit`,
           [qtyToDeduct, variance.inventory_item_id]
         );
 
-        // 3. Record in inventory movements ledger
-        await client.query(
-          `INSERT INTO inventory_movements (
-            inventory_id, quantity_delta, movement_type, source_type, source_id, actor_id, reason
-          ) VALUES ($1, $2, 'write_off', 'inventory_variance', $3, $4, $5)`,
-          [
-            variance.inventory_item_id,
-            -qtyToDeduct,
-            variance.id,
-            reviewer.id,
-            `Stock issue approved: ${variance.reason}${notes ? ` - ${notes}` : ""}`,
-          ]
-        );
+        // 3. Record in inventory movements ledger (safe try/catch)
+        try {
+          await client.query(
+            `INSERT INTO inventory_movements (
+              inventory_id, quantity_delta, movement_type, source_type, source_id, actor_id, reason
+            ) VALUES ($1, $2, 'write_off', 'inventory_variance', $3, $4, $5)`,
+            [
+              variance.inventory_item_id,
+              -qtyToDeduct,
+              variance.id,
+              reviewerUuid,
+              `Stock issue approved: ${variance.reason}${notes ? ` - ${notes}` : ""}`,
+            ]
+          );
+        } catch (movErr) {
+          console.warn("Failed to record inventory_movements ledger entry:", movErr);
+        }
 
-        // 4. Update variance status to approved
+        // 4. Record in inventory_events audit trail (safe try/catch)
+        try {
+          const currentQty = Number(variance.current_stock ?? 0);
+          const updatedQty = updatedInventory.rows[0]?.quantity ?? Math.max(0, currentQty - qtyToDeduct);
+          await client.query(
+            `INSERT INTO inventory_events (
+              inventory_id, event_type, quantity_before, quantity_delta, quantity_after,
+              reason, staff_id, staff_name, staff_role, correlation_id, metadata
+            ) VALUES ($1, 'WRITE_OFF', $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              variance.inventory_item_id,
+              currentQty,
+              -qtyToDeduct,
+              updatedQty,
+              `Stock write-off approved: ${variance.reason}${notes ? ` - ${notes}` : ""}`,
+              reviewerUuid,
+              reviewerName,
+              reviewer.role,
+              variance.id,
+              JSON.stringify({
+                varianceId: variance.id,
+                reason: variance.reason,
+                reportedBy: variance.reported_by_name,
+                reviewerNotes: notes,
+              }),
+            ]
+          );
+        } catch (evErr) {
+          console.warn("Failed to record inventory_events write-off:", evErr);
+        }
+
+        // 5. Update variance status to approved
         await client.query(
           `UPDATE inventory_variances
            SET status = 'approved',
@@ -102,20 +143,26 @@ export async function POST(
                reviewer_notes = $4,
                reviewed_at = NOW(),
                updated_at = NOW()
-           WHERE id = $5`,
-          [reviewer.id, reviewerName, reviewer.role, notes || null, id]
+           WHERE id::text = $5::text`,
+          [reviewerUuid, reviewerName, reviewer.role, notes || null, id]
         );
 
-        // 5. Notify the reporting staff
-        await client.query(
-          `INSERT INTO notifications (recipient_user_id, title, message, type)
-           VALUES ($1, $2, $3, 'inventory_variance')`,
-          [
-            variance.reported_by,
-            `Stock Issue Approved: ${variance.item_name}`,
-            `Your report for ${qtyToDeduct} ${variance.item_unit} of ${variance.item_name} was approved by ${reviewerName} (${reviewer.role}) and written off.${notes ? ` Note: ${notes}` : ""}`,
-          ]
-        );
+        // 6. Notify the reporting staff (safe try/catch)
+        if (variance.reported_by) {
+          try {
+            await client.query(
+              `INSERT INTO notifications (recipient_user_id, title, message, type)
+               VALUES ($1, $2, $3, 'inventory_variance')`,
+              [
+                variance.reported_by,
+                `Stock Issue Approved: ${variance.item_name}`,
+                `Your report for ${qtyToDeduct} ${variance.item_unit} of ${variance.item_name} was approved by ${reviewerName} (${reviewer.role}) and written off.${notes ? ` Note: ${notes}` : ""}`,
+              ]
+            );
+          } catch (notifErr) {
+            console.warn("Failed to notify reporting staff:", notifErr);
+          }
+        }
 
         return {
           status: "approved",
@@ -133,20 +180,26 @@ export async function POST(
                reviewer_notes = $4,
                reviewed_at = NOW(),
                updated_at = NOW()
-           WHERE id = $5`,
-          [reviewer.id, reviewerName, reviewer.role, notes, id]
+           WHERE id::text = $5::text`,
+          [reviewerUuid, reviewerName, reviewer.role, notes, id]
         );
 
-        // Notify reporting staff of rejection
-        await client.query(
-          `INSERT INTO notifications (recipient_user_id, title, message, type)
-           VALUES ($1, $2, $3, 'inventory_variance')`,
-          [
-            variance.reported_by,
-            `Stock Issue Rejected: ${variance.item_name}`,
-            `Your report for ${variance.quantity} ${variance.item_unit} of ${variance.item_name} was reviewed and rejected by ${reviewerName} (${reviewer.role}). Note: ${notes}`,
-          ]
-        );
+        // Notify reporting staff of rejection (safe try/catch)
+        if (variance.reported_by) {
+          try {
+            await client.query(
+              `INSERT INTO notifications (recipient_user_id, title, message, type)
+               VALUES ($1, $2, $3, 'inventory_variance')`,
+              [
+                variance.reported_by,
+                `Stock Issue Rejected: ${variance.item_name}`,
+                `Your report for ${variance.quantity} ${variance.item_unit} of ${variance.item_name} was reviewed and rejected by ${reviewerName} (${reviewer.role}). Note: ${notes}`,
+              ]
+            );
+          } catch (notifErr) {
+            console.warn("Failed to notify reporting staff:", notifErr);
+          }
+        }
 
         return {
           status: "rejected",
@@ -197,6 +250,9 @@ export async function POST(
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     console.error("Failed to process stock issue action:", error);
-    return NextResponse.json({ error: "Failed to process action on stock issue" }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to process action on stock issue" },
+      { status: 500 }
+    );
   }
 }
