@@ -217,6 +217,15 @@ function DashboardContent() {
       }).format(currentTime)
     : "—";
   const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
+  const accraDate = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: "Africa/Accra",
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(currentTime)
+    : "—";
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -689,6 +698,18 @@ function DashboardContent() {
               </Link>
             )}
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <div
+                className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
+                aria-label={`Current Accra date ${accraDate}`}
+              >
+                <CalendarDays
+                  className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-semibold tracking-tight text-emerald-950 dark:text-emerald-100">
+                  {accraDate}
+                </span>
+              </div>
               <div
                 className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
                 aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
