@@ -77,56 +77,20 @@ function ReceiptContent() {
   const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel" | "event">(
     user?.role === "frontDesk" ? "hotel" : "restaurant",
   );
-  const [hotelActivity, setHotelActivity] = useState<{
-    transaction_id: string;
-    amount: number;
-    metadata?: {
-      description?: string;
-      eventType?: string;
-      reservationId?: number;
-      roomId?: number;
-    };
-    created_at: string;
-  } | null>(null);
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
-  const [recentLookupIds, setRecentLookupIds] = useState<Array<{ id: string; label: string; amount: number }>>([]);
+  const [recentLookupIds, setRecentLookupIds] = useState<Array<{ id: string; label: string; amount: number; source?: string }>>([]);
 
   useEffect(() => {
     let active = true;
     const loadRecentReceipts = async () => {
       try {
-        if (receiptSource === "hotel") {
-          const res = await fetch("/api/hotel-activity?limit=6", { cache: "no-store" });
-          const rows = res.ok ? await res.json() : [];
-          if (active && Array.isArray(rows)) {
-            setRecentLookupIds(
-              rows
-                .filter((r) => r?.metadata?.reservationId || r?.transaction_id)
-                .slice(0, 6)
-                .map((r) => ({
-                  id: String(r.metadata?.reservationId ?? r.transaction_id),
-                  label: `Res #${r.metadata?.reservationId ?? r.transaction_id}`,
-                  amount: Number(r.amount || 0),
-                })),
-            );
-          }
-          return;
-        }
-        const sourceParam = receiptSource === "event" ? "event" : "restaurant";
-        const res = await fetch(`/api/transactions?source=${sourceParam}&limit=6`, { cache: "no-store" });
-        const rows = res.ok ? await res.json() : [];
-        if (active && Array.isArray(rows)) {
-          setRecentLookupIds(
-            rows.slice(0, 6).map((r) => {
-              const orderNo = String(r.metadata?.orderNumber ?? r.transaction_id ?? "");
-              return {
-                id: orderNo,
-                label: orderNo,
-                amount: Number(r.amount || 0),
-              };
-            }).filter((item) => Boolean(item.id)),
-          );
+        const res = await fetch(`/api/receipts/lookup?recent=true&source=${receiptSource}&limit=6`, { cache: "no-store" });
+        const data = res.ok ? await res.json() : null;
+        if (active && data?.recentReceipts && Array.isArray(data.recentReceipts)) {
+          setRecentLookupIds(data.recentReceipts);
+        } else if (active) {
+          setRecentLookupIds([]);
         }
       } catch {
         if (active) setRecentLookupIds([]);
@@ -138,24 +102,31 @@ function ReceiptContent() {
     };
   }, [receiptSource]);
 
-  const toReceiptItems = (items: unknown): OrderItem[] => {
-    if (!Array.isArray(items)) return [];
-    return items.map((item, index) => {
-      const value = item as Record<string, unknown>;
-      const quantity = Number(value.quantity) || 1;
-      const total = Number(value.total_amount ?? value.total ?? value.amount) || 0;
-      return {
-        id: String(value.id ?? `event-item-${index}`),
-        name: String(value.description ?? value.label ?? value.name ?? "Event service"),
-        price: total / quantity,
-        quantity,
-      } as OrderItem;
-    });
-  };
-
   useEffect(() => {
     if (user?.role === "frontDesk") setReceiptSource("hotel");
   }, [user?.role]);
+
+  const executeSearch = async (term: string, source: "restaurant" | "hotel" | "event" = receiptSource) => {
+    setSearchTouched(true);
+    const cleanTerm = term.trim();
+    if (!cleanTerm) {
+      setFoundSale(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/receipts/lookup?query=${encodeURIComponent(cleanTerm)}&source=${source}`);
+      const data = res.ok ? await res.json() : null;
+      if (data?.receipt) {
+        setFoundSale(data.receipt);
+      } else {
+        setFoundSale(null);
+      }
+    } catch (err) {
+      console.error("Receipt lookup error:", err);
+      setFoundSale(null);
+    }
+  };
 
   useEffect(() => {
     const orderParam = searchParams.get("order");
@@ -191,10 +162,7 @@ function ReceiptContent() {
       }
     } else if (orderNumberParam) {
       setSearchOrderNumber(orderNumberParam);
-      setSearchTouched(true);
-      void findSaleByOrderNumber(orderNumberParam.trim()).then((sale) => {
-        setFoundSale(sale || null);
-      });
+      void executeSearch(orderNumberParam, receiptSource);
     } else {
       // Only generate order number on client after mount
       setReceiptData((prev) => ({
@@ -202,38 +170,11 @@ function ReceiptContent() {
         orderNumber: `ORD-${Date.now()}`,
       }));
     }
-  }, [searchParams]);
+  }, [searchParams, receiptSource]);
 
   // Search handler
-  const handleSearch = async () => {
-    setSearchTouched(true);
-  if (receiptSource === "event") {
-  const response = await fetch(`/api/transactions?orderNumber=${encodeURIComponent(searchOrderNumber.trim())}&source=event&limit=1`);
-  const rows = response.ok ? await response.json() : [];
-  const row = Array.isArray(rows) ? rows[0] : null;
-  const items = toReceiptItems(row?.items);
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = Number(row?.amount) || 0;
-  setFoundSale(row ? { id: row.id, orderNumber: row.metadata?.orderNumber ?? row.transaction_id, orderId: row.metadata?.eventId, date: row.created_at, items, subtotal: Number(row.metadata?.subtotal) || subtotal, tax: Math.max(total - (Number(row.metadata?.subtotal) || subtotal), 0), total, orderType: "event booking", customerName: row.metadata?.clientName, paymentMethod: row.payment_method ?? "event booking", performedBy: row.metadata?.performedBy } : null);
-  setHotelActivity(null);
-  return;
-  }
-  if (receiptSource === "hotel") {
-  const response = await fetch(
-        `/api/hotel-activity?reservationId=${encodeURIComponent(searchOrderNumber.trim())}&limit=1`,
-      );
-      const events = response.ok ? await response.json() : [];
-      setHotelActivity(Array.isArray(events) ? (events[0] ?? null) : null);
-      setFoundSale(null);
-      return;
-    }
-    setHotelActivity(null);
-    if (!searchOrderNumber) {
-      setFoundSale(null);
-      return;
-    }
-    const sale = await findSaleByOrderNumber(searchOrderNumber.trim());
-    setFoundSale(sale || null);
+  const handleSearch = () => {
+    void executeSearch(searchOrderNumber, receiptSource);
   };
 
   // Optionally, search on Enter
@@ -294,34 +235,30 @@ function ReceiptContent() {
       return;
     }
 
-      const entityId = receiptSource === "hotel"
-        ? String(hotelActivity?.metadata?.reservationId ?? searchOrderNumber)
-        : String(foundSale?.orderId ?? foundSale?.id ?? foundSale?.orderNumber ?? searchOrderNumber);
-      const receipt = canonicalizeReceipt({
-        source: receiptSource,
-        entityId,
-        receiptNumber: foundSale?.orderNumber ?? searchOrderNumber,
-        printMethod: "browser",
-        payload: foundSale ?? hotelActivity ?? receiptData,
-      });
-      const persistence = await fetch("/api/canonical-receipts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(receipt),
-      });
-      if (!persistence.ok) {
-        toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
-        return;
-      }
-      // The receipt generator uses the browser dialog as the default, matching POS and hotel manual printing.
-      window.print();
-      toast({
-        title: "Print dialog opened",
-        description: "Choose your printer or save the receipt as a PDF.",
-      });
+    const currentSource = (foundSale?.source as "restaurant" | "hotel" | "event") || receiptSource;
+    const entityId = String(foundSale?.orderId ?? foundSale?.id ?? foundSale?.orderNumber ?? searchOrderNumber);
+    const receipt = canonicalizeReceipt({
+      source: currentSource,
+      entityId,
+      receiptNumber: foundSale?.orderNumber ?? searchOrderNumber,
+      printMethod: "browser",
+      payload: foundSale ?? receiptData,
+    });
+    const persistence = await fetch("/api/canonical-receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(receipt),
+    });
+    if (!persistence.ok) {
+      toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
       return;
-
-
+    }
+    // The receipt generator uses the browser dialog as the default, matching POS and hotel manual printing.
+    window.print();
+    toast({
+      title: "Print dialog opened",
+      description: "Choose your printer or save the receipt as a PDF.",
+    });
   };
 
   return (
@@ -339,11 +276,11 @@ function ReceiptContent() {
           </h1>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-            <Button
+          <Button
             onClick={handlePrint}
-            disabled={!foundSale && !hotelActivity}
-            aria-disabled={!foundSale && !hotelActivity}
-            title={!foundSale && !hotelActivity ? "Search for a persisted transaction before printing" : "Print the validated receipt"}
+            disabled={!foundSale}
+            aria-disabled={!foundSale}
+            title={!foundSale ? "Search for a persisted transaction before printing" : "Print the validated receipt"}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
           >
             <Printer className="mr-2 h-4 w-4" />
@@ -371,271 +308,160 @@ function ReceiptContent() {
   Front Desk view: hotel payment receipts and guest folios only.
   </p>
   )}
-  <select
-  value={receiptSource}
-  disabled={user?.role === "frontDesk"}
-  onChange={(event) => {
-                    setReceiptSource(
-                      event.target.value as "restaurant" | "hotel" | "event",
-                    );
-                    setFoundSale(null);
-                    setHotelActivity(null);
-                  }}
-                  className="rounded-2xl border border-orange-200 bg-white/50 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/50 dark:text-orange-100"
-                  aria-label="Receipt source"
-                >
-                  <option value="restaurant">Restaurant order</option>
-  <option value="hotel">Hotel reservation</option>
-  <option value="event">Event booking</option>
-  </select>
-                <Input
-                  placeholder={
-                    receiptSource === "hotel"
-  ? "Enter reservation ID or booking number"
-  : receiptSource === "event"
-    ? "Enter event receipt number (e.g. EVENT-...)"
-    : "Enter Order Number (e.g. ORD-20240101-0001)"
-                  }
-                  value={searchOrderNumber}
-                  onChange={(e) => setSearchOrderNumber(e.target.value)}
-                  onKeyDown={handleSearchInputKeyDown}
-                  className="rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"
-                />
-                <Button
-                  onClick={handleSearch}
-                  className="rounded-2xl bg-orange-500 text-white shadow-md"
-                >
-                  Search
-                </Button>
-              </div>
-              {recentLookupIds.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-2.5 text-xs dark:border-orange-800/60 dark:bg-orange-950/20">
-                  <span className="font-semibold text-orange-800 dark:text-orange-200">
-                    Recent receipts:
-                  </span>
-                  {recentLookupIds.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setSearchOrderNumber(item.id);
-                        setSearchTouched(true);
-                        if (receiptSource === "restaurant") {
-                          void findSaleByOrderNumber(item.id).then((sale) => {
-                            setFoundSale(sale || null);
-                            setHotelActivity(null);
-                          });
-                        } else if (receiptSource === "hotel") {
-                          void fetch(`/api/hotel-activity?reservationId=${encodeURIComponent(item.id)}&limit=1`)
-                            .then((r) => (r.ok ? r.json() : []))
-                            .then((events) => {
-                              setHotelActivity(Array.isArray(events) ? (events[0] ?? null) : null);
-                              setFoundSale(null);
-                            });
-                        } else if (receiptSource === "event") {
-                          void fetch(`/api/transactions?orderNumber=${encodeURIComponent(item.id)}&source=event&limit=1`)
-                            .then((r) => (r.ok ? r.json() : []))
-                            .then((rows) => {
-                              const row = Array.isArray(rows) ? rows[0] : null;
-                              const items = toReceiptItems(row?.items);
-                              const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-                              const total = Number(row?.amount) || 0;
-                              setFoundSale(
-                                row
-                                  ? {
-                                      id: row.id,
-                                      orderNumber: row.metadata?.orderNumber ?? row.transaction_id,
-                                      orderId: row.metadata?.eventId,
-                                      date: row.created_at,
-                                      items,
-                                      subtotal: Number(row.metadata?.subtotal) || subtotal,
-                                      tax: Math.max(total - (Number(row.metadata?.subtotal) || subtotal), 0),
-                                      total,
-                                      orderType: "event booking",
-                                      customerName: row.metadata?.clientName,
-                                      paymentMethod: row.payment_method ?? "event booking",
-                                      performedBy: row.metadata?.performedBy,
-                                    }
-                                  : null,
-                              );
-                              setHotelActivity(null);
-                            });
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-white px-2.5 py-1 font-medium text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100 dark:hover:bg-orange-900/40"
-                    >
-                      <span>{item.label}</span>
-                      <span className="text-muted-foreground">· ₵{item.amount.toFixed(2)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {/* Preview or Empty State */}
-              {hotelActivity ? (
-                (() => {
-                  const isHotelTaxEnabled =
-                    Boolean(appSettings.system.taxConfiguration?.enabled) &&
-                    appSettings.system.taxConfiguration?.appliesToRooms !== false;
-                  const rawAmount = Number(hotelActivity.amount ?? 0);
-                  const hotelTax = isHotelTaxEnabled
-                    ? calculateTaxes(rawAmount, appSettings.system.taxConfiguration, "rooms")
-                    : { breakdown: {}, tax: 0, total: rawAmount, subtotal: rawAmount };
-                  const rows = isHotelTaxEnabled ? levyRows(hotelTax.breakdown, appSettings.system.taxConfiguration, rawAmount, "₵") : [];
-                  const isHotelFiscal = isHotelTaxEnabled && appSettings.system.taxConfiguration?.graEVatEnabled !== false;
-                  const resId = String(hotelActivity.metadata?.reservationId ?? searchOrderNumber);
-
-                  return (
-                    <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-orange-200 bg-white p-5 text-orange-900 shadow-sm dark:border-orange-700 dark:bg-gray-900 dark:text-orange-100 font-mono text-xs">
-                      <div className="text-center border-b border-orange-200 dark:border-orange-700 pb-2">
-                        <h3 className="font-bold text-sm">Hotel Folio & Activity Receipt</h3>
-                        <p className="text-[11px] text-muted-foreground">
-                          {hotelActivity.metadata?.description ??
-                            hotelActivity.metadata?.eventType ??
-                            "Guest Folio Activity"}
-                        </p>
-                      </div>
-
-                      {isHotelFiscal && (
-                        <div className="my-1.5 border-y border-dashed border-gray-400 py-1 text-center font-mono text-[10px] text-gray-700 dark:text-gray-300">
-                          <div className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</div>
-                          <div>TIN: {appSettings.system.taxConfiguration?.tin || "C0029384756"}</div>
-                          <div>SDC ID: SDC-KMB-{resId.replace(/[^0-9A-Z]/gi, "").slice(-6)} | INVOICE: {resId}</div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <span>Reservation</span>
-                        <strong className="text-right">{resId}</strong>
-                        <span>Room</span>
-                        <strong className="text-right">{hotelActivity.metadata?.roomId ?? "—"}</strong>
-                        <span>Date</span>
-                        <strong className="text-right">
-                          {new Date(hotelActivity.created_at).toLocaleString()}
-                        </strong>
-                      </div>
-
-                      <div className="border-t border-orange-200 dark:border-orange-700 pt-2 space-y-1">
-                        <div className="flex justify-between">
-                          <span>Taxable Subtotal:</span>
-                          <span className="font-mono">₵{hotelTax.subtotal.toFixed(2)}</span>
-                        </div>
-
-                        {isHotelTaxEnabled && rows.length > 0 && (
-                          <div className="space-y-0.5 pt-1 border-t border-dashed border-orange-200 dark:border-orange-700">
-                            <div className="flex justify-between font-semibold text-[11px] text-orange-950 dark:text-orange-200">
-                              <span>{STATUTORY_LEVIES_HEADER}</span>
-                              <span className="font-mono">₵{hotelTax.tax.toFixed(2)}</span>
-                            </div>
-                            {rows.map((levy) => (
-                              <div key={levy.key} className="flex justify-between pl-2 text-[10px] text-gray-600 dark:text-gray-400">
-                                <span>{levy.label}:</span>
-                                <span className="font-mono">{levy.formatted}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="flex justify-between font-bold text-sm text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-700 pt-1.5">
-                          <span>TOTAL:</span>
-                          <span className="font-mono">₵{hotelTax.total.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      {isHotelFiscal && (
-                        <div className="mt-2 border-t border-dashed border-gray-300 dark:border-gray-700 pt-1.5 text-center font-mono text-[8px] text-gray-500">
-                          <div className="font-bold text-[9px] text-gray-700 dark:text-gray-300">[ GRA E-VAT VERIFIED FISCAL RECEIPT ]</div>
-                          <div className="truncate">https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={resId}&tot={hotelTax.total.toFixed(2)}</div>
-                          <div className="mt-0.5">Powered by KumbiAPP · Certified Fiscal Channel</div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : foundSale ? (
-                <ScrollArea className="h-[600px]">
-                  <div
-                    ref={printRef}
-                    className={
-                      `receipt-print-area receipt bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono text-sm max-w-sm mx-auto ` +
-                      (receiptSettings.paperSize === "58mm"
-                        ? "w-[232px] max-w-[232px]"
-                        : "w-[320px] max-w-[320px]") +
-                      (receiptSettings.fontSize === "small"
-                        ? " text-xs"
-                        : receiptSettings.fontSize === "large"
-                          ? " text-lg"
-                          : " text-sm")
-                    }
+              <select
+                value={receiptSource}
+                disabled={user?.role === "frontDesk"}
+                onChange={(event) => {
+                  const newSource = event.target.value as "restaurant" | "hotel" | "event";
+                  setReceiptSource(newSource);
+                  setFoundSale(null);
+                }}
+                className="rounded-2xl border border-orange-200 bg-white/50 px-3 py-2 text-sm text-orange-900 dark:border-orange-700 dark:bg-gray-800/50 dark:text-orange-100"
+                aria-label="Receipt source"
+              >
+                <option value="restaurant">Restaurant order</option>
+                <option value="hotel">Hotel reservation & Guest folio</option>
+                <option value="event">Event booking</option>
+              </select>
+              <Input
+                placeholder={
+                  receiptSource === "hotel"
+                    ? "Enter reservation #, folio ID, or room #"
+                    : receiptSource === "event"
+                      ? "Enter event receipt # or event name"
+                      : "Enter order number (e.g. ORD-...)"
+                }
+                value={searchOrderNumber}
+                onChange={(e) => setSearchOrderNumber(e.target.value)}
+                onKeyDown={handleSearchInputKeyDown}
+                className="rounded-2xl border-orange-200 dark:border-orange-700 bg-white/50 dark:bg-gray-800/50"
+              />
+              <Button
+                onClick={handleSearch}
+                className="rounded-2xl bg-orange-500 text-white shadow-md"
+              >
+                Search
+              </Button>
+            </div>
+            {recentLookupIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-2.5 text-xs dark:border-orange-800/60 dark:bg-orange-950/20">
+                <span className="font-semibold text-orange-800 dark:text-orange-200">
+                  Recent receipts:
+                </span>
+                {recentLookupIds.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setSearchOrderNumber(item.id);
+                      void executeSearch(item.id, receiptSource);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-white px-2.5 py-1 font-medium text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100 dark:hover:bg-orange-900/40"
                   >
-                    {/* Receipt Header */}
-                    <div className="text-center border-b-2 border-orange-300 dark:border-orange-600 pb-3 mb-4">
-                      {receiptSettings.includeLogo && (
-                        <div className="flex justify-center mb-3">
-                          <LogoDisplay size="sm" />
-                        </div>
-                      )}
-                      <h4 className="font-bold text-lg text-orange-800 dark:text-orange-200">
-                        {receiptSettings.headerText ||
-                          "Kumbisaly Heritage Restaurant"}
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {receiptSettings.businessAddress ||
-                          "Offinso - Abofour, Ashanti, Ghana."}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Tel: {receiptSettings.businessPhone || "0535975442"}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {receiptSettings.businessEmail ||
-                          "info.kumbisalyheritagehotel@gmail.com"}
-                      </p>
-                    </div>
-                    {/* Order Info */}
-                    <div className="mb-4 space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-semibold">Order #:</span>
-                        <span>{foundSale.orderNumber}</span>
+                    <span>{item.label}</span>
+                    <span className="text-muted-foreground">· ₵{item.amount.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Preview or Empty State */}
+            {foundSale ? (
+              <ScrollArea className="h-[600px]">
+                <div
+                  ref={printRef}
+                  className={
+                    `receipt-print-area receipt bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono text-sm max-w-sm mx-auto ` +
+                    (receiptSettings.paperSize === "58mm"
+                      ? "w-[232px] max-w-[232px]"
+                      : "w-[320px] max-w-[320px]") +
+                    (receiptSettings.fontSize === "small"
+                      ? " text-xs"
+                      : receiptSettings.fontSize === "large"
+                        ? " text-lg"
+                        : " text-sm")
+                  }
+                >
+                  {/* Receipt Header */}
+                  <div className="text-center border-b-2 border-orange-300 dark:border-orange-600 pb-3 mb-4">
+                    {receiptSettings.includeLogo && (
+                      <div className="flex justify-center mb-3">
+                        <LogoDisplay size="sm" />
                       </div>
-                      {foundSale.orderId && (
-                        <div className="flex justify-between">
-                          <span className="font-semibold">Order ID:</span>
-                          <span>{foundSale.orderId}</span>
-                        </div>
-                      )}
+                    )}
+                    <h4 className="font-bold text-lg text-orange-800 dark:text-orange-200">
+                      {receiptSettings.headerText ||
+                        (foundSale.source === "hotel" || receiptSource === "hotel"
+                          ? "Kumbisaly Heritage Hotel"
+                          : foundSale.source === "event" || receiptSource === "event"
+                            ? "Kumbisaly Heritage Events"
+                            : "Kumbisaly Heritage Restaurant")}
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {receiptSettings.businessAddress ||
+                        "Offinso - Abofour, Ashanti, Ghana."}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Tel: {receiptSettings.businessPhone || "0535975442"}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {receiptSettings.businessEmail ||
+                        "info.kumbisalyheritagehotel@gmail.com"}
+                    </p>
+                  </div>
+                  {/* Order Info */}
+                  <div className="mb-4 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="font-semibold">
+                        {foundSale.source === "hotel" ? "Folio / Res #:" : foundSale.source === "event" ? "Event Ref #:" : "Order #:"}
+                      </span>
+                      <span>{foundSale.orderNumber}</span>
+                    </div>
+                    {foundSale.orderId && foundSale.orderId !== foundSale.orderNumber && (
                       <div className="flex justify-between">
-                        <span className="font-semibold">Date:</span>
-                        <span>
-                          {new Date(foundSale.date).toLocaleDateString()}
+                        <span className="font-semibold">
+                          {foundSale.source === "hotel" ? "Reservation ID:" : "Order ID:"}
                         </span>
+                        <span className="truncate max-w-[150px]">{foundSale.orderId}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold">Type:</span>
-                        <span>{foundSale.orderType?.toUpperCase()}</span>
-                      </div>
-                      {foundSale.tableNumber && (
-                        <div className="flex justify-between">
-                          <span className="font-semibold">Table:</span>
-                          <span>{foundSale.tableNumber}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="font-semibold">Account:</span>
-                        <span>{foundSale.performedBy?.name || foundSale.performedBy?.email || "—"}</span>
-                      </div>
-                      {foundSale.customerRefused ? (
-                        <div className="flex justify-between">
-                          <span className="font-semibold">Customer:</span>
-                          <span>Refused</span>
-                        </div>
-                      ) : (
-                        foundSale.customerName && (
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Customer:</span>
-                            <span>{foundSale.customerName}</span>
-                          </div>
-                        )
-                      )}
+                    )}
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Date:</span>
+                      <span>
+                        {new Date(foundSale.date).toLocaleDateString()}
+                      </span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Type:</span>
+                      <span>{foundSale.orderType?.toUpperCase()}</span>
+                    </div>
+                    {foundSale.tableNumber && (
+                      <div className="flex justify-between">
+                        <span className="font-semibold">
+                          {foundSale.source === "hotel" ? "Room:" : "Table:"}
+                        </span>
+                        <span>{foundSale.tableNumber}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Staff:</span>
+                      <span>{foundSale.performedBy?.name || foundSale.performedBy?.email || "Front Desk / Service"}</span>
+                    </div>
+                    {foundSale.customerRefused ? (
+                      <div className="flex justify-between">
+                        <span className="font-semibold">Customer:</span>
+                        <span>Refused</span>
+                      </div>
+                    ) : (
+                      foundSale.customerName && (
+                        <div className="flex justify-between">
+                          <span className="font-semibold">
+                            {foundSale.source === "hotel" ? "Guest:" : foundSale.source === "event" ? "Client:" : "Customer:"}
+                          </span>
+                          <span>{foundSale.customerName}</span>
+                        </div>
+                      )
+                    )}
+                  </div>
                     {appSettings.system.taxConfiguration?.graEVatEnabled !== false && (
                       <div className="my-2 border-y border-dashed border-gray-400 py-1.5 text-center font-mono text-[11px] text-gray-700 dark:text-gray-300">
                         <div className="font-bold tracking-wider">* GRA E-VAT FISCAL RECEIPT *</div>
@@ -750,13 +576,13 @@ function ReceiptContent() {
                 <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-6 text-center text-muted-foreground">
                   <Receipt className="size-8 text-destructive/70" aria-hidden="true" />
                   <span className="font-semibold text-foreground">No persisted receipt found</span>
-                  <span className="text-sm">Verify the {receiptSource === "hotel" ? "reservation or booking number" : receiptSource === "event" ? "event receipt number" : "order number"} and search again.</span>
+                  <span className="text-sm">Verify the {receiptSource === "hotel" ? "reservation number, guest folio, or room number" : receiptSource === "event" ? "event booking receipt number or event name" : "order number"} and search again.</span>
                 </div>
               ) : (
                 <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center text-muted-foreground">
                   <Receipt className="size-8" aria-hidden="true" />
-                  <span className="font-semibold text-foreground">Receipt preview is locked</span>
-                  <span className="text-sm">{receiptSource === "hotel" ? "Search for a hotel payment receipt by reservation ID or booking number." : receiptSource === "event" ? "Search for an event booking receipt by event receipt number." : "Search for a restaurant receipt by order number."}</span>
+                  <span className="font-semibold text-foreground">Receipt preview is ready</span>
+                  <span className="text-sm">{receiptSource === "hotel" ? "Search for a hotel payment or checkout folio by reservation #, booking ID, or room #." : receiptSource === "event" ? "Search for an event booking receipt by event name or reference #." : "Search for a restaurant receipt by order number."}</span>
                 </div>
               )}
               {/* Tracking Section */}
@@ -764,7 +590,7 @@ function ReceiptContent() {
                 <div className="mt-4 p-3 rounded-xl border border-orange-200 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-900/20 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-orange-700 dark:text-orange-300">
-                      Order Number:
+                      {foundSale.source === "hotel" ? "Folio / Res #:" : foundSale.source === "event" ? "Event Ref #:" : "Order Number:"}
                     </span>
                     <span className="font-mono text-xs bg-orange-100 dark:bg-orange-800 px-2 py-1 rounded-lg">
                       {foundSale.orderNumber}
@@ -777,23 +603,45 @@ function ReceiptContent() {
                         navigator.clipboard.writeText(foundSale.orderNumber);
                         toast({
                           title: "Copied",
-                          description: "Order number copied to clipboard",
+                          description: "Receipt reference copied to clipboard",
                         });
                       }}
                     >
                       Copy
                     </Button>
-                    <Button
-                      asChild
-                      size="sm"
-                      className="ml-2 rounded-2xl bg-orange-500 text-white"
-                    >
-                      <Link
-                        href={`/refunds?orderNumber=${encodeURIComponent(foundSale.orderNumber)}`}
+                    {foundSale.source === "hotel" ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="ml-2 rounded-2xl bg-orange-500 text-white"
                       >
-                        Initiate Refund
-                      </Link>
-                    </Button>
+                        <Link href="/hotels">
+                          Hotel Desk
+                        </Link>
+                      </Button>
+                    ) : foundSale.source === "event" ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="ml-2 rounded-2xl bg-orange-500 text-white"
+                      >
+                        <Link href="/events">
+                          Events Desk
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="ml-2 rounded-2xl bg-orange-500 text-white"
+                      >
+                        <Link
+                          href={`/refunds?orderNumber=${encodeURIComponent(foundSale.orderNumber)}`}
+                        >
+                          Initiate Refund
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-gray-700 dark:text-gray-300">
                     <div>
@@ -817,12 +665,14 @@ function ReceiptContent() {
                       {foundSale.total?.toFixed(2)}
                     </div>
                   </div>
-                  <Link
-                    href={`/track/${foundSale.orderNumber}`}
-                    className="text-blue-600 underline text-xs mt-1"
-                  >
-                    Track this order
-                  </Link>
+                  {foundSale.source !== "hotel" && foundSale.source !== "event" && (
+                    <Link
+                      href={`/track/${foundSale.orderNumber}`}
+                      className="text-blue-600 underline text-xs mt-1"
+                    >
+                      Track this order
+                    </Link>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -858,39 +708,57 @@ function ReceiptContent() {
                 </div>
               </CardContent>
             </Card>
-            {/* Order Data Editor */}
+            {/* Order & Folio Details */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
               <CardHeader className="relative z-10">
                 <CardTitle className="text-lg font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
                   <Receipt className="h-5 w-5" />
-                  Order Details
+                  {foundSale?.source === "hotel"
+                    ? "Guest Folio & Reservation Details"
+                    : foundSale?.source === "event"
+                      ? "Event Booking Details"
+                      : "Order Details"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 relative z-10">
                 {foundSale ? (
                   <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                     <div>
-                      <span className="font-semibold">Order Number:</span>{" "}
+                      <span className="font-semibold">
+                        {foundSale.source === "hotel"
+                          ? "Folio / Res Number:"
+                          : foundSale.source === "event"
+                            ? "Event Ref Number:"
+                            : "Order Number:"}
+                      </span>{" "}
                       <span className="font-mono">{foundSale.orderNumber}</span>
                     </div>
                     <div>
-                      <span className="font-semibold">Customer Name:</span>{" "}
+                      <span className="font-semibold">
+                        {foundSale.source === "hotel"
+                          ? "Guest Name:"
+                          : foundSale.source === "event"
+                            ? "Client Name:"
+                            : "Customer Name:"}
+                      </span>{" "}
                       {foundSale.customerName || (
                         <span className="italic text-gray-400">N/A</span>
                       )}
                     </div>
                     <div>
-                      <span className="font-semibold">Order Type:</span>{" "}
+                      <span className="font-semibold">Category / Type:</span>{" "}
                       {foundSale.orderType}
                     </div>
                     <div>
-                      <span className="font-semibold">Payment Method:</span>{" "}
+                      <span className="font-semibold">Payment Status:</span>{" "}
                       {foundSale.paymentMethod}
                     </div>
                     {foundSale.tableNumber && (
                       <div>
-                        <span className="font-semibold">Table Number:</span>{" "}
+                        <span className="font-semibold">
+                          {foundSale.source === "hotel" ? "Assigned Room:" : "Table Number:"}
+                        </span>{" "}
                         {foundSale.tableNumber}
                       </div>
                     )}
@@ -903,15 +771,18 @@ function ReceiptContent() {
                       {new Date(foundSale.date).toLocaleTimeString()}
                     </div>
                     <div>
-                      <span className="font-semibold">Total:</span> ₵
+                      <span className="font-semibold">Total Amount:</span> ₵
                       {foundSale.total?.toFixed(2)}
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-64 text-gray-300 dark:text-gray-600">
-                    <span className="text-lg">
-                      Order details will appear here when a valid order number
-                      is found.
+                  <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 text-center px-4">
+                    <span className="text-base font-medium">
+                      {receiptSource === "hotel"
+                        ? "Folio and room stay details will appear here once a reservation is looked up."
+                        : receiptSource === "event"
+                          ? "Event booking details will appear here once an event reference is found."
+                          : "Order details will appear here when a valid order number is found."}
                     </span>
                   </div>
                 )}

@@ -150,21 +150,81 @@ export async function POST(request: NextRequest) {
         [reservationId]
       );
       if (verified.rowCount !== 1) throw new Error("Checkout could not be verified after the transaction update");
+      const formattedItems = folioItems.rows.map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity) || 1,
+        total_amount: Number(item.total_amount) || 0,
+        category: item.category,
+      }));
+
+      let checkoutReceiptId = null;
+      let checkoutReceiptSnapshot = null;
+
       const receiptResult = await client.query(
         `UPDATE hotel_receipts
          SET version = version + 1,
-             snapshot = snapshot || jsonb_build_object('checkedOutBy', $2::jsonb, 'checkedOutAt', $4::text, 'balance', 0, 'paymentStatus', 'paid')
-         WHERE reservation_id = $1::uuid AND folio_id = $3::uuid
+             receipt_type = 'check_out',
+             snapshot = snapshot || jsonb_build_object('checkedOutBy', $2::jsonb, 'checkedOutAt', $4::text, 'balance', 0, 'paymentStatus', 'paid', 'total', $5::numeric, 'items', $6::jsonb)
+         WHERE reservation_id = $1::uuid AND (folio_id = $3::uuid OR folio_id IS NULL)
          RETURNING id, snapshot`,
-        [reservationId, JSON.stringify(checkoutActor), folio.id, canonicalNow]
+        [
+          reservationId,
+          JSON.stringify(checkoutActor),
+          folio.id,
+          canonicalNow,
+          Number(grossSpent || folio.total_charges || 0),
+          JSON.stringify(formattedItems),
+        ]
       );
+
+      if (receiptResult.rowCount && receiptResult.rowCount > 0) {
+        checkoutReceiptId = receiptResult.rows[0].id;
+        checkoutReceiptSnapshot = receiptResult.rows[0].snapshot;
+      } else {
+        const guestInfo = await client.query(
+          `SELECT concat_ws(' ', g.first_name, g.last_name) as guest_name, r.reservation_number, rm.room_number
+           FROM reservations r
+           JOIN guests g ON g.id = r.guest_id
+           LEFT JOIN rooms rm ON rm.id = r.room_id
+           WHERE r.id = $1::uuid`,
+          [reservationId]
+        );
+        const gRow = guestInfo.rows[0] || {};
+        const newSnapshot = {
+          guestName: gRow.guest_name || "Hotel Guest",
+          roomNumber: gRow.room_number || "—",
+          orderNumber: gRow.reservation_number || String(reservationId),
+          items: formattedItems,
+          total: Number(grossSpent || folio.total_charges || 0),
+          balance: 0,
+          paymentStatus: "paid",
+          checkedOutBy: checkoutActor,
+          checkedOutAt: canonicalNow,
+          performedBy: checkoutActor,
+        };
+        const ins = await client.query(
+          `INSERT INTO hotel_receipts (reservation_id, folio_id, order_id, order_number, receipt_type, snapshot, created_by)
+           VALUES ($1::uuid, $2::uuid, $1::text, $3::text, 'check_out', $4::jsonb, $5::uuid)
+           RETURNING id, snapshot`,
+          [
+            reservationId,
+            folio.id,
+            gRow.reservation_number || String(reservationId),
+            JSON.stringify(newSnapshot),
+            checkoutActor.id && /^[0-9a-f-]{36}$/i.test(checkoutActor.id) ? checkoutActor.id : null,
+          ]
+        );
+        checkoutReceiptId = ins.rows[0]?.id;
+        checkoutReceiptSnapshot = ins.rows[0]?.snapshot;
+      }
+
       await client.query(
         `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
          VALUES ('hotel.checked_out', 'reservation', $1, $2, $3::jsonb)
          ON CONFLICT (idempotency_key) DO NOTHING`,
         [reservationId, `hotel-checkout:${reservationId}`, JSON.stringify({ reservationId, guestId: verified.rows[0].guest_id, roomId: checkedOutRoomId, paid, housekeeping: true, ledger: true })],
       );
-      return { ...verified.rows[0], receiptId: receiptResult.rows[0]?.id ?? null, receipt: receiptResult.rows[0]?.snapshot ?? null, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
+      return { ...verified.rows[0], receiptId: checkoutReceiptId, receipt: checkoutReceiptSnapshot, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
     });
 
     try {

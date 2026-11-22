@@ -297,7 +297,11 @@ export async function findSaleByOrderNumber(
       }>;
     }>>(`/api/orders?orderNumber=${encodeURIComponent(orderNumber)}`);
     const order = orders.find((candidate) => candidate.orderNumber === orderNumber);
-    if (!order) return undefined;
+    if (!order) {
+      const lookup = await apiFetch<{ receipt?: SalesData }>(`/api/receipts/lookup?query=${encodeURIComponent(orderNumber)}&source=restaurant`).catch(() => null);
+      if (lookup?.receipt) return lookup.receipt;
+      return undefined;
+    }
 
     const subtotal = (order.items ?? []).reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
     return {
