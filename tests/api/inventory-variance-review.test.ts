@@ -297,5 +297,68 @@ describe("Inventory Variance & Manager Review Flow", () => {
       const response = await POST(request as any, { params: Promise.resolve({ id: "var-001" }) });
       expect(response.status).toBe(403);
     });
+
+    it("survives auxiliary ledger failure (e.g. missing column or FK constraint) via SAVEPOINT without aborting the transaction", async () => {
+      mockSession.role = "manager";
+      mockSession.name = "General Manager";
+      mockSession.id = "mgr-001";
+
+      const { POST } = await import("@/app/api/inventory/variance/[id]/action/route");
+
+      mockTransaction.mockImplementation(async (callback) => {
+        const executedQueries: string[] = [];
+        const client = {
+          query: vi.fn().mockImplementation(async (sql: string) => {
+            executedQueries.push(sql);
+            if (sql.includes("SELECT v.*")) {
+              return {
+                rows: [
+                  {
+                    id: "var-err-test",
+                    inventory_item_id: "inv-999",
+                    reported_by: "staff-88",
+                    reported_by_name: "Staff Member",
+                    quantity: "2.0",
+                    reason: "damaged",
+                    status: "pending",
+                  },
+                ],
+              };
+            }
+            if (sql.includes("UPDATE inventory\n") || sql.includes("UPDATE inventory ")) {
+              return { rows: [{ id: "inv-999", name: "Broken Glassware", quantity: "8.0", unit: "piece" }] };
+            }
+            if (sql.includes("INSERT INTO inventory_movements")) {
+              // Simulate PostgreSQL error that would previously abort the transaction
+              throw new Error('column "actor_id" of relation "inventory_movements" does not exist');
+            }
+            if (sql.includes("INSERT INTO inventory_events")) {
+              // Simulate another potential error
+              throw new Error('insert or update on table "inventory_events" violates foreign key constraint');
+            }
+            if (sql.includes("UPDATE inventory_variances")) {
+              return { rows: [{ id: "var-err-test", status: "approved" }] };
+            }
+            return { rows: [] };
+          }),
+        };
+
+        return callback(client as any);
+      });
+
+      const request = new Request("http://localhost:3000/api/inventory/variance/var-err-test/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", notes: "Approved despite ledger anomaly" }),
+      });
+
+      const response = await POST(request as any, { params: Promise.resolve({ id: "var-err-test" }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.action).toBe("approve");
+      expect(data.message).toContain("Stock issue approved");
+    });
   });
 });

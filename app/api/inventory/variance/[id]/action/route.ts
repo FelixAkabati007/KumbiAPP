@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { publishRealtime } from "@/lib/realtime";
@@ -48,7 +48,7 @@ export async function POST(
       const varianceResult = await client.query(
         `SELECT v.*, i.name as item_name, i.unit as item_unit, i.quantity as current_stock
          FROM inventory_variances v
-         JOIN inventory i ON i.id = v.inventory_item_id
+         LEFT JOIN inventory i ON i.id::text = v.inventory_item_id::text
          WHERE v.id::text = $1::text
          FOR UPDATE OF v`,
         [id]
@@ -73,19 +73,20 @@ export async function POST(
       }
 
       if (action === "approve") {
-        const qtyToDeduct = Math.max(0, Number(variance.quantity));
+        const qtyToDeduct = Math.max(0, Number(variance.quantity) || 0);
 
         // 2. Lock and update inventory item balance
         const updatedInventory = await client.query(
           `UPDATE inventory
-           SET quantity = GREATEST(0, quantity - $1), last_updated = NOW()
+           SET quantity = GREATEST(0, COALESCE(quantity, 0) - $1), last_updated = NOW()
            WHERE id::text = $2::text
            RETURNING id, name, quantity, unit`,
           [qtyToDeduct, variance.inventory_item_id]
         );
 
-        // 3. Record in inventory movements ledger (safe try/catch)
+        // 3. Record in inventory movements ledger with savepoint isolation
         try {
+          await client.query("SAVEPOINT mov_sp");
           await client.query(
             `INSERT INTO inventory_movements (
               inventory_id, quantity_delta, movement_type, source_type, source_id, actor_id, reason
@@ -98,12 +99,15 @@ export async function POST(
               `Stock issue approved: ${variance.reason}${notes ? ` - ${notes}` : ""}`,
             ]
           );
+          await client.query("RELEASE SAVEPOINT mov_sp");
         } catch (movErr) {
+          await client.query("ROLLBACK TO SAVEPOINT mov_sp").catch(() => {});
           console.warn("Failed to record inventory_movements ledger entry:", movErr);
         }
 
-        // 4. Record in inventory_events audit trail (safe try/catch)
+        // 4. Record in inventory_events audit trail with savepoint isolation
         try {
+          await client.query("SAVEPOINT ev_sp");
           const currentQty = Number(variance.current_stock ?? 0);
           const updatedQty = updatedInventory.rows[0]?.quantity ?? Math.max(0, currentQty - qtyToDeduct);
           await client.query(
@@ -129,7 +133,9 @@ export async function POST(
               }),
             ]
           );
+          await client.query("RELEASE SAVEPOINT ev_sp");
         } catch (evErr) {
+          await client.query("ROLLBACK TO SAVEPOINT ev_sp").catch(() => {});
           console.warn("Failed to record inventory_events write-off:", evErr);
         }
 
@@ -146,23 +152,6 @@ export async function POST(
            WHERE id::text = $5::text`,
           [reviewerUuid, reviewerName, reviewer.role, notes || null, id]
         );
-
-        // 6. Notify the reporting staff (safe try/catch)
-        if (variance.reported_by) {
-          try {
-            await client.query(
-              `INSERT INTO notifications (recipient_user_id, title, message, type)
-               VALUES ($1, $2, $3, 'inventory_variance')`,
-              [
-                variance.reported_by,
-                `Stock Issue Approved: ${variance.item_name}`,
-                `Your report for ${qtyToDeduct} ${variance.item_unit} of ${variance.item_name} was approved by ${reviewerName} (${reviewer.role}) and written off.${notes ? ` Note: ${notes}` : ""}`,
-              ]
-            );
-          } catch (notifErr) {
-            console.warn("Failed to notify reporting staff:", notifErr);
-          }
-        }
 
         return {
           status: "approved",
@@ -184,29 +173,35 @@ export async function POST(
           [reviewerUuid, reviewerName, reviewer.role, notes, id]
         );
 
-        // Notify reporting staff of rejection (safe try/catch)
-        if (variance.reported_by) {
-          try {
-            await client.query(
-              `INSERT INTO notifications (recipient_user_id, title, message, type)
-               VALUES ($1, $2, $3, 'inventory_variance')`,
-              [
-                variance.reported_by,
-                `Stock Issue Rejected: ${variance.item_name}`,
-                `Your report for ${variance.quantity} ${variance.item_unit} of ${variance.item_name} was reviewed and rejected by ${reviewerName} (${reviewer.role}). Note: ${notes}`,
-              ]
-            );
-          } catch (notifErr) {
-            console.warn("Failed to notify reporting staff:", notifErr);
-          }
-        }
-
         return {
           status: "rejected",
           variance,
         };
       }
     });
+
+    // Notify the reporting staff outside the transaction to preserve ledger atomicity
+    if (result.variance.reported_by) {
+      try {
+        const itemDisplayName = result.variance.item_name || "Item";
+        const itemUnitName = result.variance.item_unit || "unit(s)";
+        await query(
+          `INSERT INTO notifications (recipient_user_id, title, message, type)
+           VALUES ($1, $2, $3, 'inventory_variance')`,
+          [
+            result.variance.reported_by,
+            action === "approve"
+              ? `Stock Issue Approved: ${itemDisplayName}`
+              : `Stock Issue Rejected: ${itemDisplayName}`,
+            action === "approve"
+              ? `Your report for ${result.variance.quantity} ${itemUnitName} of ${itemDisplayName} was approved by ${reviewerName} (${reviewer.role}) and written off.${notes ? ` Note: ${notes}` : ""}`
+              : `Your report for ${result.variance.quantity} ${itemUnitName} of ${itemDisplayName} was reviewed and rejected by ${reviewerName} (${reviewer.role}). Note: ${notes}`,
+          ]
+        );
+      } catch (notifErr) {
+        console.warn("Failed to notify reporting staff:", notifErr);
+      }
+    }
 
     // Write audit log
     await logAudit({
