@@ -112,6 +112,7 @@ function MenuContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeDialogTab, setActiveDialogTab] = useState<"details" | "recipe">("details");
   const [editingItem, setEditingItem] = useState<MenuItem>(
     createEmptyMenuItem()
   );
@@ -241,6 +242,7 @@ function MenuContent() {
     setEditingItem(newItem);
     setIsNewItem(true);
     setFormErrors({});
+    setActiveDialogTab("details");
     setIsDialogOpen(true);
     console.debug("✅ [MenuPage] New item dialog opened");
   }, []);
@@ -268,6 +270,7 @@ function MenuContent() {
   setEditingItem({ ...item, ...detail });
   setIsNewItem(false);
     setFormErrors({});
+    setActiveDialogTab("details");
     setIsDialogOpen(true);
     console.debug("✅ [MenuPage] Edit dialog opened");
   }, []);
@@ -321,63 +324,101 @@ function MenuContent() {
     }
   }, [toast]);
 
-  const handleSaveItem = useCallback(async () => {
-    console.debug("💾 [MenuPage] Saving item", {
-      isNewItem,
-      itemId: editingItem.id || null,
-      itemName: editingItem.name || null,
-    });
+  const handleSaveItem = useCallback(
+    async (options?: { openRecipeTab?: boolean }) => {
+      console.debug("💾 [MenuPage] Saving item", {
+        isNewItem,
+        itemId: editingItem.id || null,
+        itemName: editingItem.name || null,
+      });
 
-    if (isSaving) {
-      console.debug("⏳ [MenuPage] Save already in progress, ignoring");
-      return;
-    }
-
-    try {
-      if (!validateForm()) {
-        console.error("❌ [MenuPage] Form validation failed");
+      if (isSaving) {
+        console.debug("⏳ [MenuPage] Save already in progress, ignoring");
         return;
       }
 
-      setIsSaving(true);
+      try {
+        if (!validateForm()) {
+          console.error("❌ [MenuPage] Form validation failed");
+          return;
+        }
 
-      if (isNewItem) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, ...itemData } = editingItem;
-        console.debug("🆕 [MenuPage] Creating new item");
-        const savedItem = await createMenuItem(itemData);
-        if (savedItem) {
-          setItems((prevItems) => [...prevItems, savedItem]);
-          console.debug("✅ [MenuPage] New item added", savedItem.id);
+        setIsSaving(true);
+
+        if (isNewItem) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id, ...itemData } = editingItem;
+          console.debug("🆕 [MenuPage] Creating new item");
+          const savedItem = await createMenuItem(itemData);
+          if (savedItem) {
+            setItems((prevItems) => [...prevItems, savedItem]);
+            console.debug("✅ [MenuPage] New item added", savedItem.id);
+
+            if (options?.openRecipeTab) {
+              setEditingItem(savedItem);
+              setIsNewItem(false);
+              setActiveDialogTab("recipe");
+              toast({
+                title: "Menu Item Created",
+                description: `"${savedItem.name}" was added. Configure your recipe ingredients below.`,
+              });
+              return;
+            }
+          }
+        } else {
+          console.debug("📝 [MenuPage] Updating existing item", editingItem.id);
+          const success = await updateMenuItem(editingItem);
+          if (success) {
+            setItems((prevItems) =>
+              prevItems.map((item) =>
+                item.id === editingItem.id ? editingItem : item
+              )
+            );
+            console.debug("✅ [MenuPage] Item updated");
+            if (options?.openRecipeTab) {
+              setActiveDialogTab("recipe");
+              return;
+            }
+          }
         }
-      } else {
-        console.debug("📝 [MenuPage] Updating existing item", editingItem.id);
-        const success = await updateMenuItem(editingItem);
-        if (success) {
-          setItems((prevItems) =>
-            prevItems.map((item) =>
-              item.id === editingItem.id ? editingItem : item
-            )
-          );
-          console.debug("✅ [MenuPage] Item updated");
-        }
+
+        setIsDialogOpen(false);
+        setActiveDialogTab("details");
+        setEditingItem(createEmptyMenuItem());
+        setFormErrors({});
+        console.debug("✅ [MenuPage] Save operation completed");
+      } catch (err) {
+        console.error("[MenuPage] Error saving item:", err);
+        toast({
+          title: "Unable to save menu item",
+          description: err instanceof Error ? err.message : "Please check your input and try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSaving(false);
       }
+    },
+    [editingItem, isNewItem, validateForm, isSaving, toast]
+  );
 
-      setIsDialogOpen(false);
-      setEditingItem(createEmptyMenuItem());
-      setFormErrors({});
-      console.debug("✅ [MenuPage] Save operation completed");
-    } catch (err) {
-      console.error("[MenuPage] Error saving item:", err);
-      toast({
-        title: "Unable to save menu item",
-        description: err instanceof Error ? err.message : "Please check your input and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [editingItem, isNewItem, validateForm, isSaving]);
+  const handleTabChange = useCallback(
+    async (tab: string) => {
+      if (tab === "recipe" && isNewItem) {
+        if (!validateForm()) {
+          toast({
+            title: "Fill in item details first",
+            description: "Please enter the item name, description, price, and category before configuring recipe ingredients.",
+            variant: "destructive",
+          });
+          return;
+        }
+        await handleSaveItem({ openRecipeTab: true });
+        return;
+      }
+      setActiveDialogTab(tab as "details" | "recipe");
+    },
+    [isNewItem, validateForm, toast, handleSaveItem]
+  );
 
   const handleDeleteItem = useCallback(
     async (id: string) => {
@@ -463,6 +504,7 @@ function MenuContent() {
       return;
     }
     setIsDialogOpen(false);
+    setActiveDialogTab("details");
   }, [isSaving]);
 
   const handleNameChange = useCallback(
@@ -819,10 +861,10 @@ function MenuContent() {
                   : "Update the menu item details below."}
               </DialogDescription>
             </DialogHeader>
-  <Tabs defaultValue="details" className="flex min-h-0 min-w-0 flex-1 flex-col">
+  <Tabs value={activeDialogTab} onValueChange={handleTabChange} className="flex min-h-0 min-w-0 flex-1 flex-col">
   <TabsList className="mx-4 mt-4 grid h-10 w-auto shrink-0 grid-cols-2 sm:mx-6 sm:mt-5">
                 <TabsTrigger value="details">Details</TabsTrigger>
-<TabsTrigger value="recipe" disabled={isNewItem}>
+                <TabsTrigger value="recipe">
                   Recipe & Supplies
                 </TabsTrigger>
               </TabsList>
@@ -920,6 +962,11 @@ function MenuContent() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">Use direct stock for bottled beverages, takeaway containers, disposable bowls, and other supplies. No ingredient quantities are required.</p>
+                    {editingItem.inventoryMode !== "direct" && (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        Cocktail & kitchen ready: Ingredient quantities (e.g. 1.5 fl_oz shots, doubles, ml, or grams) are configured in the <strong>Recipe & Supplies</strong> tab.
+                      </p>
+                    )}
                     {editingItem.inventoryMode === "direct" && <div className="grid gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20">
                       <Label htmlFor="directInventorySearch">Supply or inventory item</Label>
                       <Input id="directInventorySearch" value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search bowls, containers, beverages..." />
@@ -988,7 +1035,7 @@ function MenuContent() {
                     <Input id="image" value={editingItem.image || ""} onChange={handleImageChange} placeholder="https://example.com/image.jpg" />
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="gap-2 sm:gap-0">
                   <Button
                     variant="outline"
                     onClick={handleDialogClose}
@@ -996,23 +1043,51 @@ function MenuContent() {
                   >
                     Cancel
                   </Button>
-                  <Button
-                    onClick={handleSaveItem}
-                    disabled={isSaving}
-                    className="flex items-center gap-2"
-                  >
-                    {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {isSaving
-                      ? "Saving..."
-                      : isNewItem
-                        ? "Add Item"
-                        : "Save Changes"}
-                  </Button>
+                  {isNewItem && (editingItem.inventoryMode ?? "recipe") === "recipe" ? (
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSaveItem({ openRecipeTab: false })}
+                        disabled={isSaving}
+                      >
+                        Add Item Only
+                      </Button>
+                      <Button
+                        onClick={() => handleSaveItem({ openRecipeTab: true })}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {isSaving ? "Saving..." : "Add & Configure Recipe →"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleSaveItem({ openRecipeTab: false })}
+                      disabled={isSaving}
+                      className="flex items-center gap-2"
+                    >
+                      {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {isSaving
+                        ? "Saving..."
+                        : isNewItem
+                          ? "Add Item"
+                          : "Save Changes"}
+                    </Button>
+                  )}
                 </DialogFooter>
               </TabsContent>
 <TabsContent value="recipe" className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
   <div className="min-w-0">
     <RecipeManager menuItemId={editingItem.id} menuItemPrice={editingItem.price} />
+    <div className="mt-6 flex items-center justify-between border-t pt-4">
+      <Button variant="outline" onClick={() => setActiveDialogTab("details")}>
+        ← Back to Details
+      </Button>
+      <Button onClick={handleDialogClose}>
+        Done
+      </Button>
+    </div>
   </div>
 </TabsContent>
             </Tabs>

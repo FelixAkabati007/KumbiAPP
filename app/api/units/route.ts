@@ -51,7 +51,7 @@ const UNIT_CATEGORIES = [
   {
     category: "Portion & Recipe Units (Usage)",
     units: [
-      { value: "fl_oz", label: "Fluid Ounce (FL OZ)" },
+      { value: "fl_oz", label: "Fluid Ounce (fl_oz)" },
       { value: "ml", label: "Milliliter (ML)" },
       { value: "cl", label: "Centiliter (CL)" },
       { value: "shot", label: "Shot / Tot (1.5 oz / 44 ml)" },

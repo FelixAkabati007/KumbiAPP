@@ -115,7 +115,7 @@ export function RecipeManager({ menuItemId, menuItemPrice }: RecipeManagerProps)
   const [isSavingSteps, setIsSavingSteps] = useState(false);
   const { lastEvent } = useRealtime();
 
-  const foodInventoryItems = inventoryItems.filter((item) => ["ingredient", "beverage"].includes((item.category ?? "ingredient").toLowerCase()));
+  const foodInventoryItems = inventoryItems.filter((item) => !["supply", "packaging", "disposable", "equipment", "non-food"].includes((item.category ?? "").toLowerCase()));
   const supplyInventoryItems = inventoryItems.filter((item) => ["supply", "packaging", "disposable", "equipment", "non-food"].includes((item.category ?? "").toLowerCase()));
   const filteredSupplyItems = supplyInventoryItems.filter((item) => `${item.name} ${item.unit} ${item.category ?? ""} ${item.sku ?? ""}`.toLowerCase().includes(supplySearch.trim().toLowerCase()));
 
