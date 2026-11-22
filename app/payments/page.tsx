@@ -14,6 +14,7 @@ import {
   Banknote,
   Smartphone,
   Wallet,
+  Clock3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -72,6 +73,69 @@ interface ApiTransactionRow {
   discount_count?: number;
 }
 
+const TIMEZONE_ACCRA = "Africa/Accra";
+
+function formatAccraDateKey(dateInput: Date | string | number): string {
+  const d = typeof dateInput === "object" ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE_ACCRA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function formatAccraMonthKey(dateInput: Date | string | number): string {
+  const d = typeof dateInput === "object" ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE_ACCRA,
+    year: "numeric",
+    month: "2-digit",
+  }).format(d);
+}
+
+function formatAccraDateDisplay(dateKey: string): string {
+  const d = new Date(dateKey + "T12:00:00Z");
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE_ACCRA,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
+function formatAccraTimestamp(dateInput: Date | string | number): string {
+  const d = typeof dateInput === "object" ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-GH", {
+    timeZone: TIMEZONE_ACCRA,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}
+
+function getStartOfWeekAccra(now: Date): string {
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE_ACCRA,
+    weekday: "short",
+  }).format(now);
+  const dayIndexMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  const dayIndex = dayIndexMap[dayName] ?? 0;
+  const todayKey = formatAccraDateKey(now);
+  const anchor = new Date(todayKey + "T12:00:00Z");
+  return formatAccraDateKey(new Date(anchor.getTime() - dayIndex * 86400000));
+}
+
 export default function PaymentsPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("today");
@@ -80,6 +144,74 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const { showLoading, hideLoading } = useLoading();
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncTime = async () => {
+      try {
+        const response = await fetch("/api/system/time", { cache: "no-store" });
+        if (!response.ok)
+          throw new Error(`Time API returned ${response.status}`);
+        const payload = (await response.json()) as { iso?: string };
+        if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
+      } catch {
+        // Keep the last trusted API value while the public service is unavailable.
+      }
+    };
+
+    void syncTime();
+    let tickTimer: number | null = null;
+    let syncTimer: number | null = null;
+    const startTimers = () => {
+      if (tickTimer === null) {
+        tickTimer = window.setInterval(
+          () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
+          1000,
+        );
+      }
+      if (syncTimer === null) syncTimer = window.setInterval(syncTime, 30_000);
+    };
+    const stopTimers = () => {
+      if (tickTimer !== null) window.clearInterval(tickTimer);
+      if (syncTimer !== null) window.clearInterval(syncTimer);
+      tickTimer = null;
+      syncTimer = null;
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopTimers();
+      else startTimers();
+    };
+    startTimers();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      stopTimers();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const accraTime = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: TIMEZONE_ACCRA,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(currentTime)
+    : "—";
+  const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
+
+  const accraDateFormatted = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: TIMEZONE_ACCRA,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(currentTime)
+    : "";
 
   useEffect(() => {
     async function load(silent = false) {
@@ -141,48 +273,25 @@ export default function PaymentsPage() {
   const filteredData = useMemo(() => {
     let filtered = [...data];
 
-    // Apply date filter
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
-    const startOfWeek = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - now.getDay()
-    );
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const localDateStr = now.toLocaleDateString("en-CA"); // "YYYY-MM-DD"
-    const utcDateStr = now.toISOString().split("T")[0];
-    const propertyDateStr = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Africa/Accra",
-    }).format(now);
+    // Apply date filter anchored to Africa/Accra authoritative time
+    const now = currentTime || new Date();
+    const todayDateKey = formatAccraDateKey(now);
+    const thisMonthKey = formatAccraMonthKey(now);
+    const startOfWeekDateKey = getStartOfWeekAccra(now);
 
     filtered = filtered.filter((item) => {
+      const itemDateKey = formatAccraDateKey(item.date);
       const itemDate = new Date(item.date);
       switch (dateFilter) {
         case "today": {
-          const itemLocalDateStr = itemDate.toLocaleDateString("en-CA");
-          const itemUtcDateStr = itemDate.toISOString().split("T")[0];
-          const itemPropertyDateStr = new Intl.DateTimeFormat("en-CA", {
-            timeZone: "Africa/Accra",
-          }).format(itemDate);
-          return (
-            itemDate >= startOfToday ||
-            itemDate >= twentyFourHoursAgo ||
-            itemLocalDateStr === localDateStr ||
-            itemUtcDateStr === utcDateStr ||
-            itemPropertyDateStr === propertyDateStr
-          );
+          return itemDateKey === todayDateKey;
         }
         case "week":
-          return itemDate >= startOfWeek || itemDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        case "month":
-          return itemDate >= startOfMonth || itemDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          return itemDateKey >= startOfWeekDateKey || itemDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        case "month": {
+          const itemMonthKey = formatAccraMonthKey(item.date);
+          return itemMonthKey === thisMonthKey || itemDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
         default:
           return true;
       }
@@ -207,7 +316,7 @@ export default function PaymentsPage() {
     }
 
     return filtered;
-  }, [data, dateFilter, paymentFilter, searchQuery]);
+  }, [data, dateFilter, paymentFilter, searchQuery, currentTime]);
 
   const paymentAnalytics = useMemo(() => {
     const totalRevenue = filteredData.reduce(
@@ -242,12 +351,15 @@ export default function PaymentsPage() {
           : 0;
     });
 
-    // Daily revenue trend (last 7 days): computed across the dataset to show true 7-day trend
+    // Daily revenue trend (last 7 days): computed across the dataset strictly in Africa/Accra authoritative time
     const dailyRevenue: Record<string, number> = {};
+    const referenceDate = currentTime || new Date();
+    const todayKey = formatAccraDateKey(referenceDate);
+    const anchorNoon = new Date(todayKey + "T12:00:00Z");
+
     const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return date.toLocaleDateString("en-CA");
+      const d = new Date(anchorNoon.getTime() - i * 86400000);
+      return formatAccraDateKey(d);
     }).reverse();
 
     last7Days.forEach((dateKey) => {
@@ -268,7 +380,7 @@ export default function PaymentsPage() {
     });
 
     trendDataset.forEach((order) => {
-      const orderDate = new Date(order.date).toLocaleDateString("en-CA");
+      const orderDate = formatAccraDateKey(order.date);
       if (Object.prototype.hasOwnProperty.call(dailyRevenue, orderDate)) {
         const amount = order.type === "refund" ? -order.total : order.total;
         dailyRevenue[orderDate] += amount;
@@ -281,7 +393,7 @@ export default function PaymentsPage() {
       paymentBreakdown,
       dailyRevenue,
     };
-  }, [data, filteredData, paymentFilter, searchQuery]);
+  }, [data, filteredData, paymentFilter, searchQuery, currentTime]);
 
   const getPaymentMethodIcon = (method: string) => {
     switch (method.toLowerCase()) {
@@ -312,7 +424,7 @@ export default function PaymentsPage() {
   return (
     <RoleGuard section="payments">
       <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
           <Link
             href="/"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -324,6 +436,29 @@ export default function PaymentsPage() {
               Payment Analytics
             </h1>
           </Link>
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-1.5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
+              aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
+            >
+              <Clock3
+                className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+                aria-hidden="true"
+              />
+              <span className="font-mono text-sm font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">
+                {clockTime}
+              </span>
+              <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+                {clockPeriod}
+              </span>
+            </div>
+            {accraDateFormatted && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange-100/70 dark:bg-orange-950/40 rounded-full border border-orange-200 dark:border-orange-700 text-xs font-medium text-orange-800 dark:text-orange-200">
+                <Calendar className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                <span>{accraDateFormatted}</span>
+              </div>
+            )}
+          </div>
         </header>
 
         <main className="flex flex-1 flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-4 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 md:p-6">
@@ -526,11 +661,7 @@ export default function PaymentsPage() {
                       className="flex items-center justify-between p-3 bg-gradient-to-r from-white/60 to-orange-50/60 dark:from-gray-800/60 dark:to-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-700"
                     >
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {new Date(date + "T00:00:00").toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
+                        {formatAccraDateDisplay(date)}
                       </div>
                       <div className="text-sm font-bold text-orange-700 dark:text-orange-300">
                         ₵{revenue.toFixed(2)}
@@ -604,7 +735,7 @@ export default function PaymentsPage() {
                               {transaction.total.toFixed(2)}
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {new Date(transaction.date).toLocaleString()}
+                              {formatAccraTimestamp(transaction.date)}
                             </div>
                           </div>
                         </div>
