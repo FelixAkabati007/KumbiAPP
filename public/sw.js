@@ -1,4 +1,4 @@
-const CACHE_NAME = "kumbi-offline-v3";
+const CACHE_NAME = "kumbi-offline-v4";
 const APP_SHELL = [
   "/",
   "/login",
@@ -101,7 +101,14 @@ self.addEventListener("fetch", (event) => {
   // 3. Navigation / HTML Pages
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
+      .then(async (response) => {
+        // Intercept 403 Forbidden pages from gateways or proxies and fall back to app shell
+        if (!response.ok && response.status === 403) {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const shell = await caches.match("/");
+          if (shell) return shell;
+        }
         if (response.ok) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));

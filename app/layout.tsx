@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/components/auth-provider";
 import ErrorBoundary from "@/components/error-boundary";
 import { GlobalErrorHandler } from "@/components/global-error-handler";
+import { DomSanitizer } from "@/components/dom-sanitizer";
 import { LoadingProvider } from "@/components/loading-provider";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { RouteRuntime } from "@/components/route-runtime";
@@ -71,8 +72,33 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon.ico" type="image/png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var purgeForeignNodes = function() {
+                    var el = document.querySelectorAll('h1, h2, h3, p, div, span');
+                    for (var i = 0; i < el.length; i++) {
+                      var txt = el[i].textContent || '';
+                      if (txt.indexOf('blocked your access') !== -1 || txt.indexOf('Error 403 - Forbidden') !== -1) {
+                        el[i].remove();
+                      }
+                    }
+                  };
+                  if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', purgeForeignNodes);
+                  } else {
+                    purgeForeignNodes();
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} bg-background text-foreground min-h-screen relative`} suppressHydrationWarning data-kumbi-app="root">
+        <DomSanitizer />
         <AuthProvider>
           <GlobalErrorHandler />
           <ServiceWorkerRegister />

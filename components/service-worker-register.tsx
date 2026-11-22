@@ -10,7 +10,8 @@ export function ServiceWorkerRegister() {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        // Trigger background check for service worker updates
+        // Immediately check for newer service worker version
+        registration.update().catch(() => {});
         if (registration.waiting) {
           registration.waiting.postMessage({ type: "SKIP_WAITING" });
         }

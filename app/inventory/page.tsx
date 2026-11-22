@@ -1175,7 +1175,7 @@ function InventoryContent() {
   const lowStockCount = items.filter(isLowStock).length;
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+    <div className="flex min-h-screen w-full flex-col bg-[#fffbf5] dark:bg-[#121212] bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 relative z-0">
       <header className="sticky top-0 z-10 border-b border-orange-200 bg-white px-3 py-2 dark:border-orange-700 dark:bg-gray-900 sm:px-4 md:px-6">
         <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-2 sm:gap-3">
           <Link
@@ -1307,7 +1307,7 @@ function InventoryContent() {
         </div>
       </header>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-[#fffbf5] dark:bg-[#121212] bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 p-3 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 sm:p-4 md:p-6 relative z-0">
           {inventoryLoadError && (
             <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               <span>Inventory could not be loaded: {inventoryLoadError}</span>
