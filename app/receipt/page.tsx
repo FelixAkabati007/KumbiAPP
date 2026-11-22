@@ -55,10 +55,25 @@ function ReceiptContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { stats } = useReceiptStats();
-  const { settings: receiptSettings } = useReceiptSettings();
+  const { settings: receiptSettings, updateSettings: updateReceiptSettings } = useReceiptSettings();
   const { settings: appSettings } = useSettings();
   const printRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+
+  const [printerSize, setPrinterSize] = useState<"58mm" | "80mm" | "standard">(
+    receiptSettings.paperSize || "80mm"
+  );
+
+  useEffect(() => {
+    if (receiptSettings.paperSize) {
+      setPrinterSize(receiptSettings.paperSize);
+    }
+  }, [receiptSettings.paperSize]);
+
+  const handleSelectPrinterSize = (size: "58mm" | "80mm" | "standard") => {
+    setPrinterSize(size);
+    updateReceiptSettings({ paperSize: size });
+  };
 
   // receiptData is used to store data from URL params, but the UI currently relies on foundSale.
   // Kept for potential future use or fixing the redirect logic.
@@ -253,11 +268,27 @@ function ReceiptContent() {
       toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
       return;
     }
+    // Inject dynamic print page size rule so browser/printer spooler adopts the device paper format
+    const styleId = "receipt-print-device-size";
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    const pageRule =
+      printerSize === "58mm"
+        ? "@page { size: 58mm auto !important; margin: 2mm !important; }"
+        : printerSize === "standard"
+          ? "@page { size: portrait !important; margin: 10mm !important; }"
+          : "@page { size: 80mm auto !important; margin: 3mm !important; }";
+    styleEl.textContent = `@media print { ${pageRule} }`;
+
     // The receipt generator uses the browser dialog as the default, matching POS and hotel manual printing.
     window.print();
     toast({
       title: "Print dialog opened",
-      description: "Choose your printer or save the receipt as a PDF.",
+      description: `Optimized for ${printerSize === "58mm" ? "58mm thermal" : printerSize === "standard" ? "standard / A4" : "80mm thermal"} printer.`,
     });
   };
 
@@ -275,7 +306,49 @@ function ReceiptContent() {
             Receipt Generator
           </h1>
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-2xl border border-orange-200/80 bg-white/70 p-1 text-xs dark:border-orange-800 dark:bg-gray-800/70 shadow-sm">
+            <span className="font-semibold text-orange-950 dark:text-orange-200 px-2 hidden sm:inline">
+              Format:
+            </span>
+            <button
+              type="button"
+              onClick={() => handleSelectPrinterSize("58mm")}
+              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+                printerSize === "58mm"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              }`}
+              title="58mm thermal receipt paper (2-inch / 32 cols)"
+            >
+              58mm
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectPrinterSize("80mm")}
+              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+                printerSize === "80mm"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              }`}
+              title="80mm thermal receipt paper (3-inch / 48 cols)"
+            >
+              80mm
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectPrinterSize("standard")}
+              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+                printerSize === "standard"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              }`}
+              title="Standard A4 or Letter office paper"
+            >
+              Standard A4
+            </button>
+          </div>
+
           <Button
             onClick={handlePrint}
             disabled={!foundSale}
@@ -371,16 +444,19 @@ function ReceiptContent() {
               <ScrollArea className="h-[600px] print:h-auto print:overflow-visible">
                 <div
                   ref={printRef}
+                  data-printer-size={printerSize}
                   className={
-                    `receipt-print-area receipt bg-white dark:bg-gray-900 p-6 print:p-1 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono text-sm max-w-sm mx-auto print:mx-0 print:border-none print:shadow-none ` +
-                    (receiptSettings.paperSize === "58mm"
-                      ? "w-[232px] max-w-[232px]"
-                      : "w-[320px] max-w-[320px]") +
+                    `receipt-print-area receipt bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono mx-auto print:mx-0 print:border-none print:shadow-none transition-all ` +
+                    (printerSize === "58mm"
+                      ? "w-[230px] max-w-[230px] p-3.5 print:p-1 text-xs"
+                      : printerSize === "standard"
+                        ? "w-full max-w-[560px] p-6 print:p-4 text-sm"
+                        : "w-[320px] max-w-[320px] p-5 print:p-2 text-sm") +
                     (receiptSettings.fontSize === "small"
                       ? " text-xs"
                       : receiptSettings.fontSize === "large"
-                        ? " text-lg"
-                        : " text-sm")
+                        ? " text-base"
+                        : "")
                   }
                 >
                   {/* Receipt Header */}
@@ -473,22 +549,52 @@ function ReceiptContent() {
                     )}
                     {/* Items */}
                     <div className="border-t border-orange-200 dark:border-orange-600 pt-3 mb-4">
-                      <div className="text-center text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        ITEM QTY PRICE TOTAL
-                      </div>
-                      <div className="space-y-1">
+                      {printerSize === "58mm" ? (
+                        <div className="flex justify-between text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 border-b border-dashed border-gray-300 dark:border-gray-600 pb-1">
+                          <span>ITEM</span>
+                          <span>QTY · TOTAL</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 border-b border-dashed border-gray-300 dark:border-gray-600 pb-1">
+                          <span className="flex-1 text-left">ITEM</span>
+                          <span className="w-10 text-center">QTY</span>
+                          <span className="w-16 text-right">PRICE</span>
+                          <span className="w-20 text-right">TOTAL</span>
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
                         {foundSale.items.map(
                           (item: OrderItem, index: number) => {
                             const pct = Number(item.discountPercent || 0);
                             const unitPrice = pct > 0 ? item.price * (1 - pct / 100) : item.price;
                             const lineTotal = unitPrice * item.quantity;
+
+                            if (printerSize === "58mm") {
+                              return (
+                                <div key={index} className="space-y-0.5 text-xs py-1 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                                  <div className="font-semibold text-gray-800 dark:text-gray-200 break-words leading-tight">
+                                    {item.name}
+                                  </div>
+                                  <div className="flex justify-between items-center text-[11px] text-gray-600 dark:text-gray-400 font-mono">
+                                    <span>{item.quantity} x ₵{unitPrice.toFixed(2)}</span>
+                                    <span className="font-bold text-gray-900 dark:text-gray-100">₵{lineTotal.toFixed(2)}</span>
+                                  </div>
+                                  {pct > 0 && (
+                                    <div className="text-[10px] text-orange-600 dark:text-orange-400">
+                                      (-{pct}% off: save ₵{((item.price - unitPrice) * item.quantity).toFixed(2)})
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
                             return (
-                              <div key={index} className="space-y-0.5">
-                                <div className="flex justify-between text-xs">
-                                  <span className="flex-1 truncate mr-2">{item.name}</span>
-                                  <span className="w-8 text-center">{item.quantity}</span>
-                                  <span className="w-12 text-right">₵{unitPrice.toFixed(2)}</span>
-                                  <span className="w-16 text-right font-semibold">₵{lineTotal.toFixed(2)}</span>
+                              <div key={index} className="space-y-0.5 py-0.5">
+                                <div className="flex justify-between text-xs sm:text-sm">
+                                  <span className="flex-1 truncate mr-2 font-medium text-gray-800 dark:text-gray-200">{item.name}</span>
+                                  <span className="w-10 text-center font-mono">{item.quantity}</span>
+                                  <span className="w-16 text-right font-mono">₵{unitPrice.toFixed(2)}</span>
+                                  <span className="w-20 text-right font-mono font-bold">₵{lineTotal.toFixed(2)}</span>
                                 </div>
                                 {pct > 0 && (
                                   <div className="flex justify-between text-[10px] text-orange-600 dark:text-orange-400 pl-2">

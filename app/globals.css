@@ -715,17 +715,53 @@ article,
   }
 
   .receipt-print-area {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    margin: 0 !important;
-    padding: 2px !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
     color: #000000 !important;
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 58mm thermal receipt layout (~48mm printable) */
+  .receipt-print-area[data-printer-size="58mm"],
+  .receipt-print-area.size-58mm {
+    width: 52mm !important;
+    max-width: 52mm !important;
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    padding: 1.5mm 1mm !important;
+    margin: 0 auto !important;
+  }
+
+  /* 80mm thermal receipt layout (~72mm printable) */
+  .receipt-print-area[data-printer-size="80mm"],
+  .receipt-print-area.size-80mm {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+    padding: 3mm 2mm !important;
+    margin: 0 auto !important;
+  }
+
+  /* Standard / A4 desktop printer layout */
+  .receipt-print-area[data-printer-size="standard"],
+  .receipt-print-area.size-standard {
+    width: 100% !important;
+    max-width: 175mm !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    padding: 6mm !important;
+    margin: 0 auto !important;
+    border: 1px solid #d1d5db !important;
   }
 
   /* Avoid color adjustments that can alter output */

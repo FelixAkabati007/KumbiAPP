@@ -855,6 +855,7 @@ function CheckInPage() {
                   total: Number(latestRestaurantOrder?.total || 0),
                   taxConfig: appSettings.system.taxConfiguration,
                   module: "pos",
+                  paperSize: receiptSettings.paperSize || "80mm",
                   footer: receiptSettings.includeFooter
                     ? "Charged to guest folio"
                     : "",
@@ -899,6 +900,7 @@ function CheckInPage() {
                       hotel: hotelReceiptIdentity,
                       taxConfig: appSettings.system.taxConfiguration,
                       module: "rooms",
+                      paperSize: receiptSettings.paperSize || "80mm",
                       footer: receiptSettings.includeFooter
                         ? "Accommodation settled at check-in"
                         : "",

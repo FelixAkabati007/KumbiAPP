@@ -7,7 +7,7 @@ interface ReceiptSettings {
   includeLogo: boolean;
   includeBarcode: boolean;
   includeFooter: boolean;
-  paperSize: "58mm" | "80mm";
+  paperSize: "58mm" | "80mm" | "standard";
   fontSize: "small" | "normal" | "large";
   headerText: string;
   includeHeader: boolean;
@@ -46,11 +46,18 @@ export function ReceiptSettingsProvider({
     if (printer.fontSize === "9") fontSize = "small";
     else if (printer.fontSize === "16") fontSize = "large";
 
+    const paperSize: "58mm" | "80mm" | "standard" =
+      printer.paperWidth === 58
+        ? "58mm"
+        : printer.paperWidth === 210
+          ? "standard"
+          : "80mm";
+
     return {
       includeLogo: printer.includeLogo,
       includeBarcode: printer.includeBarcode,
       includeFooter: printer.includeFooter,
-      paperSize: printer.paperWidth === 80 ? "80mm" : "58mm",
+      paperSize,
       fontSize: fontSize,
       headerText: account.restaurantName,
       includeHeader: true, // Default to true as it's not explicitly in AppSettings
@@ -72,7 +79,12 @@ export function ReceiptSettingsProvider({
     if (newSettings.includeFooter !== undefined)
       newPrinterConfig.includeFooter = newSettings.includeFooter;
     if (newSettings.paperSize !== undefined)
-      newPrinterConfig.paperWidth = newSettings.paperSize === "80mm" ? 80 : 58;
+      newPrinterConfig.paperWidth =
+        newSettings.paperSize === "58mm"
+          ? 58
+          : newSettings.paperSize === "standard"
+            ? 210
+            : 80;
     if (newSettings.fontSize !== undefined) {
       if (newSettings.fontSize === "small") newPrinterConfig.fontSize = "9";
       else if (newSettings.fontSize === "large")

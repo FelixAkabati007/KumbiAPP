@@ -39,6 +39,7 @@ export interface HotelReceiptData {
   footer?: string;
   taxConfig?: Partial<TaxConfiguration>;
   module?: "rooms" | "pos" | "events";
+  paperSize?: "58mm" | "80mm" | "standard";
 }
 
 function escapeHtml(value: string) {
@@ -46,7 +47,11 @@ function escapeHtml(value: string) {
 }
 
 export async function printHotelReceipt(receipt: HotelReceiptData) {
-  const printWindow = window.open("", "kumbiapp-hotel-receipt-print", "width=420,height=720");
+  const paperSize = receipt.paperSize || "80mm";
+  const is58mm = paperSize === "58mm";
+  const isStandard = paperSize === "standard";
+
+  const printWindow = window.open("", "kumbiapp-hotel-receipt-print", is58mm ? "width=320,height=600" : isStandard ? "width=760,height=900" : "width=420,height=720");
   if (!printWindow) {
     // Popup blockers reject windows opened after an async check-in request. The
     // browser print command itself is not a popup and remains available.
@@ -54,7 +59,10 @@ export async function printHotelReceipt(receipt: HotelReceiptData) {
     return;
   }
   const date = receipt.date || new Date();
-  const items = (receipt.items.length ? receipt.items : [{ description: "Guest folio charge", quantity: 1, totalAmount: receipt.total }]).map((item) => `<div class="item"><span>${escapeHtml(item.description)}</span><span>${item.quantity}</span><strong>GHS ${item.totalAmount.toFixed(2)}</strong></div>`).join("");
+  const rawItems = receipt.items.length ? receipt.items : [{ description: "Guest folio charge", quantity: 1, totalAmount: receipt.total }];
+  const items = is58mm
+    ? rawItems.map((item) => `<div class="item"><span style="font-weight: 500; word-break: break-word;">${escapeHtml(item.description)}</span><div class="item-row"><span>${item.quantity}x</span><strong>GHS ${item.totalAmount.toFixed(2)}</strong></div></div>`).join("")
+    : rawItems.map((item) => `<div class="item"><span style="word-break: break-word;">${escapeHtml(item.description)}</span><span>${item.quantity}</span><strong>GHS ${item.totalAmount.toFixed(2)}</strong></div>`).join("");
 
   const moduleName = receipt.module || (receipt.title.toLowerCase().includes("event") ? "events" : "rooms");
   const isTaxEnabled =
@@ -95,15 +103,45 @@ export async function printHotelReceipt(receipt: HotelReceiptData) {
          </div>`
       : "";
 
-  const markup = `<!doctype html><html><head><title>${escapeHtml(receipt.title)} ${escapeHtml(receipt.orderNumber)}</title><style>
-    @page { size: 80mm auto; margin: 4mm; } * { box-sizing: border-box; }
-    body { margin: 0; color: #111; background: #fff; font: 12px/1.4 Arial, sans-serif; }
-    .receipt { width: 72mm; margin: 0 auto; } .header, .footer { text-align: center; }
-    .header h2 { margin: 0 0 4px; font-size: 17px; } .header p, .footer p { margin: 2px 0; } .header img { max-width: 42mm; max-height: 18mm; object-fit: contain; margin-bottom: 4px; }
+  const pageSizeStyle = is58mm
+    ? `@page { size: 58mm auto; margin: 2mm; }
+    body { margin: 0; color: #111; background: #fff; font: 10.5px/1.3 Arial, sans-serif; width: 50mm; }
+    .receipt { width: 50mm; margin: 0 auto; }
+    .header h2 { margin: 0 0 2px; font-size: 14px; }
+    .header p, .footer p { margin: 1px 0; font-size: 9.5px; }
+    .header img { max-width: 32mm; max-height: 14mm; object-fit: contain; margin-bottom: 2px; }
+    .meta p, .item, .total { display: flex; justify-content: space-between; gap: 4px; margin: 2px 0; font-size: 10px; }
+    .item { flex-direction: column; margin: 3px 0; }
+    .item-row { display: flex; justify-content: space-between; width: 100%; }
+    .total { border-top: 1px solid #111; margin-top: 6px; padding-top: 4px; font-size: 12px; font-weight: 700; }
+    @media print { body { width: 50mm; } }`
+    : isStandard
+      ? `@page { size: portrait; margin: 10mm; }
+    body { margin: 0; color: #111; background: #fff; font: 13px/1.5 Arial, sans-serif; width: 100%; max-width: 175mm; margin: 0 auto; }
+    .receipt { width: 100%; max-width: 175mm; margin: 0 auto; padding: 12px; border: 1px solid #ddd; }
+    .header h2 { margin: 0 0 6px; font-size: 20px; }
+    .header p, .footer p { margin: 3px 0; font-size: 12px; }
+    .header img { max-width: 50mm; max-height: 22mm; object-fit: contain; margin-bottom: 6px; }
+    .meta p, .item, .total { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0; font-size: 13px; }
+    .item { display: flex; justify-content: space-between; width: 100%; }
+    .total { border-top: 2px solid #111; margin-top: 10px; padding-top: 8px; font-size: 16px; font-weight: 700; }
+    @media print { body { width: 100%; max-width: 175mm; } }`
+      : `@page { size: 80mm auto; margin: 3mm; }
+    body { margin: 0; color: #111; background: #fff; font: 12px/1.4 Arial, sans-serif; width: 72mm; }
+    .receipt { width: 72mm; margin: 0 auto; }
+    .header h2 { margin: 0 0 4px; font-size: 17px; }
+    .header p, .footer p { margin: 2px 0; }
+    .header img { max-width: 42mm; max-height: 18mm; object-fit: contain; margin-bottom: 4px; }
     .meta p, .item, .total { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
-    .meta strong, .item strong { white-space: nowrap; } hr { border: 0; border-top: 1px solid #111; margin: 8px 0; }
+    .item { display: flex; justify-content: space-between; width: 100%; }
     .total { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; font-size: 14px; font-weight: 700; }
-    @media print { body { width: 72mm; } }
+    @media print { body { width: 72mm; } }`;
+
+  const markup = `<!doctype html><html><head><title>${escapeHtml(receipt.title)} ${escapeHtml(receipt.orderNumber)}</title><style>
+    * { box-sizing: border-box; }
+    ${pageSizeStyle}
+    .header, .footer { text-align: center; }
+    .meta strong, .item strong { white-space: nowrap; } hr { border: 0; border-top: 1px solid #111; margin: 8px 0; }
   </style></head><body><main class="receipt"><header class="header">${receipt.hotel.logo ? `<img src="${escapeHtml(receipt.hotel.logo)}" alt="${escapeHtml(receipt.hotel.name)} logo">` : ""}<h2>${escapeHtml(receipt.hotel.name)}</h2>${receipt.hotel.address ? `<p>${escapeHtml(receipt.hotel.address)}</p>` : ""}${receipt.hotel.phone ? `<p>${escapeHtml(receipt.hotel.phone)}</p>` : ""}${receipt.hotel.email ? `<p>${escapeHtml(receipt.hotel.email)}</p>` : ""}<p>${escapeHtml(receipt.title)}</p></header><section class="meta"><p><strong>Receipt #:</strong><span>${escapeHtml(receipt.orderNumber)}</span></p><p><strong>Guest:</strong><span>${escapeHtml(receipt.guestName)}</span></p>${receipt.roomNumber ? `<p><strong>Room:</strong><span>${escapeHtml(receipt.roomNumber)}</span></p>` : ""}<p><strong>Date:</strong><span>${date.toLocaleString()}</span></p>${receipt.bookingAccount?.name || receipt.bookingAccount?.email ? `<p><strong>Booking account:</strong><span>${escapeHtml(receipt.bookingAccount.name || receipt.bookingAccount.email || "—")}${receipt.bookingAccount.role ? ` (${escapeHtml(receipt.bookingAccount.role)})` : ""}</span></p>` : ""}${receipt.bookedBy?.name ? `<p><strong>Booked by:</strong><span>${escapeHtml(receipt.bookedBy.name)}${receipt.bookedBy.role ? ` (${receipt.bookedBy.role})` : ""}</span></p>` : ""}${receipt.checkedInBy?.name ? `<p><strong>Checked in by:</strong><span>${escapeHtml(receipt.checkedInBy.name)}</span></p>` : ""}${receipt.checkedInAt ? `<p><strong>Checked in:</strong><span>${escapeHtml(new Date(receipt.checkedInAt).toLocaleString())}</span></p>` : ""}${receipt.checkedOutBy?.name ? `<p><strong>Checked out by:</strong><span>${escapeHtml(receipt.checkedOutBy.name)}</span></p>` : ""}${receipt.checkedOutAt ? `<p><strong>Checked out:</strong><span>${escapeHtml(new Date(receipt.checkedOutAt).toLocaleString())}</span></p>` : ""}</section>${fiscalHeader}<hr>${items}<div class="totals-section" style="border-top: 1px solid #111; margin-top: 8px; padding-top: 6px;">${isTaxEnabled ? `<div class="item"><span>Taxable Subtotal</span><strong>GHS ${subtotal.toFixed(2)}</strong></div>` : ""}${levyRowsBlock}<div class="total" style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-top: 6px; border-top: ${isTaxEnabled ? "1px solid #111" : "none"}; padding-top: ${isTaxEnabled ? "4px" : "0"};"><span>TOTAL:</span><span>GHS ${receipt.total.toFixed(2)}</span></div>${receipt.balance !== undefined ? `<div class="item" style="color: #c2410c; margin-top: 4px;"><span>Outstanding</span><strong>GHS ${receipt.balance.toFixed(2)}</strong></div>` : ""}</div>${fiscalFooter}<footer class="footer"><p>${escapeHtml(receipt.footer || "Thank you for choosing Kumbisaly Heritage")}</p></footer></main></body></html>`;
   printWindow.document.open();
   printWindow.document.write(markup);

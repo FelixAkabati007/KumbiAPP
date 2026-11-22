@@ -608,9 +608,9 @@ function DashboardContent() {
   return (
     <div
       ref={mainRef}
-      className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
+      className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
-      <header className="sticky top-0 z-40 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
+      <header className="shrink-0 sticky top-0 z-50 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md shadow-sm dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
         <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col gap-1 px-2 py-1 sm:gap-2 sm:px-4 sm:py-2 md:px-6 lg:gap-3">
           <div className="flex min-w-0 items-center justify-between gap-2 md:gap-6 lg:gap-10">
             <div className="flex min-w-0 items-center gap-2">
@@ -789,7 +789,7 @@ function DashboardContent() {
         </div>
       </header>
 
-      <main className="flex-1 space-y-5 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
+      <main className="flex-1 min-h-0 overflow-y-auto space-y-5 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-300">
