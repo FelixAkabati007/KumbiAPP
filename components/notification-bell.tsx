@@ -425,6 +425,7 @@ export function NotificationBell() {
 
           {evidenceModalUrl && (
             <div className="mt-2 flex max-h-[65vh] items-center justify-center overflow-auto rounded-2xl border bg-muted/30 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={evidenceModalUrl}
                 alt="Delivery / Receipt Evidence"

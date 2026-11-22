@@ -31,11 +31,11 @@ export async function GET(request: NextRequest) {
     if (!isManager) {
       params.push(access.session.id);
       sql += ` WHERE v.reported_by = $${params.length}`;
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== "all") {
         params.push(statusFilter);
         sql += ` AND v.status = $${params.length}`;
       }
-    } else if (statusFilter) {
+    } else if (statusFilter && statusFilter !== "all") {
       params.push(statusFilter);
       sql += ` WHERE v.status = $${params.length}`;
     }
@@ -43,7 +43,14 @@ export async function GET(request: NextRequest) {
     sql += ` ORDER BY v.created_at DESC LIMIT 100`;
 
     const result = await query(sql, params);
-    return NextResponse.json({ variances: result.rows });
+    const rows = result.rows;
+    const pendingCount = rows.filter((r) => (r as { status?: string }).status === "pending").length;
+
+    return NextResponse.json({
+      variances: rows,
+      pendingCount,
+      totalCount: rows.length,
+    });
   } catch (error) {
     console.error("Failed to fetch inventory variances:", error);
     return NextResponse.json({ error: "Failed to fetch stock issues" }, { status: 500 });
@@ -113,12 +120,31 @@ export async function POST(request: NextRequest) {
     const notifTitle = `Stock Issue Reported: ${item.name}`;
     const notifMessage = `${reporterName} (${reporterRole}) reported ${quantity} ${item.unit} of ${item.name} as ${formattedReason}. Explanation: ${explanation}`;
 
+    const notifMetadata = {
+      varianceId: reportId,
+      inventoryItemId,
+      itemName: item.name,
+      quantity,
+      unit: item.unit,
+      reason,
+      status: "pending",
+      evidencePathname: blob.pathname,
+    };
+
     for (const manager of managers.rows) {
-      await query(
-        `INSERT INTO notifications (recipient_user_id, title, message, type)
-         VALUES ($1, $2, $3, 'inventory_variance')`,
-        [manager.id, notifTitle, notifMessage]
-      );
+      try {
+        await query(
+          `INSERT INTO notifications (recipient_user_id, title, message, type, metadata)
+           VALUES ($1, $2, $3, 'inventory_variance', $4)`,
+          [manager.id, notifTitle, notifMessage, JSON.stringify(notifMetadata)]
+        );
+      } catch {
+        await query(
+          `INSERT INTO notifications (recipient_user_id, title, message, type)
+           VALUES ($1, $2, $3, 'inventory_variance')`,
+          [manager.id, notifTitle, notifMessage]
+        );
+      }
     }
 
     // 3. Write immutable audit log

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
-const RESTOCK_ROLES = new Set(["admin", "generalManager", "restaurantManager", "chef", "kitchen"]);
+const RESTOCK_ROLES = new Set(["admin", "manager", "generalManager", "restaurantManager", "chef", "kitchen", "frontDesk"]);
 
 export async function GET(request: Request) {
   try {

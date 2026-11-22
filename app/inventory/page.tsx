@@ -184,6 +184,27 @@ interface TopUpReviewItem {
   reviewed_at?: string | null;
 }
 
+interface VarianceReviewItem {
+  id: string;
+  inventory_item_id: string;
+  item_name: string;
+  item_sku?: string;
+  item_unit: string;
+  current_stock: string | number;
+  reported_by?: string;
+  reported_by_name: string;
+  reported_by_role: string;
+  reason: string;
+  quantity: string | number;
+  explanation: string;
+  evidence_pathname?: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  reviewed_by_name?: string | null;
+  reviewer_notes?: string | null;
+  reviewed_at?: string | null;
+}
+
 function InventoryContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -210,25 +231,9 @@ function InventoryContent() {
   const [varianceEvidence, setVarianceEvidence] = useState<File | null>(null);
   const [isSubmittingVariance, setIsSubmittingVariance] = useState(false);
   const canReviewVariance = canReviewInventoryVariance(user?.role);
-  const [pendingVariances, setPendingVariances] = useState<Array<{
-    id: string;
-    inventory_item_id: string;
-    item_name: string;
-    item_sku: string;
-    item_unit: string;
-    current_stock: string | number;
-    reported_by_name: string;
-    reported_by_role: string;
-    reason: string;
-    quantity: string | number;
-    explanation: string;
-    evidence_pathname: string | null;
-    status: "pending" | "approved" | "rejected";
-    created_at: string;
-    reviewed_by_name?: string | null;
-    reviewer_notes?: string | null;
-    reviewed_at?: string | null;
-  }>>([]);
+  const [pendingVariances, setPendingVariances] = useState<VarianceReviewItem[]>([]);
+  const [allVariances, setAllVariances] = useState<VarianceReviewItem[]>([]);
+  const [varianceFilterStatus, setVarianceFilterStatus] = useState<"pending" | "all" | "approved" | "rejected">("all");
   const [pendingTopUps, setPendingTopUps] = useState<TopUpReviewItem[]>([]);
   const [allTopUps, setAllTopUps] = useState<TopUpReviewItem[]>([]);
   const [topUpFilterStatus, setTopUpFilterStatus] = useState<"pending" | "all" | "approved">("all");
@@ -243,6 +248,13 @@ function InventoryContent() {
     if (topUpFilterStatus === "approved") return allTopUps.filter((t) => t.status === "approved");
     return allTopUps;
   }, [topUpFilterStatus, pendingTopUps, allTopUps]);
+
+  const displayedVariances = useMemo(() => {
+    if (varianceFilterStatus === "pending") return pendingVariances;
+    if (varianceFilterStatus === "approved") return allVariances.filter((v) => v.status === "approved");
+    if (varianceFilterStatus === "rejected") return allVariances.filter((v) => v.status === "rejected");
+    return allVariances;
+  }, [varianceFilterStatus, pendingVariances, allVariances]);
 
   const pendingTopUpsByItem = useMemo(() => {
     const map = new Map<string, number>();
@@ -273,25 +285,18 @@ function InventoryContent() {
     }
     return map;
   }, [pendingVariances]);
-  const [selectedVariance, setSelectedVariance] = useState<{
-    id: string;
-    inventory_item_id: string;
-    item_name: string;
-    item_sku: string;
-    item_unit: string;
-    current_stock: string | number;
-    reported_by_name: string;
-    reported_by_role: string;
-    reason: string;
-    quantity: string | number;
-    explanation: string;
-    evidence_pathname: string | null;
-    status: "pending" | "approved" | "rejected";
-    created_at: string;
-    reviewed_by_name?: string | null;
-    reviewer_notes?: string | null;
-    reviewed_at?: string | null;
-  } | null>(null);
+
+  const allVariancesByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const v of allVariances) {
+      if (v.inventory_item_id) {
+        map.set(v.inventory_item_id, (map.get(v.inventory_item_id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [allVariances]);
+
+  const [selectedVariance, setSelectedVariance] = useState<VarianceReviewItem | null>(null);
   const [varianceReviewNotes, setVarianceReviewNotes] = useState("");
   const [isProcessingVarianceAction, setIsProcessingVarianceAction] = useState(false);
   const [topUpItem, setTopUpItem] = useState<InventoryItem | null>(null);
@@ -429,12 +434,17 @@ function InventoryContent() {
   const loadPendingVariances = useCallback(async () => {
     if (!canReviewVariance) return;
     try {
-      const res = await fetch("/api/inventory/variance?status=pending");
+      const res = await fetch("/api/inventory/variance?status=all");
       if (!res.ok) return;
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setPendingVariances(data);
-      }
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.variances)
+        ? (data.variances as VarianceReviewItem[])
+        : [];
+      setAllVariances(list);
+      const pending = list.filter((v) => v.status === "pending");
+      setPendingVariances(pending);
     } catch {
       // offline or silent fail
     }
@@ -493,9 +503,7 @@ function InventoryContent() {
       });
       setSelectedVariance(null);
       setVarianceReviewNotes("");
-      setIsReviewDialogOpen(false);
-      await loadInventory();
-      await loadPendingVariances();
+      await Promise.all([loadInventory(), loadPendingVariances()]);
     } catch (error) {
       toast({
         title: "Action failed",
@@ -1216,6 +1224,7 @@ function InventoryContent() {
                   setReviewTab("topups");
                   setTopUpFilterStatus(pendingTopUps.length > 0 ? "pending" : "all");
                   setIsReviewDialogOpen(true);
+                  void loadPendingTopUps();
                 }}
                 className="relative rounded-2xl border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-medium"
                 title="Review stock top-ups and view restock history"
@@ -1246,21 +1255,30 @@ function InventoryContent() {
                   setSelectedTopUp(null);
                   setVarianceReviewNotes("");
                   setReviewTab("variances");
+                  setVarianceFilterStatus(pendingVariances.length > 0 ? "pending" : "all");
                   setIsReviewDialogOpen(true);
+                  void loadPendingVariances();
                 }}
                 className="relative rounded-2xl border-rose-300 dark:border-rose-700 bg-rose-50/50 hover:bg-rose-100/60 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-800 dark:text-rose-200 font-medium"
                 title="Review stock issues submitted by staff"
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 <span>Stock Issues</span>
-                {pendingVariances.length > 0 && (
+                {pendingVariances.length > 0 ? (
                   <span
                     aria-label={`${pendingVariances.length} pending stock issues`}
                     className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse pointer-events-none"
                   >
                     {pendingVariances.length}
                   </span>
-                )}
+                ) : allVariances.length > 0 ? (
+                  <span
+                    aria-label={`${allVariances.length} recorded stock issues`}
+                    className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-700 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 pointer-events-none"
+                  >
+                    {allVariances.length}
+                  </span>
+                ) : null}
               </Button>
             </>
           )}
@@ -1714,11 +1732,15 @@ function InventoryContent() {
                 >
                   <AlertTriangle className="h-4 w-4" />
                   <span>Damages & Issue Reports</span>
-                  {pendingVariances.length > 0 && (
+                  {pendingVariances.length > 0 ? (
                     <span className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900 animate-pulse">
                       {pendingVariances.length}
                     </span>
-                  )}
+                  ) : allVariances.length > 0 ? (
+                    <span className="absolute -top-2.5 -right-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-700 px-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-900">
+                      {allVariances.length}
+                    </span>
+                  ) : null}
                 </button>
               </div>
             </DialogHeader>
@@ -2074,15 +2096,7 @@ function InventoryContent() {
                 )
               ) : (
                 /* DAMAGES & ISSUE REPORTS TAB */
-                pendingVariances.length === 0 ? (
-                  <div className="text-center py-12 px-4">
-                    <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-base font-semibold text-muted-foreground">No pending stock issue reports</p>
-                    <p className="text-xs text-muted-foreground/80 mt-1">
-                      When staff report damaged, expired, or missing stock, reports will appear here for manager action.
-                    </p>
-                  </div>
-                ) : selectedVariance ? (
+                selectedVariance ? (
                   <div className="space-y-4">
                     <Button
                       variant="ghost"
@@ -2103,9 +2117,27 @@ function InventoryContent() {
                           <h4 className="font-bold text-base text-foreground">{selectedVariance.item_name}</h4>
                           <p className="text-xs text-muted-foreground">SKU: {selectedVariance.item_sku || "N/A"}</p>
                         </div>
-                        <Badge variant="outline" className="capitalize border-rose-300 text-rose-700 dark:text-rose-300 font-semibold">
-                          {selectedVariance.reason.replace(/_/g, " ")}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="capitalize border-rose-300 text-rose-700 dark:text-rose-300 font-semibold">
+                            {selectedVariance.reason.replace(/_/g, " ")}
+                          </Badge>
+                          {selectedVariance.status === "pending" ? (
+                            <Badge className="bg-rose-600 text-white text-[10px] font-semibold">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Pending Review
+                            </Badge>
+                          ) : selectedVariance.status === "approved" ? (
+                            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+                              <Check className="h-3 w-3 mr-1" />
+                              Approved Write-Off
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-[10px] font-semibold">
+                              <X className="h-3 w-3 mr-1" />
+                              Rejected
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
@@ -2140,13 +2172,24 @@ function InventoryContent() {
 
                       {selectedVariance.evidence_pathname && (
                         <div className="pt-2 text-xs border-t border-rose-200/60 dark:border-rose-900/60">
-                          <span className="text-muted-foreground">Photo Evidence:</span>
-                          <div className="mt-2 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center">
+                          <div className="flex items-center justify-between pb-1">
+                            <span className="text-muted-foreground">Photo Evidence:</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname!)}`)}
+                              className="h-6 text-[11px] text-blue-600 hover:text-blue-800 p-0"
+                            >
+                              <Eye className="h-3 w-3 mr-1" /> Expand
+                            </Button>
+                          </div>
+                          <div className="mt-1 rounded-xl overflow-hidden border bg-background max-h-60 flex items-center justify-center cursor-pointer"
+                            onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname!)}`)}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={`/api/inventory/variance/evidence?pathname=${encodeURIComponent(selectedVariance.evidence_pathname)}`}
                               alt="Stock issue evidence"
-                              className="max-h-60 w-auto object-contain"
+                              className="max-h-60 w-auto object-contain hover:scale-105 transition-transform"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = "none";
                               }}
@@ -2156,83 +2199,270 @@ function InventoryContent() {
                       )}
                     </div>
 
-                    <div className="space-y-2 pt-2">
-                      <Label htmlFor="review-notes" className="text-xs font-semibold">
-                        Manager Review Notes (optional for approval, recommended for rejection):
-                      </Label>
-                      <Textarea
-                        id="review-notes"
-                        placeholder="Add an explanation or action details for staff records..."
-                        value={varianceReviewNotes}
-                        onChange={(e) => setVarianceReviewNotes(e.target.value)}
-                        className="text-xs min-h-[60px]"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleVarianceAction("reject")}
-                        disabled={isProcessingVarianceAction}
-                        className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                      >
-                        {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
-                        Reject Report
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleVarianceAction("approve")}
-                        disabled={isProcessingVarianceAction}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      >
-                        {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-                        Approve & Write Off {selectedVariance.quantity} {selectedVariance.item_unit}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingVariances.map((variance) => (
-                      <div
-                        key={variance.id}
-                        className="rounded-2xl border p-3 hover:border-rose-400 dark:hover:border-rose-700 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm truncate">{variance.item_name}</span>
-                            <Badge variant="outline" className="text-[10px] uppercase font-semibold border-rose-300 text-rose-700">
-                              {variance.reason.replace(/_/g, " ")}
-                            </Badge>
-                            <Badge variant="secondary" className="text-[10px]">
-                              -{variance.quantity} {variance.item_unit}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {variance.explanation}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            By <span className="font-medium text-foreground">{variance.reported_by_name}</span> ({variance.reported_by_role}) · {new Date(variance.created_at).toLocaleDateString()} {new Date(variance.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
+                    {selectedVariance.status === "pending" ? (
+                      <>
+                        <div className="space-y-2 pt-2">
+                          <Label htmlFor="review-notes" className="text-xs font-semibold">
+                            Manager Review Notes (optional for approval, recommended for rejection):
+                          </Label>
+                          <Textarea
+                            id="review-notes"
+                            placeholder="Add an explanation or action details for staff records..."
+                            value={varianceReviewNotes}
+                            onChange={(e) => setVarianceReviewNotes(e.target.value)}
+                            className="text-xs min-h-[60px]"
+                          />
                         </div>
 
-                        <div className="shrink-0 flex items-center gap-2">
+                        <div className="flex items-center justify-end gap-3 pt-3 border-t">
                           <Button
-                            size="sm"
                             variant="outline"
-                            onClick={() => {
-                              setSelectedVariance(variance);
-                              setVarianceReviewNotes("");
-                            }}
-                            className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                            size="sm"
+                            onClick={() => handleVarianceAction("reject")}
+                            disabled={isProcessingVarianceAction}
+                            className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                           >
-                            <Eye className="h-3.5 w-3.5 mr-1" />
-                            Review & Act
+                            {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                            Reject Report
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleVarianceAction("approve")}
+                            disabled={isProcessingVarianceAction}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            {isProcessingVarianceAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                            Approve & Write Off {selectedVariance.quantity} {selectedVariance.item_unit}
                           </Button>
                         </div>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border p-4 bg-muted/30 space-y-2">
+                        <div className="flex items-center gap-2">
+                          {selectedVariance.status === "approved" ? (
+                            <Badge className="bg-emerald-600 text-white text-xs font-semibold">
+                              <Check className="h-3.5 w-3.5 mr-1" />
+                              Approved Write-Off
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs font-semibold">
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Rejected Report
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {selectedVariance.reviewed_at ? new Date(selectedVariance.reviewed_at).toLocaleString() : ""}
+                          </span>
+                        </div>
+                        {selectedVariance.reviewed_by_name && (
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Reviewed by:</span>{" "}
+                            <span className="font-semibold text-foreground">{selectedVariance.reviewed_by_name}</span>
+                          </p>
+                        )}
+                        {selectedVariance.reviewer_notes && (
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Reviewer notes:</span>{" "}
+                            <span className="italic text-foreground">&ldquo;{selectedVariance.reviewer_notes}&rdquo;</span>
+                          </p>
+                        )}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Sub-filters for Issue Reports */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setVarianceFilterStatus("pending")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                            varianceFilterStatus === "pending"
+                              ? "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200 font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <span>Pending Action</span>
+                          {pendingVariances.length > 0 && (
+                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                              {pendingVariances.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVarianceFilterStatus("all")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            varianceFilterStatus === "all"
+                              ? "bg-muted text-foreground font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          All Issue Reports ({allVariances.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVarianceFilterStatus("approved")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            varianceFilterStatus === "approved"
+                              ? "bg-muted text-foreground font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Approved ({allVariances.filter((v) => v.status === "approved").length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVarianceFilterStatus("rejected")}
+                          className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                            varianceFilterStatus === "rejected"
+                              ? "bg-muted text-foreground font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          Rejected ({allVariances.filter((v) => v.status === "rejected").length})
+                        </button>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                        {displayedVariances.length} record{displayedVariances.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    {displayedVariances.length === 0 ? (
+                      varianceFilterStatus === "pending" ? (
+                        <div className="text-center py-10 px-4 rounded-2xl bg-rose-50/30 dark:bg-rose-950/10 border border-dashed border-rose-200 dark:border-rose-900">
+                          <Package className="h-10 w-10 text-rose-600/50 mx-auto mb-2" />
+                          <p className="text-sm font-semibold text-foreground">No pending stock issue reports</p>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                            All reported damages, expirations, and missing stock have been reviewed.
+                          </p>
+                          {allVariances.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setVarianceFilterStatus("all")}
+                              className="mt-3 text-xs rounded-xl border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 font-medium"
+                            >
+                              View All Issue Reports ({allVariances.length})
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 px-4">
+                          <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                          <p className="text-base font-semibold text-muted-foreground">No stock issue reports recorded yet</p>
+                          <p className="text-xs text-muted-foreground/80 mt-1">
+                            When staff report damaged, expired, or missing stock, reports will appear here for manager action.
+                          </p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="space-y-3">
+                        {displayedVariances.map((variance) => (
+                          <div
+                            key={variance.id}
+                            className={`rounded-2xl border p-3.5 transition-colors bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                              variance.status === "pending"
+                                ? "border-rose-300 dark:border-rose-700 bg-rose-50/30 dark:bg-rose-950/10 shadow-sm"
+                                : "hover:border-rose-300 dark:hover:border-rose-700"
+                            }`}
+                          >
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm truncate">{variance.item_name}</span>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] uppercase font-bold border-rose-400 bg-rose-50 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+                                >
+                                  -{variance.quantity} {variance.item_unit}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] uppercase font-semibold border-amber-300 text-amber-700 dark:text-amber-300">
+                                  {variance.reason.replace(/_/g, " ")}
+                                </Badge>
+                                {variance.status === "pending" ? (
+                                  <Badge className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-semibold">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Pending Review
+                                  </Badge>
+                                ) : variance.status === "approved" ? (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+                                    <Check className="h-3 w-3 mr-1" />
+                                    Approved Write-Off
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="text-[10px] font-semibold">
+                                    <X className="h-3 w-3 mr-1" />
+                                    Rejected
+                                  </Badge>
+                                )}
+                                {variance.evidence_pathname && (
+                                  <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200 border border-blue-200">
+                                    <ImageIcon className="h-3 w-3 mr-1" />
+                                    Evidence Attached
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                &ldquo;{variance.explanation}&rdquo;
+                              </p>
+
+                              <p className="text-[11px] text-muted-foreground">
+                                Reported by <span className="font-medium text-foreground">{variance.reported_by_name}</span> ({variance.reported_by_role}) · {new Date(variance.created_at).toLocaleDateString()} {new Date(variance.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {variance.reviewed_by_name && (
+                                  <span className="ml-1 text-rose-700 dark:text-rose-400 font-medium">
+                                    · Reviewed by {variance.reviewed_by_name}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 flex items-center gap-2">
+                              {variance.evidence_pathname && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setHistoryEvidenceModalUrl(`/api/inventory/variance/evidence?pathname=${encodeURIComponent(variance.evidence_pathname!)}`)}
+                                  className="h-8 rounded-xl text-xs border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 font-medium"
+                                  title="View photo evidence"
+                                >
+                                  <Eye className="h-3.5 w-3.5 mr-1" />
+                                  Evidence
+                                </Button>
+                              )}
+
+                              {variance.status === "pending" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedVariance(variance);
+                                    setVarianceReviewNotes("");
+                                  }}
+                                  className="rounded-xl border-rose-300 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold h-8"
+                                >
+                                  Review & Act
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedVariance(variance);
+                                    setVarianceReviewNotes("");
+                                  }}
+                                  className="rounded-xl text-xs text-muted-foreground hover:text-foreground h-8"
+                                >
+                                  View Details
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               )}
@@ -2959,6 +3189,7 @@ function InventoryContent() {
                 />
                 {topUpEvidencePreview && (
                   <div className="relative mt-1 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={topUpEvidencePreview}
                       alt="Evidence preview"
@@ -2997,6 +3228,7 @@ function InventoryContent() {
             </DialogHeader>
             {historyEvidenceModalUrl && (
               <div className="mt-2 flex max-h-[65vh] items-center justify-center overflow-auto rounded-2xl border bg-muted/30 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={historyEvidenceModalUrl} alt="Evidence" className="max-h-[60vh] w-auto rounded-xl object-contain shadow-md" />
               </div>
             )}
