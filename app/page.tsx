@@ -51,12 +51,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import dynamic from "next/dynamic";
 import {
   rolePermissions,
   roleDashboardConfig,
@@ -70,9 +73,16 @@ import { GlobalSearch } from "@/components/global-search";
 import { AnnouncementCard } from "@/components/announcement-card";
 import { Switch } from "@/components/ui/switch";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
-import { ChefRecipeCard } from "@/components/dashboard/chef-recipe-card";
 import { AppUpdateMenu } from "@/components/app-update-menu";
 import { OfflineSyncIndicator } from "@/components/offline-sync-indicator";
+
+const ChefRecipeCard = dynamic(
+  () =>
+    import("@/components/dashboard/chef-recipe-card").then(
+      (mod) => mod.ChefRecipeCard,
+    ),
+  { ssr: false },
+);
 
 const DASHBOARD_CATEGORIES = [
   ["all", "All Categories"],
@@ -135,6 +145,142 @@ const CATEGORY_META: Record<
     icon: CalendarDays,
   },
 };
+
+const CATEGORY_SECTION_MAP: Record<
+  (typeof DASHBOARD_CATEGORIES)[number][0],
+  AppSection[]
+> = {
+  all: [],
+  hotel: [
+    "rooms",
+    "reservations",
+    "checkIn",
+    "checkOut",
+    "housekeeping",
+    "guestFolio",
+  ],
+  restaurant: ["pos", "kitchen", "orderBoard", "menu", "inventory"],
+  finance: ["finance", "payments", "refunds", "reports", "receipt"],
+  technical: ["operations", "maintenance"],
+  administration: ["system"],
+  events: ["events"],
+};
+
+const DashboardAccraClock = memo(function DashboardAccraClock() {
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncTime = async () => {
+      try {
+        const response = await fetch("/api/system/time", { cache: "no-store" });
+        if (!response.ok)
+          throw new Error(`Time API returned ${response.status}`);
+        const payload = (await response.json()) as { iso?: string };
+        if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
+      } catch {
+        // Keep the last trusted API value while the public service is unavailable.
+      }
+    };
+
+    void syncTime();
+    let tickTimer: number | null = null;
+    let syncTimer: number | null = null;
+    const startTimers = () => {
+      if (tickTimer === null) {
+        tickTimer = window.setInterval(
+          () =>
+            setCurrentTime((value) =>
+              value ? new Date(value.getTime() + 1000) : new Date(),
+            ),
+          1000,
+        );
+      }
+      if (syncTimer === null) syncTimer = window.setInterval(syncTime, 30_000);
+    };
+    const stopTimers = () => {
+      if (tickTimer !== null) window.clearInterval(tickTimer);
+      if (syncTimer !== null) window.clearInterval(syncTimer);
+      tickTimer = null;
+      syncTimer = null;
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopTimers();
+      else startTimers();
+    };
+    startTimers();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      stopTimers();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const accraTime = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: "Africa/Accra",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(currentTime)
+    : "—";
+  const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
+  const accraDate = currentTime
+    ? new Intl.DateTimeFormat("en-GH", {
+        timeZone: "Africa/Accra",
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(currentTime)
+    : "—";
+
+  return (
+    <>
+      <div
+        className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
+        aria-label={`Current Accra date ${accraDate}`}
+        suppressHydrationWarning
+      >
+        <CalendarDays
+          className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+          aria-hidden="true"
+        />
+        <span
+          className="text-sm font-semibold tracking-tight text-emerald-950 dark:text-emerald-100"
+          suppressHydrationWarning
+        >
+          {accraDate}
+        </span>
+      </div>
+      <div
+        className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
+        aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
+        suppressHydrationWarning
+      >
+        <Clock3
+          className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+          aria-hidden="true"
+        />
+        <span
+          className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100"
+          suppressHydrationWarning
+        >
+          {clockTime}
+        </span>
+        <span
+          className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
+          suppressHydrationWarning
+        >
+          {clockPeriod}
+        </span>
+      </div>
+    </>
+  );
+});
 
 function CategoryGroupHeader({
   title,
@@ -262,73 +408,6 @@ function DashboardContent() {
     check_out_at?: string | null;
   } | null>(null);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncTime = async () => {
-      try {
-        const response = await fetch("/api/system/time", { cache: "no-store" });
-        if (!response.ok)
-          throw new Error(`Time API returned ${response.status}`);
-        const payload = (await response.json()) as { iso?: string };
-        if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
-      } catch {
-        // Keep the last trusted API value while the public service is unavailable.
-      }
-    };
-
-    void syncTime();
-    let tickTimer: number | null = null;
-    let syncTimer: number | null = null;
-    const startTimers = () => {
-      if (tickTimer === null) {
-        tickTimer = window.setInterval(
-          () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
-          1000,
-        );
-      }
-      if (syncTimer === null) syncTimer = window.setInterval(syncTime, 30_000);
-    };
-    const stopTimers = () => {
-      if (tickTimer !== null) window.clearInterval(tickTimer);
-      if (syncTimer !== null) window.clearInterval(syncTimer);
-      tickTimer = null;
-      syncTimer = null;
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) stopTimers();
-      else startTimers();
-    };
-    startTimers();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      cancelled = true;
-      stopTimers();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
-
-  const accraTime = currentTime
-    ? new Intl.DateTimeFormat("en-GH", {
-        timeZone: "Africa/Accra",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }).format(currentTime)
-    : "—";
-  const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
-  const accraDate = currentTime
-    ? new Intl.DateTimeFormat("en-GH", {
-        timeZone: "Africa/Accra",
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }).format(currentTime)
-    : "—";
 
   // Fullscreen helpers (vendor-prefixed support without `any`)
   type FullscreenElement = HTMLElement & {
@@ -448,92 +527,97 @@ function DashboardContent() {
     };
   }, [exitFullscreen]);
 
-  if (!user) {
-    return <SignInForm />;
-  }
-
-  const access: Record<AppSection, boolean> =
-    rolePermissions[user.role as UserRole] ||
-    ({} as Record<AppSection, boolean>);
+  const userRole = (user?.role as UserRole) || "staff";
+  const access: Record<AppSection, boolean> = user
+    ? rolePermissions[userRole] || ({} as Record<AppSection, boolean>)
+    : ({} as Record<AppSection, boolean>);
   const roleDashboard =
-    roleDashboardConfig[user.role as UserRole] || roleDashboardConfig.staff;
-  const isHousekeeping = user.role === "housekeeping";
-  const attendanceExemptRoles = ["admin", "manager", "hotelManager", "restaurantManager", "operationsManager", "finance"];
-  const isAttendanceExempt = attendanceExemptRoles.includes(user.role);
+    roleDashboardConfig[userRole] || roleDashboardConfig.staff;
+  const isHousekeeping = userRole === "housekeeping";
+  const attendanceExemptRoles = [
+    "admin",
+    "manager",
+    "hotelManager",
+    "restaurantManager",
+    "operationsManager",
+    "finance",
+  ];
+  const isAttendanceExempt = user ? attendanceExemptRoles.includes(user.role) : false;
   const requiresAttendanceApproval = !isAttendanceExempt;
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
-  const attendanceApproved = isAttendanceExempt || ["verified", "approved", "approved_late"].includes(attendanceStatus);
+  const attendanceApproved =
+    isAttendanceExempt ||
+    ["verified", "approved", "approved_late"].includes(attendanceStatus);
   const dashboardAccess: Record<AppSection, boolean> =
     requiresAttendanceApproval && !attendanceApproved
-      ? (Object.fromEntries(Object.keys(access).map((section) => [section, section === "attendance"])) as Record<AppSection, boolean>)
+      ? (Object.fromEntries(
+          Object.keys(access).map((section) => [
+            section,
+            section === "attendance",
+          ]),
+        ) as Record<AppSection, boolean>)
       : access;
   const attendanceRestricted =
     attendanceLoaded &&
     requiresAttendanceApproval &&
     !attendanceApproved;
-  const categorySectionMap: Record<
-    (typeof DASHBOARD_CATEGORIES)[number][0],
-    AppSection[]
-  > = {
-    all: [],
-    hotel: [
-      "rooms",
-      "reservations",
-      "checkIn",
-      "checkOut",
-      "housekeeping",
-      "guestFolio",
-    ],
-    restaurant: ["pos", "kitchen", "orderBoard", "menu", "inventory"],
-    finance: ["finance", "payments", "refunds", "reports", "receipt"],
-    technical: ["operations", "maintenance"],
-    administration: ["system"],
-    events: ["events"],
-  };
-  const categoryCounts: Record<(typeof DASHBOARD_CATEGORIES)[number][0], number> = {
-    all: 0,
-    hotel: [
-      dashboardAccess.reservations,
-      dashboardAccess.rooms && !isHousekeeping,
-      dashboardAccess.housekeeping || isHousekeeping,
-      dashboardAccess.checkIn,
-    ].filter(Boolean).length,
-    restaurant: [
-      dashboardAccess.pos,
-      dashboardAccess.kitchen,
-      dashboardAccess.orderBoard,
-      dashboardAccess.menu,
-      dashboardAccess.inventory,
-    ].filter(Boolean).length,
-    finance: [
-      dashboardAccess.finance,
-      dashboardAccess.reports,
-      dashboardAccess.refunds,
-      dashboardAccess.payments,
-      dashboardAccess.receipt,
-    ].filter(Boolean).length,
-    technical: [dashboardAccess.operations].filter(Boolean).length,
-    administration: [dashboardAccess.system].filter(Boolean).length,
-    events: [dashboardAccess.events].filter(Boolean).length,
-  };
-  categoryCounts.all =
-    categoryCounts.hotel +
-    categoryCounts.restaurant +
-    categoryCounts.finance +
-    categoryCounts.technical +
-    categoryCounts.administration +
-    categoryCounts.events +
-    2;
 
-  const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(
-    ([category]) =>
-      category === "all" ||
-      (!attendanceRestricted && roleDashboard.categories.includes(category) &&
-        categorySectionMap[category].some((section) => dashboardAccess[section])),
+  const categoryCounts = useMemo(() => {
+    const counts: Record<(typeof DASHBOARD_CATEGORIES)[number][0], number> = {
+      all: 0,
+      hotel: [
+        dashboardAccess.reservations,
+        dashboardAccess.rooms && !isHousekeeping,
+        dashboardAccess.housekeeping || isHousekeeping,
+        dashboardAccess.checkIn,
+      ].filter(Boolean).length,
+      restaurant: [
+        dashboardAccess.pos,
+        dashboardAccess.kitchen,
+        dashboardAccess.orderBoard,
+        dashboardAccess.menu,
+        dashboardAccess.inventory,
+      ].filter(Boolean).length,
+      finance: [
+        dashboardAccess.finance,
+        dashboardAccess.reports,
+        dashboardAccess.refunds,
+        dashboardAccess.payments,
+        dashboardAccess.receipt,
+      ].filter(Boolean).length,
+      technical: [dashboardAccess.operations].filter(Boolean).length,
+      administration: [dashboardAccess.system].filter(Boolean).length,
+      events: [dashboardAccess.events].filter(Boolean).length,
+    };
+    counts.all =
+      counts.hotel +
+      counts.restaurant +
+      counts.finance +
+      counts.technical +
+      counts.administration +
+      counts.events +
+      2;
+    return counts;
+  }, [dashboardAccess, isHousekeeping]);
+
+  const availableDashboardCategories = useMemo(
+    () =>
+      DASHBOARD_CATEGORIES.filter(
+        ([category]) =>
+          category === "all" ||
+          (!attendanceRestricted &&
+            roleDashboard.categories.includes(category) &&
+            CATEGORY_SECTION_MAP[category].some(
+              (section) => dashboardAccess[section],
+            )),
+      ),
+    [attendanceRestricted, roleDashboard.categories, dashboardAccess],
   );
   const canSwitchDashboardCategories = availableDashboardCategories.length > 1;
 
-  const selectDashboardCategory = (category: (typeof DASHBOARD_CATEGORIES)[number][0]) => {
+  const selectDashboardCategory = (
+    category: (typeof DASHBOARD_CATEGORIES)[number][0],
+  ) => {
     setActiveDashboardCategory(category);
     const url = new URL(window.location.href);
     if (category === "all") url.searchParams.delete("category");
@@ -541,82 +625,94 @@ function DashboardContent() {
     window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   };
 
-  const operationalModules = [
-    dashboardAccess.pos && {
-      title: "Point of Sale System",
-      description: "Capture orders, payments, and service hand-offs",
-      href: "/pos",
-      icon: (
-        <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.kitchen && {
-      title: "Kitchen Management",
-      description: "Track preparation status and keep service moving",
-      href: "/kitchen",
-      icon: (
-        <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.reports && {
-      title: "Analytics & Reports",
-      description: "Reconcile sales, payments, and operating performance",
-      href: "/reports",
-      icon: (
-        <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.menu && {
-      title: "Menu Management",
-      description: "Manage menu items, pricing, and recipe availability",
-      href: "/menu",
-      icon: (
-        <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.inventory && {
-      title: "Inventory",
-      description: "Track live stock levels and supplies",
-      href: "/inventory",
-      icon: (
-        <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.reservations && {
-      title: "Reservations",
-      description: "Manage guest bookings and room availability",
-      href: "/hotels/reservations",
-      icon: (
-        <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-    dashboardAccess.finance && {
-      title: "Finance Desk",
-      description: "Reconcile payments, waivers, and transaction activity",
-      href: "/finance",
-      icon: (
-        <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-      ),
-    },
-  ].filter(Boolean) as Array<{
-    title: string;
-    description: string;
-    href: string;
-    icon: ReactNode;
-  }>;
+  const operationalModules = useMemo(
+    () =>
+      [
+        dashboardAccess.pos && {
+          title: "Point of Sale System",
+          description: "Capture orders, payments, and service hand-offs",
+          href: "/pos",
+          icon: (
+            <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.kitchen && {
+          title: "Kitchen Management",
+          description: "Track preparation status and keep service moving",
+          href: "/kitchen",
+          icon: (
+            <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.reports && {
+          title: "Analytics & Reports",
+          description: "Reconcile sales, payments, and operating performance",
+          href: "/reports",
+          icon: (
+            <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.menu && {
+          title: "Menu Management",
+          description: "Manage menu items, pricing, and recipe availability",
+          href: "/menu",
+          icon: (
+            <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.inventory && {
+          title: "Inventory",
+          description: "Track live stock levels and supplies",
+          href: "/inventory",
+          icon: (
+            <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.reservations && {
+          title: "Reservations",
+          description: "Manage guest bookings and room availability",
+          href: "/hotels/reservations",
+          icon: (
+            <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.finance && {
+          title: "Finance Desk",
+          description: "Reconcile payments, waivers, and transaction activity",
+          href: "/finance",
+          icon: (
+            <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+      ].filter(Boolean) as Array<{
+        title: string;
+        description: string;
+        href: string;
+        icon: ReactNode;
+      }>,
+    [dashboardAccess],
+  );
+
+  if (!user) {
+    return <SignInForm />;
+  }
 
   return (
     <div
       ref={mainRef}
       className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
-      <header className="shrink-0 sticky top-0 z-50 w-full min-w-0 border-b border-orange-200 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md shadow-sm dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="container mx-auto flex min-h-14 w-full min-w-0 flex-col gap-1 px-2 py-1 sm:gap-2 sm:px-4 sm:py-2 md:px-6 lg:gap-3">
-          <div className="flex min-w-0 items-center justify-between gap-2 md:gap-6 lg:gap-10">
-            <div className="flex min-w-0 items-center gap-2">
+      <header className="shrink-0 sticky top-0 z-50 w-full min-w-0 border-b border-orange-200/80 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md shadow-sm dark:border-orange-700/80 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
+        <div className="container mx-auto flex h-14 sm:h-16 w-full min-w-0 items-center justify-between gap-1.5 px-2 sm:gap-2.5 sm:px-4 md:px-6">
+          {/* Left Cluster: Brand Identity + Welcome + Split Workspaces */}
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 md:gap-3">
+            <Link
+              href="/"
+              className="flex shrink-0 items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity"
+            >
               <LogoDisplay size="sm" />
-              <Utensils className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              <span className="inline-block min-w-0 truncate font-bold text-base text-gray-800 dark:text-gray-200 sm:text-lg lg:text-xl">
+              <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 dark:text-orange-400 shrink-0" />
+              <span className="inline-block min-w-0 truncate font-bold text-sm sm:text-base lg:text-lg text-gray-800 dark:text-gray-200">
                 {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
                 <span className="sm:hidden">KHRMS</span>
                 <span
@@ -626,164 +722,174 @@ function DashboardContent() {
                   {settings.account.restaurantName}
                 </span>
               </span>
+            </Link>
+
+            {/* User welcome & role pill/badge: Compact on sm, full card on md+ */}
+            <div className="hidden sm:flex min-w-0 shrink-0 max-w-[10rem] md:max-w-[14rem] lg:max-w-[18rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2 py-0.5 sm:px-2.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
+              <span className="truncate text-xs sm:text-sm font-semibold leading-tight text-orange-700 dark:text-orange-300">
+                Welcome, {user.name}
+              </span>
+              <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
+                {getRoleDisplayName(user.role)}
+              </span>
+            </div>
+
+            {/* Split Workspaces: hidden on mobile (<768px), icon on tablet, labeled on desktop */}
+            <div className="hidden md:flex min-w-0 items-center gap-1 lg:gap-1.5">
+              {dashboardAccess.pos && dashboardAccess.kitchen && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link className="shrink-0" href="/split-workspace">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Open split POS and Kitchen workspace"
+                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                        >
+                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                          <span className="hidden xl:inline text-xs font-medium">
+                            Split POS + Kitchen
+                          </span>
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent className="xl:hidden">
+                      <p>Split POS + Kitchen Workspace</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {dashboardAccess.reservations && dashboardAccess.checkIn && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link className="shrink-0" href="/hotel-split-workspace">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Open split Reservations and Check-In workspace"
+                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                        >
+                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                          <span className="hidden xl:inline text-xs font-medium">
+                            Split Hotel Desk
+                          </span>
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent className="xl:hidden">
+                      <p>Split Hotel Desk Workspace</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {dashboardAccess.menu && dashboardAccess.inventory && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link className="shrink-0" href="/menu-inventory-split-workspace">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Open split Menu Management and Inventory workspace"
+                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                        >
+                          <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
+                          <span className="hidden xl:inline text-xs font-medium">
+                            Split Menu + Inventory
+                          </span>
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent className="xl:hidden">
+                      <p>Split Menu + Inventory Workspace</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
-          <nav
-            aria-label="Dashboard navigation"
-            className="flex w-full flex-wrap items-center justify-between gap-1.5 sm:gap-2 md:flex-nowrap lg:gap-2.5"
-          >
-            {/* Left Cluster: Welcome & Workspaces */}
-            <div className="flex flex-1 min-w-0 items-center gap-1.5 sm:gap-2">
-              <div className="flex min-w-0 shrink-0 max-w-[14rem] sm:max-w-[18rem] md:max-w-[20rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2.5 py-0.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
-                <span className="truncate text-xs sm:text-sm font-semibold leading-tight text-orange-700 dark:text-orange-300">
-                  Welcome, {user.name}
-                </span>
-                <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
-                  {getRoleDisplayName(user.role)}
-                </span>
-              </div>
 
-              {/* Split Workspaces: hidden on very small (<640px), icon-only on medium (640-1024px), full label on large (>=1024px) */}
-              <div className="hidden min-w-0 sm:flex items-center gap-1 sm:gap-1.5">
-                {dashboardAccess.pos && dashboardAccess.kitchen && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link className="shrink-0" href="/split-workspace">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="Open split POS and Kitchen workspace"
-                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
-                          >
-                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                            <span className="hidden lg:inline text-xs font-medium">
-                              Split POS + Kitchen
-                            </span>
-                          </Button>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent className="lg:hidden">
-                        <p>Split POS + Kitchen Workspace</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                {dashboardAccess.reservations && dashboardAccess.checkIn && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link className="shrink-0" href="/hotel-split-workspace">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="Open split Reservations and Check-In workspace"
-                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
-                          >
-                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                            <span className="hidden lg:inline text-xs font-medium">Split Hotel Desk</span>
-                          </Button>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent className="lg:hidden">
-                        <p>Split Hotel Desk Workspace</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                {dashboardAccess.menu && dashboardAccess.inventory && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link className="shrink-0" href="/menu-inventory-split-workspace">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="Open split Menu Management and Inventory workspace"
-                            className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 lg:px-3"
-                          >
-                            <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                            <span className="hidden lg:inline text-xs font-medium">
-                              Split Menu + Inventory
-                            </span>
-                          </Button>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent className="lg:hidden">
-                        <p>Split Menu + Inventory Workspace</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
+          {/* Right Cluster: Search + Utilities + Profile */}
+          <nav
+            aria-label="Dashboard actions"
+            className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2"
+          >
+            {/* Global Search: auto-width on mobile icon, expanded bar on sm+ */}
+            <div className="shrink-0 sm:w-32 md:w-44 lg:w-52 xl:w-60">
+              <GlobalSearch role={user?.role} />
             </div>
 
-            {/* Right Cluster: Utilities + Search + Profile */}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2">
-              <Link className="shrink-0" href="/settings">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="Settings"
-                  title="Settings"
-                  className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </Link>
+            {/* Offline Sync Status */}
+            <OfflineSyncIndicator />
 
-              <OfflineSyncIndicator />
+            {/* App updates - visible on sm+ */}
+            <div className="hidden sm:inline-flex">
               <AppUpdateMenu />
+            </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleLogout}
-                      aria-label="Sign out"
-                      title="Sign Out"
-                      className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Sign Out (Ctrl+Shift+L)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
+            {/* Settings shortcut button - visible on sm+ (on mobile it is in UserNav) */}
+            <Link className="hidden sm:inline-flex shrink-0" href="/settings">
               <Button
                 variant="outline"
                 size="sm"
-                aria-label={isFullscreen ? "Minimize" : "Maximize"}
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                onClick={handleToggleFullscreen}
+                aria-label="Settings"
+                title="Settings"
                 className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
               >
-                {isFullscreen ? (
-                  <Minimize2 className="h-4 w-4" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" />
-                )}
+                <Settings className="h-4 w-4" />
               </Button>
+            </Link>
 
-              <div className="w-[6.5rem] xs:w-28 sm:w-36 md:w-48 lg:w-56 shrink-0">
-                <GlobalSearch role={user?.role} />
-              </div>
+            {/* Fullscreen toggle on lg+ */}
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={isFullscreen ? "Minimize" : "Maximize"}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              onClick={handleToggleFullscreen}
+              className="hidden lg:inline-flex h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
 
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
-                title="Notifications"
-              >
-                <NotificationBell />
-              </div>
+            {/* Direct Sign Out on xl+ screens (available in UserNav on smaller screens) */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    aria-label="Sign out"
+                    title="Sign Out"
+                    className="hidden xl:inline-flex h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sign Out (Ctrl+Shift+L)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-              <div className="flex shrink-0 justify-end">
-                <UserNav />
-              </div>
+            {/* Notification Bell (always visible) */}
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
+              title="Notifications"
+            >
+              <NotificationBell />
+            </div>
+
+            {/* User Profile Avatar dropdown (always visible) */}
+            <div className="flex shrink-0 justify-end">
+              <UserNav />
             </div>
           </nav>
         </div>
@@ -812,35 +918,7 @@ function DashboardContent() {
               </Link>
             )}
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <div
-                className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
-                aria-label={`Current Accra date ${accraDate}`}
-                suppressHydrationWarning
-              >
-                <CalendarDays
-                  className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
-                  aria-hidden="true"
-                />
-                <span className="text-sm font-semibold tracking-tight text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
-                  {accraDate}
-                </span>
-              </div>
-              <div
-                className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
-                aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
-                suppressHydrationWarning
-              >
-                <Clock3
-                  className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
-                  aria-hidden="true"
-                />
-                <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
-                  {clockTime}
-                </span>
-                <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300" suppressHydrationWarning>
-                  {clockPeriod}
-                </span>
-              </div>
+              <DashboardAccraClock />
               <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
                 <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 <span className="text-sm font-medium text-orange-700 dark:text-orange-300">

@@ -17,7 +17,19 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     webpackMemoryOptimizations: true,
-    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "recharts",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-label",
+      "@radix-ui/react-slot",
+    ],
   },
   images: {
     domains: ["scontent.facc5-2.fna.fbcdn.net", "images.unsplash.com"],
@@ -28,7 +40,17 @@ const nextConfig = {
   async headers() {
     const corsOrigin = process.env.CORS_ORIGIN;
     
-    const headerConfigs = [];
+    const headerConfigs = [
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
     
     if (corsOrigin) {
       headerConfigs.push({
