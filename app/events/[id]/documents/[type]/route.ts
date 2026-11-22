@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
+import { calculateTaxes, getTaxConfiguration } from "@/lib/tax";
+import { levyRowsHtml, STATUTORY_LEVIES_HEADER } from "@/lib/levy-presentation";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; type: string }> }) {
   const { error } = await requirePermission("events");
@@ -16,7 +18,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const tax = Number(event.quote_tax ?? snapshot.tax ?? 0);
   const storedInvoiceTotal = Number(event.total_invoiced ?? 0);
   const isSecured = Boolean(event.secured_at || event.receipt_id);
-  const total = isSecured && storedInvoiceTotal > 0 ? storedInvoiceTotal : Number(event.quote_total ?? snapshot.total ?? 0);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - ${event.name}</title><style>body{font-family:Arial;max-width:760px;margin:40px auto;color:#202020}h1{margin-bottom:8px}.meta{line-height:1.8}table{width:100%;margin-top:24px;border-collapse:collapse}td{padding:8px;border-bottom:1px solid #ddd}td:last-child{text-align:right}</style></head><body><h1>${title}</h1><div class="meta"><strong>${event.name}</strong><br>Client: ${event.client_name}<br>Venue: ${event.venue}<br>Date: ${new Date(event.starts_at).toLocaleString()}<br>Guests: ${event.guest_count}<br>Status: ${event.status}<br>Receipt: ${event.order_number ?? "Not generated"}<br>Quote: ${event.quote_status ? `${event.quote_status} · GHS ${Number(event.quote_total ?? 0).toFixed(2)}` : "Not selected"}</div><table><tr><td>Subtotal</td><td>GHS ${subtotal.toFixed(2)}</td></tr><tr><td>VAT / tax</td><td>GHS ${tax.toFixed(2)}</td></tr><tr><td><strong>Total</strong></td><td><strong>GHS ${total.toFixed(2)}</strong></td></tr></table><script>window.print()</script></body></html>`;
+  const rawTotal = isSecured && storedInvoiceTotal > 0 ? storedInvoiceTotal : Number(event.quote_total ?? snapshot.total ?? 0);
+
+  const taxConfig = await getTaxConfiguration();
+  const isTaxEnabled = Boolean(taxConfig.enabled) && taxConfig.appliesToEvents !== false;
+  const taxResult = isTaxEnabled && subtotal > 0
+    ? calculateTaxes(subtotal, taxConfig, "events")
+    : { breakdown: {}, tax, total: (tax > 0 && Math.abs(rawTotal - subtotal) < 0.05 ? subtotal + tax : rawTotal) };
+  const effectiveTax = isTaxEnabled && taxResult.tax > 0 ? taxResult.tax : tax;
+  const grandTotal = isTaxEnabled && taxResult.total > subtotal ? taxResult.total : (rawTotal > subtotal ? rawTotal : subtotal + effectiveTax);
+  const levyRows = isTaxEnabled && taxResult.tax > 0 ? levyRowsHtml(taxResult.breakdown, taxConfig, subtotal, "GHS ") : "";
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - ${event.name}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:40px auto;color:#202020;padding:0 16px}h1{margin-bottom:8px}.meta{line-height:1.8}table{width:100%;margin-top:24px;border-collapse:collapse}td{padding:8px;border-bottom:1px solid #ddd}td:last-child{text-align:right}.levy-box{padding:6px 0;font-size:12px}</style></head><body><h1>${title}</h1><div class="meta"><strong>${event.name}</strong><br>Client: ${event.client_name}<br>Venue: ${event.venue}<br>Date: ${new Date(event.starts_at).toLocaleString()}<br>Guests: ${event.guest_count}<br>Status: ${event.status}<br>Receipt: ${event.order_number ?? "Not generated"}<br>Quote: ${event.quote_status ? `${event.quote_status} · GHS ${Number(event.quote_total ?? 0).toFixed(2)}` : "Not selected"}</div><table><tr><td>Subtotal</td><td>GHS ${subtotal.toFixed(2)}</td></tr>${levyRows ? `<tr><td colspan="2" style="padding-top:12px;font-weight:600;font-size:12px;border-bottom:none">${STATUTORY_LEVIES_HEADER}</td></tr><tr><td colspan="2" style="padding:0 8px 8px">${levyRows}</td></tr>` : `<tr><td>VAT / tax</td><td>GHS ${effectiveTax.toFixed(2)}</td></tr>`}<tr><td><strong>Total</strong></td><td><strong>GHS ${grandTotal.toFixed(2)}</strong></td></tr></table><script>window.print()</script></body></html>`;
   return new NextResponse(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }

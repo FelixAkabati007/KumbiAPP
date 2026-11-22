@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
-import { printHotelReceipt } from "@/lib/hotel-receipt-print";
+import { printHotelReceipt, type HotelReceiptItem } from "@/lib/hotel-receipt-print";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useSettings } from "@/components/settings-provider";
 import {
@@ -160,6 +160,9 @@ function CheckInPage() {
     grossSpent: number;
     complimentaryAmount: number;
     netSpent: number;
+    guestName?: string;
+    roomNumber?: string;
+    orderNumber?: string;
     items: Array<{
       category: string;
       description: string;
@@ -554,7 +557,20 @@ function CheckInPage() {
           "Checkout was not confirmed by the server. Please try again.",
         );
       }
-      setCheckoutDisclosure(payload.folioDisclosure ?? null);
+      const checkedOutGuestRef = checkoutGuest;
+      setCheckoutDisclosure(
+        payload.folioDisclosure
+          ? {
+              ...payload.folioDisclosure,
+              guestName: checkedOutGuestRef
+                ? `${checkedOutGuestRef.first_name} ${checkedOutGuestRef.last_name}`
+                : "Guest",
+              roomNumber: checkedOutGuestRef?.room_number || undefined,
+              orderNumber:
+                checkedOutGuestRef?.reservation_number || "FOLIO-OUT",
+            }
+          : null,
+      );
 
       // The checkout endpoint is transactional and is the source of truth.
       // Refresh the list for the UI, but do not reject a successful mutation
@@ -1471,7 +1487,45 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                 </div>
               ))}
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  void printHotelReceipt({
+                    title: "Checkout Folio Receipt",
+                    hotel: hotelReceiptIdentity,
+                    orderNumber: checkoutDisclosure.orderNumber || "FOLIO-OUT",
+                    guestName: checkoutDisclosure.guestName || "Guest",
+                    roomNumber: checkoutDisclosure.roomNumber,
+                    items: checkoutDisclosure.items.length
+                      ? checkoutDisclosure.items.map((item) => ({
+                          description: `${item.description} (${item.category})`,
+                          quantity: item.quantity,
+                          totalAmount: Number(item.total_amount),
+                        }))
+                      : [
+                          {
+                            description: "Accommodation & Incidental Charges",
+                            quantity: 1,
+                            totalAmount: checkoutDisclosure.netSpent,
+                          },
+                        ],
+                    subtotal: checkoutDisclosure.netSpent,
+                    total: checkoutDisclosure.netSpent,
+                    taxConfig: appSettings.system.taxConfiguration,
+                    module: "rooms",
+                    paperSize: receiptSettings.paperSize || "80mm",
+                    footer: receiptSettings.includeFooter
+                      ? "Thank you for staying at Kumbisaly Heritage. Checkout folio settled."
+                      : "",
+                  });
+                }}
+              >
+                <Printer className="h-4 w-4" />
+                Print Folio Receipt
+              </Button>
               <Button onClick={() => setCheckoutDisclosure(null)}>Close</Button>
             </DialogFooter>
           </DialogContent>
@@ -1720,7 +1774,75 @@ Select active menu items, take payment immediately, and send the
             </p>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {folio && (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  const folioItems: HotelReceiptItem[] = [];
+                  if (Number(folio.room_charge || 0) > 0) {
+                    folioItems.push({
+                      description: "Room Accommodation Charges",
+                      quantity: 1,
+                      totalAmount: Number(folio.room_charge),
+                    });
+                  }
+                  if (Number(folio.service_charges || 0) > 0) {
+                    folioItems.push({
+                      description: "Incidental Service Charges",
+                      quantity: 1,
+                      totalAmount: Number(folio.service_charges),
+                    });
+                  }
+                  if (Number(folio.food_charges || 0) > 0) {
+                    folioItems.push({
+                      description: "Food & Beverage Charges",
+                      quantity: 1,
+                      totalAmount: Number(folio.food_charges),
+                    });
+                  }
+                  if (Number(folio.other_charges || 0) > 0) {
+                    folioItems.push({
+                      description: "Other Miscellaneous Charges",
+                      quantity: 1,
+                      totalAmount: Number(folio.other_charges),
+                    });
+                  }
+                  void printHotelReceipt({
+                    title: "Guest Folio Statement",
+                    hotel: hotelReceiptIdentity,
+                    orderNumber: folioGuest?.reservation_number || "FOLIO",
+                    guestName: folioGuest
+                      ? `${folioGuest.first_name} ${folioGuest.last_name}`
+                      : "Guest",
+                    roomNumber: folioGuest?.room_number || undefined,
+                    items: folioItems.length
+                      ? folioItems
+                      : [
+                          {
+                            description: "Total Folio Charges",
+                            quantity: 1,
+                            totalAmount: Number(folio.total_charges || 0),
+                          },
+                        ],
+                    subtotal: Number(folio.total_charges || 0),
+                    total: Number(folio.total_charges || 0),
+                    balance: Number(folio.balance || 0),
+                    taxConfig: appSettings.system.taxConfiguration,
+                    module: "rooms",
+                    paperSize: receiptSettings.paperSize || "80mm",
+                    footer: receiptSettings.includeFooter
+                      ? "Thank you for staying at Kumbisaly Heritage. Guest Folio Statement."
+                      : "",
+                  });
+                }}
+              >
+                <Printer className="h-4 w-4" />
+                Print Folio Statement
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setFolioGuest(null)}

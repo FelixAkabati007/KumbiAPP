@@ -648,10 +648,33 @@ function ReceiptContent() {
                           </div>
                         );
                       })()}
-                      <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
-                        <span>TOTAL:</span>
-                        <span className="font-mono">₵{foundSale.total.toFixed(2)}</span>
-                      </div>
+                      {(() => {
+                        const moduleName = receiptSource === "event" ? "events" : receiptSource === "hotel" ? "rooms" : "pos";
+                        const isTaxEnabled =
+                          Boolean(appSettings.system.taxConfiguration?.enabled) &&
+                          (moduleName === "events"
+                            ? appSettings.system.taxConfiguration?.appliesToEvents !== false
+                            : moduleName === "rooms"
+                            ? appSettings.system.taxConfiguration?.appliesToRooms !== false
+                            : appSettings.system.taxConfiguration?.appliesToPos !== false);
+                        const subtotalVal = Number(foundSale.subtotal ?? 0);
+                        const taxRes = isTaxEnabled
+                          ? calculateTaxes(subtotalVal, appSettings.system.taxConfiguration, moduleName)
+                          : { breakdown: {}, tax: 0, total: Number(foundSale.total ?? 0) };
+                        const displayedTotal =
+                          isTaxEnabled && taxRes.tax > 0 && Math.abs(foundSale.total - subtotalVal) < 0.05
+                            ? taxRes.total
+                            : foundSale.total;
+
+                        return (
+                          <>
+                            <div className="flex justify-between font-bold text-lg text-orange-700 dark:text-orange-300 border-t border-orange-200 dark:border-orange-600 pt-2">
+                              <span>TOTAL:</span>
+                              <span className="font-mono">₵{displayedTotal.toFixed(2)}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                     {/* Payment Method */}
                     <div className="border-t border-orange-200 dark:border-orange-600 pt-3 mb-4">
@@ -674,7 +697,7 @@ function ReceiptContent() {
                     {appSettings.system.taxConfiguration?.graEVatEnabled !== false && (
                       <div className="mt-3 border-t border-dashed border-gray-300 pt-2 text-center font-mono text-[9px] text-gray-500">
                         <div className="font-bold text-[10px] text-gray-700 dark:text-gray-300">[ GRA E-VAT VERIFIED FISCAL RECEIPT ]</div>
-                        <div className="truncate text-[8px] text-gray-500">https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={foundSale.orderNumber}&tot={Number(foundSale.total || 0).toFixed(2)}</div>
+                        <div className="truncate text-[8px] text-gray-500">https://efiscal.gra.gov.gh/verify?tin={appSettings.system.taxConfiguration?.tin || "C0029384756"}&inv={foundSale.orderNumber}&tot={(Number(foundSale.subtotal ? calculateTaxes(Number(foundSale.subtotal), appSettings.system.taxConfiguration, receiptSource === "event" ? "events" : receiptSource === "hotel" ? "rooms" : "pos").total : foundSale.total) || 0).toFixed(2)}</div>
                         <div className="mt-1 text-[8px]">Powered by KumbiAPP · Certified Fiscal Channel</div>
                       </div>
                     )}

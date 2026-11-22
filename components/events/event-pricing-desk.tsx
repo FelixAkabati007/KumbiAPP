@@ -5,6 +5,8 @@ import { CheckCircle2, Plus, ReceiptText, Sparkles, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { calculateTaxes } from "@/lib/tax";
+import { useSettings } from "@/components/settings-provider";
 
 type QuoteItem = {
   label: string;
@@ -44,6 +46,7 @@ export function EventPricingDesk({
   onSaved?: () => void;
   onQuoteSecured?: () => Promise<void> | void;
 }) {
+  const { settings: appSettings } = useSettings();
   const [items, setItems] = useState<QuoteItem[]>([blankItem]);
   const [discount, setDiscount] = useState("0");
   const [tax, setTax] = useState("0");
@@ -57,6 +60,13 @@ export function EventPricingDesk({
     (sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0),
     0,
   );
+
+  const handleCalculateLevies = () => {
+    const netBase = Math.max(0, subtotal - Number(discount || 0));
+    const result = calculateTaxes(netBase, appSettings.system.taxConfiguration, "events");
+    setTax(result.tax.toFixed(2));
+  };
+
   const total = Math.max(0, subtotal - Number(discount || 0) + Number(tax || 0));
   const depositAmount = (total * Math.min(100, Math.max(0, Number(deposit || 0)))) / 100;
 
@@ -307,8 +317,17 @@ export function EventPricingDesk({
                   onChange={(e) => setDiscount(e.target.value)}
                 />
               </label>
-              <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
-                VAT / Tax (GHS)
+              <div className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>VAT / Tax (GHS)</span>
+                  <button
+                    type="button"
+                    onClick={handleCalculateLevies}
+                    className="text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    Auto-calc GRA E-VAT
+                  </button>
+                </div>
                 <Input
                   type="number"
                   min="0"
@@ -317,7 +336,7 @@ export function EventPricingDesk({
                   value={tax}
                   onChange={(e) => setTax(e.target.value)}
                 />
-              </label>
+              </div>
               <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
                 Required Deposit (%)
                 <Input

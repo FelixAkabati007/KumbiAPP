@@ -703,39 +703,49 @@ function DashboardContent() {
       className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950"
     >
       <header className="shrink-0 sticky top-0 z-50 w-full min-w-0 border-b border-orange-200/80 bg-gradient-to-r from-orange-50/95 via-amber-50/95 to-yellow-50/95 backdrop-blur-md shadow-sm dark:border-orange-700/80 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95">
-        <div className="container mx-auto flex h-14 sm:h-16 w-full min-w-0 items-center justify-between gap-1.5 px-2 sm:gap-2.5 sm:px-4 md:px-6">
+        <div className="w-full max-w-[1920px] mx-auto flex h-14 sm:h-16 xl:h-[4.25rem] min-w-0 items-center justify-between gap-1.5 sm:gap-2.5 md:gap-3 lg:gap-4 px-2 sm:px-4 md:px-6 2xl:px-8">
           {/* Left Cluster: Brand Identity + Welcome + Split Workspaces */}
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 md:gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 md:gap-3 lg:gap-4">
             <Link
               href="/"
-              className="flex shrink-0 items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity"
+              className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 hover:opacity-90 transition-opacity"
             >
               <LogoDisplay size="sm" />
               <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 dark:text-orange-400 shrink-0" />
-              <span className="inline-block min-w-0 truncate font-bold text-sm sm:text-base lg:text-lg text-gray-800 dark:text-gray-200">
-                {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
-                <span className="sm:hidden">KHRMS</span>
-                <span
-                  className="hidden min-w-0 truncate sm:inline"
-                  suppressHydrationWarning
-                >
-                  {settings.account.restaurantName}
+              <div className="flex flex-col min-w-0">
+                <span className="inline-block min-w-0 truncate font-bold text-sm sm:text-base lg:text-lg xl:text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                  {/* Suppress hydration warnings for text that can differ between SSR default and client-saved settings */}
+                  <span className="sm:hidden">KHRMS</span>
+                  <span
+                    className="hidden min-w-0 truncate sm:inline"
+                    suppressHydrationWarning
+                  >
+                    {settings.account.restaurantName}
+                  </span>
                 </span>
-              </span>
+                <span className="hidden 2xl:inline-block text-[10px] text-orange-600/80 dark:text-orange-400/80 font-medium">
+                  Hospitality &amp; Restaurant ERP
+                </span>
+              </div>
             </Link>
 
             {/* User welcome & role pill/badge: Compact on sm, full card on md+ */}
-            <div className="hidden sm:flex min-w-0 shrink-0 max-w-[10rem] md:max-w-[14rem] lg:max-w-[18rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2 py-0.5 sm:px-2.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
+            <div className="hidden sm:flex min-w-0 shrink-0 max-w-[10rem] md:max-w-[14rem] lg:max-w-[18rem] 2xl:max-w-[22rem] flex-col items-start rounded-xl border border-orange-200/80 bg-orange-50/80 px-2 py-0.5 sm:px-2.5 sm:py-1 dark:border-orange-900/60 dark:bg-orange-950/30">
               <span className="truncate text-xs sm:text-sm font-semibold leading-tight text-orange-700 dark:text-orange-300">
                 Welcome, {user.name}
               </span>
-              <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
-                {getRoleDisplayName(user.role)}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="truncate text-[10px] sm:text-xs font-medium text-orange-600 dark:text-orange-400">
+                  {getRoleDisplayName(user.role)}
+                </span>
+                <span className="hidden 2xl:inline-block text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded-full">
+                  Active
+                </span>
+              </div>
             </div>
 
             {/* Split Workspaces: hidden on mobile (<768px), icon on tablet, labeled on desktop */}
-            <div className="hidden md:flex min-w-0 items-center gap-1 lg:gap-1.5">
+            <div className="hidden md:flex min-w-0 items-center gap-1 lg:gap-1.5 xl:gap-2">
               {dashboardAccess.pos && dashboardAccess.kitchen && (
                 <TooltipProvider>
                   <Tooltip>
@@ -745,10 +755,10 @@ function DashboardContent() {
                           variant="outline"
                           size="sm"
                           aria-label="Open split POS and Kitchen workspace"
-                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
                         >
                           <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline text-xs font-medium">
+                          <span className="hidden xl:inline">
                             Split POS + Kitchen
                           </span>
                         </Button>
@@ -769,10 +779,10 @@ function DashboardContent() {
                           variant="outline"
                           size="sm"
                           aria-label="Open split Reservations and Check-In workspace"
-                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
                         >
                           <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline text-xs font-medium">
+                          <span className="hidden xl:inline">
                             Split Hotel Desk
                           </span>
                         </Button>
@@ -793,10 +803,10 @@ function DashboardContent() {
                           variant="outline"
                           size="sm"
                           aria-label="Open split Menu Management and Inventory workspace"
-                          className="h-9 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3"
+                          className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200 bg-orange-100/70 px-2 sm:px-2.5 text-orange-700 shadow-sm hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-900/50 xl:px-3 text-xs xl:text-sm font-medium"
                         >
                           <SplitSquareHorizontal className="h-4 w-4 shrink-0" />
-                          <span className="hidden xl:inline text-xs font-medium">
+                          <span className="hidden xl:inline">
                             Split Menu + Inventory
                           </span>
                         </Button>
@@ -814,10 +824,42 @@ function DashboardContent() {
           {/* Right Cluster: Search + Utilities + Profile */}
           <nav
             aria-label="Dashboard actions"
-            className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2"
+            className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-2 xl:gap-2.5"
           >
+            {/* Quick module jumps on ultra-wide / 2xl+ displays */}
+            <div className="hidden 2xl:flex items-center gap-1 border-r border-orange-200/80 dark:border-orange-700/80 pr-2">
+              {dashboardAccess.pos && (
+                <Link href="/pos">
+                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                    POS
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.kitchen && (
+                <Link href="/kitchen">
+                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                    Kitchen
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.checkIn && (
+                <Link href="/hotels/check-in">
+                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                    Front Desk
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.events && (
+                <Link href="/events">
+                  <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
+                    Events
+                  </Button>
+                </Link>
+              )}
+            </div>
+
             {/* Global Search: auto-width on mobile icon, expanded bar on sm+ */}
-            <div className="shrink-0 sm:w-32 md:w-44 lg:w-52 xl:w-60">
+            <div className="shrink-0 sm:w-36 md:w-48 lg:w-56 xl:w-64 2xl:w-80">
               <GlobalSearch role={user?.role} />
             </div>
 
@@ -836,7 +878,7 @@ function DashboardContent() {
                 size="sm"
                 aria-label="Settings"
                 title="Settings"
-                className="h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+                className="h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -849,7 +891,7 @@ function DashboardContent() {
               aria-label={isFullscreen ? "Minimize" : "Maximize"}
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               onClick={handleToggleFullscreen}
-              className="hidden lg:inline-flex h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+              className="hidden lg:inline-flex h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
             >
               {isFullscreen ? (
                 <Minimize2 className="h-4 w-4" />
@@ -868,7 +910,7 @@ function DashboardContent() {
                     onClick={handleLogout}
                     aria-label="Sign out"
                     title="Sign Out"
-                    className="hidden xl:inline-flex h-9 w-9 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
+                    className="hidden xl:inline-flex h-9 w-9 xl:h-10 xl:w-10 p-0 rounded-xl border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/40"
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -881,7 +923,7 @@ function DashboardContent() {
 
             {/* Notification Bell (always visible) */}
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
+              className="flex h-9 w-9 xl:h-10 xl:w-10 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-background/90 shadow-sm dark:border-orange-700"
               title="Notifications"
             >
               <NotificationBell />

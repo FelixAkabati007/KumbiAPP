@@ -12,7 +12,7 @@ describe("hotel receipt print preview", () => {
     expect(source).toContain("STATUTORY_LEVIES_HEADER");
     expect(source).toContain("levyRowsBlock");
     expect(source).toContain("Taxable Subtotal");
-    expect(source).toContain("graFiscalHeaderHtml");
-    expect(source).toContain("graFiscalFooterHtml");
+    expect(source).toContain("const grandTotal = isTaxEnabled ? levyResult.total : receipt.total;");
+    expect(source).toContain("TOTAL:</span><span>GHS ${grandTotal.toFixed(2)}</span>");
   });
 });

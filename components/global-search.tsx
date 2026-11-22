@@ -58,10 +58,21 @@ export function GlobalSearch({ role }: { role?: string | null }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setQuery(""); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-10 gap-2 rounded-2xl border-orange-200 bg-background/90 px-3 text-orange-700 shadow-sm hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20" aria-label="Open global search">
-          <Search className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden rounded border border-orange-200 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline dark:border-orange-700">⌘K</kbd>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 sm:h-10 w-full justify-between gap-2 rounded-2xl border-orange-200/90 bg-background/90 px-2.5 sm:px-3 text-orange-700 shadow-sm hover:bg-orange-50/80 dark:border-orange-700/80 dark:text-orange-300 dark:hover:bg-orange-900/20"
+          aria-label="Open global search"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Search className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+            <span className="hidden sm:inline text-xs sm:text-sm font-normal text-muted-foreground truncate">
+              Search workspaces...
+            </span>
+          </div>
+          <kbd className="hidden rounded border border-orange-200 bg-orange-50/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline dark:border-orange-700 dark:bg-orange-950/30 shrink-0">
+            ⌘K
+          </kbd>
         </Button>
       </DialogTrigger>
       <DialogContent className="top-[10%] sm:top-[18%] w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-xl translate-y-0 overflow-hidden rounded-2xl sm:rounded-3xl border-orange-200 p-0 dark:border-orange-800">
