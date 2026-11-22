@@ -119,3 +119,60 @@ export async function PATCH(request: Request) {
   if ("invalidTransition" in quote) return NextResponse.json({ error: `Invalid quote transition from ${quote.from} to ${quote.to}` }, { status: 409 });
   return NextResponse.json({ quote });
 }
+
+export async function DELETE(request: Request) {
+  const pricingAuth = await requirePermission("eventPricing");
+  const eventsAuth = pricingAuth.error ? await requirePermission("events") : null;
+  const session = pricingAuth.session || eventsAuth?.session;
+  if (!session) {
+    return pricingAuth.error || eventsAuth?.error || NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const url = new URL(request.url);
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const quoteId = String(body?.quoteId ?? url.searchParams.get("quoteId") ?? "").trim();
+  if (!quoteId) {
+    return NextResponse.json({ error: "quoteId is required" }, { status: 400 });
+  }
+
+  const result = await transaction(async (client) => {
+    const quoteResult = await client.query(
+      `SELECT q.id, q.event_id, q.status, q.created_by, e.secured_at, e.receipt_id
+       FROM event_quotes q
+       LEFT JOIN events e ON e.id = q.event_id
+       WHERE q.id = $1
+       FOR UPDATE OF q`,
+      [quoteId]
+    );
+    const quote = quoteResult.rows[0];
+    if (!quote) return { notFound: true };
+
+    if (pricingAuth.error && quote.status !== "draft" && quote.created_by !== session.id) {
+      return { forbidden: true };
+    }
+
+    if (quote.status === "accepted" && (quote.secured_at || quote.receipt_id)) {
+      return {
+        cannotDelete: true,
+        reason: "Cannot delete an accepted quote that is actively bound to a secured event booking. Cancel or un-secure the event first.",
+      };
+    }
+
+    await client.query(`DELETE FROM event_quote_items WHERE quote_id = $1`, [quoteId]);
+    await client.query(`DELETE FROM event_quotes WHERE id = $1`, [quoteId]);
+
+    return { success: true, quoteId, eventId: quote.event_id };
+  });
+
+  if (result.notFound) {
+    return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  }
+  if (result.forbidden) {
+    return NextResponse.json({ error: "Forbidden: insufficient permissions to delete this quote" }, { status: 403 });
+  }
+  if (result.cannotDelete) {
+    return NextResponse.json({ error: result.reason }, { status: 409 });
+  }
+
+  return NextResponse.json({ success: true, quoteId: result.quoteId });
+}

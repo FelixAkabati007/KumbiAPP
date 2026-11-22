@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { PATCH, POST } from "../../app/api/events/quotes/route";
+import { DELETE, PATCH, POST } from "../../app/api/events/quotes/route";
 
 const { queryMock, transactionMock, requirePermissionMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
@@ -135,5 +135,73 @@ describe("Event quote transactional flow", () => {
     expect((await response.json()).quote.status).toBe("approved");
     expect(clientQuery).toHaveBeenCalledTimes(3);
     expect(String((clientQuery as Mock).mock.calls[1][0])).toContain("superseded");
+  });
+
+  describe("DELETE /api/events/quotes", () => {
+    it("deletes a saved quote version (draft, superseded, or approved) and cascades line items", async () => {
+      const clientQuery = vi.fn()
+        .mockResolvedValueOnce({
+          rows: [{ id: "quote-del-1", event_id: "event-1", status: "draft", secured_at: null, receipt_id: null }],
+        })
+        .mockResolvedValueOnce({ rows: [] }) // delete items
+        .mockResolvedValueOnce({ rows: [] }); // delete quote
+
+      transactionMock.mockImplementation(async (callback: (client: unknown) => unknown) =>
+        callback({ query: clientQuery }),
+      );
+
+      const response = await DELETE(
+        new Request("http://localhost/api/events/quotes?quoteId=quote-del-1", {
+          method: "DELETE",
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.quoteId).toBe("quote-del-1");
+      expect(clientQuery).toHaveBeenCalledTimes(3);
+      expect(String((clientQuery as Mock).mock.calls[1][0])).toContain("DELETE FROM event_quote_items");
+      expect(String((clientQuery as Mock).mock.calls[2][0])).toContain("DELETE FROM event_quotes");
+    });
+
+    it("rejects deletion of an accepted quote actively securing a confirmed event booking", async () => {
+      const clientQuery = vi.fn().mockResolvedValueOnce({
+        rows: [{ id: "quote-sec-1", event_id: "event-1", status: "accepted", secured_at: "2026-11-22T00:00:00Z", receipt_id: "rec-1" }],
+      });
+
+      transactionMock.mockImplementation(async (callback: (client: unknown) => unknown) =>
+        callback({ query: clientQuery }),
+      );
+
+      const response = await DELETE(
+        new Request("http://localhost/api/events/quotes", {
+          method: "DELETE",
+          body: JSON.stringify({ quoteId: "quote-sec-1" }),
+        }),
+      );
+
+      expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.error).toContain("Cannot delete an accepted quote");
+    });
+
+    it("returns 404 when quote does not exist", async () => {
+      const clientQuery = vi.fn().mockResolvedValueOnce({ rows: [] });
+
+      transactionMock.mockImplementation(async (callback: (client: unknown) => unknown) =>
+        callback({ query: clientQuery }),
+      );
+
+      const response = await DELETE(
+        new Request("http://localhost/api/events/quotes?quoteId=non-existent", {
+          method: "DELETE",
+        }),
+      );
+
+      expect(response.status).toBe(404);
+      const data = await response.json();
+      expect(data.error).toBe("Quote not found");
+    });
   });
 });

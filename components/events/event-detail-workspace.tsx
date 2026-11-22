@@ -11,14 +11,24 @@ import {
   CheckCircle2,
   ClipboardList,
   FileText,
+  Loader2,
   Printer,
   RefreshCw,
+  Trash2,
   Users,
   Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { LogoDisplay } from "@/components/logo-display";
 import {
   EventActivity,
@@ -709,6 +719,8 @@ function QuoteApprovalPanel({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const load = useCallback(
     () =>
@@ -722,6 +734,38 @@ function QuoteApprovalPanel({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  const deleteQuote = async (quote: Quote) => {
+    setIsDeleting(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch(
+        `/api/events/quotes?quoteId=${encodeURIComponent(quote.id)}`,
+        {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ quoteId: quote.id }),
+        },
+      );
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setErrorMessage(errorData.error ?? "Unable to delete quote version.");
+        setIsDeleting(false);
+        return;
+      }
+      setQuoteToDelete(null);
+      await load();
+      onChanged();
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Unable to delete quote version.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const transition = async (
     quoteId: string,
@@ -896,11 +940,73 @@ function QuoteApprovalPanel({
                     Locked version
                   </span>
                 )}
+                {quote.status !== "accepted" || !secured ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setQuoteToDelete(quote)}
+                    disabled={busy === quote.id || isDeleting}
+                    title="Delete saved quote version"
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
         );
       })}
+
+      <Dialog
+        open={Boolean(quoteToDelete)}
+        onOpenChange={(open) => !open && !isDeleting && setQuoteToDelete(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Saved Quote Version
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>
+                Quote {quoteToDelete?.id.slice(0, 8).toUpperCase()}
+              </strong>{" "}
+              ({quoteToDelete?.status}) with total amount of{" "}
+              <strong>
+                {quoteToDelete?.currency ?? "GHS"}{" "}
+                {Number(quoteToDelete?.total ?? 0).toFixed(2)}
+              </strong>
+              ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setQuoteToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => quoteToDelete && void deleteQuote(quoteToDelete)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Quote"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
