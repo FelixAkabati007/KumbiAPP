@@ -262,8 +262,8 @@ function ReceiptContent() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700">
+    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 print:bg-white print:min-h-0">
+      <header className="static z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700 print:hidden">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -289,20 +289,20 @@ function ReceiptContent() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col p-4 md:p-6">
-        <div className="grid gap-6 lg:grid-cols-2">
+      <main className="flex flex-1 flex-col p-4 md:p-6 print:p-0 print:m-0 print:block">
+        <div className="grid gap-6 lg:grid-cols-2 print:block print:p-0 print:m-0">
           {/* Receipt Preview */}
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-            <CardHeader className="relative z-10">
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden print:p-0 print:m-0 print:border-none print:shadow-none print:bg-transparent print:backdrop-blur-none print:static print:overflow-visible">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 print:hidden"></div>
+            <CardHeader className="relative z-10 print:hidden">
               <CardTitle className="text-lg font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2">
                 <Receipt className="h-5 w-5" />
                 Receipt Preview
               </CardTitle>
             </CardHeader>
-            <CardContent className="relative z-10 space-y-4">
+            <CardContent className="relative z-10 space-y-4 print:p-0 print:m-0 print:static print:space-y-0">
               {/* Search Field */}
-              <div className="flex flex-wrap items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2 print:hidden">
   {user?.role === "frontDesk" && (
   <p className="w-full text-sm text-orange-800 dark:text-orange-200">
   Front Desk view: hotel payment receipts and guest folios only.
@@ -344,33 +344,35 @@ function ReceiptContent() {
               </Button>
             </div>
             {recentLookupIds.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-2.5 text-xs dark:border-orange-800/60 dark:bg-orange-950/20">
-                <span className="font-semibold text-orange-800 dark:text-orange-200">
+              <div className="flex items-center gap-2 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-2 text-xs dark:border-orange-800/60 dark:bg-orange-950/20 overflow-x-auto print:hidden">
+                <span className="shrink-0 font-semibold text-orange-800 dark:text-orange-200">
                   Recent receipts:
                 </span>
-                {recentLookupIds.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setSearchOrderNumber(item.id);
-                      void executeSearch(item.id, receiptSource);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-white px-2.5 py-1 font-medium text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100 dark:hover:bg-orange-900/40"
-                  >
-                    <span>{item.label}</span>
-                    <span className="text-muted-foreground">· ₵{item.amount.toFixed(2)}</span>
-                  </button>
-                ))}
+                <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-0.5">
+                  {recentLookupIds.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSearchOrderNumber(item.id);
+                        void executeSearch(item.id, receiptSource);
+                      }}
+                      className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-orange-200 bg-white px-2.5 py-1 font-medium text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-gray-800 dark:text-orange-100 dark:hover:bg-orange-900/40"
+                    >
+                      <span>{item.label}</span>
+                      <span className="text-muted-foreground">· ₵{item.amount.toFixed(2)}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {/* Preview or Empty State */}
             {foundSale ? (
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[600px] print:h-auto print:overflow-visible">
                 <div
                   ref={printRef}
                   className={
-                    `receipt-print-area receipt bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono text-sm max-w-sm mx-auto ` +
+                    `receipt-print-area receipt bg-white dark:bg-gray-900 p-6 print:p-1 rounded-2xl border border-gray-200 dark:border-gray-700 font-mono text-sm max-w-sm mx-auto print:mx-0 print:border-none print:shadow-none ` +
                     (receiptSettings.paperSize === "58mm"
                       ? "w-[232px] max-w-[232px]"
                       : "w-[320px] max-w-[320px]") +
@@ -573,13 +575,13 @@ function ReceiptContent() {
                   </div>
                 </ScrollArea>
               ) : searchTouched ? (
-                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-6 text-center text-muted-foreground">
+                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-6 text-center text-muted-foreground print:hidden">
                   <Receipt className="size-8 text-destructive/70" aria-hidden="true" />
                   <span className="font-semibold text-foreground">No persisted receipt found</span>
                   <span className="text-sm">Verify the {receiptSource === "hotel" ? "reservation number, guest folio, or room number" : receiptSource === "event" ? "event booking receipt number or event name" : "order number"} and search again.</span>
                 </div>
               ) : (
-                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center text-muted-foreground">
+                <div role="status" className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 px-6 text-center text-muted-foreground print:hidden">
                   <Receipt className="size-8" aria-hidden="true" />
                   <span className="font-semibold text-foreground">Receipt preview is ready</span>
                   <span className="text-sm">{receiptSource === "hotel" ? "Search for a hotel payment or checkout folio by reservation #, booking ID, or room #." : receiptSource === "event" ? "Search for an event booking receipt by event name or reference #." : "Search for a restaurant receipt by order number."}</span>
@@ -587,7 +589,7 @@ function ReceiptContent() {
               )}
               {/* Tracking Section */}
               {foundSale && (
-                <div className="mt-4 p-3 rounded-xl border border-orange-200 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-900/20 flex flex-col gap-2">
+                <div className="mt-4 p-3 rounded-xl border border-orange-200 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-900/20 flex flex-col gap-2 print:hidden">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-orange-700 dark:text-orange-300">
                       {foundSale.source === "hotel" ? "Folio / Res #:" : foundSale.source === "event" ? "Event Ref #:" : "Order Number:"}
@@ -679,7 +681,7 @@ function ReceiptContent() {
           </Card>
 
           {/* Settings Panel */}
-          <div className="space-y-6">
+          <div className="space-y-6 print:hidden">
             {/* Receipt Statistics Panel */}
             <Card className="bg-white/90 dark:bg-gray-800/90 border border-orange-200 dark:border-orange-700 rounded-3xl shadow-xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>

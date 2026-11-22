@@ -694,33 +694,51 @@ article,
 
 /* Print styles to ensure preview and printed output match exactly */
 @media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
   /* Hide everything except the designated receipt area */
   body * {
     visibility: hidden !important;
   }
+
   .receipt-print-area,
   .receipt-print-area * {
     visibility: visible !important;
   }
+
   .receipt-print-area {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
+    margin: 0 !important;
+    padding: 2px !important;
     width: 100% !important;
     max-width: 100% !important;
     box-shadow: none !important;
     border: none !important;
-    background: hsl(var(--card)) !important;
-    color: hsl(var(--card-foreground)) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
+
   /* Avoid color adjustments that can alter output */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-}
-
-/* Optional: page size hints for thermal printers when printing via browser */
-@page {
-  margin: 0;
 }
