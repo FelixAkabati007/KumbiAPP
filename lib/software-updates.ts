@@ -213,7 +213,111 @@ export function compareSemver(v1: string, v2: string): number {
 /**
  * Retrieves all software updates, combining database records with canonical updates.
  */
+interface GitHubCommitApiItem {
+  sha: string;
+  commit: {
+    author: {
+      name: string;
+      email?: string;
+      date: string;
+    };
+    message: string;
+  };
+}
+
+let cachedGitHubUpdates: { updates: SoftwareUpdate[]; timestamp: number } | null = null;
+const GITHUB_CACHE_TTL_MS = 25_000; // 25 seconds cache
+
+function parseCommitToSoftwareUpdate(item: GitHubCommitApiItem, baseVersion: string): SoftwareUpdate {
+  const sha = item.sha;
+  const shortSha = sha.substring(0, 7);
+  const rawMessage = (item.commit?.message || "").trim();
+  const [firstLine, ...bodyLines] = rawMessage.split("\n");
+  const title = firstLine || `Update ${shortSha}`;
+  const lowerTitle = title.toLowerCase();
+
+  let type: UpdateCategory = "feature";
+  if (lowerTitle.startsWith("fix")) type = "fix";
+  else if (lowerTitle.startsWith("feat")) type = "feature";
+  else if (lowerTitle.startsWith("perf") || lowerTitle.startsWith("chore") || lowerTitle.startsWith("refactor") || lowerTitle.startsWith("test")) type = "maintenance";
+  else if (lowerTitle.includes("security") || lowerTitle.startsWith("sec")) type = "security";
+  else if (lowerTitle.includes("break") || rawMessage.includes("BREAKING CHANGE")) type = "major";
+
+  const isCritical = type === "security" || type === "major";
+
+  const details = bodyLines
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("Co-authored-by:"))
+    .map((line) => line.replace(/^[-*•]\s*/, ""));
+
+  const authorName = item.commit?.author?.name || "KumbiAPP Team";
+
+  return {
+    id: `commit-${sha}`,
+    version: `${baseVersion} (${shortSha})`,
+    build: sha,
+    title,
+    description: details.length > 0 ? details[0] : `Pushed by ${authorName}`,
+    releaseDate: item.commit?.author?.date || new Date().toISOString(),
+    type,
+    isCritical,
+    details: details.length > 0 ? details : [title],
+    source: `GitHub main · ${shortSha}`,
+    author: authorName,
+  };
+}
+
+export async function fetchLatestGitHubCommits(repo = "FelixAkabati007/KumbiAPP", limit = 15): Promise<SoftwareUpdate[]> {
+  const now = Date.now();
+  if (cachedGitHubUpdates && now - cachedGitHubUpdates.timestamp < GITHUB_CACHE_TTL_MS) {
+    return cachedGitHubUpdates.updates;
+  }
+
+  const baseVersion = packageJson.version || "1.2.6";
+
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "KumbiAPP-Version-Sync",
+    };
+
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(`https://api.github.com/repos/${repo}/commits?per_page=${limit}`, {
+      headers,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = (await res.json()) as GitHubCommitApiItem[];
+      if (Array.isArray(data) && data.length > 0) {
+        const parsed = data.map((item) => parseCommitToSoftwareUpdate(item, baseVersion));
+        cachedGitHubUpdates = { updates: parsed, timestamp: now };
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.debug("[software-updates] GitHub commits fetch skipped or fallback to cache:", err);
+  }
+
+  return cachedGitHubUpdates?.updates || [];
+}
+
+/**
+ * Retrieves all software updates, combining live GitHub commits, database records, and canonical updates.
+ */
 export async function getSoftwareUpdates(): Promise<SoftwareUpdate[]> {
+  const liveCommits = await fetchLatestGitHubCommits();
+
   try {
     await ensureSoftwareUpdatesTable();
     const result = await query(
@@ -222,37 +326,67 @@ export async function getSoftwareUpdates(): Promise<SoftwareUpdate[]> {
        ORDER BY release_date DESC`
     );
 
-    if (result && result.rows && result.rows.length > 0) {
-      const dbUpdates: SoftwareUpdate[] = result.rows.map((row) => ({
-        id: row.id,
-        version: row.version,
-        build: row.build,
-        title: row.title,
-        description: row.description || "",
-        releaseDate: new Date(row.release_date).toISOString(),
-        type: (row.type as UpdateCategory) || "feature",
-        isCritical: Boolean(row.is_critical),
-        details: Array.isArray(row.details)
-          ? row.details
-          : typeof row.details === "string"
-          ? JSON.parse(row.details)
-          : [],
-        source: row.source,
-      }));
+    const dbUpdates: SoftwareUpdate[] = (result?.rows || []).map((row) => ({
+      id: row.id,
+      version: row.version,
+      build: row.build,
+      title: row.title,
+      description: row.description || "",
+      releaseDate: new Date(row.release_date).toISOString(),
+      type: (row.type as UpdateCategory) || "feature",
+      isCritical: Boolean(row.is_critical),
+      details: Array.isArray(row.details)
+        ? row.details
+        : typeof row.details === "string"
+        ? JSON.parse(row.details)
+        : [],
+      source: row.source,
+    }));
 
-      // Ensure any canonical updates not in DB are merged
-      const knownIds = new Set(dbUpdates.map((u) => u.id));
+    const knownIds = new Set<string>();
+    const merged: SoftwareUpdate[] = [];
+
+    // Prioritize real-time GitHub commits first
+    for (const update of liveCommits) {
+      if (!knownIds.has(update.id)) {
+        knownIds.add(update.id);
+        merged.push(update);
+      }
+    }
+
+    // Then database updates
+    for (const update of dbUpdates) {
+      if (!knownIds.has(update.id)) {
+        knownIds.add(update.id);
+        merged.push(update);
+      }
+    }
+
+    // Then canonical releases
+    for (const canonical of CANONICAL_SOFTWARE_UPDATES) {
+      if (!knownIds.has(canonical.id)) {
+        knownIds.add(canonical.id);
+        merged.push(canonical);
+      }
+    }
+
+    return merged.sort(
+      (a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
+    );
+  } catch {
+    // If DB is unavailable, combine liveCommits with canonical
+    if (liveCommits.length > 0) {
+      const knownIds = new Set(liveCommits.map((u) => u.id));
+      const merged = [...liveCommits];
       for (const canonical of CANONICAL_SOFTWARE_UPDATES) {
         if (!knownIds.has(canonical.id)) {
-          dbUpdates.push(canonical);
+          merged.push(canonical);
         }
       }
-      return dbUpdates.sort(
+      return merged.sort(
         (a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
       );
     }
-  } catch {
-    // If DB unavailable, fallback to canonical
   }
 
   return [...CANONICAL_SOFTWARE_UPDATES];
@@ -329,14 +463,15 @@ export async function getReleasePayload(clientBuild?: string | null): Promise<So
   const updates = await getSoftwareUpdates();
   const latestUpdate = updates[0] || CANONICAL_SOFTWARE_UPDATES[0];
 
-  const currentVersion = packageJson.version || "1.2.5";
+  const currentVersion = packageJson.version || "1.2.6";
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.COMMIT_SHA;
   const branch = process.env.VERCEL_GIT_COMMIT_REF || process.env.GITHUB_REF_NAME || process.env.GIT_BRANCH || "main";
-  const currentBuild = commitSha || process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_URL || latestUpdate.build;
+  const currentBuild = commitSha || process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_URL || (clientBuild || latestUpdate.build);
+  const latestBuild = latestUpdate ? latestUpdate.build : currentBuild;
 
   // Determine whether an update is available:
-  // 1. If latest release version > current package version
-  // 2. Or if client passed its current build hash and latest build differs
+  // 1. If latest release version > current package version (semver comparison)
+  // 2. Or if client passed its running build hash, and the latest remote build differs from it
   let isUpdateAvailable = false;
 
   if (latestUpdate) {
@@ -346,10 +481,17 @@ export async function getReleasePayload(clientBuild?: string | null): Promise<So
     } else if (
       clientBuild &&
       clientBuild !== "development" &&
-      latestUpdate.build !== "development" &&
-      clientBuild !== latestUpdate.build
+      latestBuild !== "development"
     ) {
-      isUpdateAvailable = true;
+      const cleanClient = clientBuild.trim().toLowerCase();
+      const cleanLatest = latestBuild.trim().toLowerCase();
+      if (
+        cleanClient !== cleanLatest &&
+        !cleanClient.startsWith(cleanLatest.slice(0, 7)) &&
+        !cleanLatest.startsWith(cleanClient.slice(0, 7))
+      ) {
+        isUpdateAvailable = true;
+      }
     }
   }
 
@@ -357,11 +499,11 @@ export async function getReleasePayload(clientBuild?: string | null): Promise<So
     currentVersion,
     currentBuild,
     latestVersion: latestUpdate ? latestUpdate.version : currentVersion,
-    latestBuild: latestUpdate ? latestUpdate.build : currentBuild,
+    latestBuild,
     isUpdateAvailable,
     branch,
     deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
-    source: commitSha ? "deployment commit metadata" : "system release registry",
+    source: commitSha ? "deployment commit metadata" : "GitHub main release stream",
     checkedAt: new Date().toISOString(),
     updates,
     latestUpdate,

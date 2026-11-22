@@ -216,11 +216,18 @@ export function AppUpdateMenu({
     if (
       currentBuild &&
       data.latestBuild &&
-      currentBuild !== data.latestBuild &&
       currentBuild !== "development" &&
       data.latestBuild !== "development"
     ) {
-      return true;
+      const cleanCurrent = currentBuild.trim().toLowerCase();
+      const cleanLatest = data.latestBuild.trim().toLowerCase();
+      if (
+        cleanCurrent !== cleanLatest &&
+        !cleanCurrent.startsWith(cleanLatest.slice(0, 7)) &&
+        !cleanLatest.startsWith(cleanCurrent.slice(0, 7))
+      ) {
+        return true;
+      }
     }
 
     if (data.latestVersion && data.currentVersion) {
@@ -309,7 +316,17 @@ export function AppUpdateMenu({
           }
         }
 
-        // 4. Precache critical live API endpoints
+        // 4. Clear browser caches to ensure new bundle is fetched
+        if (typeof window !== "undefined" && "caches" in window) {
+          try {
+            const cacheKeys = await window.caches.keys();
+            await Promise.all(cacheKeys.map((key) => window.caches.delete(key)));
+          } catch (cacheErr) {
+            console.warn("Cache clearing warning:", cacheErr);
+          }
+        }
+
+        // 5. Precache critical live API endpoints
         try {
           await Promise.allSettled([
             fetch("/api/menu", { cache: "reload" }),
@@ -673,6 +690,11 @@ export function AppUpdateMenu({
                         <Calendar className="h-3 w-3" />
                         {releaseDateFormatted}
                       </span>
+                      {update.author && (
+                        <span className="inline-flex items-center gap-1">
+                          👤 {update.author}
+                        </span>
+                      )}
                       {update.source && (
                         <span className="inline-flex items-center gap-1">
                           <Tag className="h-3 w-3" />
