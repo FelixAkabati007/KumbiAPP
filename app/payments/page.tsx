@@ -440,22 +440,23 @@ export default function PaymentsPage() {
             <div
               className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-1.5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
               aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
+              suppressHydrationWarning
             >
               <Clock3
                 className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
                 aria-hidden="true"
               />
-              <span className="font-mono text-sm font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">
+              <span className="font-mono text-sm font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
                 {clockTime}
               </span>
-              <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+              <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300" suppressHydrationWarning>
                 {clockPeriod}
               </span>
             </div>
             {accraDateFormatted && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange-100/70 dark:bg-orange-950/40 rounded-full border border-orange-200 dark:border-orange-700 text-xs font-medium text-orange-800 dark:text-orange-200">
+              <div suppressHydrationWarning className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange-100/70 dark:bg-orange-950/40 rounded-full border border-orange-200 dark:border-orange-700 text-xs font-medium text-orange-800 dark:text-orange-200">
                 <Calendar className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-                <span>{accraDateFormatted}</span>
+                <span suppressHydrationWarning>{accraDateFormatted}</span>
               </div>
             )}
           </div>

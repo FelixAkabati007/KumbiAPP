@@ -26,24 +26,25 @@ import {
 } from "@/lib/offline-storage";
 import { toast } from "sonner";
 
+const DEFAULT_STATS: OfflineQueueStats = {
+  orders: 0,
+  attendance: 0,
+  mutations: 0,
+  total: 0,
+  isOnline: true,
+  isSyncing: false,
+};
+
 export function OfflineSyncIndicator() {
-  const [stats, setStats] = useState<OfflineQueueStats>(() => {
-    if (typeof window !== "undefined") {
-      return getOfflineQueueStats();
-    }
-    return {
-      orders: 0,
-      attendance: 0,
-      mutations: 0,
-      total: 0,
-      isOnline: true,
-      isSyncing: false,
-    };
-  });
+  const [stats, setStats] = useState<OfflineQueueStats>(DEFAULT_STATS);
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    setMounted(true);
+    setStats(getOfflineQueueStats());
+
     // Initial stats and subscription
     const unsubscribe = subscribeOfflineQueue((newStats) => {
       setStats(newStats);
@@ -91,9 +92,10 @@ export function OfflineSyncIndicator() {
     }
   };
 
-  const isSyncing = stats.isSyncing || isPending;
-  const queuedOrders = getQueuedOrders();
-  const queuedAttendance = getQueuedAttendance();
+  const isSyncing = mounted && (stats.isSyncing || isPending);
+  const queuedOrders = mounted ? getQueuedOrders() : [];
+  const queuedAttendance = mounted ? getQueuedAttendance() : [];
+  const activeStats = mounted ? stats : DEFAULT_STATS;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -104,38 +106,39 @@ export function OfflineSyncIndicator() {
               <Button
                 variant="outline"
                 size="icon"
+                suppressHydrationWarning
                 className={`relative h-9 w-9 rounded-full border transition-colors ${
-                  !stats.isOnline
+                  !activeStats.isOnline
                     ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                    : stats.total > 0
+                    : activeStats.total > 0
                     ? "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
                     : "border-orange-200/80 bg-white/70 text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:bg-gray-900/60 dark:text-orange-300"
                 }`}
                 aria-label={
-                  !stats.isOnline
-                    ? `Offline mode (${stats.total} queued items)`
-                    : stats.total > 0
-                    ? `${stats.total} items pending sync`
+                  !activeStats.isOnline
+                    ? `Offline mode (${activeStats.total} queued items)`
+                    : activeStats.total > 0
+                    ? `${activeStats.total} items pending sync`
                     : "Network connected and synchronized"
                 }
               >
                 {isSyncing ? (
                   <RefreshCw className="h-4 w-4 animate-spin text-orange-600 dark:text-orange-400" />
-                ) : !stats.isOnline ? (
+                ) : !activeStats.isOnline ? (
                   <WifiOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                ) : stats.total > 0 ? (
+                ) : activeStats.total > 0 ? (
                   <Cloud className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 ) : (
                   <Wifi className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 )}
 
                 {/* Queue badge indicator */}
-                {stats.total > 0 && !isSyncing && (
+                {activeStats.total > 0 && !isSyncing && (
                   <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-bold text-white shadow-sm dark:bg-orange-500">
-                    {stats.total > 99 ? "99+" : stats.total}
+                    {activeStats.total > 99 ? "99+" : activeStats.total}
                   </span>
                 )}
-                {!stats.isOnline && stats.total === 0 && (
+                {!activeStats.isOnline && activeStats.total === 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
@@ -145,10 +148,10 @@ export function OfflineSyncIndicator() {
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom" align="center" className="text-xs">
-            {!stats.isOnline
-              ? `Offline mode (${stats.total} queued)`
-              : stats.total > 0
-              ? `${stats.total} items queued locally`
+            {!activeStats.isOnline
+              ? `Offline mode (${activeStats.total} queued)`
+              : activeStats.total > 0
+              ? `${activeStats.total} items queued locally`
               : "Connected (All data synced)"}
           </TooltipContent>
         </Tooltip>

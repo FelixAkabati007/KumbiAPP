@@ -701,27 +701,29 @@ function DashboardContent() {
               <div
                 className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
                 aria-label={`Current Accra date ${accraDate}`}
+                suppressHydrationWarning
               >
                 <CalendarDays
                   className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
                   aria-hidden="true"
                 />
-                <span className="text-sm font-semibold tracking-tight text-emerald-950 dark:text-emerald-100">
+                <span className="text-sm font-semibold tracking-tight text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
                   {accraDate}
                 </span>
               </div>
               <div
                 className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-2 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
                 aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
+                suppressHydrationWarning
               >
                 <Clock3
                   className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
                   aria-hidden="true"
                 />
-                <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100">
+                <span className="font-mono text-base font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
                   {clockTime}
                 </span>
-                <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+                <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300" suppressHydrationWarning>
                   {clockPeriod}
                 </span>
               </div>

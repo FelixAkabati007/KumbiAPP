@@ -370,8 +370,8 @@ export async function fetchSettings(): Promise<AppSettings> {
 }
 
 // Kept for synchronous compatibility during migration, but prefers API if possible
-export function getSettings(_useDefaults = false): AppSettings {
-  void _useDefaults;
+export function getSettings(useDefaults = false): AppSettings {
+  if (useDefaults) return defaultSettings;
   if (typeof window !== "undefined") {
     try {
       const cachedLogo = localStorage.getItem("kumbi_cached_logo");

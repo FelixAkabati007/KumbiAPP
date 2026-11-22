@@ -13,11 +13,27 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(() => getSettings());
+  const [settings, setSettings] = useState<AppSettings>(() => getSettings(true));
 
-  // Load settings from server on mount — children always render immediately
+  // Load settings from server on mount — children always render defaultSettings on initial render for SSR consistency
   useEffect(() => {
     let cancelled = false;
+
+    // Apply cached logo immediately on client mount
+    if (typeof window !== "undefined") {
+      try {
+        const cachedLogo = localStorage.getItem("kumbi_cached_logo");
+        if (cachedLogo && !cancelled) {
+          setSettings((prev) => ({
+            ...prev,
+            account: { ...prev.account, logo: cachedLogo },
+          }));
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     fetchSettings().then((saved) => {
       if (!cancelled) setSettings(saved);
     });
