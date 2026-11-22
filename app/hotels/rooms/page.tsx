@@ -459,7 +459,7 @@ function RoomsPage() {
 
       {/* Add Room Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Room</DialogTitle>
             <DialogDescription>Create a new room in the hotel inventory</DialogDescription>
@@ -706,7 +706,7 @@ function RoomsPage() {
 
       {/* Edit Room Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Room</DialogTitle>
             <DialogDescription>Update room details and settings</DialogDescription>

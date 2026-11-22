@@ -330,7 +330,7 @@ function ReservationsPage() {
 
       {/* New Reservation Dialog */}
       <Dialog open={showNewReservationDialog} onOpenChange={setShowNewReservationDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-2xl max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{isReviewingReservation ? "Verify Reservation Details" : "Create New Reservation"}</DialogTitle>
             <DialogDescription>
@@ -347,8 +347,8 @@ function ReservationsPage() {
             </div>
           )}
           
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="firstName">First Name <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
@@ -371,7 +371,7 @@ className="rounded-lg appearance-auto [color-scheme:light]"
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -400,7 +400,7 @@ className="rounded-lg appearance-auto [color-scheme:light]"
               <Input id="emergencyContact" placeholder="Name and phone number" value={formData.emergencyContact} onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })} className="rounded-lg" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="checkInDate">Check-in Date <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
@@ -423,7 +423,7 @@ className="rounded-lg appearance-auto [color-scheme:light]"
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="guests">Number of Guests <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Input
@@ -440,7 +440,7 @@ className="rounded-lg appearance-auto [color-scheme:light]"
                 <Input id="roomCount" type="number" min="1" max="20" value={formData.roomCount} onChange={(e) => setFormData({ ...formData, roomCount: Math.max(1, Math.min(20, parseInt(e.target.value) || 1)) })} className="rounded-lg" />
                 <p className="mt-1 text-xs text-muted-foreground">Use 2 or more for one group booking; each room is tracked separately.</p>
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <Label htmlFor="roomType">Room Type <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <select
                   id="roomType"
@@ -464,14 +464,14 @@ className="rounded-lg appearance-auto [color-scheme:light]"
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-4">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 justify-end pt-4">
             <Button
               variant="outline"
               onClick={() => {
                 setIsReviewingReservation(false);
                 setShowNewReservationDialog(false);
               }}
-              className="rounded-lg"
+              className="rounded-lg w-full sm:w-auto"
             >
               Cancel
             </Button>

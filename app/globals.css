@@ -770,3 +770,102 @@ article,
     print-color-adjust: exact !important;
   }
 }
+
+/* ==========================================================================
+   Cross-Device Display Optimizations (Windows, Apple iOS/macOS, Android)
+   ========================================================================== */
+
+/* 1. Dynamic Viewport Height & Full-Height Screen Utilities */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+  .max-h-screen {
+    max-height: 100dvh;
+  }
+}
+
+/* 2. Apple iOS Safari Zoom Suppression on Mobile Inputs */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* 3. Touch ergonomics & tap delay prevention for Android & Apple touchscreens */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+[role="tab"],
+[role="menuitem"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 4. Safe Area Inset Support (iPhone Notch, Dynamic Island, Android Navigation Bar) */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+.safe-top-padding {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
+.safe-bottom-padding {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* 5. Mobile Dialog & Alert Box Universal Clamping (< 640px) */
+@media (max-width: 639px) {
+  [role="dialog"],
+  [role="alertdialog"],
+  [data-radix-dialog-content],
+  [data-radix-alert-dialog-content] {
+    max-width: calc(100vw - 1.25rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  [data-radix-popper-content-wrapper] {
+    max-width: calc(100vw - 1rem) !important;
+  }
+}
+
+/* 6. Universal Table & Grid Mobile Protection */
+.table-scroll-container,
+.responsive-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain !important;
+}
+
+/* 7. Windows Scrollbar Gutter Stabilization */
+@supports (scrollbar-gutter: stable) {
+  html {
+    scrollbar-gutter: stable;
+  }
+}
+

@@ -963,7 +963,7 @@ function QuoteApprovalPanel({
         open={Boolean(quoteToDelete)}
         onOpenChange={(open) => !open && !isDeleting && setQuoteToDelete(null)}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="h-5 w-5" />
@@ -982,7 +982,7 @@ function QuoteApprovalPanel({
               ? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-2 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setQuoteToDelete(null)}

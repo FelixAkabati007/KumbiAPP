@@ -1683,7 +1683,7 @@ function InventoryContent() {
             }
           }}
         >
-          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border-slate-200 dark:border-slate-800 overflow-hidden">
+          <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-2xl max-h-[85dvh] flex flex-col rounded-2xl sm:rounded-3xl border-slate-200 dark:border-slate-800 overflow-hidden p-3.5 sm:p-6">
             <DialogHeader className="shrink-0 border-b pb-3">
               <div className="flex items-center justify-between pr-6">
                 <div>
@@ -3122,7 +3122,7 @@ function InventoryContent() {
         </Dialog>
 
         <Dialog open={Boolean(topUpHistoryItem)} onOpenChange={(open) => { if (!open) { setTopUpHistoryItem(null); setTopUpHistory([]); } }}>
-          <DialogContent className="max-w-3xl rounded-3xl">
+          <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-3xl rounded-2xl sm:rounded-3xl p-3.5 sm:p-6">
             <DialogHeader><DialogTitle>Top-up history</DialogTitle><DialogDescription>Immutable stock replenishment records for {topUpHistoryItem?.name ?? "this item"}. Timestamps are shown in UTC.</DialogDescription></DialogHeader>
             <div className="max-h-[55vh] overflow-y-auto rounded-2xl border">
               {isLoadingTopUpHistory ? (
@@ -3179,7 +3179,7 @@ function InventoryContent() {
         </Dialog>
 
         <Dialog open={Boolean(topUpItem)} onOpenChange={(open) => { if (!open && !isSubmittingTopUp) { setTopUpItem(null); setTopUpQuantity(""); setTopUpReason(""); setTopUpPurchasePackagingPrice(""); setTopUpEvidence(null); setTopUpEvidencePreview(null); } }}>
-          <DialogContent className="max-w-md rounded-3xl border-emerald-200 dark:border-emerald-800">
+          <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md rounded-2xl sm:rounded-3xl border-emerald-200 dark:border-emerald-800 p-3.5 sm:p-6">
             <DialogHeader><DialogTitle>Top up stock</DialogTitle><DialogDescription>Add quantity to {topUpItem?.name ?? "this item"}. The update, evidence, and immutable audit record are saved atomically.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="rounded-2xl bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30"><span className="text-muted-foreground">Current balance</span><p className="text-xl font-semibold">{topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</p></div>
@@ -3239,7 +3239,7 @@ function InventoryContent() {
 
         {/* History Evidence Photo Modal */}
         <Dialog open={Boolean(historyEvidenceModalUrl)} onOpenChange={(open) => !open && setHistoryEvidenceModalUrl(null)}>
-          <DialogContent className="max-w-xl rounded-3xl p-6">
+          <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Stock Replenishment Evidence</DialogTitle>
               <DialogDescription>Delivery note, invoice, or goods photo recorded during stock replenishment.</DialogDescription>

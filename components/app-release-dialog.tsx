@@ -73,7 +73,7 @@ export function AppReleaseDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-orange-200 dark:border-orange-800 rounded-3xl p-5 sm:p-6 shadow-2xl max-h-[88vh] flex flex-col">
+      <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-orange-200 dark:border-orange-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[88dvh] flex flex-col">
         <DialogHeader className="shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
@@ -107,7 +107,7 @@ export function AppReleaseDialog({
           </DialogDescription>
 
           {/* Segmented Switcher */}
-          <div className="flex items-center gap-2 pt-2 border-b border-orange-100 dark:border-orange-900/60 pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 pt-2 border-b border-orange-100 dark:border-orange-900/60 pb-2">
             <Button
               type="button"
               variant={activeTab === "whatsNew" ? "default" : "ghost"}
@@ -119,8 +119,9 @@ export function AppReleaseDialog({
                   : "text-gray-700 dark:text-gray-300"
               }`}
             >
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              New Update Details (v{latestUpdate?.version || currentVersion})
+              <Sparkles className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+              <span className="sm:hidden">What&apos;s New</span>
+              <span className="hidden sm:inline">New Update Details (v{latestUpdate?.version || currentVersion})</span>
             </Button>
             <Button
               type="button"
@@ -133,8 +134,9 @@ export function AppReleaseDialog({
                   : "text-gray-700 dark:text-gray-300"
               }`}
             >
-              <History className="h-3.5 w-3.5 mr-1.5" />
-              Full Release History ({updates.length})
+              <History className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+              <span className="sm:hidden">History ({updates.length})</span>
+              <span className="hidden sm:inline">Full Release History ({updates.length})</span>
             </Button>
           </div>
         </DialogHeader>

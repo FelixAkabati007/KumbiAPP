@@ -114,7 +114,7 @@ export function FeaturePermissionsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage attendance features</DialogTitle>
           <DialogDescription>
@@ -229,8 +229,8 @@ export function FeaturePermissionsModal({
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button variant="outline" onClick={onClose} disabled={saving}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={onClose} disabled={saving} className="w-full sm:w-auto">
                 Cancel
               </Button>
               <Button onClick={handleSave} disabled={saving}>

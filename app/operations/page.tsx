@@ -508,7 +508,7 @@ function OperationsWorkspace() {
           </CardContent>
         </Card>
         <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
-          <DialogContent className="unit-selector-scroll-viewport max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogContent className="unit-selector-scroll-viewport w-[calc(100vw-1.25rem)] sm:w-full max-h-[90dvh] sm:max-w-xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Maintenance Ticket</DialogTitle>
               <DialogDescription>Report a repair or technical issue across hotel rooms, kitchen, or shared areas.</DialogDescription>

@@ -415,7 +415,7 @@ export function NotificationBell() {
         open={Boolean(evidenceModalUrl)}
         onOpenChange={(open) => !open && setEvidenceModalUrl(null)}
       >
-        <DialogContent className="max-w-xl rounded-3xl p-6">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Stock Replenishment Evidence</DialogTitle>
             <DialogDescription>
@@ -451,7 +451,7 @@ export function NotificationBell() {
         open={Boolean(disapproveModalItem)}
         onOpenChange={(open) => !open && !isSubmittingDisapproval && setDisapproveModalItem(null)}
       >
-        <DialogContent className="max-w-md rounded-3xl">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-rose-600 dark:text-rose-400">
               Disapprove Stock Top-Up

@@ -208,7 +208,7 @@ export function DiscountModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-orange-200 dark:border-orange-800 rounded-3xl p-5 shadow-2xl">
+      <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-orange-200 dark:border-orange-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <Badge
@@ -414,13 +414,13 @@ export function DiscountModal({
           )}
         </div>
 
-        <DialogFooter className="flex sm:justify-between items-center gap-2 pt-2">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-stretch sm:items-center gap-2 pt-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="rounded-xl border-orange-200 text-xs"
+            className="rounded-xl border-orange-200 text-xs w-full sm:w-auto"
           >
             Cancel
           </Button>

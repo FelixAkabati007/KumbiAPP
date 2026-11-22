@@ -64,7 +64,7 @@ export function GlobalSearch({ role }: { role?: string | null }) {
           <kbd className="hidden rounded border border-orange-200 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline dark:border-orange-700">⌘K</kbd>
         </Button>
       </DialogTrigger>
-      <DialogContent className="top-[18%] max-w-xl translate-y-0 overflow-hidden rounded-3xl border-orange-200 p-0 dark:border-orange-800">
+      <DialogContent className="top-[10%] sm:top-[18%] w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-xl translate-y-0 overflow-hidden rounded-2xl sm:rounded-3xl border-orange-200 p-0 dark:border-orange-800">
         <DialogHeader className="border-b border-orange-100 bg-orange-50/70 px-5 py-4 dark:border-orange-900 dark:bg-orange-950/40">
           <DialogTitle className="flex items-center gap-2 text-lg"><Command className="h-4 w-4 text-orange-600" />Global search</DialogTitle>
           <DialogDescription>Find a permitted workspace or feature.</DialogDescription>

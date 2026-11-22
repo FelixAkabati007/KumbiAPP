@@ -546,7 +546,7 @@ export function SystemDashboard({ className }: SystemDashboardProps) {
 
       {/* Event Log Dialog */}
       <Dialog open={showEventLog} onOpenChange={setShowEventLog}>
-        <DialogContent className="max-h-[85vh] w-[calc(100%-1rem)] max-w-4xl overflow-hidden p-4 sm:w-full sm:p-6">
+        <DialogContent className="max-h-[85dvh] w-[calc(100%-1rem)] max-w-4xl overflow-hidden p-4 sm:w-full sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />

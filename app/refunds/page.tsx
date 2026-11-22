@@ -351,7 +351,7 @@ function RefundsPageContent() {
 
       {/* Approval Dialog */}
       <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-orange-800 dark:text-orange-200">
               Approve Refund Request
@@ -400,7 +400,7 @@ function RefundsPageContent() {
 
       {/* Rejection Dialog */}
       <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-orange-800 dark:text-orange-200">
               Reject Refund Request

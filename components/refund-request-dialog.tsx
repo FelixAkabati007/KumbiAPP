@@ -316,7 +316,7 @@ export function RefundRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-3xl overflow-y-auto max-h-[80vh]">
+      <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-orange-200 dark:border-orange-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 overflow-y-auto max-h-[90dvh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
             <DollarSign className="h-5 w-5" />

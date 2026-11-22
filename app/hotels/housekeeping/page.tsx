@@ -727,7 +727,7 @@ function HousekeepingPage() {
 
       {/* New Housekeeping Task Dialog */}
       {!isHousekeeping && <Dialog open={showNewTaskDialog} onOpenChange={setShowNewTaskDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Housekeeping Task</DialogTitle>
             <DialogDescription>Assign a new cleaning task</DialogDescription>
@@ -829,7 +829,7 @@ function HousekeepingPage() {
 
   {/* New Maintenance Ticket Dialog */}
       <Dialog open={showNewTicketDialog} onOpenChange={setShowNewTicketDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100vw-1.25rem)] sm:w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Maintenance Ticket</DialogTitle>
             <DialogDescription>Report a room repair or maintenance issue</DialogDescription>
