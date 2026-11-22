@@ -16,7 +16,7 @@ describe("Audit fixes and operational invariants", () => {
     expect(attendanceCron).toContain("return POST(request)");
   });
 
-  it("safeguards audit logs from deletion during operational data reset and blocks production reset", async () => {
+  it("safeguards audit logs from deletion during operational data reset and supports production reset", async () => {
     const dataReset = await readFile(path.join(rootDir, "app/api/admin/data-reset/route.ts"), "utf8");
     expect(dataReset).toContain("ALLOW_PRODUCTION_DATA_RESET");
     expect(dataReset).toContain("canonical_financial_ledger");

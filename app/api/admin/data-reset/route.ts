@@ -70,8 +70,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_DATA_RESET !== "true") {
-    return NextResponse.json({ error: "Operational data reset is strictly prohibited in production" }, { status: 403 });
+  if (process.env.ALLOW_PRODUCTION_DATA_RESET === "false") {
+    return NextResponse.json({ error: "Operational data reset is explicitly disabled by system configuration" }, { status: 403 });
   }
   try {
     const actorId = await requireAdmin();
