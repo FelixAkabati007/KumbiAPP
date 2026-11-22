@@ -3,6 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  ArrowRight,
   BarChart3,
   ChefHat,
   CreditCard,
@@ -81,6 +83,107 @@ const DASHBOARD_CATEGORIES = [
   ["administration", "Administration"],
   ["events", "Event Organization"],
 ] as const;
+
+const CATEGORY_META: Record<
+  (typeof DASHBOARD_CATEGORIES)[number][0],
+  {
+    title: string;
+    description: string;
+    icon: typeof Grid3X3;
+  }
+> = {
+  all: {
+    title: "All Operational Workspaces",
+    description:
+      "Complete operational visibility across hospitality, food & beverage, finance, technical operations, and administration.",
+    icon: Grid3X3,
+  },
+  hotel: {
+    title: "Hospitality & Hotel Operations",
+    description:
+      "Manage guest reservations, room inventory status, housekeeping tasks, and front desk check-in/out.",
+    icon: Home,
+  },
+  restaurant: {
+    title: "Food Service & Restaurant Operations",
+    description:
+      "Capture point-of-sale orders, monitor kitchen production, track live grid orders, manage menus, and audit inventory stock.",
+    icon: Utensils,
+  },
+  finance: {
+    title: "Financial Operations & Auditing",
+    description:
+      "Canonical financial ledger, sales analytics, customer refund processing, payment methods, and transaction receipts.",
+    icon: CreditCard,
+  },
+  technical: {
+    title: "Technical & Facilities Operations",
+    description:
+      "Coordinate hotel and restaurant technical maintenance, issue resolution, and facilities upkeep.",
+    icon: Wrench,
+  },
+  administration: {
+    title: "Administration & System Governance",
+    description:
+      "System health monitoring, hardware status, audited configuration access, and system-wide controls.",
+    icon: Monitor,
+  },
+  events: {
+    title: "Event Organization & Banqueting",
+    description:
+      "Plan events, coordinate venues, manage guests, assign delivery teams, and generate quotations.",
+    icon: CalendarDays,
+  },
+};
+
+function CategoryGroupHeader({
+  title,
+  count,
+  icon: Icon,
+  description,
+  onFocus,
+}: {
+  title: string;
+  count: number;
+  icon: typeof Grid3X3;
+  description: string;
+  onFocus?: () => void;
+}) {
+  return (
+    <div className="col-span-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-orange-200/60 dark:border-orange-800/40 pb-2 pt-4 first:pt-0">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
+              {title}
+            </h3>
+            <span className="rounded-full bg-orange-100/70 dark:bg-orange-950/40 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:text-orange-200">
+              {count} {count === 1 ? "workspace" : "workspaces"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {description}
+          </p>
+        </div>
+      </div>
+      {onFocus && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onFocus}
+          className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 dark:hover:bg-orange-950/40 rounded-xl h-7 self-start sm:self-auto px-2"
+        >
+          <span>Focus group</span>
+          <ArrowRight className="ml-1 h-3 w-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
 
 // Defined at module scope: declaring it inside DashboardContent (which re-renders every
 // second for the clock) gave it a new identity each render, remounting every launcher
@@ -387,6 +490,41 @@ function DashboardContent() {
     administration: ["system"],
     events: ["events"],
   };
+  const categoryCounts: Record<(typeof DASHBOARD_CATEGORIES)[number][0], number> = {
+    all: 0,
+    hotel: [
+      dashboardAccess.reservations,
+      dashboardAccess.rooms && !isHousekeeping,
+      dashboardAccess.housekeeping || isHousekeeping,
+      dashboardAccess.checkIn,
+    ].filter(Boolean).length,
+    restaurant: [
+      dashboardAccess.pos,
+      dashboardAccess.kitchen,
+      dashboardAccess.orderBoard,
+      dashboardAccess.menu,
+      dashboardAccess.inventory,
+    ].filter(Boolean).length,
+    finance: [
+      dashboardAccess.finance,
+      dashboardAccess.reports,
+      dashboardAccess.refunds,
+      dashboardAccess.payments,
+      dashboardAccess.receipt,
+    ].filter(Boolean).length,
+    technical: [dashboardAccess.operations].filter(Boolean).length,
+    administration: [dashboardAccess.system].filter(Boolean).length,
+    events: [dashboardAccess.events].filter(Boolean).length,
+  };
+  categoryCounts.all =
+    categoryCounts.hotel +
+    categoryCounts.restaurant +
+    categoryCounts.finance +
+    categoryCounts.technical +
+    categoryCounts.administration +
+    categoryCounts.events +
+    2;
+
   const availableDashboardCategories = DASHBOARD_CATEGORIES.filter(
     ([category]) =>
       category === "all" ||
@@ -665,30 +803,6 @@ function DashboardContent() {
             </p>
           </div>
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
-            {!attendanceRestricted && canSwitchDashboardCategories && (
-              <div
-                className="safe-scroll-x flex w-full max-w-full gap-2 pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0"
-                role="group"
-                aria-label="Dashboard container category"
-              >
-                {availableDashboardCategories.map(([category, label]) => (
-                  <Button
-                    key={category}
-                    type="button"
-                    size="sm"
-                    variant={
-                      activeDashboardCategory === category
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => selectDashboardCategory(category)}
-                    className="dashboard-filter-button shrink-0 whitespace-nowrap rounded-2xl border-orange-200 text-xs dark:border-orange-700"
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
             {!attendanceRestricted && (
               <Link
                 href={roleDashboard.primaryHref}
@@ -740,575 +854,783 @@ function DashboardContent() {
           {roleDashboard.visibilityNote}
         </p>
 
-        <style>{`[data-attendance-only="true"] > *:not([data-attendance-card="true"]) { display: none !important; } [data-dashboard-category-filter]:not([data-dashboard-category-filter="all"]) [data-dashboard-category]:not([data-dashboard-category="all"]) { display: none; } [data-dashboard-category-filter="events"] [data-dashboard-category="events"] { display: block !important; } [data-dashboard-category-filter="hotel"] [data-dashboard-category="hotel"], [data-dashboard-category-filter="restaurant"] [data-dashboard-category="restaurant"], [data-dashboard-category-filter="finance"] [data-dashboard-category="finance"], [data-dashboard-category-filter="technical"] [data-dashboard-category="technical"], [data-dashboard-category-filter="administration"] [data-dashboard-category="administration"] { display: block; }`}</style>
-        <div
-          data-dashboard-category-filter={activeDashboardCategory}
-          data-attendance-only={attendanceRestricted ? "true" : "false"}
-          className="dashboard-category-grid responsive-grid"
-        >
-          <div data-dashboard-category="all" className="min-w-0">
-            <AnnouncementCard />
-          </div>
-          <Card
-            data-dashboard-category="all"
-            data-attendance-card="true"
-            className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+        {!attendanceRestricted && canSwitchDashboardCategories && (
+          <div
+            className="w-full flex items-center justify-between flex-wrap gap-2.5 py-3 px-4 rounded-3xl bg-amber-50/70 dark:bg-amber-950/20 border border-orange-200/70 dark:border-orange-800/40 shadow-sm"
+            role="group"
+            aria-label="Dashboard category filter"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-            <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-<CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
-                  Staff Attendance Register
-              </CardTitle>
-              <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                Attendance
+            <div className="flex items-center gap-2 overflow-x-auto safe-scroll-x max-w-full pb-1 sm:pb-0 sm:flex-wrap">
+              {availableDashboardCategories.map(([category, label]) => {
+                const count = categoryCounts[category];
+                const isActive = activeDashboardCategory === category;
+                const IconComponent = CATEGORY_META[category]?.icon ?? Grid3X3;
+                return (
+                  <Button
+                    key={category}
+                    type="button"
+                    size="sm"
+                    variant={isActive ? "default" : "outline"}
+                    onClick={() => selectDashboardCategory(category)}
+                    className={
+                      isActive
+                        ? "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-semibold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all"
+                        : "shrink-0 whitespace-nowrap rounded-2xl bg-white/80 dark:bg-gray-800/80 border-orange-200 dark:border-orange-700/60 text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-orange-900/30 text-xs px-3.5 py-1.5 h-auto transition-all"
+                    }
+                  >
+                    <IconComponent className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{label}</span>
+                    <span
+                      className={
+                        isActive
+                          ? "ml-1.5 rounded-full bg-white/25 px-1.5 py-0.2 text-[10px] font-bold text-white tabular-nums"
+                          : "ml-1.5 rounded-full bg-orange-100 dark:bg-orange-950/60 px-1.5 py-0.2 text-[10px] font-bold text-orange-700 dark:text-orange-300 tabular-nums"
+                      }
+                    >
+                      {count}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+            {activeDashboardCategory !== "all" && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => selectDashboardCategory("all")}
+                className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 dark:hover:bg-orange-950/40 rounded-xl shrink-0"
+              >
+                <Grid3X3 className="mr-1.5 h-3.5 w-3.5" />
+                Show All ({categoryCounts.all})
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!attendanceRestricted && activeDashboardCategory !== "all" && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-950/30 dark:via-amber-950/30 dark:to-yellow-950/30 border border-orange-200/80 dark:border-orange-800/50">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm mt-0.5 sm:mt-0">
+                {(() => {
+                  const Icon = CATEGORY_META[activeDashboardCategory]?.icon ?? Grid3X3;
+                  return <Icon className="h-5 w-5" />;
+                })()}
               </div>
-<p className="text-base leading-6 text-muted-foreground">
-                  Check in before your scheduled start, check out at or after your
-                scheduled end, and wait for a manager approval before opening
-                other workspaces.
-              </p>
-<DashboardLaunchButton
-                  href={user.role === "staff" ? "/staff/attendance" : "/attendance"}
-                >
-                  {user.role === "staff"
-                    ? "Open staff attendance"
-                    : "Open attendance register"}
-                </DashboardLaunchButton>
-            </CardContent>
-          </Card>
-          {dashboardAccess.events && (
-            <Card
-              data-dashboard-category="events"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-              <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-                <CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
-                  Event Organization
-                </CardTitle>
-                <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Events
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
+                    {CATEGORY_META[activeDashboardCategory]?.title}
+                  </h3>
+                  <Badge variant="outline" className="border-orange-300 dark:border-orange-700 bg-orange-100/60 dark:bg-orange-950/50 text-orange-800 dark:text-orange-200 text-xs">
+                    {categoryCounts[activeDashboardCategory]} {categoryCounts[activeDashboardCategory] === 1 ? "Workspace" : "Workspaces"}
+                  </Badge>
                 </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Plan events, coordinate venues, manage guests, assign delivery
-                  teams, and prepare quotations through the Pricing desk.
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {CATEGORY_META[activeDashboardCategory]?.description}
                 </p>
-                <DashboardLaunchButton href="/events">
-                  Open Event Organization
-                </DashboardLaunchButton>
-              </CardContent>
-            </Card>
-          )}
-          {dashboardAccess.pos && (
-            <Card
-              data-dashboard-category="restaurant"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => selectDashboardCategory("all")}
+              className="shrink-0 rounded-2xl border-orange-200 dark:border-orange-700 text-xs text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/40"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  POS Terminal
-                </CardTitle>
-                <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Sales
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Process orders and payments
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/pos">Open POS</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.kitchen && (
-            <Card
-              data-dashboard-category="restaurant"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Kitchen Display
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <Switch
-                            checked={toggles.kitchen_display}
-                            disabled={
-                              !canManage || updating === "kitchen_display"
-                            }
-                            onCheckedChange={(checked) =>
-                              handleFeatureToggle("kitchen_display", checked)
-                            }
-                            aria-label="Toggle Kitchen Display"
-                          />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {canManage
-                          ? toggles.kitchen_display
-                            ? "Disable Kitchen Display for all staff"
-                            : "Enable Kitchen Display for all staff"
-                          : "Only admins or managers can change this"}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Orders
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  {toggles.kitchen_display
-                    ? "Manage kitchen operations"
-                    : "Disabled by administrator"}
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/kitchen">View Kitchen</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.orderBoard && (
-            <Card
-              data-dashboard-category="restaurant"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Order Board
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <Switch
-                            checked={toggles.order_board}
-                            disabled={!canManage || updating === "order_board"}
-                            onCheckedChange={(checked) =>
-                              handleFeatureToggle("order_board", checked)
-                            }
-                            aria-label="Toggle Order Board"
-                          />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {canManage
-                          ? toggles.order_board
-                            ? "Disable Order Board for all staff"
-                            : "Enable Order Board for all staff"
-                          : "Only admins or managers can change this"}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Grid3X3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Live Grid
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  {toggles.order_board
-                    ? "Real-time order tracking"
-                    : "Disabled by administrator"}
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/order-display?mode=grid">View Orders</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.menu && (
-            <Card
-              data-dashboard-category="restaurant"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Menu Management
-                </CardTitle>
-                <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Menu
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Manage menu items and pricing
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/menu">Manage Menu</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.inventory && (
-            <Card
-              data-dashboard-category="restaurant"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Inventory
-                </CardTitle>
-                <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Stock
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Track inventory and supplies
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/inventory">View Inventory</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.operations && (
-            <Card
-              data-dashboard-category="technical"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-              <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Technical Operations
-                </CardTitle>
-                <Wrench
-                  className="h-4 w-4 text-orange-600 dark:text-orange-400"
-                  aria-hidden="true"
+              <Grid3X3 className="mr-1.5 h-3.5 w-3.5" />
+              View All Categories
+            </Button>
+          </div>
+        )}
+
+        <div className="dashboard-category-grid responsive-grid">
+          {/* Operational Notices & Register */}
+          {(activeDashboardCategory === "all" || attendanceRestricted) && (
+            <>
+              {activeDashboardCategory === "all" && !attendanceRestricted && (
+                <CategoryGroupHeader
+                  title="Operational Notices & Attendance"
+                  count={2}
+                  icon={Clock3}
+                  description="Daily shift attendance register and property announcements"
                 />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Maintenance
-                </p>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Coordinate hotel and restaurant technical issues
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/operations">Open Operations</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.finance && (
-            <Card
-              data-dashboard-category="finance"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Finance Desk
-                </CardTitle>
-                <CreditCard
-                  className="h-4 w-4 text-orange-600 dark:text-orange-400"
-                  aria-hidden="true"
-                />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Finance
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Canonical ledger view for posted sales, refunds, expenses, and
-                  exceptions.
-                </p>
-                <p className="mt-2 text-xs font-medium text-muted-foreground">
-                  Source of truth: canonical financial ledger
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/finance">Open Finance</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.reports && (
-            <Card
-              data-dashboard-category="finance"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Reports
-                </CardTitle>
-                <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Analytics
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Sales reports and analytics
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-<DashboardLaunchButton href="/reports">View Reports</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.refunds && (
-            <Card
-              data-dashboard-category="finance"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Refund Management
-                </CardTitle>
-                <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Refunds
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Manage and request customer refunds
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/refunds">Manage Refunds</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.payments && (
-            <Card
-              data-dashboard-category="finance"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Payments
-                </CardTitle>
-                <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Transactions
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Payment history and methods
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-<DashboardLaunchButton href="/payments">View Payments</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.receipt && (
-            <Card
-              data-dashboard-category="finance"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Receipt Preview
-                </CardTitle>
-                <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Receipts
-                </div>
-                {receiptStats ? (
-                  <div className="my-2 grid grid-cols-2 gap-2 text-xs text-foreground">
-                    <div>
-                      Today:{" "}
-                      <span className="font-semibold">
-                        {receiptStats.today}
-                      </span>
-                    </div>
-                    <div>
-                      This week:{" "}
-                      <span className="font-semibold">{receiptStats.week}</span>
-                    </div>
-                    <div>
-                      This month:{" "}
-                      <span className="font-semibold">
-                        {receiptStats.month}
-                      </span>
-                    </div>
-                    <div>
-                      Total:{" "}
-                      <span className="font-semibold">
-                        {receiptStats.total}
-                      </span>
-                    </div>
+              )}
+              <div data-dashboard-category="all" className="min-w-0">
+                <AnnouncementCard />
+              </div>
+              <Card
+                data-dashboard-category="all"
+                data-attendance-card="true"
+                className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+                <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                  <CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
+                    Staff Attendance Register
+                  </CardTitle>
+                  <Clock3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    Attendance
                   </div>
-                ) : (
-                  <p className="my-2 text-xs text-muted-foreground">
-                    Receipt activity is loading from the canonical receipt
-                    register.
+                  <p className="text-base leading-6 text-muted-foreground">
+                    Check in before your scheduled start, check out at or after your
+                    scheduled end, and wait for a manager approval before opening
+                    other workspaces.
                   </p>
-                )}
-                <p className="text-base leading-6 text-muted-foreground">
-                  Search and print only persisted transaction receipts.
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/receipt">View Receipts</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
+                  <DashboardLaunchButton
+                    href={user.role === "staff" ? "/staff/attendance" : "/attendance"}
+                  >
+                    {user.role === "staff"
+                      ? "Open staff attendance"
+                      : "Open attendance register"}
+                  </DashboardLaunchButton>
+                </CardContent>
+              </Card>
+            </>
           )}
-          {dashboardAccess.system && (
-            <Card
-              data-dashboard-category="administration"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  System Monitoring
-                </CardTitle>
-                <Monitor className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Monitor
+
+          {!attendanceRestricted && (
+            <>
+              {/* Hotel Operations */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "hotel") && categoryCounts.hotel > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Hospitality & Hotel Operations"
+                      count={categoryCounts.hotel}
+                      icon={Home}
+                      description="Manage guest reservations, room availability, housekeeping tasks, and front desk check-in/out"
+                      onFocus={() => selectDashboardCategory("hotel")}
+                    />
+                  )}
+                  {dashboardAccess.reservations && (
+                    <Card
+                      data-dashboard-category="hotel"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Reservations
+                        </CardTitle>
+                        <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Bookings
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Manage guest reservations and bookings
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/hotels/reservations">
+                          Manage Reservations
+                        </DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.rooms && !isHousekeeping && (
+                    <Card
+                      data-dashboard-category="hotel"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Rooms
+                        </CardTitle>
+                        <Home className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Rooms
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Track room status and availability
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/hotels/rooms">
+                          View Rooms
+                        </DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {(dashboardAccess.housekeeping || isHousekeeping) && (
+                    <Card
+                      data-dashboard-category="hotel"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Housekeeping
+                        </CardTitle>
+                        <CheckSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Tasks
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Room cleaning and maintenance tasks
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/hotels/housekeeping">
+                          View Tasks
+                        </DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.checkIn && (
+                    <Card
+                      data-dashboard-category="hotel"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Check-In/Out
+                        </CardTitle>
+                        <DoorOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Front Desk
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Guest check-in and check-out management
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/hotels/check-in">
+                          Process Check-In
+                        </DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Restaurant Operations */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "restaurant") && categoryCounts.restaurant > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Food Service & Restaurant Operations"
+                      count={categoryCounts.restaurant}
+                      icon={Utensils}
+                      description="Point of sale, kitchen display orders, menu management, and stock inventory"
+                      onFocus={() => selectDashboardCategory("restaurant")}
+                    />
+                  )}
+                  {dashboardAccess.pos && (
+                    <Card
+                      data-dashboard-category="restaurant"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          POS Terminal
+                        </CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Sales
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Process orders and payments
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/pos">Open POS</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.kitchen && (
+                    <Card
+                      data-dashboard-category="restaurant"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Kitchen Display
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Switch
+                                    checked={toggles.kitchen_display}
+                                    disabled={
+                                      !canManage || updating === "kitchen_display"
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      handleFeatureToggle("kitchen_display", checked)
+                                    }
+                                    aria-label="Toggle Kitchen Display"
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {canManage
+                                  ? toggles.kitchen_display
+                                    ? "Disable Kitchen Display for all staff"
+                                    : "Enable Kitchen Display for all staff"
+                                  : "Only admins or managers can change this"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <ChefHat className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Orders
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          {toggles.kitchen_display
+                            ? "Manage kitchen operations"
+                            : "Disabled by administrator"}
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/kitchen">View Kitchen</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.orderBoard && (
+                    <Card
+                      data-dashboard-category="restaurant"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Order Board
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Switch
+                                    checked={toggles.order_board}
+                                    disabled={!canManage || updating === "order_board"}
+                                    onCheckedChange={(checked) =>
+                                      handleFeatureToggle("order_board", checked)
+                                    }
+                                    aria-label="Toggle Order Board"
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {canManage
+                                  ? toggles.order_board
+                                    ? "Disable Order Board for all staff"
+                                    : "Enable Order Board for all staff"
+                                  : "Only admins or managers can change this"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <Grid3X3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Live Grid
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          {toggles.order_board
+                            ? "Real-time order tracking"
+                            : "Disabled by administrator"}
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/order-display?mode=grid">View Orders</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.menu && (
+                    <Card
+                      data-dashboard-category="restaurant"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Menu Management
+                        </CardTitle>
+                        <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Menu
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Manage menu items and pricing
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/menu">Manage Menu</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.inventory && (
+                    <Card
+                      data-dashboard-category="restaurant"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Inventory
+                        </CardTitle>
+                        <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Stock
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Track inventory and supplies
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/inventory">View Inventory</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Finance Operations */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "finance") && categoryCounts.finance > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Financial Operations & Auditing"
+                      count={categoryCounts.finance}
+                      icon={CreditCard}
+                      description="Canonical financial ledger, sales analytics, customer refunds, payments, and receipts"
+                      onFocus={() => selectDashboardCategory("finance")}
+                    />
+                  )}
+                  {dashboardAccess.finance && (
+                    <Card
+                      data-dashboard-category="finance"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Finance Desk
+                        </CardTitle>
+                        <CreditCard
+                          className="h-4 w-4 text-orange-600 dark:text-orange-400"
+                          aria-hidden="true"
+                        />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Finance
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Canonical ledger view for posted sales, refunds, expenses, and
+                          exceptions.
+                        </p>
+                        <p className="mt-2 text-xs font-medium text-muted-foreground">
+                          Source of truth: canonical financial ledger
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/finance">Open Finance</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.reports && (
+                    <Card
+                      data-dashboard-category="finance"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Reports
+                        </CardTitle>
+                        <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Analytics
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Sales reports and analytics
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/reports">View Reports</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.refunds && (
+                    <Card
+                      data-dashboard-category="finance"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Refund Management
+                        </CardTitle>
+                        <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Refunds
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Manage and request customer refunds
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/refunds">Manage Refunds</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.payments && (
+                    <Card
+                      data-dashboard-category="finance"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Payments
+                        </CardTitle>
+                        <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Transactions
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Payment history and methods
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/payments">View Payments</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                  {dashboardAccess.receipt && (
+                    <Card
+                      data-dashboard-category="finance"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Receipt Preview
+                        </CardTitle>
+                        <Receipt className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Receipts
+                        </div>
+                        {receiptStats ? (
+                          <div className="my-2 grid grid-cols-2 gap-2 text-xs text-foreground">
+                            <div>
+                              Today:{" "}
+                              <span className="font-semibold">
+                                {receiptStats.today}
+                              </span>
+                            </div>
+                            <div>
+                              This week:{" "}
+                              <span className="font-semibold">{receiptStats.week}</span>
+                            </div>
+                            <div>
+                              This month:{" "}
+                              <span className="font-semibold">
+                                {receiptStats.month}
+                              </span>
+                            </div>
+                            <div>
+                              Total:{" "}
+                              <span className="font-semibold">
+                                {receiptStats.total}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="my-2 text-xs text-muted-foreground">
+                            Receipt activity is loading from the canonical receipt
+                            register.
+                          </p>
+                        )}
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Search and print only persisted transaction receipts.
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/receipt">View Receipts</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Event Organization */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "events") && categoryCounts.events > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Event Organization & Banqueting"
+                      count={categoryCounts.events}
+                      icon={CalendarDays}
+                      description="Plan events, coordinate venue spaces, oversee guest lists, and prepare quotations"
+                      onFocus={() => selectDashboardCategory("events")}
+                    />
+                  )}
+                  {dashboardAccess.events && (
+                    <Card
+                      data-dashboard-category="events"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+                      <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                        <CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
+                          Event Organization
+                        </CardTitle>
+                        <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Events
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Plan events, coordinate venues, manage guests, assign delivery
+                          teams, and prepare quotations through the Pricing desk.
+                        </p>
+                        <DashboardLaunchButton href="/events">
+                          Open Event Organization
+                        </DashboardLaunchButton>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Technical Operations */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "technical") && categoryCounts.technical > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Technical Operations & Maintenance"
+                      count={categoryCounts.technical}
+                      icon={Wrench}
+                      description="Coordinate property maintenance, facility repairs, and technical tickets"
+                      onFocus={() => selectDashboardCategory("technical")}
+                    />
+                  )}
+                  {dashboardAccess.operations && (
+                    <Card
+                      data-dashboard-category="technical"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+                      <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          Technical Operations
+                        </CardTitle>
+                        <Wrench
+                          className="h-4 w-4 text-orange-600 dark:text-orange-400"
+                          aria-hidden="true"
+                        />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Maintenance
+                        </p>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Coordinate hotel and restaurant technical issues
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/operations">Open Operations</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Administration & Governance */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "administration") && categoryCounts.administration > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Administration & System Governance"
+                      count={categoryCounts.administration}
+                      icon={Monitor}
+                      description="Inspect system health, hardware metrics, audit trails, and security controls"
+                      onFocus={() => selectDashboardCategory("administration")}
+                    />
+                  )}
+                  {dashboardAccess.system && (
+                    <Card
+                      data-dashboard-category="administration"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
+                        <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
+                          System Monitoring
+                        </CardTitle>
+                        <Monitor className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Monitor
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Hardware status and system health
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/system">View System</DashboardLaunchButton>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Empty state if filtered category has 0 cards */}
+              {activeDashboardCategory !== "all" && categoryCounts[activeDashboardCategory] === 0 && (
+                <div className="col-span-full py-12 px-4 rounded-3xl border border-dashed border-orange-300 dark:border-orange-800 bg-white/50 dark:bg-gray-800/50 text-center">
+                  <p className="text-base font-medium text-gray-700 dark:text-gray-300">
+                    No accessible workspaces found in this category for your current role.
+                  </p>
+                  <Button
+                    variant="link"
+                    onClick={() => selectDashboardCategory("all")}
+                    className="text-orange-600 dark:text-orange-400 mt-2 text-sm font-semibold"
+                  >
+                    Return to all categories
+                  </Button>
                 </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Hardware status and system health
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-<DashboardLaunchButton href="/system">View System</DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.reservations && (
-            <Card
-              data-dashboard-category="hotel"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Reservations
-                </CardTitle>
-                <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Bookings
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Manage guest reservations and bookings
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/hotels/reservations">
-                  Manage Reservations
-                </DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.rooms && !isHousekeeping && (
-            <Card
-              data-dashboard-category="hotel"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Rooms
-                </CardTitle>
-                <Home className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Rooms
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Track room status and availability
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/hotels/rooms">
-                  View Rooms
-                </DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {(dashboardAccess.housekeeping || isHousekeeping) && (
-            <Card
-              data-dashboard-category="hotel"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Housekeeping
-                </CardTitle>
-                <CheckSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Tasks
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Room cleaning and maintenance tasks
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-                <DashboardLaunchButton href="/hotels/housekeeping">
-                  View Tasks
-                </DashboardLaunchButton>
-              </CardFooter>
-            </Card>
-          )}
-          {dashboardAccess.checkIn && (
-            <Card
-              data-dashboard-category="hotel"
-              className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
-                <CardTitle className="min-w-0 text-pretty text-base font-medium text-gray-800 dark:text-gray-200">
-                  Check-In/Out
-                </CardTitle>
-                <DoorOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  Front Desk
-                </div>
-                <p className="text-base leading-6 text-muted-foreground">
-                  Guest check-in and check-out management
-                </p>
-              </CardContent>
-              <CardFooter className="relative z-10">
-<DashboardLaunchButton href="/hotels/check-in">
-                  Process Check-In
-                </DashboardLaunchButton>
-              </CardFooter>
-            </Card>
+              )}
+            </>
           )}
         </div>
 
