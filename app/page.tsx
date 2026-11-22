@@ -737,108 +737,6 @@ function DashboardContent() {
                 </span>
               </div>
             </Link>
-
-            {/* Split Workspaces Dropdown: Clean, compact, never overflows */}
-            {Boolean(
-              (dashboardAccess.pos && dashboardAccess.kitchen) ||
-                (dashboardAccess.reservations && dashboardAccess.checkIn) ||
-                (dashboardAccess.menu && dashboardAccess.inventory),
-            ) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Split Workspaces"
-                    className="h-9 xl:h-10 shrink-0 gap-1.5 rounded-xl border-orange-200/90 bg-orange-100/60 px-2.5 sm:px-3 text-orange-800 shadow-sm hover:bg-orange-200/80 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200 dark:hover:bg-orange-900/60 text-xs xl:text-sm font-medium"
-                  >
-                    <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
-                    <span className="hidden sm:inline">Split Views</span>
-                    <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="w-64 rounded-2xl p-1.5 shadow-xl border-orange-200 dark:border-orange-800"
-                >
-                  <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1.5">
-                    Split Screen Workspaces
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {dashboardAccess.pos && dashboardAccess.kitchen && (
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
-                      <Link href="/split-workspace" className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300">
-                          <Utensils className="h-4 w-4" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-xs text-foreground">POS + Kitchen</span>
-                          <span className="text-[10px] text-muted-foreground truncate">Live ordering &amp; ticket display</span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {dashboardAccess.reservations && dashboardAccess.checkIn && (
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
-                      <Link href="/hotel-split-workspace" className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
-                          <DoorOpen className="h-4 w-4" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-xs text-foreground">Hotel Desk</span>
-                          <span className="text-[10px] text-muted-foreground truncate">Reservations &amp; check-in desk</span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {dashboardAccess.menu && dashboardAccess.inventory && (
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
-                      <Link href="/menu-inventory-split-workspace" className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
-                          <Package className="h-4 w-4" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-xs text-foreground">Menu + Inventory</span>
-                          <span className="text-[10px] text-muted-foreground truncate">Stock availability &amp; menu items</span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {/* Quick Workstation Shortcuts on Ultra-Wide / 2xl+ */}
-            <div className="hidden 2xl:flex items-center gap-1 border-l border-orange-200/80 dark:border-orange-700/80 pl-3 ml-1">
-              {dashboardAccess.pos && (
-                <Link href="/pos">
-                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
-                    POS
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.kitchen && (
-                <Link href="/kitchen">
-                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
-                    Kitchen
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.checkIn && (
-                <Link href="/hotels/check-in">
-                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
-                    Hotel Desk
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.events && (
-                <Link href="/events">
-                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-xl">
-                    Events
-                  </Button>
-                </Link>
-              )}
-            </div>
           </div>
 
           {/* Right Cluster: Search + Utilities + User Identity & Avatar */}
@@ -925,16 +823,138 @@ function DashboardContent() {
               {roleDashboard.focus}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
-            {!attendanceRestricted && (
-              <Link
-                href={roleDashboard.primaryHref}
-                className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
-              >
-                {roleDashboard.primaryAction}
-              </Link>
-            )}
-            <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-col items-stretch gap-2.5 sm:items-end">
+            <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+              {/* Split Workspaces Dropdown */}
+              {Boolean(
+                (dashboardAccess.pos && dashboardAccess.kitchen) ||
+                  (dashboardAccess.reservations && dashboardAccess.checkIn) ||
+                  (dashboardAccess.menu && dashboardAccess.inventory),
+              ) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label="Split Workspaces"
+                      className="h-10 shrink-0 gap-1.5 rounded-2xl border-orange-200/90 bg-white/80 px-3 text-orange-800 shadow-sm hover:bg-orange-50 dark:border-orange-800 dark:bg-gray-800/80 dark:text-orange-200 dark:hover:bg-orange-950/40 text-xs sm:text-sm font-medium"
+                    >
+                      <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+                      <span>Split Views</span>
+                      <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-64 rounded-2xl p-1.5 shadow-xl border-orange-200 dark:border-orange-800"
+                  >
+                    <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1.5">
+                      Split Screen Workspaces
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {dashboardAccess.pos && dashboardAccess.kitchen && (
+                      <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                        <Link href="/split-workspace" className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300">
+                            <Utensils className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-foreground">POS + Kitchen</span>
+                            <span className="text-[10px] text-muted-foreground truncate">Live ordering &amp; ticket display</span>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {dashboardAccess.reservations && dashboardAccess.checkIn && (
+                      <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                        <Link href="/hotel-split-workspace" className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                            <DoorOpen className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-foreground">Hotel Desk</span>
+                            <span className="text-[10px] text-muted-foreground truncate">Reservations &amp; check-in desk</span>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {dashboardAccess.menu && dashboardAccess.inventory && (
+                      <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2">
+                        <Link href="/menu-inventory-split-workspace" className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                            <Package className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-foreground">Menu + Inventory</span>
+                            <span className="text-[10px] text-muted-foreground truncate">Stock availability &amp; menu items</span>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Workstation Quick Shortcuts */}
+              {dashboardAccess.pos && (
+                <Link href="/pos">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
+                  >
+                    <Utensils className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
+                    POS
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.kitchen && (
+                <Link href="/kitchen">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
+                  >
+                    <ChefHat className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
+                    Kitchen
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.checkIn && (
+                <Link href="/hotels/check-in">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
+                  >
+                    <DoorOpen className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
+                    Hotel Desk
+                  </Button>
+                </Link>
+              )}
+              {dashboardAccess.events && (
+                <Link href="/events">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
+                  >
+                    <CalendarDays className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
+                    Events
+                  </Button>
+                </Link>
+              )}
+
+              {!attendanceRestricted && (
+                <Link
+                  href={roleDashboard.primaryHref}
+                  className="dashboard-primary-action inline-flex min-h-10 items-center justify-center rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+                >
+                  {roleDashboard.primaryAction}
+                </Link>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
               <DashboardAccraClock />
               <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
                 <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
