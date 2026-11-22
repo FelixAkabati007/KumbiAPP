@@ -30,6 +30,48 @@ import { RoleGuard } from "@/components/role-guard";
 import { useLoading } from "@/components/loading-provider";
 import { normalizePaymentSource } from "@/lib/payment-sources";
 
+interface ApiTransactionRow {
+  id: string;
+  transaction_id: string;
+  amount: string | number;
+  currency: string;
+  status: string;
+  payment_method: string | null;
+  customer_id: string | null;
+  metadata?: {
+    orderNumber?: string;
+    orderId?: string;
+    items?: OrderItem[];
+    orderType?: string;
+    tableNumber?: string;
+    customer_name?: string;
+    customerName?: string;
+    customerRefused?: boolean;
+    department?: string;
+    businessUnit?: string;
+    source?: string;
+    type?: "sale" | "refund";
+    [key: string]: unknown;
+  } | null;
+  performed_by_name?: string | null;
+  performed_by_account_name?: string | null;
+  performed_by_email?: string | null;
+  performed_by_role?: string | null;
+  approved_by_name?: string | null;
+  approved_by_account_name?: string | null;
+  approved_by_email?: string | null;
+  approved_by_role?: string | null;
+  created_at: string;
+  updated_at?: string;
+  source?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  direction?: string;
+  journal_type?: string;
+  discount_amount?: number;
+  discount_count?: number;
+}
+
 export default function PaymentsPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("today");
@@ -45,14 +87,13 @@ export default function PaymentsPage() {
       try {
         const params = new URLSearchParams();
         if (sourceFilter !== "all") params.set("source", sourceFilter);
-        if (dateFilter !== "all") params.set("dateFilter", dateFilter);
+        params.set("limit", "1000");
         const res = await fetch(`/api/transactions${params.toString() ? `?${params.toString()}` : ""}`);
         if (!res.ok) throw new Error("Failed to fetch transactions from the operational ledger");
-        const transactions = await res.json();
+        const transactions: ApiTransactionRow[] = await res.json();
 
         // Map DB transactions to SalesData
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const salesData: SalesData[] = transactions.map((txn: any) => {
+        const salesData: SalesData[] = transactions.map((txn) => {
           const metadata = txn.metadata || {};
           const normalizedSource = normalizePaymentSource({ source: txn.source, entityType: txn.entity_type, metadata });
           const items: OrderItem[] = metadata.items || [];
@@ -95,7 +136,7 @@ export default function PaymentsPage() {
     // Poll for updates instead of storage event (since we are using DB now)
     const interval = setInterval(() => load(true), 30000); // Refresh every 30s
     return () => clearInterval(interval);
-  }, [showLoading, hideLoading, sourceFilter, dateFilter]);
+  }, [showLoading, hideLoading, sourceFilter]);
 
   const filteredData = useMemo(() => {
     let filtered = [...data];
@@ -182,7 +223,7 @@ export default function PaymentsPage() {
           : 0;
     });
 
-    // Daily revenue trend (last 7 days)
+    // Daily revenue trend (last 7 days): computed across the dataset to show true 7-day trend
     const dailyRevenue: Record<string, number> = {};
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
@@ -194,9 +235,22 @@ export default function PaymentsPage() {
       dailyRevenue[date] = 0;
     });
 
-    filteredData.forEach((order) => {
+    const trendDataset = data.filter((item) => {
+      if (paymentFilter !== "all" && item.paymentMethod !== paymentFilter) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        return (
+          item.orderNumber.toLowerCase().includes(query) ||
+          item.customerName?.toLowerCase().includes(query) ||
+          item.paymentMethod.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    });
+
+    trendDataset.forEach((order) => {
       const orderDate = new Date(order.date).toISOString().split("T")[0];
-      if (dailyRevenue.hasOwnProperty(orderDate)) {
+      if (Object.prototype.hasOwnProperty.call(dailyRevenue, orderDate)) {
         const amount = order.type === "refund" ? -order.total : order.total;
         dailyRevenue[orderDate] += amount;
       }
@@ -208,7 +262,7 @@ export default function PaymentsPage() {
       paymentBreakdown,
       dailyRevenue,
     };
-  }, [filteredData]);
+  }, [data, filteredData, paymentFilter, searchQuery]);
 
   const getPaymentMethodIcon = (method: string) => {
     switch (method.toLowerCase()) {
@@ -392,43 +446,45 @@ export default function PaymentsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 relative z-10">
-                {Object.entries(paymentAnalytics.paymentBreakdown).map(
-                  ([method, data]) => (
-                    <div key={method} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Badge
-                            className={`rounded-full text-xs flex items-center gap-1 ${getPaymentMethodColor(
-                              method
-                            )}`}
-                          >
-                            {getPaymentMethodIcon(method)}
-                            {method.charAt(0).toUpperCase() + method.slice(1)}
-                          </Badge>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {data.count} transactions
-                          </span>
+                {Object.keys(paymentAnalytics.paymentBreakdown).length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    No payment data recorded for the selected filter.
+                  </div>
+                ) : (
+                  Object.entries(paymentAnalytics.paymentBreakdown).map(
+                    ([method, data]) => (
+                      <div key={method} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Badge
+                              className={`rounded-full text-xs flex items-center gap-1 ${getPaymentMethodColor(
+                                method
+                              )}`}
+                            >
+                              {getPaymentMethodIcon(method)}
+                              {method.charAt(0).toUpperCase() + method.slice(1)}
+                            </Badge>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {data.count} transactions
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-orange-700 dark:text-orange-300">
+                              ₵{data.revenue.toFixed(2)}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {data.percentage.toFixed(1)}%
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-bold text-orange-700 dark:text-orange-300">
-                            ₵{data.revenue.toFixed(2)}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {data.percentage.toFixed(1)}%
-                          </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(Math.max(data.percentage, 0), 100)}%` }}
+                          ></div>
                         </div>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {(() => {
-                          const percent = data.percentage;
-                          return (
-                            <div
-                              className={`bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 h-2 rounded-full transition-all duration-500 w-[${percent}%]`}
-                            ></div>
-                          );
-                        })()}
-                      </div>
-                    </div>
+                    )
                   )
                 )}
               </CardContent>
@@ -479,7 +535,15 @@ export default function PaymentsPage() {
             <CardContent className="relative z-10">
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3">
-                  {filteredData.slice(0, 20).map((transaction) => {
+                  {filteredData.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      No transactions recorded for {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : dateFilter === "month" ? "This Month" : "All Time"}.
+                      <div className="mt-1 text-xs text-muted-foreground/80">
+                        Try changing the Date Range or Source filter above to see past transactions.
+                      </div>
+                    </div>
+                  ) : (
+                    filteredData.slice(0, 50).map((transaction) => {
                     const isRefund = transaction.type === "refund";
                     return (
                       <div
@@ -532,7 +596,8 @@ export default function PaymentsPage() {
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                )}
                 </div>
               </ScrollArea>
             </CardContent>

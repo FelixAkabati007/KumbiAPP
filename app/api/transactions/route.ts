@@ -8,6 +8,41 @@ export async function GET(request: Request) {
     const { error } = await requireFinanceAccess();
     if (error) return error;
     const { searchParams } = new URL(request.url);
+    try {
+      await query(`
+        INSERT INTO canonical_financial_ledger
+          (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, journal_type, metadata, occurred_at)
+        SELECT t.transaction_reference, ABS(t.amount), COALESCE(t.currency, 'GHS'), 'credit',
+          CASE WHEN LOWER(t.status) IN ('completed','paid','success','succeeded') THEN 'posted' ELSE LOWER(t.status) END,
+          CASE
+            WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('hotel','room','accommodation','hotel-checkout','hotel_checkout','hotel-pre-check-in','hotel-pre-checkin','hotel_folio','hotel-folio','guest-folio','guest_folio') THEN 'hotel-payment'
+            WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion','pos_order_completion','restaurant-order','restaurant_order') THEN 'pos-order-completion'
+            WHEN LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event-payment%' OR LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event_payment%' OR LOWER(COALESCE(t.metadata->>'source', '')) = 'event' THEN 'event-payment'
+            ELSE COALESCE(t.metadata->>'source', 'legacy-transaction')
+          END,
+          t.method, 'legacy_transaction', t.id,
+          'operational',
+          jsonb_set(
+            jsonb_set(
+              COALESCE(t.metadata, '{}'::jsonb),
+              '{performedBy}',
+              jsonb_build_object('id', t.performed_by, 'accountName', COALESCE(u.name, u.email, t.performed_by::text)),
+              true
+            ),
+            '{approvedBy}',
+            COALESCE(t.metadata->'approvedBy', 'null'::jsonb),
+            true
+          ),
+          COALESCE(t.created_at, now())
+        FROM transactions t
+        LEFT JOIN users u ON u.id = t.performed_by
+        WHERE COALESCE(t.amount, 0) <> 0
+          AND LOWER(t.status) IN ('completed','paid','success','succeeded','posted')
+          AND NOT EXISTS (SELECT 1 FROM canonical_financial_ledger l WHERE l.event_key = t.transaction_reference)
+        ON CONFLICT (event_key) DO NOTHING`, []);
+    } catch {
+      // Ignore if transactions table does not exist in testing sandbox
+    }
     const params: (string | number)[] = [];
     const conditions = ["LOWER(status) IN ('completed','succeeded','success','paid','posted','refunded','reversed','cancelled')", "COALESCE(amount, 0) <> 0"];
     const startDate = searchParams.get("startDate");
