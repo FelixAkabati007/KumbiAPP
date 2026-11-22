@@ -142,28 +142,47 @@ export default function PaymentsPage() {
     let filtered = [...data];
 
     // Apply date filter
-    const today = new Date();
+    const now = new Date();
     const startOfToday = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
     );
     const startOfWeek = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() - today.getDay()
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - now.getDay()
     );
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const localDateStr = now.toLocaleDateString("en-CA"); // "YYYY-MM-DD"
+    const utcDateStr = now.toISOString().split("T")[0];
+    const propertyDateStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Accra",
+    }).format(now);
 
     filtered = filtered.filter((item) => {
       const itemDate = new Date(item.date);
       switch (dateFilter) {
-        case "today":
-          return itemDate >= startOfToday;
+        case "today": {
+          const itemLocalDateStr = itemDate.toLocaleDateString("en-CA");
+          const itemUtcDateStr = itemDate.toISOString().split("T")[0];
+          const itemPropertyDateStr = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Africa/Accra",
+          }).format(itemDate);
+          return (
+            itemDate >= startOfToday ||
+            itemDate >= twentyFourHoursAgo ||
+            itemLocalDateStr === localDateStr ||
+            itemUtcDateStr === utcDateStr ||
+            itemPropertyDateStr === propertyDateStr
+          );
+        }
         case "week":
-          return itemDate >= startOfWeek;
+          return itemDate >= startOfWeek || itemDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         case "month":
-          return itemDate >= startOfMonth;
+          return itemDate >= startOfMonth || itemDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         default:
           return true;
       }
@@ -228,11 +247,11 @@ export default function PaymentsPage() {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      return date.toISOString().split("T")[0];
+      return date.toLocaleDateString("en-CA");
     }).reverse();
 
-    last7Days.forEach((date) => {
-      dailyRevenue[date] = 0;
+    last7Days.forEach((dateKey) => {
+      dailyRevenue[dateKey] = 0;
     });
 
     const trendDataset = data.filter((item) => {
@@ -249,7 +268,7 @@ export default function PaymentsPage() {
     });
 
     trendDataset.forEach((order) => {
-      const orderDate = new Date(order.date).toISOString().split("T")[0];
+      const orderDate = new Date(order.date).toLocaleDateString("en-CA");
       if (Object.prototype.hasOwnProperty.call(dailyRevenue, orderDate)) {
         const amount = order.type === "refund" ? -order.total : order.total;
         dailyRevenue[orderDate] += amount;
@@ -507,7 +526,7 @@ export default function PaymentsPage() {
                       className="flex items-center justify-between p-3 bg-gradient-to-r from-white/60 to-orange-50/60 dark:from-gray-800/60 dark:to-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-700"
                     >
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {new Date(date).toLocaleDateString("en-US", {
+                        {new Date(date + "T00:00:00").toLocaleDateString("en-US", {
                           weekday: "short",
                           month: "short",
                           day: "numeric",
