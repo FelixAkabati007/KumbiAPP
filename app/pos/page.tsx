@@ -1059,36 +1059,17 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   })()}
   </div>
   {(sessionItemQuantities[item.id] ?? 0) > 0 && (
-    <div
-      className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full bg-orange-600/95 text-white p-0.5 shadow-lg border-2 border-background backdrop-blur-sm"
-      onClick={(e) => e.stopPropagation()}
+    <button
+      type="button"
+      aria-label={`Decrease ${item.name} quantity`}
+      className="absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-background bg-orange-600 px-2 text-sm font-bold text-white shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      onClick={(event) => {
+        event.stopPropagation();
+        updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1);
+      }}
     >
-      <button
-        type="button"
-        aria-label={`Decrease ${item.name} quantity`}
-        className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-700 active:scale-90 text-white font-bold transition focus:outline-none"
-        onClick={(event) => {
-          event.stopPropagation();
-          updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1);
-        }}
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </button>
-      <span className="px-1 text-xs font-bold tabular-nums min-w-[1.25rem] text-center">
-        {sessionItemQuantities[item.id]}
-      </span>
-      <button
-        type="button"
-        aria-label={`Increase ${item.name} quantity`}
-        className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-700 active:scale-90 text-white font-bold transition focus:outline-none"
-        onClick={(event) => {
-          event.stopPropagation();
-          addItemToOrder(item);
-        }}
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </div>
+      {sessionItemQuantities[item.id]}
+    </button>
   )}
   {!isItemAvailable(item) && (
   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
