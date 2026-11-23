@@ -499,6 +499,9 @@ function CheckInPage() {
             }
           : current,
       );
+      if (outstanding > 0) {
+        setPaymentAmount(outstanding.toFixed(2));
+      }
     } catch (error) {
       setCheckoutGuest(null);
       toast({
@@ -525,14 +528,31 @@ function CheckInPage() {
       return;
     }
 
-    const paid = paymentAmount.trim() === "" ? 0 : Number(paymentAmount);
+    const rawPaid = paymentAmount.trim();
     const balance = Number(
-    checkoutGuest.extras_outstanding ?? checkoutGuest.balance ?? 0,
-  );
-    if (!Number.isFinite(paid) || paid < 0 || paid > balance) {
+      checkoutGuest.extras_outstanding ?? checkoutGuest.balance ?? 0,
+    );
+    const paid = rawPaid === "" ? balance : Number(rawPaid);
+    if (!Number.isFinite(paid) || paid < 0) {
       toast({
         title: "Invalid payment",
-        description: `Enter an amount from GHS 0.00 to GHS ${balance.toFixed(2)}.`,
+        description: `Enter a valid payment amount.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (paid < balance && Math.round(paid * 100) < Math.round(balance * 100)) {
+      toast({
+        title: "Full payment required",
+        description: `Full payment of GHS ${balance.toFixed(2)} is required before checkout.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (paid > balance && Math.round(paid * 100) > Math.round(balance * 100)) {
+      toast({
+        title: "Invalid payment",
+        description: `Payment cannot exceed the outstanding balance of GHS ${balance.toFixed(2)}.`,
         variant: "destructive",
       });
       return;
@@ -574,24 +594,29 @@ function CheckInPage() {
           : null,
       );
 
-      // The checkout endpoint is transactional and is the source of truth.
-      // Refresh the list for the UI, but do not reject a successful mutation
-      // because a replica or browser cache still returns the old row briefly.
-      await fetchCheckedInGuests();
+      setCheckoutGuest(null);
+      setCheckoutFolio(null);
+      setPaymentAmount("");
 
-      window.dispatchEvent(new Event("roomStatusUpdated"));
-      window.dispatchEvent(new Event("housekeepingUpdated"));
-      window.dispatchEvent(new Event("reservationUpdated"));
-  setCheckoutGuest(null);
-  setCheckoutFolio(null);
-  setPaymentAmount("");
-  toast({
+      toast({
         title: "Success",
         description:
           paid > 0
             ? "Guest checked out early or on schedule and incidental payment was recorded. No accommodation refund applies."
             : "Guest checked out early or on schedule. Accommodation was already settled at check-in and is non-refundable.",
       });
+
+      // The checkout endpoint is transactional and is the source of truth.
+      // Refresh the list in the background; non-fatal if replica lag occurs.
+      try {
+        await fetchCheckedInGuests();
+      } catch (refreshErr) {
+        console.warn("Non-fatal: could not refresh checked-in guests list:", refreshErr);
+      }
+
+      window.dispatchEvent(new Event("roomStatusUpdated"));
+      window.dispatchEvent(new Event("housekeepingUpdated"));
+      window.dispatchEvent(new Event("reservationUpdated"));
     } catch (error) {
       console.error("Error checking out guest:", error);
       toast({
@@ -1450,10 +1475,11 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                 loadingCheckoutFolio ||
                 !checkoutFolio ||
                 !checkoutGuest ||
-                !Number.isFinite(Number(paymentAmount || 0)) ||
-                Number(paymentAmount || 0) < 0 ||
-                Number(paymentAmount || 0) >
-                  Number(checkoutGuest?.extras_outstanding ?? 0)
+                (paymentAmount.trim() !== "" &&
+                  (!Number.isFinite(Number(paymentAmount)) ||
+                    Number(paymentAmount) < 0 ||
+                    Math.round(Number(paymentAmount) * 100) >
+                      Math.round(Number(checkoutGuest?.extras_outstanding ?? checkoutGuest?.balance ?? 0) * 100)))
               }
               className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white"
             >

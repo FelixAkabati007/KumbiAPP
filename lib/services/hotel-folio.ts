@@ -22,7 +22,7 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
             GREATEST(0, EXTRACT(EPOCH FROM ($2::timestamptz - COALESCE(r.check_in_at, r.check_in_date::timestamptz))) * 1000) AS elapsed_ms
      FROM reservations r
      LEFT JOIN rooms rm ON rm.id = r.room_id
-     LEFT JOIN room_types rt ON rt.id = rm.room_type_id
+     LEFT JOIN room_types rt ON rt.id = COALESCE(rm.room_type_id, r.room_type_id)
      WHERE r.id = $1::uuid AND r.status = 'checked_in'
      FOR UPDATE OF r`,
     [reservationId, authoritativeNow.toISOString()],
@@ -57,9 +57,14 @@ export async function syncShortStayRoomCharges(client: PoolClient, reservationId
   );
 
   await client.query(
-    `UPDATE guest_folios SET room_charge = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category IN ('room', 'room_extension')), 0),
-      total_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0),
-      balance = GREATEST(0, COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0) - COALESCE(paid_amount, 0)), last_updated = NOW()
+    `UPDATE guest_folios
+     SET room_charge = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category IN ('room', 'room_extension')), 0),
+         service_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category = 'service'), 0),
+         food_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category = 'food'), 0),
+         other_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1 AND category NOT IN ('room', 'room_extension', 'service', 'food')), 0),
+         total_charges = COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0),
+         balance = GREATEST(0, COALESCE((SELECT SUM(total_amount) FROM guest_folio_items WHERE folio_id = $1), 0) - COALESCE(paid_amount, 0)),
+         last_updated = NOW()
      WHERE id = $1`,
     [folio.rows[0].id],
   );

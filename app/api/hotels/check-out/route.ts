@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       const folioResult = await client.query(
         `SELECT id, total_charges, paid_amount, balance,
                 GREATEST(
-                  0,
+                  COALESCE(balance, 0),
                   GREATEST(0, COALESCE(room_charge, 0) - COALESCE(paid_amount, 0))
                   + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0)
                   - GREATEST(0, COALESCE(paid_amount, 0) - COALESCE(room_charge, 0))
@@ -78,11 +78,17 @@ export async function POST(request: NextRequest) {
       const grossSpent = Number(folio.total_charges ?? 0);
       const complimentaryAmount = Number(complimentaryResult.rows[0]?.complimentary_amount || 0);
       const netSpent = Math.max(0, grossSpent - complimentaryAmount);
+      const roundedPaid = Math.round(paid * 100) / 100;
+      const roundedOutstanding = Math.round(outstandingBalance * 100) / 100;
       if (paid < outstandingBalance) {
-        throw new Error(`Full payment of ${outstandingBalance.toFixed(2)} is required before checkout`);
+        if (roundedPaid < roundedOutstanding) {
+          throw new Error(`Full payment of ${outstandingBalance.toFixed(2)} is required before checkout`);
+        }
       }
       if (paid > outstandingBalance) {
-        throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
+        if (roundedPaid > roundedOutstanding) {
+          throw new Error(`Payment cannot exceed the outstanding balance of ${outstandingBalance.toFixed(2)}`);
+        }
       }
 
       const checkoutActor = { id: session?.id ?? null, name: session?.name ?? null, email: session?.email ?? null, role: session?.role ?? null };

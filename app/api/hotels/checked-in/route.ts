@@ -27,7 +27,7 @@ export async function GET() {
         gf.paid_amount,
         gf.balance,
         GREATEST(
-          0,
+          COALESCE(gf.balance, 0),
           GREATEST(0, COALESCE(gf.room_charge, 0) - COALESCE(gf.paid_amount, 0))
           + COALESCE(gf.service_charges, 0) + COALESCE(gf.food_charges, 0) + COALESCE(gf.other_charges, 0)
           - GREATEST(0, COALESCE(gf.paid_amount, 0) - COALESCE(gf.room_charge, 0))
