@@ -56,7 +56,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const handleVisibilityChange = () => {
       if (!document.hidden && (!source || source.readyState === EventSource.CLOSED)) connect();
     };
+    const handleOnline = () => {
+      reconnectDelay = 1000;
+      if (!source || source.readyState === EventSource.CLOSED) connect();
+    };
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
     return () => {
       stopped = true;
       source?.close();
@@ -64,6 +69,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
     };
   }, [router, scheduleRefresh]);
 

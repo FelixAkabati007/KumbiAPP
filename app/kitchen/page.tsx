@@ -171,9 +171,13 @@ function KitchenContent() {
     };
     const interval = setInterval(refreshWhenVisible, 30000);
     document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("online", refreshWhenVisible);
+    window.addEventListener("kumbi:offline-synced", refreshWhenVisible);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("online", refreshWhenVisible);
+      window.removeEventListener("kumbi:offline-synced", refreshWhenVisible);
     };
   }, [refreshOrders]);
 

@@ -50,12 +50,14 @@ export function useSystemSync() {
     fetchState();
     const interval = setInterval(fetchState, POLL_INTERVAL);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", fetchState);
 
     return () => {
       isMounted.current = false;
       controller.abort();
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", fetchState);
     };
   }, []);
 

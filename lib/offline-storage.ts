@@ -426,8 +426,12 @@ export async function processOfflineQueue(): Promise<SyncResult> {
           result.syncedOrders++;
         } else {
           const errData = await res.json().catch(() => ({}));
+          const errMsg = String(errData?.error || "").toLowerCase();
           // If already saved or duplicate, consider it reconciled
-          if (res.status === 400 && String(errData?.error).includes("already exists")) {
+          if (
+            (res.status === 400 || res.status === 409) &&
+            (errMsg.includes("already exists") || errMsg.includes("duplicate") || errMsg.includes("idempotent"))
+          ) {
             removeQueuedOrder(order.id);
             result.syncedOrders++;
           } else {
@@ -463,8 +467,8 @@ export async function processOfflineQueue(): Promise<SyncResult> {
           body: JSON.stringify({ action }),
         });
 
-        if (res.ok || res.status === 400) {
-          // 400 usually means already checked in/out today, which is safe to remove
+        if (res.ok || res.status === 400 || res.status === 409) {
+          // 400 or 409 (e.g. ALREADY_CHECKED_IN / ALREADY_CHECKED_OUT) means already recorded today, safe to remove
           removeQueuedAttendance(att.id);
           result.syncedAttendance++;
         } else {
@@ -498,7 +502,32 @@ export async function processOfflineQueue(): Promise<SyncResult> {
       }
     }
 
+    // 4. Process IndexedDB Offline Queue (payment logs and alerts)
+    try {
+      const { offlineQueue } = await import("@/lib/services/offline-queue");
+      await offlineQueue.processQueue();
+    } catch {
+      // In-memory or test environment fallback
+    }
+
     safeSetItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+
+    if (result.syncedOrders > 0 || result.syncedAttendance > 0 || result.syncedMutations > 0) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("kumbi:offline-synced", { detail: result })
+        );
+        try {
+          const { toast } = await import("sonner");
+          const totalSynced = result.syncedOrders + result.syncedAttendance + result.syncedMutations;
+          toast.success(
+            `Back online: ${totalSynced} offline record${totalSynced === 1 ? "" : "s"} synchronized successfully.`
+          );
+        } catch {
+          // Toast optional
+        }
+      }
+    }
   } finally {
     isCurrentlySyncing = false;
     broadcastQueueChanged();
@@ -512,19 +541,61 @@ export async function processOfflineQueue(): Promise<SyncResult> {
    ======================================================================= */
 
 let listenersInitialized = false;
+let onlineDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let retryBackoffTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function initOfflineSyncListeners(): void {
   if (typeof window === "undefined" || listenersInitialized) return;
   listenersInitialized = true;
 
+  const triggerAutoSync = (delayMs = 800) => {
+    if (onlineDebounceTimer) clearTimeout(onlineDebounceTimer);
+    if (retryBackoffTimer) clearTimeout(retryBackoffTimer);
+
+    onlineDebounceTimer = setTimeout(async () => {
+      broadcastQueueChanged();
+      const stats = getOfflineQueueStats();
+      if (!stats.isOnline) return;
+
+      const result = await processOfflineQueue();
+      // If any items failed (e.g. network still establishing sockets), schedule a quick retry
+      if (result.failedCount > 0 && typeof navigator !== "undefined" && navigator.onLine) {
+        retryBackoffTimer = setTimeout(() => {
+          void processOfflineQueue();
+        }, 3500);
+      }
+    }, delayMs);
+  };
+
   // Sync automatically when network returns
   window.addEventListener("online", () => {
     broadcastQueueChanged();
-    void processOfflineQueue();
+    triggerAutoSync(800);
   });
 
   window.addEventListener("offline", () => {
+    if (onlineDebounceTimer) clearTimeout(onlineDebounceTimer);
+    if (retryBackoffTimer) clearTimeout(retryBackoffTimer);
     broadcastQueueChanged();
+  });
+
+  // Check when tab becomes visible or focused (e.g., returning from sleep/lock screen)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && navigator.onLine) {
+      const stats = getOfflineQueueStats();
+      if (stats.total > 0 && !stats.isSyncing) {
+        triggerAutoSync(400);
+      }
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    if (navigator.onLine) {
+      const stats = getOfflineQueueStats();
+      if (stats.total > 0 && !stats.isSyncing) {
+        triggerAutoSync(400);
+      }
+    }
   });
 
   // Periodic background check if items are pending
@@ -533,5 +604,5 @@ export function initOfflineSyncListeners(): void {
     if (stats.isOnline && stats.total > 0 && !stats.isSyncing) {
       void processOfflineQueue();
     }
-  }, 25000);
+  }, 15000);
 }

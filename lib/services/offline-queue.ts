@@ -34,14 +34,18 @@ export class OfflineQueueService {
   private static instance: OfflineQueueService;
   private queue: QueuedRequest[] = [];
   private isProcessing = false;
+  private isLoaded = false;
+  private loadPromise: Promise<void> | null = null;
 
   private constructor() {
     if (typeof window !== "undefined") {
-      this.loadQueue().then(() => {
-        if (navigator.onLine) this.processQueue();
+      this.ensureLoaded().then(() => {
+        if (navigator.onLine) void this.processQueue();
       });
-      window.addEventListener("online", () => this.processQueue());
-      setInterval(() => this.processQueue(), 30000);
+      window.addEventListener("online", () => {
+        setTimeout(() => void this.processQueue(), 1000);
+      });
+      setInterval(() => void this.processQueue(), 25000);
     }
   }
 
@@ -52,39 +56,72 @@ export class OfflineQueueService {
     return OfflineQueueService.instance;
   }
 
-  private async loadQueue(): Promise<void> {
-    try {
-      const db = await openIdb();
-      if (!db) return;
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.getAll();
-      req.onsuccess = () => {
-        if (Array.isArray(req.result)) {
-          this.queue = req.result;
+  private async ensureLoaded(): Promise<void> {
+    if (this.isLoaded) return;
+    if (this.loadPromise) return this.loadPromise;
+
+    this.loadPromise = (async () => {
+      try {
+        const db = await openIdb();
+        if (!db) {
+          this.isLoaded = true;
+          return;
         }
-      };
-    } catch {
-      // In-memory fallback
-    }
+        await new Promise<void>((resolve) => {
+          try {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => {
+              if (Array.isArray(req.result)) {
+                this.queue = req.result;
+              }
+              this.isLoaded = true;
+              resolve();
+            };
+            req.onerror = () => {
+              this.isLoaded = true;
+              resolve();
+            };
+          } catch {
+            this.isLoaded = true;
+            resolve();
+          }
+        });
+      } catch {
+        this.isLoaded = true;
+        // In-memory fallback
+      }
+    })();
+
+    return this.loadPromise;
   }
 
   private async saveQueue(): Promise<void> {
     try {
       const db = await openIdb();
       if (!db) return;
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      store.clear();
-      for (const item of this.queue) {
-        store.put(item);
-      }
+      await new Promise<void>((resolve) => {
+        try {
+          const tx = db.transaction(STORE_NAME, "readwrite");
+          const store = tx.objectStore(STORE_NAME);
+          store.clear();
+          for (const item of this.queue) {
+            store.put(item);
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        } catch {
+          resolve();
+        }
+      });
     } catch {
       // In-memory fallback
     }
   }
 
-  async enqueue(url: string, method: string, body: unknown) {
+  async enqueue(url: string, method: string, body: unknown): Promise<void> {
+    await this.ensureLoaded();
     const request: QueuedRequest = {
       id: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       url,
@@ -97,35 +134,40 @@ export class OfflineQueueService {
     await this.saveQueue();
 
     if (typeof navigator !== "undefined" && navigator.onLine) {
-      this.processQueue();
+      void this.processQueue();
     }
   }
 
-  async processQueue() {
-    if (this.isProcessing || this.queue.length === 0 || (typeof navigator !== "undefined" && !navigator.onLine))
-      return;
+  async processQueue(): Promise<{ processed: number; remaining: number }> {
+    await this.ensureLoaded();
+    if (this.isProcessing || this.queue.length === 0 || (typeof navigator !== "undefined" && !navigator.onLine)) {
+      return { processed: 0, remaining: this.queue.length };
+    }
 
     this.isProcessing = true;
     const remainingQueue: QueuedRequest[] = [];
+    let processedCount = 0;
 
     for (const req of this.queue) {
       try {
         const response = await fetch(req.url, {
           method: req.method,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(req.body),
+          body: req.body ? JSON.stringify(req.body) : undefined,
         });
 
-        if (!response.ok) {
+        if (response.ok || response.status === 409) {
+          processedCount++;
+        } else {
           throw new Error(`Server returned ${response.status}`);
         }
       } catch (error) {
-        console.error(`Failed to process queued request ${req.id}`, error);
+        console.error(`[OfflineQueueService] Failed request ${req.id} to ${req.url}:`, error);
         req.retryCount++;
         if (req.retryCount < MAX_RETRIES) {
           remainingQueue.push(req);
         } else {
-          console.error(`Request ${req.id} failed max retries, dropping.`);
+          console.error(`[OfflineQueueService] Request ${req.id} exceeded max retries, dropping.`);
         }
       }
     }
@@ -133,6 +175,7 @@ export class OfflineQueueService {
     this.queue = remainingQueue;
     await this.saveQueue();
     this.isProcessing = false;
+    return { processed: processedCount, remaining: this.queue.length };
   }
 
   getQueueLength(): number {
@@ -141,6 +184,11 @@ export class OfflineQueueService {
 
   getQueue(): readonly QueuedRequest[] {
     return this.queue;
+  }
+
+  async clearQueue(): Promise<void> {
+    this.queue = [];
+    await this.saveQueue();
   }
 }
 

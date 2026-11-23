@@ -44,11 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isDatabaseReady] = useState(true);
   const authRequestRef = React.useRef<Promise<void> | null>(null);
 
-  // Initialize offline sync listeners once on client mount
-  useEffect(() => {
-    initOfflineSyncListeners();
-  }, []);
-
   const checkAuth = useCallback(async () => {
     if (authRequestRef.current) return authRequestRef.current;
     const request = (async () => {
@@ -93,6 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authRequestRef.current = null;
     }
   }, []);
+
+  // Initialize offline sync listeners once on client mount and re-validate auth upon reconnection
+  useEffect(() => {
+    initOfflineSyncListeners();
+    const handleOnline = () => {
+      void checkAuth();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [checkAuth]);
 
   useEffect(() => {
     const isPublicAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/sign-up";

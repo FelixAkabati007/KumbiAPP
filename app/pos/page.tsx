@@ -202,6 +202,26 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     }
   }, [lastEvent]);
 
+  // Re-fetch menu items and next order number whenever the app returns online
+  useEffect(() => {
+    const handleReconnected = () => {
+      void getMenuItems().then((items) => {
+        if (items.length > 0) {
+          setMenuItems(items);
+          setMenuLoading(false);
+        }
+      });
+      getOrderNumber().then((num) => setOrderNumber(num));
+    };
+
+    window.addEventListener("online", handleReconnected);
+    window.addEventListener("kumbi:offline-synced", handleReconnected);
+    return () => {
+      window.removeEventListener("online", handleReconnected);
+      window.removeEventListener("kumbi:offline-synced", handleReconnected);
+    };
+  }, []);
+
   useEffect(() => {
     if (!user || !hasPermission(user.role as UserRole, "inventory")) {
       return;
@@ -240,11 +260,15 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     loadAvailability();
     const interval = window.setInterval(loadAvailability, 30000);
     document.addEventListener("visibilitychange", loadAvailability);
+    window.addEventListener("online", loadAvailability);
+    window.addEventListener("kumbi:offline-synced", loadAvailability);
     return () => {
       cancelled = true;
       controller.abort();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", loadAvailability);
+      window.removeEventListener("online", loadAvailability);
+      window.removeEventListener("kumbi:offline-synced", loadAvailability);
     };
   }, [user]);
 

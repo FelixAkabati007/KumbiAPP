@@ -278,5 +278,75 @@ describe("Offline Storage & Sync Engine", () => {
 
       fetchSpy.mockRestore();
     });
+
+    it("should reconcile duplicate orders returning 400 or 409 without marking failed", async () => {
+      enqueueOfflineOrder({
+        id: "ord-dup-1",
+        orderNumber: "ORD-DUPLICATE",
+        payload: { orderNumber: "ORD-DUPLICATE", total: 50, orderType: "dine-in", paymentMethod: "cash", items: [] },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ error: "Order number already exists" }), { status: 400 })
+      );
+
+      const result = await processOfflineQueue();
+
+      expect(result.syncedOrders).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(getQueuedOrders().length).toBe(0);
+
+      fetchSpy.mockRestore();
+    });
+
+    it("should reconcile attendance returning 409 conflict (e.g. already clocked in)", async () => {
+      enqueueOfflineAttendance({
+        id: "att-conflict-1",
+        payload: { action: "clock_in" },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ error: "ALREADY_CHECKED_IN", code: "ALREADY_CHECKED_IN" }), { status: 409 })
+      );
+
+      const result = await processOfflineQueue();
+
+      expect(result.syncedAttendance).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(getQueuedAttendance().length).toBe(0);
+
+      fetchSpy.mockRestore();
+    });
+
+    it("should dispatch kumbi:offline-synced event when items are synced", async () => {
+      enqueueOfflineOrder({
+        id: "ord-event-1",
+        orderNumber: "ORD-EVENT",
+        payload: { orderNumber: "ORD-EVENT", total: 20, orderType: "takeout", paymentMethod: "cash", items: [] },
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+
+      const eventListener = vi.fn();
+      window.addEventListener("kumbi:offline-synced", eventListener);
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ success: true }), { status: 200 })
+      );
+
+      await processOfflineQueue();
+
+      expect(eventListener).toHaveBeenCalled();
+
+      window.removeEventListener("kumbi:offline-synced", eventListener);
+      fetchSpy.mockRestore();
+    });
   });
 });
