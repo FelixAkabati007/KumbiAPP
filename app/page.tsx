@@ -921,11 +921,11 @@ function DashboardContent() {
 
         {!attendanceRestricted && canSwitchDashboardCategories && (
           <div
-            className="w-full flex items-center justify-between gap-2 py-2 px-2.5 sm:px-3.5 rounded-2xl sm:rounded-full bg-amber-50/70 dark:bg-amber-950/20 border border-orange-200/70 dark:border-orange-800/40 shadow-sm backdrop-blur-sm"
+            className="w-full flex items-center justify-between gap-2 py-1.5 px-2.5 sm:px-3.5 rounded-2xl sm:rounded-full bg-amber-50/70 dark:bg-amber-950/20 border border-orange-200/70 dark:border-orange-800/40 shadow-sm backdrop-blur-sm"
             role="group"
             aria-label="Dashboard category filter"
           >
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none safe-scroll-x max-w-full flex-nowrap w-full py-0.5">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none safe-scroll-x max-w-full flex-nowrap w-full py-2 px-1">
               {availableDashboardCategories.map(([category, label]) => {
                 const count = categoryCounts[category];
                 const isActive = activeDashboardCategory === category;
@@ -939,8 +939,8 @@ function DashboardContent() {
                     onClick={() => selectDashboardCategory(category)}
                     className={
                       isActive
-                        ? "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-bold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all ring-2 ring-orange-600 ring-offset-2 dark:ring-offset-gray-900 scale-[1.02]"
-                        : "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/90 text-white font-semibold shadow-sm border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all opacity-95 hover:opacity-100"
+                        ? "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-bold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all ring-2 ring-red-500 dark:ring-red-400 ring-offset-2 ring-offset-amber-50 dark:ring-offset-gray-900 scale-[1.02]"
+                        : "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/90 text-white font-semibold shadow-sm border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 hover:ring-2 hover:ring-red-500/80 dark:hover:ring-red-400/80 hover:ring-offset-2 hover:ring-offset-amber-50 dark:hover:ring-offset-gray-900 hover:scale-[1.02] text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all opacity-95 hover:opacity-100"
                     }
                   >
                     <IconComponent className="mr-1.5 h-3.5 w-3.5 shrink-0 text-white" />
