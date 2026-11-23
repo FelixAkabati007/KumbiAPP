@@ -921,11 +921,11 @@ function DashboardContent() {
 
         {!attendanceRestricted && canSwitchDashboardCategories && (
           <div
-            className="w-full flex items-center justify-between flex-wrap gap-2.5 py-3 px-4 rounded-3xl bg-amber-50/70 dark:bg-amber-950/20 border border-orange-200/70 dark:border-orange-800/40 shadow-sm"
+            className="w-full flex items-center justify-between gap-2 py-2 px-2.5 sm:px-3.5 rounded-2xl sm:rounded-full bg-amber-50/70 dark:bg-amber-950/20 border border-orange-200/70 dark:border-orange-800/40 shadow-sm backdrop-blur-sm"
             role="group"
             aria-label="Dashboard category filter"
           >
-            <div className="flex items-center gap-2 overflow-x-auto safe-scroll-x max-w-full pb-1 sm:pb-0 sm:flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none safe-scroll-x max-w-full flex-nowrap w-full py-0.5">
               {availableDashboardCategories.map(([category, label]) => {
                 const count = categoryCounts[category];
                 const isActive = activeDashboardCategory === category;
@@ -939,8 +939,8 @@ function DashboardContent() {
                     onClick={() => selectDashboardCategory(category)}
                     className={
                       isActive
-                        ? "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-bold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all ring-2 ring-orange-600 ring-offset-2 dark:ring-offset-gray-900 scale-[1.02]"
-                        : "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/90 text-white font-semibold shadow-sm border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all opacity-95 hover:opacity-100"
+                        ? "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-bold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all ring-2 ring-orange-600 ring-offset-2 dark:ring-offset-gray-900 scale-[1.02]"
+                        : "shrink-0 whitespace-nowrap rounded-xl sm:rounded-full bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/90 text-white font-semibold shadow-sm border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-2.5 sm:px-3 py-1.5 h-auto transition-all opacity-95 hover:opacity-100"
                     }
                   >
                     <IconComponent className="mr-1.5 h-3.5 w-3.5 shrink-0 text-white" />
@@ -960,10 +960,10 @@ function DashboardContent() {
                 size="sm"
                 variant="ghost"
                 onClick={() => selectDashboardCategory("all")}
-                className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 dark:hover:bg-orange-950/40 rounded-xl shrink-0"
+                className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 dark:hover:bg-orange-950/40 rounded-full shrink-0 px-2.5 py-1 hidden md:flex items-center"
               >
                 <Grid3X3 className="mr-1.5 h-3.5 w-3.5" />
-                Show All ({categoryCounts.all})
+                <span>Show All ({categoryCounts.all})</span>
               </Button>
             )}
           </div>
