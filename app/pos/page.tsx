@@ -878,8 +878,8 @@ ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtot
   const posTaxResult = calculateTaxes(taxableSubtotal, appSettings.system.taxConfiguration, "pos");
 
   return (
-    <div className="flex min-h-[100dvh] w-full min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
-      <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-white/90 px-3 py-2 backdrop-blur-md dark:bg-gray-900/90 sm:min-h-16 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
+    <div className="flex h-[100dvh] max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950">
+      <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center gap-2 border-b bg-white/90 px-3 py-2 backdrop-blur-md dark:bg-gray-900/90 sm:min-h-16 sm:gap-4 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700">
         <Link
           href="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -929,12 +929,12 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         </div>
       </header>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 lg:flex-row lg:overflow-hidden">
+      <main className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 lg:flex-row">
         {/* Menu Items Section */}
-        <div className="flex min-w-0 w-full flex-col border-orange-200 dark:border-orange-700 lg:flex-1 lg:border-r xl:w-2/3">
-          <div className="p-4 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 mb-4">
-              <div className="relative flex-1">
+        <div className="flex min-w-0 min-h-0 w-full flex-1 flex-col">
+          <div className="p-2.5 sm:p-3 shrink-0 border-b border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 via-amber-50/50 to-yellow-50/50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20">
+            <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-3">
+              <div className="relative min-w-[160px] flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
@@ -944,49 +944,37 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                <Label
-                  htmlFor="barcode"
-                  className="text-sm font-medium text-orange-700 dark:text-orange-300"
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Input
+                  id="barcode"
+                  placeholder="Scan barcode..."
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  className="w-28 sm:w-36 rounded-l-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
+                />
+                <Button
+                  variant="secondary"
+                  onClick={handleBarcodeScan}
+                  className="-ml-2 rounded-l-none rounded-r-2xl bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-800/50 dark:via-amber-800/50 dark:to-yellow-800/50 border-orange-200 dark:border-orange-700 hover:from-orange-200 hover:via-amber-200 hover:to-yellow-200 dark:hover:from-orange-700/50 dark:hover:via-amber-700/50 dark:hover:to-yellow-700/50"
                 >
-                  Barcode:
-                </Label>
-                <div className="flex min-w-0 w-full sm:w-auto">
-                  <Input
-                    id="barcode"
-                    placeholder="Scan barcode..."
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
-                    className="w-40 rounded-l-2xl border-orange-200 dark:border-orange-700 focus:border-orange-500 dark:focus:border-orange-400 bg-white/50 dark:bg-gray-800/50"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={handleBarcodeScan}
-                    className="ml-0 rounded-l-none rounded-r-2xl bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-800/50 dark:via-amber-800/50 dark:to-yellow-800/50 border-orange-200 dark:border-orange-700 hover:from-orange-200 hover:via-amber-200 hover:to-yellow-200 dark:hover:from-orange-700/50 dark:hover:via-amber-700/50 dark:hover:to-yellow-700/50"
-                  >
-                    <QrCode className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                    Scan
-                  </Button>
-                </div>
+                  <QrCode className="h-4 w-4 mr-1 text-orange-600 dark:text-orange-400" />
+                  <span className="hidden sm:inline">Scan</span>
+                </Button>
               </div>
-            </div>
-
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <Label htmlFor="menu-view" className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Menu view
-              </Label>
-              <Select value={menuView} onValueChange={(value) => setMenuView(value as typeof menuView)}>
-                <SelectTrigger id="menu-view" className="h-9 w-44 rounded-xl bg-white/70 dark:bg-gray-800/70">
-                  <SelectValue placeholder="Auto grid" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto optimized</SelectItem>
-                  <SelectItem value="two">Focused · 2 × 2</SelectItem>
-  <SelectItem value="compact">Compact · 5 × 3</SelectItem>
-                  <SelectItem value="comfortable">Comfortable · 4 × 3</SelectItem>
-                  <SelectItem value="large">Large images · 3 × 3</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Select value={menuView} onValueChange={(value) => setMenuView(value as typeof menuView)}>
+                  <SelectTrigger id="menu-view" className="h-9 w-32 sm:w-40 rounded-xl bg-white/70 dark:bg-gray-800/70 border-orange-200 dark:border-orange-700 text-xs sm:text-sm">
+                    <SelectValue placeholder="Auto grid" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto optimized</SelectItem>
+                    <SelectItem value="two">Focused · 2 × 2</SelectItem>
+                    <SelectItem value="compact">Compact · 5 × 3</SelectItem>
+                    <SelectItem value="comfortable">Comfortable · 4 × 3</SelectItem>
+                    <SelectItem value="large">Large images · 3 × 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="flex w-max min-w-full gap-1 overflow-x-auto bg-white/70 p-1 backdrop-blur-sm border border-orange-200 dark:bg-gray-800/70 dark:border-orange-700 rounded-full sm:grid sm:w-full sm:grid-cols-6">
@@ -1030,8 +1018,8 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
             </Tabs>
           </div>
 
-  <ScrollArea className="list-scroll-container min-h-0 flex-1 p-2 sm:p-4">
-  <div className={`grid auto-rows-max gap-2 sm:gap-4 ${menuView === "two" ? "grid-cols-2" : menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
+  <ScrollArea className="h-full min-h-0 flex-1 p-2 sm:p-3 pb-8">
+  <div className={`grid auto-rows-max gap-2 sm:gap-3 ${menuView === "two" ? "grid-cols-2" : menuView === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : menuView === "comfortable" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : menuView === "large" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"}`}>
               {menuLoading && <div className="col-span-full flex min-h-48 items-center justify-center rounded-2xl border border-orange-200 bg-white/50 p-6 text-sm text-muted-foreground">Loading published menu…</div>}
               {!menuLoading && filteredItems.map((item) => (
                 <Card
@@ -1041,7 +1029,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   aria-disabled={!isItemAvailable(item)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
-                  <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-t-2xl bg-muted sm:rounded-t-3xl">
+                  <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-t-2xl bg-muted sm:rounded-t-3xl">
   <div className={!isItemAvailable(item) ? "grayscale" : undefined}>
   {(() => {
   if (!item.image) {

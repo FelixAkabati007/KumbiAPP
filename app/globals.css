@@ -129,7 +129,7 @@
   .list-scroll-container {
     content-visibility: auto;
     contain: content;
-    max-height: 21rem;
+    max-height: 100%;
     max-width: 100%;
     overflow: auto;
     overscroll-behavior: contain;
