@@ -46,8 +46,10 @@ export async function registerAttendance(session: ApiSession, action: Attendance
       );
       await client.query(
         `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-         VALUES ('attendance.checked_in', 'attendance_record', $1, $2, $3::jsonb)
-         ON CONFLICT (idempotency_key) DO NOTHING`,
+         SELECT 'attendance.checked_in', 'attendance_record', $1, $2, $3::jsonb
+         WHERE NOT EXISTS (
+           SELECT 1 FROM operational_outbox WHERE idempotency_key = $2
+         )`,
         [row.id, `attendance:${row.id}:checked_in`, JSON.stringify({ attendanceRecordId: row.id, staffId, clock: "canonical_property" })],
       );
       return { record: row, nextAction: "check_out" as const };
@@ -93,8 +95,10 @@ export async function registerAttendance(session: ApiSession, action: Attendance
     );
     await client.query(
       `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-       VALUES ('attendance.checked_out', 'attendance_record', $1, $2, $3::jsonb)
-       ON CONFLICT (idempotency_key) DO NOTHING`,
+       SELECT 'attendance.checked_out', 'attendance_record', $1, $2, $3::jsonb
+       WHERE NOT EXISTS (
+         SELECT 1 FROM operational_outbox WHERE idempotency_key = $2
+       )`,
       [row.id, `attendance:${row.id}:checked_out`, JSON.stringify({ attendanceRecordId: row.id, staffId, clock: "canonical_property" })],
     );
     return { record: row, nextAction: "complete" as const };

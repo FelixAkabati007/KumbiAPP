@@ -209,7 +209,11 @@ export async function PATCH(
         },
       };
       await client.query(
-        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by) VALUES (NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4) ON CONFLICT (transaction_reference) DO NOTHING`,
+        `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
+         SELECT NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4
+         WHERE NOT EXISTS (
+           SELECT 1 FROM transactions WHERE transaction_reference = $1
+         )`,
         [
           chargeReference,
           amount.toFixed(2),

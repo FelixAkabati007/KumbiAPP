@@ -192,6 +192,32 @@ export async function GET() {
       `CREATE INDEX IF NOT EXISTS idx_favicons_created_at ON favicons(created_at);`
     );
 
+    // Ensure unique index for transaction_reference
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_transaction_reference
+      ON transactions(transaction_reference)
+      WHERE transaction_reference IS NOT NULL;
+    `).catch(() => {});
+
+    // Ensure operational_outbox table
+    await query(`
+      CREATE TABLE IF NOT EXISTS operational_outbox (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        event_type VARCHAR(100) NOT NULL,
+        aggregate_type VARCHAR(100) NOT NULL,
+        aggregate_id VARCHAR(255) NOT NULL,
+        idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        attempts INT NOT NULL DEFAULT 0,
+        available_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP WITH TIME ZONE,
+        last_error TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_operational_outbox_idempotency_key ON operational_outbox(idempotency_key);
+    `).catch(() => {});
+
     await ensureSoftwareUpdatesTable();
     return NextResponse.json({
       message: "Database tables set up successfully",

@@ -99,8 +99,10 @@ export async function POST(request: NextRequest) {
         const paymentRef = `HOTEL-CHECKOUT-${reservationId}`;
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           VALUES (NULL, $1, $2, 'GHS', 'cash', 'completed', $3::jsonb, $4)
-           ON CONFLICT (transaction_reference) DO NOTHING`,
+           SELECT NULL, $1, $2, 'GHS', 'cash', 'completed', $3::jsonb, $4
+           WHERE NOT EXISTS (
+             SELECT 1 FROM transactions WHERE transaction_reference = $1
+           )`,
           [
             paymentRef,
             paid.toFixed(2),
@@ -227,8 +229,10 @@ export async function POST(request: NextRequest) {
 
       await client.query(
         `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-         VALUES ('hotel.checked_out', 'reservation', $1, $2, $3::jsonb)
-         ON CONFLICT (idempotency_key) DO NOTHING`,
+         SELECT 'hotel.checked_out', 'reservation', $1, $2, $3::jsonb
+         WHERE NOT EXISTS (
+           SELECT 1 FROM operational_outbox WHERE idempotency_key = $2
+         )`,
         [reservationId, `hotel-checkout:${reservationId}`, JSON.stringify({ reservationId, guestId: verified.rows[0].guest_id, roomId: checkedOutRoomId, paid, housekeeping: true, ledger: true })],
       );
       return { ...verified.rows[0], receiptId: checkoutReceiptId, receipt: checkoutReceiptSnapshot, folioDisclosure: { grossSpent, complimentaryAmount, netSpent, outstandingBalance, items: folioItems.rows } };
