@@ -895,56 +895,6 @@ function DashboardContent() {
                 </DropdownMenu>
               )}
 
-              {/* Workstation Quick Shortcuts */}
-              {dashboardAccess.pos && (
-                <Link href="/pos">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
-                  >
-                    <Utensils className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
-                    POS
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.kitchen && (
-                <Link href="/kitchen">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
-                  >
-                    <ChefHat className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
-                    Kitchen
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.checkIn && (
-                <Link href="/hotels/check-in">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
-                  >
-                    <DoorOpen className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
-                    Hotel Desk
-                  </Button>
-                </Link>
-              )}
-              {dashboardAccess.events && (
-                <Link href="/events">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 px-3 text-xs sm:text-sm font-semibold text-orange-900 hover:text-orange-950 bg-white/80 dark:bg-gray-800/80 border-orange-200/90 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-900/30 rounded-2xl shadow-sm transition"
-                  >
-                    <CalendarDays className="h-3.5 w-3.5 mr-1 text-orange-600 dark:text-orange-400" />
-                    Events
-                  </Button>
-                </Link>
-              )}
-
               {!attendanceRestricted && (
                 <Link
                   href={roleDashboard.primaryHref}
