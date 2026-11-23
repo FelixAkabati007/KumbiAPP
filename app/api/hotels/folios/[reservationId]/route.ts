@@ -208,17 +208,18 @@ export async function PATCH(
           role: session.role,
         },
       };
+      const folioActorUserId = session?.id && /^[0-9a-f-]{36}$/i.test(session.id) ? session.id : null;
       await client.query(
         `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-         SELECT NULL, $1, $2, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4
+         SELECT NULL, $1::text, $2::numeric, 'GHS', 'guest-folio', 'completed', $3::jsonb, $4::uuid
          WHERE NOT EXISTS (
-           SELECT 1 FROM transactions WHERE transaction_reference = $1
+           SELECT 1 FROM transactions WHERE transaction_reference = $1::text
          )`,
         [
           chargeReference,
           amount.toFixed(2),
           JSON.stringify(chargeMetadata),
-          session.id,
+          folioActorUserId,
         ],
       );
       await recordFinancialLedgerEntry(client, {

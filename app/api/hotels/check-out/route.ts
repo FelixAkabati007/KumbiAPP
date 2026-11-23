@@ -97,17 +97,18 @@ export async function POST(request: NextRequest) {
         await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = $3::timestamptz WHERE reservation_id = $2::uuid`, [paid, reservationId, canonicalNow]);
 
         const paymentRef = `HOTEL-CHECKOUT-${reservationId}`;
+        const actorUserId = checkoutActor.id && /^[0-9a-f-]{36}$/i.test(checkoutActor.id) ? checkoutActor.id : null;
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
-           SELECT NULL, $1, $2, 'GHS', 'cash', 'completed', $3::jsonb, $4
+           SELECT NULL, $1::text, $2::numeric, 'GHS', 'cash', 'completed', $3::jsonb, $4::uuid
            WHERE NOT EXISTS (
-             SELECT 1 FROM transactions WHERE transaction_reference = $1
+             SELECT 1 FROM transactions WHERE transaction_reference = $1::text
            )`,
           [
             paymentRef,
             paid.toFixed(2),
             JSON.stringify({ source: "hotel-checkout", department: "hotel", departmentLabel: "Hotel", reservationId, performedBy: checkoutActor }),
-            session?.id || null,
+            actorUserId,
           ],
         );
 
@@ -211,16 +212,18 @@ export async function POST(request: NextRequest) {
           checkedOutAt: canonicalNow,
           performedBy: checkoutActor,
         };
+        const receiptActorUserId = checkoutActor.id && /^[0-9a-f-]{36}$/i.test(checkoutActor.id) ? checkoutActor.id : null;
         const ins = await client.query(
           `INSERT INTO hotel_receipts (reservation_id, folio_id, order_id, order_number, receipt_type, snapshot, created_by)
-           VALUES ($1::uuid, $2::uuid, $1::text, $3::text, 'check_out', $4::jsonb, $5::uuid)
+           VALUES ($1::uuid, $2::uuid, $3::text, $4::text, 'check_out', $5::jsonb, $6::uuid)
            RETURNING id, snapshot`,
           [
             reservationId,
             folio.id,
+            String(reservationId),
             gRow.reservation_number || String(reservationId),
             JSON.stringify(newSnapshot),
-            checkoutActor.id && /^[0-9a-f-]{36}$/i.test(checkoutActor.id) ? checkoutActor.id : null,
+            receiptActorUserId,
           ]
         );
         checkoutReceiptId = ins.rows[0]?.id;
@@ -229,9 +232,9 @@ export async function POST(request: NextRequest) {
 
       await client.query(
         `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-         SELECT 'hotel.checked_out', 'reservation', $1, $2, $3::jsonb
+         SELECT 'hotel.checked_out', 'reservation', $1::text, $2::text, $3::jsonb
          WHERE NOT EXISTS (
-           SELECT 1 FROM operational_outbox WHERE idempotency_key = $2
+           SELECT 1 FROM operational_outbox WHERE idempotency_key = $2::text
          )`,
         [reservationId, `hotel-checkout:${reservationId}`, JSON.stringify({ reservationId, guestId: verified.rows[0].guest_id, roomId: checkedOutRoomId, paid, housekeeping: true, ledger: true })],
       );

@@ -23,12 +23,12 @@ export async function GET(request: Request) {
     for (const record of stale.rows) {
         await client.query(
           `INSERT INTO operational_outbox (event_type, aggregate_type, aggregate_id, idempotency_key, payload)
-           SELECT 'attendance.auto_closed', 'attendance', $1, $2, $3::jsonb
+           SELECT 'attendance.auto_closed', 'attendance', $1::text, $2::text, $3::jsonb
            WHERE NOT EXISTS (
-             SELECT 1 FROM operational_outbox WHERE idempotency_key = $2
+             SELECT 1 FROM operational_outbox WHERE idempotency_key = $2::text
            )`,
-        [record.id, `attendance-auto-closed:${record.id}`, JSON.stringify({ staffId: record.staff_id })],
-      );
+          [record.id, `attendance-auto-closed:${record.id}`, JSON.stringify({ staffId: record.staff_id })],
+        );
     }
     return stale.rows.length;
   });
