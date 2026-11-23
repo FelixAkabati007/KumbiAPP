@@ -5,6 +5,7 @@ import type React from "react";
 import { ArrowLeft, CalendarDays, ExternalLink, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 
 export default function HotelSplitWorkspacePage() {
   return (
@@ -22,7 +23,10 @@ export default function HotelSplitWorkspacePage() {
             <h1 className="text-lg font-bold sm:text-xl">Reservations + Check-In / Check-Out</h1>
           </div>
         </div>
-        <p className="hidden text-sm text-muted-foreground md:block">Manage the guest journey from one screen</p>
+        <div className="flex items-center gap-3">
+          <PropertyClock compact />
+          <p className="hidden text-sm text-muted-foreground md:block">Manage the guest journey from one screen</p>
+        </div>
       </header>
 
       <section className="grid flex-1 gap-4 p-3 sm:p-4 lg:min-h-0 lg:grid-cols-2">

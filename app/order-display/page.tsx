@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import {
   OrderProvider,
   useOrders,
@@ -198,9 +199,7 @@ function OrderDisplayContent() {
               {activeOrders.length} Active Orders
             </span>
           </div>
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {currentTime ? currentTime.toLocaleTimeString() : "--:--:--"}
-          </div>
+          <PropertyClock compact />
           <Button
             variant="outline"
             size="sm"

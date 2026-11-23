@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Plus, ArrowLeft } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 import { isShortStayRoomType } from "@/lib/hotels/short-stay";
 
@@ -247,6 +248,7 @@ function ReservationsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PropertyClock compact />
           <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
           <Button
             onClick={() => setShowNewReservationDialog(true)}

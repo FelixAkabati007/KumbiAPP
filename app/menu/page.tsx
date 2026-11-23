@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecipeManager } from "@/components/menu/recipe-manager";
 import { useAuth } from "@/components/auth-provider";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import {
   getMenuItems,
   createMenuItem,
@@ -629,6 +630,7 @@ function MenuContent() {
           Menu Management
         </h1>
         <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+          <PropertyClock compact />
           {canManageMenu && <Button
             onClick={handleAddItem}
             className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg relative overflow-hidden flex items-center gap-2"
@@ -1065,7 +1067,7 @@ function MenuContent() {
                     <Button
                       onClick={() => handleSaveItem({ openRecipeTab: false })}
                       disabled={isSaving}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white font-semibold shadow-md"
                     >
                       {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                       {isSaving

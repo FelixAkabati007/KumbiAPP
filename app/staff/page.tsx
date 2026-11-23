@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { enqueueOfflineAttendance } from "@/lib/offline-storage";
 
 interface AttendanceRecord {
@@ -178,6 +179,9 @@ export default function StaffPage() {
             <ShieldCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
             <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">Staff Attendance</span>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <PropertyClock compact />
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">

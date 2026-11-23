@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 
 type EventRecord = {
   id: string;
@@ -404,6 +405,7 @@ function EventsWorkspace() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PropertyClock compact />
           <Button
             variant="outline"
             size="sm"

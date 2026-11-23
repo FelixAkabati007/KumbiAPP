@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -312,12 +313,13 @@ function OperationsWorkspace() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PropertyClock compact />
           <Button asChild variant="outline" size="sm" className="rounded-xl border-orange-200 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80">
             <Link href="/expenses"><CircleDollarSign className="mr-1.5 h-4 w-4 text-orange-600" />Repair Expenses</Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="rounded-xl border-orange-200 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80"><Link href="/announcements">Announcements</Link></Button>
           <Badge variant="outline" className="w-fit">Reports to General Manager</Badge>
-          <Button onClick={() => setShowNewTicketDialog(true)} size="sm" className="rounded-xl bg-orange-500 text-white hover:bg-orange-600"><Plus className="mr-1.5 h-4 w-4" />New Ticket</Button>
+          <Button onClick={() => setShowNewTicketDialog(true)} size="sm" className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-md font-semibold"><Plus className="mr-1.5 h-4 w-4" />New Ticket</Button>
           <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-9 w-36 sm:w-44"><SelectValue placeholder="Filter status" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="urgent">Urgent / High</SelectItem><SelectItem value="assigned">Assigned</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="resolved">Resolved</SelectItem></SelectContent></Select>
         </div>
       </header>
@@ -883,7 +885,7 @@ function OperationsWorkspace() {
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setShowNewTicketDialog(false)}>Cancel</Button>
-              <Button onClick={createTicket} disabled={savingTicket} className="bg-orange-500 text-white hover:bg-orange-600">
+              <Button onClick={createTicket} disabled={savingTicket} className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-md font-semibold">
                 {savingTicket ? "Creating…" : "Create Ticket"}
               </Button>
             </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { PropertyClock, usePropertyTime } from "@/components/property-clock";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -157,6 +158,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   const [orderId, setOrderId] = useState("");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const { formattedDate: propertyDate, formattedTime: propertyTime } = usePropertyTime();
   const paymentConfirmation = usePaymentCompletionConfirmation();
 
   useEffect(() => {
@@ -892,6 +894,7 @@ ${levyRowsHtml(levyResult.breakdown, appSettings.system.taxConfiguration, subtot
           </h1>
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          <PropertyClock compact />
           <div className="hidden items-center gap-2 px-3 py-1 bg-gradient-to-r sm:flex from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 rounded-full border border-orange-200 dark:border-orange-700">
             <User className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
@@ -1694,13 +1697,13 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                     <div className="flex justify-between">
                       <span className="font-semibold">Date:</span>
                       <span>
-                        {currentDate ? currentDate.toLocaleDateString() : ""}
+                        {propertyDate || (currentDate ? currentDate.toLocaleDateString() : "")}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-semibold">Time:</span>
                       <span>
-                        {currentDate ? currentDate.toLocaleTimeString() : ""}
+                        {propertyTime || (currentDate ? currentDate.toLocaleTimeString() : "")}
                       </span>
                     </div>
                     <div className="flex justify-between">

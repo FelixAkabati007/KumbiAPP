@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock, usePropertyTime } from "@/components/property-clock";
 import type { SalesData, OrderItem } from "@/lib/types";
 import { RoleGuard } from "@/components/role-guard";
 import { useLoading } from "@/components/loading-provider";
@@ -144,74 +145,7 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const { showLoading, hideLoading } = useLoading();
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncTime = async () => {
-      try {
-        const response = await fetch("/api/system/time", { cache: "no-store" });
-        if (!response.ok)
-          throw new Error(`Time API returned ${response.status}`);
-        const payload = (await response.json()) as { iso?: string };
-        if (payload.iso && !cancelled) setCurrentTime(new Date(payload.iso));
-      } catch {
-        // Keep the last trusted API value while the public service is unavailable.
-      }
-    };
-
-    void syncTime();
-    let tickTimer: number | null = null;
-    let syncTimer: number | null = null;
-    const startTimers = () => {
-      if (tickTimer === null) {
-        tickTimer = window.setInterval(
-          () => setCurrentTime((value) => (value ? new Date(value.getTime() + 1000) : new Date())),
-          1000,
-        );
-      }
-      if (syncTimer === null) syncTimer = window.setInterval(syncTime, 30_000);
-    };
-    const stopTimers = () => {
-      if (tickTimer !== null) window.clearInterval(tickTimer);
-      if (syncTimer !== null) window.clearInterval(syncTimer);
-      tickTimer = null;
-      syncTimer = null;
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) stopTimers();
-      else startTimers();
-    };
-    startTimers();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      cancelled = true;
-      stopTimers();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
-
-  const accraTime = currentTime
-    ? new Intl.DateTimeFormat("en-GH", {
-        timeZone: TIMEZONE_ACCRA,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }).format(currentTime)
-    : "—";
-  const [clockTime = "—", clockPeriod = ""] = accraTime.split(" ");
-
-  const accraDateFormatted = currentTime
-    ? new Intl.DateTimeFormat("en-GH", {
-        timeZone: TIMEZONE_ACCRA,
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }).format(currentTime)
-    : "";
+  const { currentTime } = usePropertyTime();
 
   useEffect(() => {
     async function load(silent = false) {
@@ -437,28 +371,7 @@ export default function PaymentsPage() {
             </h1>
           </Link>
           <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-100/80 px-3 py-1.5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40"
-              aria-label={`Current Accra time ${clockTime} ${clockPeriod}`}
-              suppressHydrationWarning
-            >
-              <Clock3
-                className="h-4 w-4 text-emerald-700 dark:text-emerald-300"
-                aria-hidden="true"
-              />
-              <span className="font-mono text-sm font-bold tracking-wider tabular-nums text-emerald-950 dark:text-emerald-100" suppressHydrationWarning>
-                {clockTime}
-              </span>
-              <span className="font-mono text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300" suppressHydrationWarning>
-                {clockPeriod}
-              </span>
-            </div>
-            {accraDateFormatted && (
-              <div suppressHydrationWarning className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange-100/70 dark:bg-orange-950/40 rounded-full border border-orange-200 dark:border-orange-700 text-xs font-medium text-orange-800 dark:text-orange-200">
-                <Calendar className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-                <span suppressHydrationWarning>{accraDateFormatted}</span>
-              </div>
-            )}
+            <PropertyClock />
           </div>
         </header>
 

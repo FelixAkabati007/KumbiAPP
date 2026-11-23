@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { printHotelReceipt, type HotelReceiptItem } from "@/lib/hotel-receipt-print";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useSettings } from "@/components/settings-provider";
@@ -823,6 +824,7 @@ function CheckInPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PropertyClock compact />
           <Button
             type="button"
             variant="outline"

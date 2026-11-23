@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
 import { Button } from "@/components/ui/button";
+import { PropertyClock } from "@/components/property-clock";
 
 export function WorkspaceHeader({
   title,
@@ -31,7 +32,10 @@ export function WorkspaceHeader({
           </div>
         </Link>
       </div>
-      {children ? <div className="flex items-center gap-2">{children}</div> : null}
+      <div className="flex items-center gap-2">
+        <PropertyClock compact />
+        {children}
+      </div>
     </header>
   );
 }

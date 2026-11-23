@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Plus, Home, ArrowLeft, Edit2, Trash2, Image as ImageIcon, X, Upload } from "lucide-react";
 import { RoleGuard } from "@/components/role-guard";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { LiveSyncToolbar, useHotelLiveSync } from "@/components/hotels/live-sync";
 
 interface RoomImage {
@@ -285,6 +286,7 @@ function RoomsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PropertyClock compact />
           <LiveSyncToolbar connected={liveSync.connected} refreshing={liveSync.refreshing} onRefresh={() => void liveSync.refresh()} />
           <Button
             onClick={() => {

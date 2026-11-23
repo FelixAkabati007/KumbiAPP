@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import {
   OrderProvider,
   useOrders,
@@ -410,6 +411,7 @@ function KitchenContent() {
           </h1>
         </Link>
         <div className="ml-auto flex items-center gap-2">
+          <PropertyClock compact />
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Badge

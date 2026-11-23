@@ -71,6 +71,7 @@ import {
 import type { InventoryItem } from "@/lib/types";
 import { getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { LogoDisplay } from "@/components/logo-display";
+import { PropertyClock } from "@/components/property-clock";
 import { playNotificationSound } from "@/lib/notifications";
 import { RoleGuard } from "@/components/role-guard";
 import { useAuth } from "@/components/auth-provider";
@@ -1194,6 +1195,7 @@ function InventoryContent() {
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <PropertyClock compact />
           {lowStockCount > 0 && (
             <Badge
               variant="destructive"
@@ -1666,7 +1668,7 @@ function InventoryContent() {
               <div className="grid gap-2"><Label htmlFor="variance-explanation">Explanation</Label><Textarea id="variance-explanation" value={varianceExplanation} onChange={(event) => setVarianceExplanation(event.target.value)} placeholder="Explain what happened and where the item is physically located." /></div>
               <div className="grid gap-2"><Label htmlFor="variance-evidence">Photo evidence</Label><Input id="variance-evidence" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setVarianceEvidence(event.target.files?.[0] ?? null)} /><p className="text-xs text-muted-foreground">Required. Maximum 5MB. Evidence is stored privately for management review.</p></div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setVarianceItem(null)}>Cancel</Button><Button onClick={handleSubmitVariance} disabled={isSubmittingVariance}>{isSubmittingVariance ? "Submitting..." : "Submit for review"}</Button></DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0"><Button variant="outline" className="rounded-2xl" onClick={() => setVarianceItem(null)}>Cancel</Button><Button onClick={handleSubmitVariance} disabled={isSubmittingVariance} className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 font-semibold">{isSubmittingVariance ? "Submitting..." : "Submit for review"}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 
@@ -3233,7 +3235,7 @@ function InventoryContent() {
               </div>
               <p className="text-sm text-muted-foreground">New balance: <strong>{topUpQuantity && Number(topUpQuantity) > 0 ? (Number(topUpItem?.quantity ?? 0) + Number(topUpQuantity)).toLocaleString() : topUpItem?.quantity ?? "0"} {topUpItem?.unit ?? "units"}</strong></p>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity}>{isSubmittingTopUp ? "Adding stock..." : "Top up stock"}</Button></DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0"><Button variant="outline" className="rounded-2xl" onClick={() => setTopUpItem(null)} disabled={isSubmittingTopUp}>Cancel</Button><Button onClick={handleTopUp} disabled={isSubmittingTopUp || !topUpQuantity} className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 font-semibold">{isSubmittingTopUp ? "Adding stock..." : "Top up stock"}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 
