@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
 
       const checkoutActor = { id: session?.id ?? null, name: session?.name ?? null, email: session?.email ?? null, role: session?.role ?? null };
 
-      if (paid > 0) {
-        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = $3::timestamptz WHERE reservation_id = $2::uuid`, [paid, reservationId, canonicalNow]);
+      if (roundedPaid > 0) {
+        await client.query(`UPDATE guest_folios SET paid_amount = COALESCE(paid_amount, 0) + $1, balance = GREATEST(0, balance - $1), last_updated = $3::timestamptz WHERE reservation_id = $2::uuid`, [roundedPaid, reservationId, canonicalNow]);
 
         const paymentRef = `HOTEL-CHECKOUT-${reservationId}`;
         const actorUserId = checkoutActor.id && /^[0-9a-f-]{36}$/i.test(checkoutActor.id) ? checkoutActor.id : null;
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
            )`,
           [
             paymentRef,
-            paid.toFixed(2),
+            roundedPaid.toFixed(2),
             JSON.stringify({ source: "hotel-checkout", department: "hotel", departmentLabel: "Hotel", reservationId, performedBy: checkoutActor }),
             actorUserId,
           ],
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         await recordFinancialLedgerEntry(client, {
           eventKey: paymentRef,
-          amount: paid,
+          amount: roundedPaid,
           direction: "credit",
           status: "posted",
           source: "hotel_checkout",
