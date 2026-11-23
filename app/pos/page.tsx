@@ -127,8 +127,24 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     if (cartCloseTimerRef.current) clearTimeout(cartCloseTimerRef.current);
     cartCloseTimerRef.current = setTimeout(() => {
       if (!orderTypeSelectOpenRef.current) setCartPanelOpen(false);
-    }, 180);
+    }, 220);
   }, []);
+
+  // Moving the active mouse pointer to the right side of the desktop must preview the floating desktop checkout pane
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (typeof window === "undefined" || window.innerWidth < 1024) return;
+      // When the mouse pointer reaches the right side (within 40px of the viewport edge), preview the checkout pane
+      if (e.clientX >= window.innerWidth - 40) {
+        keepCartPanelOpen();
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [keepCartPanelOpen]);
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerNameRefused, setCustomerNameRefused] = useState(false);
@@ -341,12 +357,8 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
       return;
     }
-    // Only auto-open the cart panel on larger displays (>= 1024px / lg).
-    // On smaller displays, allow users to select or deselect menu items up to the limit,
-    // orders or number of times that they want before they manually click on the side checkout button.
-    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-      setCartPanelOpen(true);
-    }
+    // Do not automatically display the checkout pane on item addition.
+    // It displays manually via the mobile floating button or when the user moves the active mouse pointer to the right side on desktop.
     setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
     setCurrentOrder((prev) => {
   const existingItem = prev.find((orderItem) => orderItem.id === item.id);
@@ -1136,12 +1148,36 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
           </ScrollArea>
         </div>
 
-        {/* Order and receipt offcanvas */}
+        {/* Desktop right-edge trigger zone */}
         <div
           aria-hidden="true"
-          onMouseEnter={() => setCartPanelOpen(true)}
-          className="fixed inset-y-0 right-0 z-40 hidden w-6 cursor-w-resize lg:block"
+          onMouseEnter={keepCartPanelOpen}
+          className="fixed inset-y-0 right-0 z-40 hidden w-8 cursor-pointer lg:block"
         />
+
+        {/* Floating Desktop Checkout Preview Tab (visible on desktop when pane is closed) */}
+        {!cartPanelOpen && (
+          <div
+            onMouseEnter={keepCartPanelOpen}
+            onClick={keepCartPanelOpen}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-30 hidden lg:flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-l-2xl bg-gradient-to-b from-orange-500 via-amber-500 to-yellow-500 text-white shadow-2xl cursor-pointer hover:px-3 hover:shadow-orange-500/25 transition-all duration-200 border-l border-y border-orange-200/40 select-none"
+            title="Move mouse here to preview Checkout pane"
+            aria-label="Preview checkout pane"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {currentOrder.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white text-orange-600 px-1 text-xs font-bold tabular-nums shadow-sm">
+                {currentOrder.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+            <span className="text-[11px] font-bold tracking-wider [writing-mode:vertical-rl] rotate-180 uppercase">
+              Checkout
+            </span>
+            <PanelRight className="h-4 w-4 opacity-80" />
+          </div>
+        )}
+
+        {/* Mobile floating checkout button */}
         <div className="fixed bottom-4 right-4 z-40 lg:hidden">
           <Button
             type="button"
@@ -1162,7 +1198,7 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         <div
           onMouseEnter={keepCartPanelOpen}
           onMouseLeave={scheduleCartPanelClose}
-          className={`scrollbar-hide fixed inset-y-0 right-0 z-30 flex h-dvh max-h-dvh w-[min(92vw,28rem)] min-w-0 flex-col overflow-y-auto border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
+          className={`scrollbar-hide fixed inset-y-0 right-0 z-40 flex h-dvh max-h-dvh w-[min(92vw,28rem)] min-w-0 flex-col overflow-y-auto border-l border-orange-200 bg-gradient-to-b from-orange-50/95 via-amber-50/95 to-yellow-50/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-orange-700 dark:from-orange-950/95 dark:via-amber-950/95 dark:to-yellow-950/95 ${cartPanelOpen ? "translate-x-0" : "translate-x-full"}`}>
           <div className="flex items-center justify-between border-b border-orange-200 p-4 dark:border-orange-700">
             <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">Cart &amp; receipt</span>
             <Button type="button" variant="ghost" size="icon" aria-label="Hide cart and receipt" onClick={() => setCartPanelOpen(false)}>
