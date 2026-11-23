@@ -120,6 +120,8 @@ interface GuestFolio {
     id: string;
     description: string;
     total_amount: string;
+    category?: string;
+    source_type?: string;
     performed_by_name?: string | null;
     performed_by_email?: string | null;
   }>;
@@ -1350,27 +1352,51 @@ A short-stay booking includes two hours. Guests may check out at any time after 
                   Calculating every accumulated room, service, food, and other charge before confirmation…
                 </div>
               ) : checkoutFolio ? (
-                <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/60 p-3">
-                  <div className="flex items-center justify-between gap-3 text-sm font-semibold">
-                    <span>Accumulated checkout charges</span>
-                    <span>GHS {Number(checkoutFolio.total_charges).toFixed(2)}</span>
-                  </div>
-                  {checkoutFolio.items?.length ? (
-                    <div className="divide-y divide-orange-200 rounded-lg border border-orange-200 bg-background">
-                      {checkoutFolio.items.map((item) => (
-                        <div key={item.id} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
-                          <span>{item.description}</span>
-                          <span className="shrink-0 font-medium">GHS {Number(item.total_amount).toFixed(2)}</span>
+                (() => {
+                  const accumulatedItems =
+                    checkoutFolio.items?.filter(
+                      (item) =>
+                        item.source_type !== "check_in" &&
+                        item.description !== "Room accommodation",
+                    ) || [];
+                  const accumulatedTotal = accumulatedItems.reduce(
+                    (sum, item) => sum + Number(item.total_amount || 0),
+                    0,
+                  );
+
+                  return (
+                    <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/60 p-3">
+                      <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                        <span>Accumulated checkout charges</span>
+                        <span>GHS {accumulatedTotal.toFixed(2)}</span>
+                      </div>
+                      {accumulatedItems.length ? (
+                        <div className="divide-y divide-orange-200 rounded-lg border border-orange-200 bg-background">
+                          {accumulatedItems.map((item) => (
+                            <div
+                              key={item.id || item.description}
+                              className="flex items-start justify-between gap-4 px-3 py-2 text-sm"
+                            >
+                              <span>{item.description}</span>
+                              <span className="shrink-0 font-medium">
+                                GHS {Number(item.total_amount).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No accumulated charges are due.
+                        </p>
+                      )}
+                      <p className="text-xs text-orange-900">
+                        Paid at check-in: GHS{" "}
+                        {Number(checkoutFolio.paid_amount).toFixed(2)} · Outstanding:
+                        GHS {Number(checkoutFolio.balance).toFixed(2)}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No accumulated charges are due.</p>
-                  )}
-                  <p className="text-xs text-orange-900">
-                    Paid at check-in: GHS {Number(checkoutFolio.paid_amount).toFixed(2)} · Outstanding: GHS {Number(checkoutFolio.balance).toFixed(2)}
-                  </p>
-                </div>
+                  );
+                })()
               ) : null}
               <div className="space-y-2">
                 <Label htmlFor="payment-amount">

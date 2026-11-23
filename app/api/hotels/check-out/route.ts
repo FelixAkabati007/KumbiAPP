@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
         `SELECT id, total_charges, paid_amount, balance,
                 GREATEST(
                   0,
-                  COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0)
+                  GREATEST(0, COALESCE(room_charge, 0) - COALESCE(paid_amount, 0))
+                  + COALESCE(service_charges, 0) + COALESCE(food_charges, 0) + COALESCE(other_charges, 0)
                   - GREATEST(0, COALESCE(paid_amount, 0) - COALESCE(room_charge, 0))
                 ) AS extras_outstanding
          FROM guest_folios WHERE reservation_id = $1::uuid FOR UPDATE`,
