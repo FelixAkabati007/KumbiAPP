@@ -834,14 +834,14 @@ function DashboardContent() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       aria-label="Split Workspaces"
-                      className="h-10 shrink-0 gap-1.5 rounded-2xl border-orange-200/90 bg-white/80 px-3 text-orange-800 shadow-sm hover:bg-orange-50 dark:border-orange-800 dark:bg-gray-800/80 dark:text-orange-200 dark:hover:bg-orange-950/40 text-xs sm:text-sm font-medium"
+                      className="h-10 shrink-0 gap-1.5 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-semibold shadow-md border-0 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 px-3.5 text-xs sm:text-sm transition-all focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
-                      <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+                      <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-white" />
                       <span>Split Views</span>
-                      <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                      <ChevronDown className="h-3.5 w-3.5 opacity-90 shrink-0 text-white" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
@@ -935,22 +935,18 @@ function DashboardContent() {
                     key={category}
                     type="button"
                     size="sm"
-                    variant={isActive ? "default" : "outline"}
+                    variant="default"
                     onClick={() => selectDashboardCategory(category)}
                     className={
                       isActive
-                        ? "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-semibold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all"
-                        : "shrink-0 whitespace-nowrap rounded-2xl bg-white/80 dark:bg-gray-800/80 border-orange-200 dark:border-orange-700/60 text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-orange-900/30 text-xs px-3.5 py-1.5 h-auto transition-all"
+                        ? "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white font-bold shadow-md border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all ring-2 ring-orange-600 ring-offset-2 dark:ring-offset-gray-900 scale-[1.02]"
+                        : "shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/90 text-white font-semibold shadow-sm border-transparent hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-xs px-3.5 py-1.5 h-auto transition-all opacity-95 hover:opacity-100"
                     }
                   >
-                    <IconComponent className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                    <IconComponent className="mr-1.5 h-3.5 w-3.5 shrink-0 text-white" />
                     <span>{label}</span>
                     <span
-                      className={
-                        isActive
-                          ? "ml-1.5 rounded-full bg-white/25 px-1.5 py-0.2 text-[10px] font-bold text-white tabular-nums"
-                          : "ml-1.5 rounded-full bg-orange-100 dark:bg-orange-950/60 px-1.5 py-0.2 text-[10px] font-bold text-orange-700 dark:text-orange-300 tabular-nums"
-                      }
+                      className="ml-1.5 rounded-full bg-white/25 px-1.5 py-0.2 text-[10px] font-bold text-white tabular-nums"
                     >
                       {count}
                     </span>

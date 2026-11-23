@@ -317,9 +317,14 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
       return;
     }
-  setCartPanelOpen(true);
-  setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
-  setCurrentOrder((prev) => {
+    // Only auto-open the cart panel on larger displays (>= 1024px / lg).
+    // On smaller displays, allow users to select or deselect menu items up to the limit,
+    // orders or number of times that they want before they manually click on the side checkout button.
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setCartPanelOpen(true);
+    }
+    setSessionItemQuantities((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }));
+    setCurrentOrder((prev) => {
   const existingItem = prev.find((orderItem) => orderItem.id === item.id);
 
       if (existingItem) {
@@ -1054,17 +1059,36 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
   })()}
   </div>
   {(sessionItemQuantities[item.id] ?? 0) > 0 && (
-    <button
-      type="button"
-      aria-label={`Decrease ${item.name} quantity`}
-      className="absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-background bg-orange-600 px-2 text-sm font-bold text-white shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-      onClick={(event) => {
-        event.stopPropagation();
-        updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1);
-      }}
+    <div
+      className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full bg-orange-600/95 text-white p-0.5 shadow-lg border-2 border-background backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
     >
-      {sessionItemQuantities[item.id]}
-    </button>
+      <button
+        type="button"
+        aria-label={`Decrease ${item.name} quantity`}
+        className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-700 active:scale-90 text-white font-bold transition focus:outline-none"
+        onClick={(event) => {
+          event.stopPropagation();
+          updateItemQuantity(item.id, (sessionItemQuantities[item.id] ?? 1) - 1);
+        }}
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className="px-1 text-xs font-bold tabular-nums min-w-[1.25rem] text-center">
+        {sessionItemQuantities[item.id]}
+      </span>
+      <button
+        type="button"
+        aria-label={`Increase ${item.name} quantity`}
+        className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-700 active:scale-90 text-white font-bold transition focus:outline-none"
+        onClick={(event) => {
+          event.stopPropagation();
+          addItemToOrder(item);
+        }}
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
   )}
   {!isItemAvailable(item) && (
   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
@@ -1116,12 +1140,18 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
         <div className="fixed bottom-4 right-4 z-40 lg:hidden">
           <Button
             type="button"
-            size="icon"
             aria-label={cartPanelOpen ? "Hide cart and receipt" : "Show cart and receipt"}
             onClick={() => setCartPanelOpen((open) => !open)}
-            className="size-12 rounded-full bg-orange-500 text-white shadow-xl hover:bg-orange-600"
+            className="h-12 px-4 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-2xl hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 flex items-center gap-2 font-semibold text-sm border border-orange-200/40"
           >
-            <PanelRight className="h-5 w-5" />
+            <ShoppingCart className="h-5 w-5" />
+            <span>Checkout</span>
+            {currentOrder.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white text-orange-600 px-1 text-xs font-bold tabular-nums shadow-sm">
+                {currentOrder.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+            <PanelRight className="h-4 w-4 opacity-80" />
           </Button>
         </div>
         <div

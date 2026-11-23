@@ -294,27 +294,27 @@ function ReceiptContent() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-100 dark:from-orange-950 dark:via-amber-950 dark:to-yellow-950 print:bg-white print:min-h-0">
-      <header className="static z-10 flex h-16 items-center gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 md:px-6 border-orange-200 dark:border-orange-700 print:hidden">
+      <header className="static z-10 flex min-h-14 sm:min-h-16 h-auto py-2 items-center justify-between gap-2 sm:gap-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 sm:px-4 md:px-6 border-orange-200 dark:border-orange-700 print:hidden flex-wrap sm:flex-nowrap">
         <Link
           href="/"
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity min-w-0 shrink"
         >
-          <ArrowLeft className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          <ArrowLeft className="h-5 w-5 shrink-0 text-orange-600 dark:text-orange-400" />
           <LogoDisplay size="sm" />
-          <Receipt className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          <Receipt className="h-5 w-5 sm:h-6 sm:w-6 shrink-0 text-orange-600 dark:text-orange-400 hidden xs:inline" />
+          <h1 className="text-sm sm:text-base md:text-lg font-bold text-gray-800 dark:text-gray-200 truncate">
             Receipt Generator
           </h1>
         </Link>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-2xl border border-orange-200/80 bg-white/70 p-1 text-xs dark:border-orange-800 dark:bg-gray-800/70 shadow-sm">
-            <span className="font-semibold text-orange-950 dark:text-orange-200 px-2 hidden sm:inline">
+        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-1 rounded-2xl border border-orange-200/80 bg-white/70 p-0.5 sm:p-1 text-xs dark:border-orange-800 dark:bg-gray-800/70 shadow-sm shrink-0">
+            <span className="font-semibold text-orange-950 dark:text-orange-200 px-1 sm:px-2 hidden md:inline text-[11px] sm:text-xs">
               Format:
             </span>
             <button
               type="button"
               onClick={() => handleSelectPrinterSize("58mm")}
-              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+              className={`rounded-xl px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold transition ${
                 printerSize === "58mm"
                   ? "bg-orange-500 text-white shadow-sm"
                   : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -326,7 +326,7 @@ function ReceiptContent() {
             <button
               type="button"
               onClick={() => handleSelectPrinterSize("80mm")}
-              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+              className={`rounded-xl px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold transition ${
                 printerSize === "80mm"
                   ? "bg-orange-500 text-white shadow-sm"
                   : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -338,14 +338,14 @@ function ReceiptContent() {
             <button
               type="button"
               onClick={() => handleSelectPrinterSize("standard")}
-              className={`rounded-xl px-2.5 py-1 font-semibold transition ${
+              className={`rounded-xl px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold transition ${
                 printerSize === "standard"
                   ? "bg-orange-500 text-white shadow-sm"
                   : "text-gray-700 hover:bg-orange-100 dark:text-gray-300 dark:hover:bg-gray-700"
               }`}
               title="Standard A4 or Letter office paper"
             >
-              Standard A4
+              <span className="hidden sm:inline">Standard </span>A4
             </button>
           </div>
 
@@ -354,10 +354,11 @@ function ReceiptContent() {
             disabled={!foundSale}
             aria-disabled={!foundSale}
             title={!foundSale ? "Search for a persisted transaction before printing" : "Print the validated receipt"}
-            className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-lg"
+            className="h-8 sm:h-9 px-2.5 sm:px-4 text-xs sm:text-sm rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white shadow-md font-semibold shrink-0"
           >
-            <Printer className="mr-2 h-4 w-4" />
-            Print Receipt
+            <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+            <span className="hidden xs:inline">Print Receipt</span>
+            <span className="xs:hidden">Print</span>
           </Button>
         </div>
       </header>
