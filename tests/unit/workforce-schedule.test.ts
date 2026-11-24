@@ -46,6 +46,8 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(normalizeScheduleClassification("labour")).toBe("Labour");
       expect(normalizeScheduleClassification("operations")).toBe("Operations");
       expect(normalizeScheduleClassification("finance")).toBe("Accounts/Finance");
+      expect(normalizeScheduleClassification("other")).toBe("Other");
+      expect(normalizeScheduleClassification("Other")).toBe("Other");
       expect(normalizeScheduleClassification("staff")).toBe("Staff");
       expect(normalizeScheduleClassification("")).toBe("Staff");
       expect(normalizeScheduleClassification(null)).toBe("Staff");
@@ -465,6 +467,111 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(fallbackSucceeded).toBe(true);
       expect(schedule.start_time).toBe("01:00");
       expect(schedule.end_time).toBe("23:59");
+    });
+
+    it("synchronizes Admin configured 02:01 reporting and 23:59 close from Screenshot 051110 to Waiter/Waitress role", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-waiter-051110",
+                user_role: "waiterWaitress",
+                user_name: "Service Waiter",
+                user_email: "waiter@kumbisaly.com",
+                staff_id: "sp-waiter-051110",
+                position: "Waiter/Waitress",
+                job_classification: "waiterWaitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-051110",
+                schedule_name: "Waiters/ Waitress",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "02:01:00",
+                end_time: "23:59:00",
+                reminder_minutes: 20,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule(
+        "u-waiter-051110",
+        undefined,
+        mockExecutor,
+        "waiterWaitress",
+        "Restaurant",
+      );
+      expect(schedule.schedule_name).toBe("Waiters/ Waitress");
+      expect(schedule.start_time).toBe("02:01");
+      expect(schedule.end_time).toBe("23:59");
+      expect(schedule.startTime).toBe("02:01");
+      expect(schedule.endTime).toBe("23:59");
+    });
+
+    it("synchronizes Other role when Admin configures schedule for Other classification", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-other-role",
+                user_role: "staff",
+                user_name: "Operational Other Staff",
+                user_email: "other@kumbisaly.com",
+                staff_id: "sp-other-role",
+                position: "Other",
+                job_classification: "Other",
+                department: "Operations",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-other-admin",
+                schedule_name: "Other Operational Roles Shift",
+                job_classification: "Other",
+                department: "Operations",
+                shift_period: "standard",
+                start_time: "02:01:00",
+                end_time: "23:59:00",
+                reminder_minutes: 20,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule(
+        "u-other-role",
+        undefined,
+        mockExecutor,
+        "staff",
+        "Operations",
+      );
+      expect(schedule.schedule_name).toBe("Other Operational Roles Shift");
+      expect(schedule.job_classification).toBe("Other");
+      expect(schedule.start_time).toBe("02:01");
+      expect(schedule.end_time).toBe("23:59");
+      expect(schedule.startTime).toBe("02:01");
+      expect(schedule.endTime).toBe("23:59");
     });
   });
 });

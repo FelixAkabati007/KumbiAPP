@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/api-auth";
 import { managementRoles } from "@/lib/roles";
 import {
   ensureDefaultWorkSchedules,
+  ensureWorkforceScheduleTables,
   VALID_SCHEDULE_CLASSIFICATIONS,
   VALID_SCHEDULE_DEPARTMENTS,
 } from "@/lib/workforce-schedule";
@@ -49,14 +50,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please enter valid check-in and check-out times in HH:MM format." }, { status: 400 });
   }
 
+  await ensureWorkforceScheduleTables().catch(() => undefined);
   const reminderMinutes = Math.max(0, Math.min(180, Number(body.reminderMinutes) || 20));
 
   const result = await query(
-    `INSERT INTO work_schedules (name, job_classification, department, shift_period, start_time, end_time, reminder_minutes, timezone, is_active)
-     VALUES ($1, $2, $3, $4, $5::time, $6::time, $7, 'Africa/Accra', true)
+    `INSERT INTO work_schedules (name, job_classification, department, shift_period, start_time, end_time, reminder_minutes, timezone, is_active, updated_at)
+     VALUES ($1, $2, $3, $4, $5::time, $6::time, $7, 'Africa/Accra', true, now())
      RETURNING id, name, job_classification, department, shift_period, start_time::text, end_time::text, reminder_minutes, is_active`,
     [name, jobClassification, department, shiftPeriod, startTime, endTime, reminderMinutes],
-  );
+  ).catch(async () => {
+    return query(
+      `INSERT INTO work_schedules (name, job_classification, department, shift_period, start_time, end_time, reminder_minutes, timezone, is_active)
+       VALUES ($1, $2, $3, $4, $5::time, $6::time, $7, 'Africa/Accra', true)
+       RETURNING id, name, job_classification, department, shift_period, start_time::text, end_time::text, reminder_minutes, is_active`,
+      [name, jobClassification, department, shiftPeriod, startTime, endTime, reminderMinutes],
+    );
+  });
   return NextResponse.json({ schedule: result.rows[0] }, { status: 201 });
 }
 
@@ -89,6 +98,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Please provide valid schedule name, department, role, and shift times." }, { status: 400 });
   }
 
+  await ensureWorkforceScheduleTables().catch(() => undefined);
   const reminderMinutes = Math.max(0, Math.min(180, Number(body.reminderMinutes) || 20));
   const isActive = typeof body.isActive === "boolean" ? body.isActive : true;
 
@@ -99,7 +109,16 @@ export async function PATCH(request: Request) {
      WHERE id = $9
      RETURNING id, name, job_classification, department, shift_period, start_time::text, end_time::text, reminder_minutes, is_active`,
     [name, department, jobClassification, shiftPeriod, startTime, endTime, reminderMinutes, isActive, body.id],
-  );
+  ).catch(async () => {
+    return query(
+      `UPDATE work_schedules
+       SET name = $1, department = $2, job_classification = $3, shift_period = $4,
+           start_time = $5::time, end_time = $6::time, reminder_minutes = $7, is_active = $8
+       WHERE id = $9
+       RETURNING id, name, job_classification, department, shift_period, start_time::text, end_time::text, reminder_minutes, is_active`,
+      [name, department, jobClassification, shiftPeriod, startTime, endTime, reminderMinutes, isActive, body.id],
+    );
+  });
 
   if (!result.rowCount) {
     return NextResponse.json({ error: "Schedule not found." }, { status: 404 });

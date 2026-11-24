@@ -134,6 +134,7 @@ export const VALID_SCHEDULE_DEPARTMENTS = [
 export function normalizeScheduleClassification(roleOrClassification?: string | null): string {
   if (!roleOrClassification) return "Staff";
   const norm = roleOrClassification.trim().toLowerCase();
+  if (norm === "other" || norm.includes("other")) return "Other";
   if (norm === "restaurantfrontdesk" || norm === "restaurantpos" || norm.includes("restaurant front") || norm.includes("pos") || norm.includes("cashier")) return "Restaurant Front Desk / POS";
   if (norm === "kitchen" || norm === "chef" || norm.includes("cook") || norm.includes("kitchen") || norm.includes("chef")) return "Chef";
   if (norm === "frontdesk" || norm === "reception" || norm.includes("front desk") || norm.includes("frontdesk") || norm.includes("reception")) return "Reception";
@@ -173,14 +174,16 @@ export async function ensureWorkforceScheduleTables(
             is_active BOOLEAN NOT NULL DEFAULT true,
             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+          )
+        `).catch(() => undefined);
 
-          ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
-          ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS shift_period VARCHAR(20) NOT NULL DEFAULT 'standard';
-          ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS reminder_minutes INTEGER NOT NULL DEFAULT 20;
-          ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Accra';
+        await executor(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP`).catch(() => undefined);
+        await executor(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`).catch(() => undefined);
+        await executor(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS shift_period VARCHAR(20) NOT NULL DEFAULT 'standard'`).catch(() => undefined);
+        await executor(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS reminder_minutes INTEGER NOT NULL DEFAULT 20`).catch(() => undefined);
+        await executor(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Accra'`).catch(() => undefined);
 
+        await executor(`
           CREATE TABLE IF NOT EXISTS staff_schedule_assignments (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             staff_id UUID NOT NULL,
@@ -189,12 +192,12 @@ export async function ensureWorkforceScheduleTables(
             status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
+          )
+        `).catch(() => undefined);
 
-          CREATE INDEX IF NOT EXISTS idx_work_schedules_classification ON work_schedules(job_classification, is_active);
-          CREATE INDEX IF NOT EXISTS idx_work_schedules_department ON work_schedules(department, is_active);
-          CREATE INDEX IF NOT EXISTS idx_staff_schedule_assignments_date ON staff_schedule_assignments(work_date, status);
-        `);
+        await executor(`CREATE INDEX IF NOT EXISTS idx_work_schedules_classification ON work_schedules(job_classification, is_active)`).catch(() => undefined);
+        await executor(`CREATE INDEX IF NOT EXISTS idx_work_schedules_department ON work_schedules(department, is_active)`).catch(() => undefined);
+        await executor(`CREATE INDEX IF NOT EXISTS idx_staff_schedule_assignments_date ON staff_schedule_assignments(work_date, status)`).catch(() => undefined);
       } catch (err) {
         console.warn("[workforce-schedule] DDL initialization warning:", err);
       }
@@ -379,16 +382,18 @@ export async function resolveWorkforceSchedule(
       COALESCE(s.reminder_minutes, 20) AS reminder_minutes,
       'default' AS assignment_status
     FROM work_schedules s
-    WHERE s.is_active = true
-      AND (
-        -- 1. Specific role / classification match (exact or flexible)
-        LOWER(TRIM(s.job_classification)) = LOWER(TRIM($4))
-        OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($3))
-        OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6))
-        OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g'))
-        OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g'))
-        OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($6, '[^a-z0-9]', '', 'g'))
-        OR (
+    WHERE COALESCE(s.is_active, true) = true
+    ORDER BY
+      -- Match relevance score:
+      CASE
+        -- 1. Exact role / classification match (exact, trimmed, or alphanumeric normalized)
+        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g')) THEN 100
+        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g')) THEN 100
+        WHEN LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6)) THEN 100
+        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($6, '[^a-z0-9]', '', 'g')) THEN 100
+        -- 2. Flexible role keyword match
+        WHEN LOWER(s.job_classification) LIKE CONCAT('%', LOWER(TRIM($4)), '%') THEN 90
+        WHEN (
           (LOWER($3) = 'waiterwaitress' OR LOWER($4) = 'waiter/waitress' OR LOWER($6) LIKE '%waiter%' OR LOWER($6) LIKE '%waitress%' OR LOWER($6) LIKE '%server%')
           AND (
             LOWER(s.job_classification) LIKE '%waiter%'
@@ -398,8 +403,8 @@ export async function resolveWorkforceSchedule(
             OR LOWER(s.name) LIKE '%waitress%'
             OR LOWER(s.name) LIKE '%server%'
           )
-        )
-        OR (
+        ) THEN 90
+        WHEN (
           (LOWER($3) IN ('kitchen', 'chef') OR LOWER($4) = 'chef' OR LOWER($6) LIKE '%chef%' OR LOWER($6) LIKE '%cook%' OR LOWER($6) LIKE '%kitchen%')
           AND (
             LOWER(s.job_classification) LIKE '%chef%'
@@ -408,8 +413,8 @@ export async function resolveWorkforceSchedule(
             OR LOWER(s.name) LIKE '%chef%'
             OR LOWER(s.name) LIKE '%kitchen%'
           )
-        )
-        OR (
+        ) THEN 90
+        WHEN (
           (LOWER($3) IN ('frontdesk', 'reception') OR LOWER($4) = 'reception' OR LOWER($6) LIKE '%reception%' OR LOWER($6) LIKE '%front desk%' OR LOWER($6) LIKE '%frontdesk%')
           AND (
             LOWER(s.job_classification) LIKE '%reception%'
@@ -418,8 +423,8 @@ export async function resolveWorkforceSchedule(
             OR LOWER(s.name) LIKE '%reception%'
             OR LOWER(s.name) LIKE '%front desk%'
           )
-        )
-        OR (
+        ) THEN 90
+        WHEN (
           (LOWER($3) = 'restaurantfrontdesk' OR LOWER($4) = 'restaurant front desk / pos' OR LOWER($6) LIKE '%pos%' OR LOWER($6) LIKE '%cashier%')
           AND (
             LOWER(s.job_classification) LIKE '%pos%'
@@ -428,8 +433,8 @@ export async function resolveWorkforceSchedule(
             OR LOWER(s.name) LIKE '%pos%'
             OR LOWER(s.name) LIKE '%cashier%'
           )
-        )
-        OR (
+        ) THEN 90
+        WHEN (
           (LOWER($3) = 'housekeeping' OR LOWER($4) = 'housekeeping' OR LOWER($6) LIKE '%housekeep%' OR LOWER($6) LIKE '%clean%')
           AND (
             LOWER(s.job_classification) LIKE '%housekeep%'
@@ -438,68 +443,36 @@ export async function resolveWorkforceSchedule(
             OR LOWER(s.name) LIKE '%housekeep%'
             OR LOWER(s.name) LIKE '%clean%'
           )
-        )
-        OR (
+        ) THEN 90
+        WHEN (
           (LOWER($4) = 'security' OR LOWER($6) LIKE '%secur%' OR LOWER($6) LIKE '%guard%')
-          AND (
-            LOWER(s.job_classification) LIKE '%secur%'
-            OR LOWER(s.job_classification) LIKE '%guard%'
-            OR LOWER(s.name) LIKE '%secur%'
-          )
-        )
-        OR (
+          AND (LOWER(s.job_classification) LIKE '%secur%' OR LOWER(s.job_classification) LIKE '%guard%' OR LOWER(s.name) LIKE '%secur%')
+        ) THEN 90
+        WHEN (
           (LOWER($4) = 'labour' OR LOWER($6) LIKE '%labour%' OR LOWER($6) LIKE '%labor%' OR LOWER($6) LIKE '%maint%')
-          AND (
-            LOWER(s.job_classification) LIKE '%labour%'
-            OR LOWER(s.job_classification) LIKE '%labor%'
-            OR LOWER(s.job_classification) LIKE '%maint%'
-            OR LOWER(s.name) LIKE '%labour%'
-            OR LOWER(s.name) LIKE '%maint%'
-          )
-        )
-        OR (
-          (LOWER($3) = 'staff' OR LOWER($4) = 'staff' OR LOWER($6) LIKE '%staff%')
-          AND (
-            LOWER(s.job_classification) LIKE '%staff%'
-            OR LOWER(s.name) LIKE '%staff%'
-          )
-        )
-        -- 2. Department-wide schedule fallback:
-        OR (
-          LOWER(TRIM(s.department)) = LOWER(TRIM($5))
-          OR LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%')
-          OR LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%')
-        )
-      )
-    ORDER BY
-      -- Role match ranking:
-      CASE
-        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g')) THEN 0
-        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g')) THEN 0
-        WHEN LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6)) THEN 0
-        WHEN LOWER(s.job_classification) LIKE CONCAT('%', LOWER(TRIM($4)), '%') THEN 1
+          AND (LOWER(s.job_classification) LIKE '%labour%' OR LOWER(s.job_classification) LIKE '%labor%' OR LOWER(s.job_classification) LIKE '%maint%' OR LOWER(s.name) LIKE '%labour%' OR LOWER(s.name) LIKE '%maint%')
+        ) THEN 90
         WHEN (
-          (LOWER($3) = 'waiterwaitress' OR LOWER($4) = 'waiter/waitress')
-          AND (LOWER(s.job_classification) LIKE '%waiter%' OR LOWER(s.job_classification) LIKE '%waitress%' OR LOWER(s.name) LIKE '%waiter%' OR LOWER(s.name) LIKE '%waitress%')
-        ) THEN 1
-        WHEN (
-          (LOWER($3) IN ('kitchen', 'chef') OR LOWER($4) = 'chef')
-          AND (LOWER(s.job_classification) LIKE '%chef%' OR LOWER(s.job_classification) LIKE '%cook%' OR LOWER(s.name) LIKE '%chef%')
-        ) THEN 1
-        WHEN (
-          (LOWER($3) IN ('frontdesk', 'reception') OR LOWER($4) = 'reception')
-          AND (LOWER(s.job_classification) LIKE '%reception%' OR LOWER(s.job_classification) LIKE '%front desk%' OR LOWER(s.name) LIKE '%reception%')
-        ) THEN 1
-        ELSE 2
-      END,
-      -- Department match ranking:
+          (LOWER($3) = 'other' OR LOWER($4) = 'other' OR LOWER($6) = 'other')
+          AND (LOWER(s.job_classification) = 'other' OR LOWER(s.name) LIKE '%other%')
+        ) THEN 90
+        -- 3. Department match
+        WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 70
+        WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 60
+        WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 60
+        -- 4. General "Other" / "Staff" schedule configured by Admin
+        WHEN LOWER(s.job_classification) = 'other' OR LOWER(s.job_classification) = 'staff' THEN 50
+        -- 5. Any active schedule in work_schedules
+        ELSE 10
+      END DESC,
+      -- Department tie-break:
       CASE
         WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0
         WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 1
         WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 1
         ELSE 2
-      END
-      ${includeUpdatedAt ? ", COALESCE(s.updated_at, s.created_at) DESC, s.created_at DESC" : ", s.created_at DESC"}
+      END,
+      ${includeUpdatedAt ? "COALESCE(s.updated_at, s.created_at) DESC, s.created_at DESC" : "s.created_at DESC"}
     LIMIT 1
   `;
 

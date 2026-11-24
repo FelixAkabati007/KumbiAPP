@@ -18,12 +18,15 @@ export async function POST(request: Request) {
     const inserted = await query(
       `WITH target AS (
          SELECT sp.user_id, COALESCE(s.name, CONCAT(sp.position, ' standard')) AS schedule_name,
-                COALESCE(s.start_time, CASE
-                  WHEN LOWER(COALESCE(sp.position, 'staff')) IN ('reception', 'front desk', 'frontdesk') THEN '07:00'::time
-                  WHEN LOWER(COALESCE(sp.position, 'staff')) = 'chef' THEN '08:00'::time
-                  ELSE '06:00'::time
-                END) AS start_time,
-                COALESCE(s.reminder_minutes, 20) AS reminder_minutes
+                COALESCE(
+                  s.start_time,
+                  (SELECT ws2.start_time FROM work_schedules ws2 WHERE ws2.is_active = true ORDER BY COALESCE(ws2.updated_at, ws2.created_at) DESC, ws2.created_at DESC LIMIT 1)
+                ) AS start_time,
+                COALESCE(
+                  s.reminder_minutes,
+                  (SELECT ws2.reminder_minutes FROM work_schedules ws2 WHERE ws2.is_active = true ORDER BY COALESCE(ws2.updated_at, ws2.created_at) DESC, ws2.created_at DESC LIMIT 1),
+                  20
+                ) AS reminder_minutes
          FROM staff_profiles sp
          LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = CURRENT_DATE AND a.status <> 'cancelled'
          LEFT JOIN LATERAL (
@@ -65,17 +68,20 @@ export async function POST(request: Request) {
                    AND (LOWER(ws.job_classification) LIKE '%labour%' OR LOWER(ws.job_classification) LIKE '%labor%' OR LOWER(ws.job_classification) LIKE '%maint%')
                  )
                  OR (
-                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'staff' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%staff%')
-                   AND (LOWER(ws.job_classification) LIKE '%staff%' OR LOWER(ws.name) LIKE '%staff%')
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'staff' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%staff%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'other')
+                   AND (LOWER(ws.job_classification) LIKE '%staff%' OR LOWER(ws.name) LIKE '%staff%' OR LOWER(ws.job_classification) LIKE '%other%' OR LOWER(ws.name) LIKE '%other%')
                  )
+                 OR LOWER(TRIM(ws.job_classification)) IN ('other', 'all', 'staff', 'general')
                ))
              )
            ORDER BY
              CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END,
              CASE
-               WHEN LOWER(TRIM(ws.department)) = LOWER(TRIM(COALESCE(sp.department, ''))) THEN 0
-               WHEN LOWER(TRIM(ws.department)) LIKE CONCAT('%', LOWER(TRIM(COALESCE(sp.department, ''))), '%') THEN 1
-               ELSE 2
+               WHEN LOWER(TRIM(ws.job_classification)) = LOWER(TRIM(COALESCE(sp.job_classification, sp.position, ''))) THEN 0
+               WHEN LOWER(REGEXP_REPLACE(ws.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE(COALESCE(sp.job_classification, sp.position, ''), '[^a-z0-9]', '', 'g')) THEN 1
+               WHEN LOWER(TRIM(ws.department)) = LOWER(TRIM(COALESCE(sp.department, ''))) THEN 2
+               WHEN LOWER(TRIM(ws.department)) LIKE CONCAT('%', LOWER(TRIM(COALESCE(sp.department, ''))), '%') THEN 3
+               ELSE 4
              END,
              COALESCE(ws.updated_at, ws.created_at) DESC,
              ws.created_at DESC
