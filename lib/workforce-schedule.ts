@@ -116,10 +116,17 @@ export const VALID_SCHEDULE_CLASSIFICATIONS = [
   "Staff",
   "Operations",
   "Accounts/Finance",
+  "Management",
   "Other",
 ] as const;
 
-export const VALID_SCHEDULE_DEPARTMENTS = ["Hotel", "Restaurant", "Operations"] as const;
+export const VALID_SCHEDULE_DEPARTMENTS = [
+  "Hotel",
+  "Restaurant",
+  "Operations",
+  "Hotel & Restaurant",
+  "Hotel Operations",
+] as const;
 
 /**
  * Normalizes any role or classification string to the canonical schedule classification.
@@ -271,7 +278,12 @@ export async function resolveWorkforceSchedule(
        )
      ORDER BY
        CASE WHEN a.id IS NOT NULL THEN 0 ELSE 1 END,
-       CASE WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0 ELSE 1 END,
+       CASE
+         WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0
+         WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 1
+         WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 1
+         ELSE 2
+       END,
        s.created_at ASC
      LIMIT 1`,
     [staffId || userIdOrStaffId, tsParam, role, canonicalClassification, department],

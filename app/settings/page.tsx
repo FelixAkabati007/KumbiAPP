@@ -162,7 +162,12 @@ function SettingsPageContent() {
   const [originalSettings, setOriginalSettings] = useState<AppSettings | null>(null);
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
-  const canManageStaff = isAdmin || isManager;
+  const canManageStaff =
+    isAdmin ||
+    isManager ||
+    user?.role === "hotelManager" ||
+    user?.role === "restaurantManager" ||
+    user?.role === "operationsManager";
   const canManageOperationalSettings = isAdmin || isManager;
   const canSaveSettings = isAdmin || isManager;
   const [featureToggles, setFeatureToggles] = useState({ kitchen_display: true, order_board: true, housekeeping_advanced: false });
