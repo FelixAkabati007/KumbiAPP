@@ -162,5 +162,105 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(waiterSchedule.endTime).toBe("21:00");
       expect(waiterSchedule.reminderMinutes).toBe(20);
     });
+
+    it("synchronizes custom waiter schedule from Settings with spaced classification ('Waiter / Waitress')", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string, params?: unknown[]) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-waiter-custom",
+                user_role: "waiterWaitress",
+                user_name: "Ama Waitress",
+                user_email: "ama@kumbi.com",
+                staff_id: "sp-waiter-custom",
+                position: "Waitress",
+                job_classification: "Waitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          // Verify that raw classification is passed as $6
+          expect(params).toHaveLength(6);
+          expect(params?.[2]).toBe("waiterWaitress");
+          expect(params?.[3]).toBe("Waiter/Waitress");
+          expect(params?.[5]).toBe("Waitress");
+          return {
+            rows: [
+              {
+                schedule_id: "sched-custom-waiter-1",
+                schedule_name: "Waiters and Waitress Shift",
+                job_classification: "Waiter / Waitress",
+                department: "Restaurant",
+                shift_period: "morning",
+                start_time: "07:00:00",
+                end_time: "16:00:00",
+                reminder_minutes: 15,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule("u-waiter-custom", undefined, mockExecutor);
+      expect(schedule.scheduleId).toBe("sched-custom-waiter-1");
+      expect(schedule.schedule_name).toBe("Waiters and Waitress Shift");
+      expect(schedule.job_classification).toBe("Waiter / Waitress");
+      expect(schedule.start_time).toBe("07:00");
+      expect(schedule.end_time).toBe("16:00");
+      expect(schedule.startTime).toBe("07:00");
+      expect(schedule.endTime).toBe("16:00");
+      expect(schedule.reminderMinutes).toBe(15);
+    });
+
+    it("synchronizes custom schedule for chef/cook variant from Settings", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-cook-1",
+                user_role: "kitchen",
+                user_name: "Kojo Cook",
+                user_email: "kojo@kumbi.com",
+                staff_id: "sp-cook-1",
+                position: "Line Cook",
+                job_classification: "Cook",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-cook-1",
+                schedule_name: "Kitchen Cook Shift",
+                job_classification: "Cook",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "06:30:00",
+                end_time: "15:30:00",
+                reminder_minutes: 30,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule("u-cook-1", undefined, mockExecutor);
+      expect(schedule.scheduleId).toBe("sched-cook-1");
+      expect(schedule.job_classification).toBe("Cook");
+      expect(schedule.startTime).toBe("06:30");
+      expect(schedule.endTime).toBe("15:30");
+      expect(schedule.reminderMinutes).toBe(30);
+    });
   });
 });

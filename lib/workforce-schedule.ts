@@ -134,15 +134,16 @@ export const VALID_SCHEDULE_DEPARTMENTS = [
 export function normalizeScheduleClassification(roleOrClassification?: string | null): string {
   if (!roleOrClassification) return "Staff";
   const norm = roleOrClassification.trim().toLowerCase();
-  if (norm === "kitchen" || norm === "chef") return "Chef";
-  if (norm === "frontdesk" || norm === "reception" || norm === "front desk" || norm === "frontdesk") return "Reception";
-  if (norm === "restaurantfrontdesk" || norm === "restaurantpos" || norm.includes("pos") || norm.includes("cashier")) return "Restaurant Front Desk / POS";
-  if (norm === "waiterwaitress" || norm.includes("waiter") || norm.includes("waitress")) return "Waiter/Waitress";
-  if (norm === "housekeeping") return "Housekeeping";
-  if (norm === "security") return "Security";
-  if (norm === "labour" || norm === "labourer") return "Labour";
-  if (norm === "operations" || norm === "operationsmanager") return "Operations";
-  if (norm === "finance" || norm.includes("finance")) return "Accounts/Finance";
+  if (norm === "restaurantfrontdesk" || norm === "restaurantpos" || norm.includes("restaurant front") || norm.includes("pos") || norm.includes("cashier")) return "Restaurant Front Desk / POS";
+  if (norm === "kitchen" || norm === "chef" || norm.includes("cook") || norm.includes("kitchen") || norm.includes("chef")) return "Chef";
+  if (norm === "frontdesk" || norm === "reception" || norm.includes("front desk") || norm.includes("frontdesk") || norm.includes("reception")) return "Reception";
+  if (norm === "waiterwaitress" || norm.includes("waiter") || norm.includes("waitress") || norm.includes("server")) return "Waiter/Waitress";
+  if (norm.includes("housekeep") || norm.includes("clean") || norm.includes("maid") || norm.includes("laundry")) return "Housekeeping";
+  if (norm.includes("secur") || norm.includes("guard") || norm.includes("watchman")) return "Security";
+  if (norm.includes("labour") || norm.includes("labor") || norm.includes("maint") || norm.includes("janitor") || norm.includes("handyman")) return "Labour";
+  if (norm.includes("operat")) return "Operations";
+  if (norm.includes("financ") || norm.includes("account")) return "Accounts/Finance";
+  if (norm.includes("manage")) return "Management";
   return "Staff";
 }
 
@@ -269,24 +270,106 @@ export async function resolveWorkforceSchedule(
          a.id IS NOT NULL
          OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($4))
          OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($3))
-         OR (LOWER($3) IN ('kitchen', 'chef') AND LOWER(TRIM(s.job_classification)) = 'chef')
-         OR (LOWER($3) IN ('frontdesk', 'reception') AND LOWER(TRIM(s.job_classification)) = 'reception')
-         OR (LOWER($3) = 'restaurantfrontdesk' AND LOWER(TRIM(s.job_classification)) = 'restaurant front desk / pos')
-         OR (LOWER($3) = 'waiterwaitress' AND LOWER(TRIM(s.job_classification)) = 'waiter/waitress')
-         OR (LOWER($3) = 'housekeeping' AND LOWER(TRIM(s.job_classification)) = 'housekeeping')
-         OR (LOWER($3) = 'staff' AND LOWER(TRIM(s.job_classification)) = 'staff')
+         OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6))
+         OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g'))
+         OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g'))
+         OR LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($6, '[^a-z0-9]', '', 'g'))
+         OR (
+           (LOWER($3) = 'waiterwaitress' OR LOWER($4) = 'waiter/waitress' OR LOWER($6) LIKE '%waiter%' OR LOWER($6) LIKE '%waitress%' OR LOWER($6) LIKE '%server%')
+           AND (
+             LOWER(s.job_classification) LIKE '%waiter%'
+             OR LOWER(s.job_classification) LIKE '%waitress%'
+             OR LOWER(s.job_classification) LIKE '%server%'
+             OR LOWER(s.name) LIKE '%waiter%'
+             OR LOWER(s.name) LIKE '%waitress%'
+             OR LOWER(s.name) LIKE '%server%'
+           )
+         )
+         OR (
+           (LOWER($3) IN ('kitchen', 'chef') OR LOWER($4) = 'chef' OR LOWER($6) LIKE '%chef%' OR LOWER($6) LIKE '%cook%' OR LOWER($6) LIKE '%kitchen%')
+           AND (
+             LOWER(s.job_classification) LIKE '%chef%'
+             OR LOWER(s.job_classification) LIKE '%kitchen%'
+             OR LOWER(s.job_classification) LIKE '%cook%'
+             OR LOWER(s.name) LIKE '%chef%'
+             OR LOWER(s.name) LIKE '%kitchen%'
+           )
+         )
+         OR (
+           (LOWER($3) IN ('frontdesk', 'reception') OR LOWER($4) = 'reception' OR LOWER($6) LIKE '%reception%' OR LOWER($6) LIKE '%front desk%' OR LOWER($6) LIKE '%frontdesk%')
+           AND (
+             LOWER(s.job_classification) LIKE '%reception%'
+             OR LOWER(s.job_classification) LIKE '%front desk%'
+             OR LOWER(s.job_classification) LIKE '%frontdesk%'
+             OR LOWER(s.name) LIKE '%reception%'
+             OR LOWER(s.name) LIKE '%front desk%'
+           )
+         )
+         OR (
+           (LOWER($3) = 'restaurantfrontdesk' OR LOWER($4) = 'restaurant front desk / pos' OR LOWER($6) LIKE '%pos%' OR LOWER($6) LIKE '%cashier%')
+           AND (
+             LOWER(s.job_classification) LIKE '%pos%'
+             OR LOWER(s.job_classification) LIKE '%cashier%'
+             OR LOWER(s.job_classification) LIKE '%restaurant front desk%'
+             OR LOWER(s.name) LIKE '%pos%'
+             OR LOWER(s.name) LIKE '%cashier%'
+           )
+         )
+         OR (
+           (LOWER($3) = 'housekeeping' OR LOWER($4) = 'housekeeping' OR LOWER($6) LIKE '%housekeep%' OR LOWER($6) LIKE '%clean%')
+           AND (
+             LOWER(s.job_classification) LIKE '%housekeep%'
+             OR LOWER(s.job_classification) LIKE '%clean%'
+             OR LOWER(s.job_classification) LIKE '%laundry%'
+             OR LOWER(s.name) LIKE '%housekeep%'
+             OR LOWER(s.name) LIKE '%clean%'
+           )
+         )
+         OR (
+           (LOWER($4) = 'security' OR LOWER($6) LIKE '%secur%' OR LOWER($6) LIKE '%guard%')
+           AND (
+             LOWER(s.job_classification) LIKE '%secur%'
+             OR LOWER(s.job_classification) LIKE '%guard%'
+             OR LOWER(s.name) LIKE '%secur%'
+           )
+         )
+         OR (
+           (LOWER($4) = 'labour' OR LOWER($6) LIKE '%labour%' OR LOWER($6) LIKE '%labor%' OR LOWER($6) LIKE '%maint%')
+           AND (
+             LOWER(s.job_classification) LIKE '%labour%'
+             OR LOWER(s.job_classification) LIKE '%labor%'
+             OR LOWER(s.job_classification) LIKE '%maint%'
+             OR LOWER(s.name) LIKE '%labour%'
+             OR LOWER(s.name) LIKE '%maint%'
+           )
+         )
+         OR (
+           (LOWER($3) = 'staff' OR LOWER($4) = 'staff' OR LOWER($6) LIKE '%staff%')
+           AND (
+             LOWER(s.job_classification) LIKE '%staff%'
+             OR LOWER(s.name) LIKE '%staff%'
+           )
+         )
        )
      ORDER BY
        CASE WHEN a.id IS NOT NULL THEN 0 ELSE 1 END,
+       CASE
+         WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g')) THEN 0
+         WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g')) THEN 0
+         WHEN LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6)) THEN 0
+         WHEN LOWER(s.job_classification) LIKE CONCAT('%', LOWER(TRIM($4)), '%') THEN 1
+         ELSE 2
+       END,
        CASE
          WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0
          WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 1
          WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 1
          ELSE 2
        END,
-       s.created_at ASC
+       COALESCE(s.updated_at, s.created_at) DESC,
+       s.created_at DESC
      LIMIT 1`,
-    [staffId || userIdOrStaffId, tsParam, role, canonicalClassification, department],
+    [staffId || userIdOrStaffId, tsParam, role, canonicalClassification, department, rawClassification],
   ).catch(() => ({ rows: [] }));
 
   const row = scheduleRes.rows[0];

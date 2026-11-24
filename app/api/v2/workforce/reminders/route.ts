@@ -37,15 +37,50 @@ export async function POST(request: Request) {
                OR (a.schedule_id IS NULL AND (
                  LOWER(TRIM(ws.job_classification)) = LOWER(TRIM(COALESCE(sp.job_classification, '')))
                  OR LOWER(TRIM(ws.job_classification)) = LOWER(TRIM(COALESCE(sp.position, '')))
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('kitchen', 'chef') AND LOWER(TRIM(ws.job_classification)) = 'chef')
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('frontdesk', 'reception', 'front desk') AND LOWER(TRIM(ws.job_classification)) = 'reception')
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('restaurantfrontdesk', 'restaurantpos') AND LOWER(TRIM(ws.job_classification)) = 'restaurant front desk / pos')
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('waiterwaitress', 'waiter', 'waitress') AND LOWER(TRIM(ws.job_classification)) = 'waiter/waitress')
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'housekeeping' AND LOWER(TRIM(ws.job_classification)) = 'housekeeping')
-                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'staff' AND LOWER(TRIM(ws.job_classification)) = 'staff')
+                 OR LOWER(REGEXP_REPLACE(ws.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE(COALESCE(sp.job_classification, sp.position, ''), '[^a-z0-9]', '', 'g'))
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('waiterwaitress', 'waiter', 'waitress', 'server') OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%waiter%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%waitress%')
+                   AND (LOWER(ws.job_classification) LIKE '%waiter%' OR LOWER(ws.job_classification) LIKE '%waitress%' OR LOWER(ws.job_classification) LIKE '%server%' OR LOWER(ws.name) LIKE '%waiter%' OR LOWER(ws.name) LIKE '%waitress%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('kitchen', 'chef') OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%chef%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%cook%')
+                   AND (LOWER(ws.job_classification) LIKE '%chef%' OR LOWER(ws.job_classification) LIKE '%kitchen%' OR LOWER(ws.job_classification) LIKE '%cook%' OR LOWER(ws.name) LIKE '%chef%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('frontdesk', 'reception', 'front desk') OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%reception%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%front desk%')
+                   AND (LOWER(ws.job_classification) LIKE '%reception%' OR LOWER(ws.job_classification) LIKE '%front desk%' OR LOWER(ws.job_classification) LIKE '%frontdesk%' OR LOWER(ws.name) LIKE '%reception%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('restaurantfrontdesk', 'restaurantpos') OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%pos%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%cashier%')
+                   AND (LOWER(ws.job_classification) LIKE '%pos%' OR LOWER(ws.job_classification) LIKE '%cashier%' OR LOWER(ws.job_classification) LIKE '%restaurant front desk%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%housekeep%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%clean%')
+                   AND (LOWER(ws.job_classification) LIKE '%housekeep%' OR LOWER(ws.job_classification) LIKE '%clean%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%secur%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%guard%')
+                   AND (LOWER(ws.job_classification) LIKE '%secur%' OR LOWER(ws.job_classification) LIKE '%guard%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%labour%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%labor%' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%maint%')
+                   AND (LOWER(ws.job_classification) LIKE '%labour%' OR LOWER(ws.job_classification) LIKE '%labor%' OR LOWER(ws.job_classification) LIKE '%maint%')
+                 )
+                 OR (
+                   (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'staff' OR LOWER(COALESCE(sp.job_classification, sp.position, '')) LIKE '%staff%')
+                   AND (LOWER(ws.job_classification) LIKE '%staff%' OR LOWER(ws.name) LIKE '%staff%')
+                 )
                ))
              )
-           ORDER BY CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END, ws.created_at ASC
+           ORDER BY
+             CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END,
+             CASE
+               WHEN LOWER(TRIM(ws.department)) = LOWER(TRIM(COALESCE(sp.department, ''))) THEN 0
+               WHEN LOWER(TRIM(ws.department)) LIKE CONCAT('%', LOWER(TRIM(COALESCE(sp.department, ''))), '%') THEN 1
+               ELSE 2
+             END,
+             COALESCE(ws.updated_at, ws.created_at) DESC,
+             ws.created_at DESC
            LIMIT 1
          ) s ON true
          WHERE sp.user_id = $1 OR sp.id = $1
