@@ -61,9 +61,9 @@ export default function StaffPage() {
 
   async function load() {
     const [attendanceResponse, scheduleResponse, featureResponse] = await Promise.all([
-      fetch("/api/v2/attendance"),
-      fetch("/api/workforce/schedule"),
-      fetch("/api/attendance/feature-permissions"),
+      fetch("/api/v2/attendance", { cache: "no-store" }),
+      fetch("/api/workforce/schedule", { cache: "no-store" }),
+      fetch("/api/attendance/feature-permissions", { cache: "no-store" }),
     ]);
     if (attendanceResponse.ok) {
       const attendance = await attendanceResponse.json();

@@ -262,5 +262,110 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(schedule.endTime).toBe("15:30");
       expect(schedule.reminderMinutes).toBe(30);
     });
+
+    it("synchronizes administrative 01:00 - 23:59 schedule to Waiter/Waitress attendance matching Screenshot 2", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "00000000-0000-4000-8000-000000000009",
+                user_role: "waiterWaitress",
+                user_name: "Service Waiter",
+                user_email: "waiter@kumbisaly.com",
+                staff_id: "sp-waiter-009",
+                position: "Waiter/Waitress",
+                job_classification: "waiterWaitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-waiter-admin-0100",
+                schedule_name: "Waiters/ Waitress",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "01:00:00",
+                end_time: "23:59:00",
+                reminder_minutes: 20,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule(
+        "00000000-0000-4000-8000-000000000009",
+        undefined,
+        mockExecutor,
+        "waiterWaitress",
+        "Restaurant",
+      );
+      expect(schedule.schedule_name).toBe("Waiters/ Waitress");
+      expect(schedule.job_classification).toBe("Waiter/Waitress");
+      expect(schedule.department).toBe("Restaurant");
+      expect(schedule.start_time).toBe("01:00");
+      expect(schedule.end_time).toBe("23:59");
+      expect(schedule.startTime).toBe("01:00");
+      expect(schedule.endTime).toBe("23:59");
+    });
+
+    it("allows departmental schedule in Settings to affect all staff roles in that department", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-server-dept",
+                user_role: "waiterWaitress",
+                user_name: "Restaurant Server",
+                user_email: "server@kumbisaly.com",
+                staff_id: "sp-server-dept",
+                position: "Server",
+                job_classification: "Server",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-dept-restaurant",
+                schedule_name: "Restaurant Department General Schedule",
+                job_classification: "Other",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "07:00:00",
+                end_time: "22:00:00",
+                reminder_minutes: 30,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule(
+        "u-server-dept",
+        undefined,
+        mockExecutor,
+        "waiterWaitress",
+        "Restaurant",
+      );
+      expect(schedule.schedule_name).toBe("Restaurant Department General Schedule");
+      expect(schedule.department).toBe("Restaurant");
+      expect(schedule.start_time).toBe("07:00");
+      expect(schedule.end_time).toBe("22:00");
+    });
   });
 });

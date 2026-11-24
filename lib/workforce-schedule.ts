@@ -161,8 +161,12 @@ export async function ensureDefaultWorkSchedules(
          SELECT $1, $2, $3, $4, $5::time, $6::time, $7, 'Africa/Accra', true
          WHERE NOT EXISTS (
            SELECT 1 FROM work_schedules
-           WHERE LOWER(TRIM(job_classification)) = LOWER(TRIM($2))
-             AND LOWER(TRIM(department)) = LOWER(TRIM($3))
+           WHERE LOWER(REGEXP_REPLACE(job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($2, '[^a-z0-9]', '', 'g'))
+             AND (
+               LOWER(TRIM(department)) = LOWER(TRIM($3))
+               OR LOWER(TRIM(department)) LIKE CONCAT('%', LOWER(TRIM($3)), '%')
+               OR LOWER(TRIM($3)) LIKE CONCAT('%', LOWER(TRIM(department)), '%')
+             )
          )`,
         [s.name, s.jobClassification, s.department, s.shiftPeriod, s.startTime, s.endTime, s.reminderMinutes],
       ).catch(() => undefined);
@@ -204,6 +208,8 @@ export async function resolveWorkforceSchedule(
   userIdOrStaffId: string,
   referenceTimestamp?: string | Date,
   executor: WorkforceQueryExecutor = query as unknown as WorkforceQueryExecutor,
+  fallbackRole?: string,
+  fallbackDepartment?: string,
 ): Promise<WorkforceSchedule> {
   const tsParam = referenceTimestamp
     ? typeof referenceTimestamp === "string"
@@ -217,17 +223,20 @@ export async function resolveWorkforceSchedule(
             sp.id AS staff_id, sp.position, sp.job_classification, sp.department
      FROM users u
      LEFT JOIN staff_profiles sp ON sp.user_id = u.id
-     WHERE u.id = $1 OR sp.id = $1
-     ORDER BY CASE WHEN u.id = $1 THEN 0 ELSE 1 END
+     WHERE u.id::text = $1::text OR sp.id::text = $1::text
+     ORDER BY CASE WHEN u.id::text = $1::text THEN 0 ELSE 1 END
      LIMIT 1`,
     [userIdOrStaffId],
-  ).catch(() => ({ rows: [] }));
+  ).catch((err) => {
+    console.warn("[workforce-schedule] Profile lookup warning:", err);
+    return { rows: [] };
+  });
 
   const user = profileRes.rows[0];
-  const role: UserRole = (user?.user_role as UserRole) || "staff";
-  const rawClassification = user?.job_classification || user?.position || role;
+  const role: UserRole = (user?.user_role as UserRole) || (fallbackRole as UserRole) || "staff";
+  const rawClassification = user?.job_classification || user?.position || fallbackRole || role;
   const canonicalClassification = normalizeScheduleClassification(rawClassification);
-  const department = user?.department || (canonicalClassification === "Reception" || canonicalClassification === "Housekeeping" ? "Hotel" : "Restaurant");
+  const department = user?.department || fallbackDepartment || (canonicalClassification === "Reception" || canonicalClassification === "Housekeeping" ? "Hotel" : "Restaurant");
 
   // If staff profile is missing in DB for this user, attempt to provision it
   let staffId = user?.staff_id;
@@ -247,7 +256,7 @@ export async function resolveWorkforceSchedule(
   }
 
   // 2. Query work_schedules:
-  // Check individual assignment first, then match the active rule defined in Settings -> Staff time schedules
+  // Check individual assignment first, then match specific role or departmental schedule defined in Settings -> Staff time schedules
   const scheduleRes = await executor(
     `SELECT
        s.id AS schedule_id,
@@ -262,12 +271,14 @@ export async function resolveWorkforceSchedule(
      FROM work_schedules s
      LEFT JOIN staff_schedule_assignments a
        ON a.schedule_id = s.id
-      AND a.staff_id = $1
+      AND a.staff_id::text = $1::text
       AND a.work_date = ${propertyDayExpression("$2::timestamptz")}
       AND a.status <> 'cancelled'
      WHERE s.is_active = true
        AND (
+         -- 1. Daily individual assignment
          a.id IS NOT NULL
+         -- 2. Specific role / classification match (exact or flexible)
          OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($4))
          OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($3))
          OR LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6))
@@ -350,16 +361,36 @@ export async function resolveWorkforceSchedule(
              OR LOWER(s.name) LIKE '%staff%'
            )
          )
+         -- 3. Department-wide schedule fallback:
+         OR (
+           LOWER(TRIM(s.department)) = LOWER(TRIM($5))
+           OR LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%')
+           OR LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%')
+         )
        )
      ORDER BY
        CASE WHEN a.id IS NOT NULL THEN 0 ELSE 1 END,
+       -- Role match ranking:
        CASE
          WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g')) THEN 0
          WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g')) THEN 0
          WHEN LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6)) THEN 0
          WHEN LOWER(s.job_classification) LIKE CONCAT('%', LOWER(TRIM($4)), '%') THEN 1
+         WHEN (
+           (LOWER($3) = 'waiterwaitress' OR LOWER($4) = 'waiter/waitress')
+           AND (LOWER(s.job_classification) LIKE '%waiter%' OR LOWER(s.job_classification) LIKE '%waitress%' OR LOWER(s.name) LIKE '%waiter%' OR LOWER(s.name) LIKE '%waitress%')
+         ) THEN 1
+         WHEN (
+           (LOWER($3) IN ('kitchen', 'chef') OR LOWER($4) = 'chef')
+           AND (LOWER(s.job_classification) LIKE '%chef%' OR LOWER(s.job_classification) LIKE '%cook%' OR LOWER(s.name) LIKE '%chef%')
+         ) THEN 1
+         WHEN (
+           (LOWER($3) IN ('frontdesk', 'reception') OR LOWER($4) = 'reception')
+           AND (LOWER(s.job_classification) LIKE '%reception%' OR LOWER(s.job_classification) LIKE '%front desk%' OR LOWER(s.name) LIKE '%reception%')
+         ) THEN 1
          ELSE 2
        END,
+       -- Department match ranking:
        CASE
          WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0
          WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 1
@@ -370,7 +401,10 @@ export async function resolveWorkforceSchedule(
        s.created_at DESC
      LIMIT 1`,
     [staffId || userIdOrStaffId, tsParam, role, canonicalClassification, department, rawClassification],
-  ).catch(() => ({ rows: [] }));
+  ).catch((err) => {
+    console.warn("[workforce-schedule] Schedule lookup warning:", err);
+    return { rows: [] };
+  });
 
   const row = scheduleRes.rows[0];
 
