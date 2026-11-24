@@ -94,12 +94,15 @@ export function FeaturePermissionsModal({
 
       if (!res.ok) throw new Error("Failed to save permissions");
       const data = await res.json();
-      setPermissions(data.permissions);
+      const updatedPerm = data.permission ?? (Array.isArray(data.permissions) ? data.permissions[0] : data.permissions);
+      if (updatedPerm) {
+        setPermissions(updatedPerm);
+        if (onSave) onSave(updatedPerm);
+      }
       toast({
         title: "Permissions updated",
         description: `Feature access for ${staffName || "this staff member"} has been configured.`,
       });
-      if (onSave) onSave(data.permissions);
     } catch (error) {
       console.error("[v0] Failed to save permissions:", error);
       toast({

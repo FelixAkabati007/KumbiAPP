@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { managementRoles, type UserRole } from "@/lib/roles";
 
-const managerRoles = ["admin", "manager", "operationsManager"];
+function isManager(role?: string): boolean {
+  return Boolean(role && managementRoles.includes(role as UserRole));
+}
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const isManager = managerRoles.includes(session.role);
+  const manager = isManager(session.role);
   const result = await query(
     `SELECT ae.*, CONCAT_WS(' ', sp.first_name, sp.last_name) AS staff_name, sp.department
      FROM attendance_exceptions ae
      LEFT JOIN staff_profiles sp ON sp.user_id = ae.staff_id
-     WHERE ${isManager ? "true" : "ae.staff_id = $1"}
+     WHERE ${manager ? "true" : "ae.staff_id = $1"}
      ORDER BY ae.created_at DESC LIMIT 100`,
-    isManager ? [] : [session.id],
+    manager ? [] : [session.id],
   );
   return NextResponse.json({ exceptions: result.rows });
 }
@@ -22,8 +25,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const permission = await query(`SELECT COALESCE(attendance_exceptions_enabled, true) AS enabled FROM attendance_feature_permissions WHERE staff_id = $1`, [session.id]);
-  if (permission.rowCount && permission.rows[0].enabled === false) return NextResponse.json({ error: "Attendance exceptions are disabled for your account" }, { status: 403 });
+  const permission = await query(
+    `SELECT COALESCE(attendance_exceptions_enabled, true) AS enabled FROM attendance_feature_permissions WHERE staff_id = $1`,
+    [session.id],
+  );
+  if (permission.rowCount && permission.rows[0].enabled === false) {
+    return NextResponse.json({ error: "Attendance exceptions are disabled for your account" }, { status: 403 });
+  }
   const body = (await request.json().catch(() => null)) as { id?: string; message?: string } | null;
   if (!body?.id || !body.message?.trim()) return NextResponse.json({ error: "A message is required" }, { status: 400 });
   const result = await query(
@@ -37,9 +45,11 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const session = await getSession();
-  if (!session || !managerRoles.includes(session.role)) return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+  if (!session || !isManager(session.role)) return NextResponse.json({ error: "Manager access required" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { id?: string; status?: string; message?: string } | null;
-  if (!body?.id || !["approved", "denied", "confirmed", "resumed"].includes(body.status || "")) return NextResponse.json({ error: "Invalid exception decision" }, { status: 400 });
+  if (!body?.id || !["approved", "denied", "confirmed", "resumed"].includes(body.status || "")) {
+    return NextResponse.json({ error: "Invalid exception decision" }, { status: 400 });
+  }
   const result = await query(
     `UPDATE attendance_exceptions SET status = $2, manager_message = COALESCE($3, manager_message), resolved_by = $4, resolved_at = now(), updated_at = now()
      WHERE id = $1 AND status IN ('awaiting_reason', 'pending_approval', 'approved', 'denied') RETURNING *`,
@@ -47,6 +57,9 @@ export async function PATCH(request: Request) {
   );
   if (!result.rowCount) return NextResponse.json({ error: "Exception is already resolved" }, { status: 409 });
   const row = result.rows[0];
-  await query(`INSERT INTO notifications (recipient_user_id, title, message, type) VALUES ($1, $2, $3, 'attendance_exception_decision')`, [row.staff_id, `Attendance exception ${body.status}`, body.message?.trim() || `Your attendance exception was ${body.status}.`]);
+  await query(
+    `INSERT INTO notifications (recipient_user_id, title, message, type) VALUES ($1, $2, $3, 'attendance_exception_decision')`,
+    [row.staff_id, `Attendance exception ${body.status}`, body.message?.trim() || `Your attendance exception was ${body.status}.`],
+  );
   return NextResponse.json({ exception: row });
 }

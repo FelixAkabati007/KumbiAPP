@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
 import { propertyDayExpression } from "@/lib/operational-day";
+import { managementRoles } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { error } = await requireRole("admin", "manager", "operationsManager");
+  const { error } = await requireRole(...managementRoles);
   if (error) return error;
   try {
     const [pending, summary, frequency] = await Promise.all([
@@ -25,7 +26,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const { session, error } = await requireRole("admin", "manager", "operationsManager");
+  const { session, error } = await requireRole(...managementRoles);
   if (error) return error;
   try {
     const body = await request.json();
