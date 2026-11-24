@@ -164,6 +164,30 @@ export async function ensureDefaultWorkSchedules(
   }
 }
 
+export interface WorkforceDbRow {
+  schedule_id?: string;
+  schedule_name?: string;
+  job_classification?: string;
+  department?: string;
+  shift_period?: string;
+  start_time?: string;
+  end_time?: string;
+  reminder_minutes?: number;
+  assignment_status?: string;
+  user_id?: string;
+  user_role?: string;
+  user_name?: string;
+  user_email?: string;
+  staff_id?: string;
+  position?: string;
+  id?: string;
+}
+
+export type WorkforceQueryExecutor = (
+  text: string,
+  params?: unknown[],
+) => Promise<{ rows: WorkforceDbRow[]; rowCount?: number | null }>;
+
 /**
  * Resolves the effective authoritative work schedule for any staff user, adhering strictly
  * to the rules in Staff time schedules configured in the settings area.
@@ -171,7 +195,7 @@ export async function ensureDefaultWorkSchedules(
 export async function resolveWorkforceSchedule(
   userIdOrStaffId: string,
   referenceTimestamp?: string | Date,
-  executor: (text: string, params?: unknown[]) => Promise<{ rows: any[] }> = query,
+  executor: WorkforceQueryExecutor = query as unknown as WorkforceQueryExecutor,
 ): Promise<WorkforceSchedule> {
   const tsParam = referenceTimestamp
     ? typeof referenceTimestamp === "string"
@@ -261,9 +285,9 @@ export async function resolveWorkforceSchedule(
     const endTimeFormatted = String(row.end_time).slice(0, 5);
     return {
       scheduleId: row.schedule_id,
-      schedule_name: row.schedule_name,
-      job_classification: row.job_classification,
-      department: row.department,
+      schedule_name: row.schedule_name || `${canonicalClassification} standard`,
+      job_classification: row.job_classification || canonicalClassification,
+      department: row.department || department,
       shift_period: row.shift_period || "standard",
       start_time: startTimeFormatted,
       end_time: endTimeFormatted,

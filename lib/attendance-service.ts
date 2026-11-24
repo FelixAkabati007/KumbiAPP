@@ -13,7 +13,7 @@ export async function registerAttendance(session: ApiSession, action: Attendance
   }
   const canonicalNow = await getCanonicalTransactionTimestamp();
   return transaction(async (client) => {
-    let identity = await client.query<{ staff_id: string }>(
+    const identity = await client.query<{ staff_id: string }>(
       `SELECT id AS staff_id
        FROM staff_profiles
        WHERE user_id = $1 AND is_active = true

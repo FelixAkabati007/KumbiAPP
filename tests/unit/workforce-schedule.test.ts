@@ -3,6 +3,7 @@ import {
   DEFAULT_WORKFORCE_SCHEDULES,
   VALID_SCHEDULE_CLASSIFICATIONS,
   VALID_SCHEDULE_DEPARTMENTS,
+  WorkforceQueryExecutor,
   isWorkforceRole,
   normalizeScheduleClassification,
   resolveWorkforceSchedule,
@@ -69,7 +70,9 @@ describe("Workforce Schedule Rules & Classifications", () => {
         expect(s.startTime).toMatch(/^\d{2}:\d{2}$/);
         expect(s.endTime).toMatch(/^\d{2}:\d{2}$/);
         expect(VALID_SCHEDULE_DEPARTMENTS).toContain(s.department);
-        expect(VALID_SCHEDULE_CLASSIFICATIONS).toContain(s.jobClassification as any);
+        expect(VALID_SCHEDULE_CLASSIFICATIONS).toContain(
+          s.jobClassification as (typeof VALID_SCHEDULE_CLASSIFICATIONS)[number],
+        );
         expect(s.reminderMinutes).toBeGreaterThan(0);
       }
     });
@@ -77,15 +80,15 @@ describe("Workforce Schedule Rules & Classifications", () => {
 
   describe("resolveWorkforceSchedule", () => {
     it("resolves default workforce schedule when no database row is returned", async () => {
-      const mockExecutor = async () => ({ rows: [] });
-      const chefSchedule = await resolveWorkforceSchedule("chef-user-id", undefined, mockExecutor as any);
+      const mockExecutor: WorkforceQueryExecutor = async () => ({ rows: [] });
+      const chefSchedule = await resolveWorkforceSchedule("chef-user-id", undefined, mockExecutor);
       expect(chefSchedule.job_classification).toBe("Staff");
       expect(chefSchedule.startTime).toBe("08:00");
       expect(chefSchedule.endTime).toBe("17:00");
     });
 
     it("resolves configured work_schedules row when returned by DB", async () => {
-      const mockExecutor = async (text: string) => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
         if (text.includes("FROM users u")) {
           return {
             rows: [
@@ -122,7 +125,7 @@ describe("Workforce Schedule Rules & Classifications", () => {
         return { rows: [] };
       };
 
-      const resolved = await resolveWorkforceSchedule("u-123", undefined, mockExecutor as any);
+      const resolved = await resolveWorkforceSchedule("u-123", undefined, mockExecutor);
       expect(resolved.scheduleId).toBe("sched-kitchen-1");
       expect(resolved.schedule_name).toBe("Kitchen Chef Custom Shift");
       expect(resolved.job_classification).toBe("Chef");
