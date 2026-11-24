@@ -22,6 +22,7 @@ export async function GET() {
           end_time: schedule.end_time,
           reminder_minutes: schedule.reminder_minutes,
           assignment_status: schedule.assignment_status,
+          source: schedule.source,
         },
       },
       {

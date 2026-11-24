@@ -28,6 +28,7 @@ interface WorkSchedule {
   end_time: string;
   reminder_minutes: number;
   assignment_status: string;
+  source?: "schedule" | "assignment" | "fallback";
 }
 
 function formatTime(value?: string) {
@@ -220,6 +221,11 @@ export default function StaffPage() {
             </div>
           ) : (
             <p className="mt-5 rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">No schedule assigned for today.</p>
+          )}
+          {schedule?.source === "fallback" && (
+            <p role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              These are default times, not your manager&apos;s configured schedule. Please tell your manager to check Settings → Staff management → Staff time schedules.
+            </p>
           )}
         </section>
         <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6">

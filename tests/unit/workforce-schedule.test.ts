@@ -184,11 +184,8 @@ describe("Workforce Schedule Rules & Classifications", () => {
           };
         }
         if (text.includes("FROM work_schedules s")) {
-          // Verify that raw classification is passed as $6
-          expect(params).toHaveLength(6);
-          expect(params?.[2]).toBe("waiterWaitress");
-          expect(params?.[3]).toBe("Waiter/Waitress");
-          expect(params?.[5]).toBe("Waitress");
+          // The schedule query is intentionally parameterless (see resolveWorkforceSchedule); ranking happens in TypeScript.
+          expect(params).toBeUndefined();
           return {
             rows: [
               {

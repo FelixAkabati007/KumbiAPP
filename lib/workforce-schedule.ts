@@ -13,6 +13,8 @@ export interface WorkforceSchedule {
   end_time: string;   // "HH:MM"
   reminder_minutes: number;
   assignment_status: string;
+  /** "schedule" = Admin rule from work_schedules, "assignment" = daily override, "fallback" = code defaults (nothing matched / DB error). */
+  source?: "schedule" | "assignment" | "fallback";
   work_date?: string;
   // CamelCase accessors for ergonomic use
   startTime: string;
@@ -246,6 +248,8 @@ export interface WorkforceDbRow {
   end_time?: string;
   reminder_minutes?: number;
   assignment_status?: string;
+  created_at?: string;
+  updated_at?: string;
   user_id?: string;
   user_role?: string;
   user_name?: string;
@@ -326,8 +330,8 @@ export async function resolveWorkforceSchedule(
         `SELECT
            s.id AS schedule_id,
            COALESCE(s.name, 'Assigned Shift') AS schedule_name,
-           COALESCE(s.job_classification, $3) AS job_classification,
-           COALESCE(s.department, $4) AS department,
+           COALESCE(s.job_classification, $3::text) AS job_classification,
+           COALESCE(s.department, $4::text) AS department,
            COALESCE(s.shift_period, 'standard') AS shift_period,
            s.start_time::text AS start_time,
            s.end_time::text AS end_time,
@@ -356,6 +360,7 @@ export async function resolveWorkforceSchedule(
           end_time: endTimeFormatted,
           reminder_minutes: Number(assignRow.reminder_minutes) || 20,
           assignment_status: assignRow.assignment_status || "assigned",
+          source: "assignment",
           startTime: startTimeFormatted,
           endTime: endTimeFormatted,
           reminderMinutes: Number(assignRow.reminder_minutes) || 20,
@@ -366,127 +371,48 @@ export async function resolveWorkforceSchedule(
     }
   }
 
-  // 3. Query work_schedules directly (WITHOUT mandatory join on staff_schedule_assignments)
-  // Matches specific role/classification first, then department-wide fallback
-  const scheduleQueryParams = [effectiveStaffId, tsParam, role, canonicalClassification, department, rawClassification];
-
-  const buildScheduleQuery = (includeUpdatedAt: boolean) => `
+  // 3. Load every active rule configured by the Admin in Settings -> Staff management -> Staff time schedules.
+  //    IMPORTANT: this statement deliberately has NO bind parameters. The previous implementation passed six
+  //    untyped parameters ($1..$6) and used them inside CONCAT()/unused, which makes PostgreSQL (Neon) reject the
+  //    statement with `42P18 could not determine data type of parameter $4`. That error was swallowed and the
+  //    resolver silently fell back to the hardcoded 08:00-21:00 Waiter/Waitress default. Ranking now happens in
+  //    TypeScript (see rankWorkSchedules) where it is unit-testable and cannot trigger a SQL type-inference error.
+  const scheduleSql = (includeUpdatedAt: boolean) => `
     SELECT
       s.id AS schedule_id,
-      COALESCE(s.name, CONCAT($4, ' standard')) AS schedule_name,
-      COALESCE(s.job_classification, $4) AS job_classification,
-      COALESCE(s.department, $5) AS department,
+      s.name AS schedule_name,
+      s.job_classification AS job_classification,
+      s.department AS department,
       COALESCE(s.shift_period, 'standard') AS shift_period,
       s.start_time::text AS start_time,
       s.end_time::text AS end_time,
       COALESCE(s.reminder_minutes, 20) AS reminder_minutes,
+      s.created_at::text AS created_at,
+      ${includeUpdatedAt ? "COALESCE(s.updated_at, s.created_at)::text" : "s.created_at::text"} AS updated_at,
       'default' AS assignment_status
     FROM work_schedules s
     WHERE COALESCE(s.is_active, true) = true
-    ORDER BY
-      -- Match relevance score:
-      CASE
-        -- 1. Exact role / classification match (exact, trimmed, or alphanumeric normalized)
-        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($4, '[^a-z0-9]', '', 'g')) THEN 100
-        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($3, '[^a-z0-9]', '', 'g')) THEN 100
-        WHEN LOWER(TRIM(s.job_classification)) = LOWER(TRIM($6)) THEN 100
-        WHEN LOWER(REGEXP_REPLACE(s.job_classification, '[^a-z0-9]', '', 'g')) = LOWER(REGEXP_REPLACE($6, '[^a-z0-9]', '', 'g')) THEN 100
-        -- 2. Flexible role keyword match
-        WHEN LOWER(s.job_classification) LIKE CONCAT('%', LOWER(TRIM($4)), '%') THEN 90
-        WHEN (
-          (LOWER($3) = 'waiterwaitress' OR LOWER($4) = 'waiter/waitress' OR LOWER($6) LIKE '%waiter%' OR LOWER($6) LIKE '%waitress%' OR LOWER($6) LIKE '%server%')
-          AND (
-            LOWER(s.job_classification) LIKE '%waiter%'
-            OR LOWER(s.job_classification) LIKE '%waitress%'
-            OR LOWER(s.job_classification) LIKE '%server%'
-            OR LOWER(s.name) LIKE '%waiter%'
-            OR LOWER(s.name) LIKE '%waitress%'
-            OR LOWER(s.name) LIKE '%server%'
-          )
-        ) THEN 90
-        WHEN (
-          (LOWER($3) IN ('kitchen', 'chef') OR LOWER($4) = 'chef' OR LOWER($6) LIKE '%chef%' OR LOWER($6) LIKE '%cook%' OR LOWER($6) LIKE '%kitchen%')
-          AND (
-            LOWER(s.job_classification) LIKE '%chef%'
-            OR LOWER(s.job_classification) LIKE '%kitchen%'
-            OR LOWER(s.job_classification) LIKE '%cook%'
-            OR LOWER(s.name) LIKE '%chef%'
-            OR LOWER(s.name) LIKE '%kitchen%'
-          )
-        ) THEN 90
-        WHEN (
-          (LOWER($3) IN ('frontdesk', 'reception') OR LOWER($4) = 'reception' OR LOWER($6) LIKE '%reception%' OR LOWER($6) LIKE '%front desk%' OR LOWER($6) LIKE '%frontdesk%')
-          AND (
-            LOWER(s.job_classification) LIKE '%reception%'
-            OR LOWER(s.job_classification) LIKE '%front desk%'
-            OR LOWER(s.job_classification) LIKE '%frontdesk%'
-            OR LOWER(s.name) LIKE '%reception%'
-            OR LOWER(s.name) LIKE '%front desk%'
-          )
-        ) THEN 90
-        WHEN (
-          (LOWER($3) = 'restaurantfrontdesk' OR LOWER($4) = 'restaurant front desk / pos' OR LOWER($6) LIKE '%pos%' OR LOWER($6) LIKE '%cashier%')
-          AND (
-            LOWER(s.job_classification) LIKE '%pos%'
-            OR LOWER(s.job_classification) LIKE '%cashier%'
-            OR LOWER(s.job_classification) LIKE '%restaurant front desk%'
-            OR LOWER(s.name) LIKE '%pos%'
-            OR LOWER(s.name) LIKE '%cashier%'
-          )
-        ) THEN 90
-        WHEN (
-          (LOWER($3) = 'housekeeping' OR LOWER($4) = 'housekeeping' OR LOWER($6) LIKE '%housekeep%' OR LOWER($6) LIKE '%clean%')
-          AND (
-            LOWER(s.job_classification) LIKE '%housekeep%'
-            OR LOWER(s.job_classification) LIKE '%clean%'
-            OR LOWER(s.job_classification) LIKE '%laundry%'
-            OR LOWER(s.name) LIKE '%housekeep%'
-            OR LOWER(s.name) LIKE '%clean%'
-          )
-        ) THEN 90
-        WHEN (
-          (LOWER($4) = 'security' OR LOWER($6) LIKE '%secur%' OR LOWER($6) LIKE '%guard%')
-          AND (LOWER(s.job_classification) LIKE '%secur%' OR LOWER(s.job_classification) LIKE '%guard%' OR LOWER(s.name) LIKE '%secur%')
-        ) THEN 90
-        WHEN (
-          (LOWER($4) = 'labour' OR LOWER($6) LIKE '%labour%' OR LOWER($6) LIKE '%labor%' OR LOWER($6) LIKE '%maint%')
-          AND (LOWER(s.job_classification) LIKE '%labour%' OR LOWER(s.job_classification) LIKE '%labor%' OR LOWER(s.job_classification) LIKE '%maint%' OR LOWER(s.name) LIKE '%labour%' OR LOWER(s.name) LIKE '%maint%')
-        ) THEN 90
-        WHEN (
-          (LOWER($3) = 'other' OR LOWER($4) = 'other' OR LOWER($6) = 'other')
-          AND (LOWER(s.job_classification) = 'other' OR LOWER(s.name) LIKE '%other%')
-        ) THEN 90
-        -- 3. Department match
-        WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 70
-        WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 60
-        WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 60
-        -- 4. General "Other" / "Staff" schedule configured by Admin
-        WHEN LOWER(s.job_classification) = 'other' OR LOWER(s.job_classification) = 'staff' THEN 50
-        -- 5. Any active schedule in work_schedules
-        ELSE 10
-      END DESC,
-      -- Department tie-break:
-      CASE
-        WHEN LOWER(TRIM(s.department)) = LOWER(TRIM($5)) THEN 0
-        WHEN LOWER(TRIM(s.department)) LIKE CONCAT('%', LOWER(TRIM($5)), '%') THEN 1
-        WHEN LOWER(TRIM($5)) LIKE CONCAT('%', LOWER(TRIM(s.department)), '%') THEN 1
-        ELSE 2
-      END,
-      ${includeUpdatedAt ? "COALESCE(s.updated_at, s.created_at) DESC, s.created_at DESC" : "s.created_at DESC"}
-    LIMIT 1
   `;
 
-  const scheduleRes = await executor(buildScheduleQuery(true), scheduleQueryParams).catch(async (err) => {
-    console.warn("[workforce-schedule] Schedule lookup with updated_at failed, attempting fallback query:", err);
-    return executor(buildScheduleQuery(false), scheduleQueryParams).catch((err2) => {
-      console.error("[workforce-schedule] General schedule query failed:", err2);
-      return { rows: [] };
-    });
-  });
+  let candidates: WorkforceDbRow[] | null = null;
+  let lookupError: unknown = null;
+  try {
+    candidates = (await executor(scheduleSql(true))).rows;
+  } catch (err) {
+    console.warn("[workforce-schedule] Schedule lookup with updated_at failed, retrying without it:", err);
+    try {
+      candidates = (await executor(scheduleSql(false))).rows;
+    } catch (err2) {
+      lookupError = err2;
+      console.error("[workforce-schedule] Schedule lookup FAILED - the hardcoded fallback will be shown:", err2);
+    }
+  }
 
-  const row = scheduleRes.rows[0];
+  const row = candidates
+    ? rankWorkSchedules(candidates, { role, canonicalClassification, rawClassification, department })[0]
+    : undefined;
 
-  // 3. If schedule found in database, format and return it
+  // 4. If an Admin-configured rule matched, return it exactly as configured.
   if (row?.start_time && row?.end_time) {
     const startTimeFormatted = String(row.start_time).slice(0, 5);
     const endTimeFormatted = String(row.end_time).slice(0, 5);
@@ -500,13 +426,19 @@ export async function resolveWorkforceSchedule(
       end_time: endTimeFormatted,
       reminder_minutes: Number(row.reminder_minutes) || 20,
       assignment_status: row.assignment_status || "default",
+      source: "schedule",
       startTime: startTimeFormatted,
       endTime: endTimeFormatted,
       reminderMinutes: Number(row.reminder_minutes) || 20,
     };
   }
 
-  // 4. Default fallback matching DEFAULT_WORKFORCE_SCHEDULES
+  // 5. Last resort only: nothing in work_schedules matched (or the database was unreachable).
+  //    The result is explicitly flagged `source: "fallback"` so the UI can tell the user instead of
+  //    pretending these are the Admin's times.
+  if (!lookupError) {
+    console.warn(`[workforce-schedule] No active work_schedules row matches role="${role}" classification="${canonicalClassification}" department="${department}"`);
+  }
   const defaultMatch =
     DEFAULT_WORKFORCE_SCHEDULES.find((d) => d.jobClassification.toLowerCase() === canonicalClassification.toLowerCase()) ||
     DEFAULT_WORKFORCE_SCHEDULES.find((d) => d.jobClassification === "Staff") ||
@@ -521,10 +453,75 @@ export async function resolveWorkforceSchedule(
     end_time: defaultMatch.endTime,
     reminder_minutes: defaultMatch.reminderMinutes,
     assignment_status: "default",
+    source: "fallback",
     startTime: defaultMatch.startTime,
     endTime: defaultMatch.endTime,
     reminderMinutes: defaultMatch.reminderMinutes,
   };
+}
+
+const alnum = (value?: string | null) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export interface ScheduleMatchContext {
+  role: string;
+  canonicalClassification: string;
+  rawClassification: string;
+  department: string;
+}
+
+/**
+ * Scores how well an Admin-configured schedule applies to a staff member.
+ *   100  exact role/classification (Waiter/Waitress == waiterWaitress == "Waiters/ Waitress" after normalisation)
+ *    80  schedule NAME clearly targets the same classification
+ *    70  generic (Staff/Other) schedule for the staff member's own department
+ *    40  generic (Staff/Other) schedule for any department
+ *     0  not applicable (another role's schedule is never borrowed)
+ */
+export function scoreWorkSchedule(schedule: WorkforceDbRow, ctx: ScheduleMatchContext): number {
+  const scheduleClass = String(schedule.job_classification ?? "");
+  const scheduleKey = alnum(scheduleClass);
+  const ctxKeys = [ctx.canonicalClassification, ctx.rawClassification, ctx.role].map(alnum).filter(Boolean);
+  const scheduleCanonical = normalizeScheduleClassification(scheduleClass);
+
+  if (scheduleKey && ctxKeys.includes(scheduleKey)) return 100;
+  if (scheduleClass && scheduleCanonical === ctx.canonicalClassification && ctx.canonicalClassification !== "Staff") return 100;
+
+  const nameCanonical = normalizeScheduleClassification(schedule.schedule_name);
+  if (nameCanonical !== "Staff" && nameCanonical === ctx.canonicalClassification) return 80;
+
+  const generic = scheduleCanonical === "Staff" || scheduleCanonical === "Other";
+  if (generic) {
+    const a = alnum(schedule.department);
+    const b = alnum(ctx.department);
+    if (a && b && (a === b || a.includes(b) || b.includes(a))) return 70;
+    return 40;
+  }
+  return 0;
+}
+
+/**
+ * Returns the applicable schedules best-first. Ties are broken by department closeness, then the most
+ * recently edited rule - so whatever the Admin saved last always wins over older/duplicate rows.
+ */
+export function rankWorkSchedules(rows: WorkforceDbRow[], ctx: ScheduleMatchContext): WorkforceDbRow[] {
+  const deptCloseness = (dept?: string) => {
+    const a = alnum(dept);
+    const b = alnum(ctx.department);
+    if (a && a === b) return 2;
+    if (a && b && (a.includes(b) || b.includes(a))) return 1;
+    return 0;
+  };
+  const stamp = (r: WorkforceDbRow) => Date.parse(String(r.updated_at ?? r.created_at ?? "")) || 0;
+  return rows
+    .map((r) => ({ r, score: scoreWorkSchedule(r, ctx) }))
+    .filter((x) => x.score > 0)
+    .sort(
+      (x, y) =>
+        y.score - x.score ||
+        deptCloseness(y.r.department) - deptCloseness(x.r.department) ||
+        stamp(y.r) - stamp(x.r),
+    )
+    .map((x) => x.r);
 }
 
 /**
