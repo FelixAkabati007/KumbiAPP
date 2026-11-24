@@ -3,6 +3,7 @@ import type { ApiSession } from "@/lib/api-auth";
 import { managementRoles } from "@/lib/roles";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { resolveWorkforceSchedule } from "@/lib/workforce-schedule";
 
 export type AttendanceAction = "check_in" | "check_out";
 
@@ -12,14 +13,25 @@ export async function registerAttendance(session: ApiSession, action: Attendance
   }
   const canonicalNow = await getCanonicalTransactionTimestamp();
   return transaction(async (client) => {
-    const identity = await client.query<{ staff_id: string }>(
+    let identity = await client.query<{ staff_id: string }>(
       `SELECT id AS staff_id
        FROM staff_profiles
        WHERE user_id = $1 AND is_active = true
        LIMIT 1`,
       [session.id],
     );
-    const staffId = identity.rows[0]?.staff_id;
+    let staffId = identity.rows[0]?.staff_id;
+    if (!staffId) {
+      const prov = await client.query<{ id: string }>(
+        `INSERT INTO staff_profiles (user_id, first_name, last_name, business_email, department, position, job_classification, password_hash, is_active)
+         SELECT $1, COALESCE(name, 'Staff'), 'Staff', email, 'Operations', $2, $2, 'managed', true
+         FROM users WHERE id = $1
+         ON CONFLICT (user_id) DO UPDATE SET is_active = true
+         RETURNING id`,
+        [session.id, session.role],
+      ).catch(() => ({ rows: [] }));
+      staffId = prov.rows[0]?.id;
+    }
     if (!staffId) throw new Error("STAFF_PROFILE_REQUIRED");
     const current = await client.query(
       `SELECT id, check_in_at, check_out_at
@@ -57,27 +69,15 @@ export async function registerAttendance(session: ApiSession, action: Attendance
 
     if (!record?.check_in_at || record.check_out_at) throw new Error("CHECK_IN_REQUIRED");
 
-    const schedule = await client.query(
-      `SELECT COALESCE(s.end_time, CASE
-         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) IN ('reception', 'front desk', 'frontdesk') THEN '19:00'::time
-         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) = 'chef' THEN '20:30'::time
-         WHEN LOWER(COALESCE(sp.position, sp.job_classification, 'staff')) = 'housekeeping' THEN '19:00'::time
-         ELSE '18:00'::time
-       END) AS end_time
-       FROM staff_profiles sp
-       LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = ${propertyDayExpression("$2::timestamptz")} AND a.status <> 'cancelled'
-       LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
-       WHERE sp.user_id = $1 AND sp.is_active = true
-       LIMIT 1`,
-      [session.id, canonicalNow],
-    );
-    const scheduledEnd = schedule.rows[0]?.end_time;
+    // Strictly enforce the rule from Settings -> Staff time schedules
+    const schedule = await resolveWorkforceSchedule(session.id, canonicalNow, client.query.bind(client));
+    const scheduledEnd = schedule?.endTime;
     if (scheduledEnd) {
       const timeCheck = await client.query(
         `SELECT (($1::timestamptz AT TIME ZONE 'Africa/Accra')::time >= $2::time) AS allowed`,
         [canonicalNow, scheduledEnd],
       );
-      if (!timeCheck.rows[0]?.allowed) throw new Error("CHECKOUT_TOO_EARLY");
+      if (!timeCheck.rows[0]?.allowed) throw new Error(`CHECKOUT_TOO_EARLY:${scheduledEnd.slice(0, 5)}`);
     }
 
     const updated = await client.query(

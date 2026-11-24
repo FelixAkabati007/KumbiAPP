@@ -445,7 +445,7 @@ function DashboardContent() {
   const attendanceStatus = String(attendanceRecord?.verification_status ?? "").toLowerCase();
   const attendanceApproved =
     isAttendanceExempt ||
-    ["verified", "approved", "approved_late"].includes(attendanceStatus);
+    ["verified", "approved", "approved_late", "late"].includes(attendanceStatus);
   const dashboardAccess: Record<AppSection, boolean> =
     requiresAttendanceApproval && !attendanceApproved
       ? (Object.fromEntries(
@@ -931,9 +931,9 @@ function DashboardContent() {
                     other workspaces.
                   </p>
                   <DashboardLaunchButton
-                    href={user.role === "staff" ? "/staff/attendance" : "/attendance"}
+                    href={!isAttendanceExempt ? "/staff/attendance" : "/attendance"}
                   >
-                    {user.role === "staff"
+                    {!isAttendanceExempt
                       ? "Open staff attendance"
                       : "Open attendance register"}
                   </DashboardLaunchButton>

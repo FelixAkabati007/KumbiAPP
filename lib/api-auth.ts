@@ -48,7 +48,7 @@ async function hasApprovedAttendance(session: ApiSession) {
      FROM attendance_records
      WHERE user_id = $1
        AND created_at::date = ${propertyDayExpression()}
-       AND verification_status = 'verified'
+       AND verification_status IN ('verified', 'approved', 'approved_late', 'late')
      ORDER BY created_at DESC
      LIMIT 1`,
     [session.id],

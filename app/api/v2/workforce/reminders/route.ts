@@ -28,7 +28,26 @@ export async function POST(request: Request) {
                 COALESCE(s.reminder_minutes, 20) AS reminder_minutes
          FROM staff_profiles sp
          LEFT JOIN staff_schedule_assignments a ON a.staff_id = sp.id AND a.work_date = CURRENT_DATE AND a.status <> 'cancelled'
-         LEFT JOIN work_schedules s ON s.id = a.schedule_id AND s.is_active = true
+         LEFT JOIN LATERAL (
+           SELECT ws.name, ws.start_time, ws.reminder_minutes
+           FROM work_schedules ws
+           WHERE ws.is_active = true
+             AND (
+               ws.id = a.schedule_id
+               OR (a.schedule_id IS NULL AND (
+                 LOWER(TRIM(ws.job_classification)) = LOWER(TRIM(COALESCE(sp.job_classification, '')))
+                 OR LOWER(TRIM(ws.job_classification)) = LOWER(TRIM(COALESCE(sp.position, '')))
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('kitchen', 'chef') AND LOWER(TRIM(ws.job_classification)) = 'chef')
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('frontdesk', 'reception', 'front desk') AND LOWER(TRIM(ws.job_classification)) = 'reception')
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('restaurantfrontdesk', 'restaurantpos') AND LOWER(TRIM(ws.job_classification)) = 'restaurant front desk / pos')
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) IN ('waiterwaitress', 'waiter', 'waitress') AND LOWER(TRIM(ws.job_classification)) = 'waiter/waitress')
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'housekeeping' AND LOWER(TRIM(ws.job_classification)) = 'housekeeping')
+                 OR (LOWER(COALESCE(sp.job_classification, sp.position, '')) = 'staff' AND LOWER(TRIM(ws.job_classification)) = 'staff')
+               ))
+             )
+           ORDER BY CASE WHEN ws.id = a.schedule_id THEN 0 ELSE 1 END, ws.created_at ASC
+           LIMIT 1
+         ) s ON true
          WHERE sp.user_id = $1 OR sp.id = $1
          ORDER BY CASE WHEN sp.user_id = $1 THEN 0 ELSE 1 END
          LIMIT 1

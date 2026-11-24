@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { LogoDisplay } from "@/components/logo-display";
 import { PropertyClock } from "@/components/property-clock";
 import { enqueueOfflineAttendance } from "@/lib/offline-storage";
+import { getRoleDisplayName, managementRoles, type UserRole } from "@/lib/roles";
 
 interface AttendanceRecord {
   check_in_at?: string;
@@ -163,8 +164,10 @@ export default function StaffPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "staff") return null;
+  const isWorkforce = Boolean(user && !managementRoles.includes(user.role as UserRole));
+  if (isLoading || !user || !isWorkforce) return null;
 
+  const roleName = getRoleDisplayName(user.role);
   const open = nextAction === "check_out";
   const canCheckIn = nextAction === "check_in";
   return (
@@ -177,7 +180,7 @@ export default function StaffPage() {
           <LogoDisplay size="sm" />
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
-            <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">Staff Attendance</span>
+            <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">{roleName} Attendance &amp; Schedule</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -186,16 +189,38 @@ export default function StaffPage() {
       </header>
       <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
         <div>
-          <p className="text-sm font-medium text-primary">Staff workspace</p>
-          <h1 className="text-3xl font-bold tracking-tight">Staff Attendance</h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">Use this page to record your shift start and finish.</p>
+          <p className="text-sm font-medium text-primary">{roleName} workspace</p>
+          <h1 className="text-3xl font-bold tracking-tight">{roleName} Attendance</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Use this page to review your schedule rules and record your shift start and finish.</p>
         </div>
         <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm sm:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-background p-3 text-primary"><CalendarDays className="h-6 w-6" aria-hidden="true" /></div>
-            <div><h2 className="text-xl font-semibold">Today&apos;s schedule</h2><p className="mt-1 text-sm text-muted-foreground">Your reminder is sent 20 minutes before reporting time.</p></div>
+            <div>
+              <h2 className="text-xl font-semibold">Today&apos;s schedule</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your reminder is sent {schedule?.reminder_minutes ?? 20} minutes before reporting time.
+              </p>
+            </div>
           </div>
-          {schedule ? <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Role</p><p className="mt-1 font-semibold">{schedule.job_classification}</p></div><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Report</p><p className="mt-1 font-semibold">{schedule.start_time}</p></div><div className="rounded-xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-wide text-muted-foreground">Close</p><p className="mt-1 font-semibold">{schedule.end_time}</p></div></div> : <p className="mt-5 rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">No schedule assigned for today.</p>}
+          {schedule ? (
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Role</p>
+                <p className="mt-1 font-semibold">{schedule.job_classification}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Report</p>
+                <p className="mt-1 font-semibold">{schedule.start_time}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Close</p>
+                <p className="mt-1 font-semibold">{schedule.end_time}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-5 rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">No schedule assigned for today.</p>
+          )}
         </section>
         <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6">
           <div className="flex items-start gap-3">
@@ -204,8 +229,24 @@ export default function StaffPage() {
           </div>
           <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4 text-sm"><span className="text-muted-foreground">Today&apos;s status</span><span className="mx-2 text-muted-foreground">·</span><span className="font-semibold">{attendanceStatus(record, nextAction)}</span><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground"><span>Checked in: {formatTime(record?.check_in_at)}</span><span>Checked out: {formatTime(record?.check_out_at)}</span></div></div>
           <div className="mt-5">
-            {canCheckIn && <button disabled={busy} onClick={() => void register("check_in")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogIn className="h-4 w-4" /> Check in</button>}
-            {open && <button disabled={busy} onClick={() => void register("check_out")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-50"><LogOut className="h-4 w-4" /> Check out</button>}
+            {canCheckIn && (
+              <button
+                disabled={busy}
+                onClick={() => void register("check_in")}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 px-5 py-3 font-semibold text-white shadow-md transition disabled:opacity-50"
+              >
+                <LogIn className="h-4 w-4" /> Check in
+              </button>
+            )}
+            {open && (
+              <button
+                disabled={busy}
+                onClick={() => void register("check_out")}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 px-5 py-3 font-semibold text-white shadow-md transition disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" /> Check out
+              </button>
+            )}
             {nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-800">Attendance completed for today</div>}
           </div>
           {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}

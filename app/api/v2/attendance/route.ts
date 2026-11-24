@@ -53,7 +53,10 @@ export async function POST(request: Request) {
       CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
       ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
     };
-    return NextResponse.json({ apiVersion: "2", error: messages[code] ?? "Unable to update attendance", code }, { status: 409, headers });
+    const errorMessage = code.startsWith("CHECKOUT_TOO_EARLY:")
+      ? `Check-out is only available at or after your scheduled end time (${code.split(":")[1]}).`
+      : messages[code] ?? "Unable to update attendance";
+    return NextResponse.json({ apiVersion: "2", error: errorMessage, code }, { status: 409, headers });
   }
 }
 
