@@ -82,8 +82,8 @@ export default function StaffPage() {
 
   useEffect(() => {
     if (!isLoading && !user) window.location.assign("/login");
-    if (!isLoading && user && user.role !== "staff") window.location.assign("/");
-    if (!isLoading && user?.role === "staff") void load();
+    if (!isLoading && user && managementRoles.includes(user.role as UserRole)) window.location.assign("/attendance");
+    if (!isLoading && user && !managementRoles.includes(user.role as UserRole)) void load();
   }, [isLoading, user]);
 
   async function submitPermission(event: React.FormEvent<HTMLFormElement>) {

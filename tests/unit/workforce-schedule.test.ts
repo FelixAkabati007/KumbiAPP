@@ -134,5 +134,33 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(resolved.endTime).toBe("21:30");
       expect(resolved.reminderMinutes).toBe(25);
     });
+
+    it("resolves waiterWaitress default shift correctly (08:00 - 21:00)", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-waiter-1",
+                user_role: "waiterWaitress",
+                user_name: "Kofi Waiter",
+                user_email: "kofi@kumbi.com",
+                position: "Waiter/Waitress",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const waiterSchedule = await resolveWorkforceSchedule("u-waiter-1", undefined, mockExecutor);
+      expect(waiterSchedule.job_classification).toBe("Waiter/Waitress");
+      expect(waiterSchedule.department).toBe("Restaurant");
+      expect(waiterSchedule.startTime).toBe("08:00");
+      expect(waiterSchedule.endTime).toBe("21:00");
+      expect(waiterSchedule.reminderMinutes).toBe(20);
+    });
   });
 });

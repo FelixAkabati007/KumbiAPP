@@ -893,6 +893,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/system": ["admin", "manager"],
   "/operations": rolesWithAnySection("operations"),
   "/complaints": [...ALL_USER_ROLES],
+  "/staff": [...ALL_USER_ROLES],
   // Hospitality module routes
   "/hotels/rooms": rolesWithAnySection("rooms"),
   "/hotels/reservations": rolesWithAnySection("reservations"),
@@ -940,6 +941,7 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   "/api/settings": ["admin", "manager"],
   "/api/hardware": [...ALL_USER_ROLES],
   "/api/attendance": [...ALL_USER_ROLES],
+  "/api/workforce/schedule": [...ALL_USER_ROLES],
   "/api/workforce": ["admin", "manager", "operationsManager"],
   "/api/complimentary-authorizations": ["admin", "manager"],
   "/api/canonical-receipts": rolesWithAnySection("receipt", "pos", "finance", "guestFolio"),
