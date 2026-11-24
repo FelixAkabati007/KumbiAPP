@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { resolveWorkforceSchedule } from "@/lib/workforce-schedule";
+import { ensureWorkforceScheduleTables, resolveWorkforceSchedule } from "@/lib/workforce-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ export async function GET() {
   if (error) return error;
 
   try {
+    await ensureWorkforceScheduleTables().catch(() => undefined);
     const schedule = await resolveWorkforceSchedule(session.id, undefined, undefined, session.role);
     return NextResponse.json(
       {

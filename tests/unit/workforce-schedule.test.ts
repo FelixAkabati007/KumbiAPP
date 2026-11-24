@@ -367,5 +367,104 @@ describe("Workforce Schedule Rules & Classifications", () => {
       expect(schedule.start_time).toBe("07:00");
       expect(schedule.end_time).toBe("22:00");
     });
+
+    it("survives missing staff_schedule_assignments relation and successfully queries work_schedules", async () => {
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-waiter-resilient",
+                user_role: "waiterWaitress",
+                user_name: "Ama Resilient",
+                user_email: "ama@kumbi.com",
+                staff_id: "sp-waiter-resilient",
+                position: "Waitress",
+                job_classification: "Waitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("FROM staff_schedule_assignments a")) {
+          throw new Error('relation "staff_schedule_assignments" does not exist');
+        }
+        if (text.includes("FROM work_schedules s")) {
+          return {
+            rows: [
+              {
+                schedule_id: "sched-admin-sync",
+                schedule_name: "Waiters/ Waitress",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "01:00:00",
+                end_time: "23:59:00",
+                reminder_minutes: 20,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule("u-waiter-resilient", undefined, mockExecutor);
+      expect(schedule.schedule_name).toBe("Waiters/ Waitress");
+      expect(schedule.start_time).toBe("01:00");
+      expect(schedule.end_time).toBe("23:59");
+    });
+
+    it("survives missing updated_at column in work_schedules via fallback query", async () => {
+      let primaryAttempted = false;
+      let fallbackSucceeded = false;
+
+      const mockExecutor: WorkforceQueryExecutor = async (text: string) => {
+        if (text.includes("FROM users u")) {
+          return {
+            rows: [
+              {
+                user_id: "u-waiter-no-col",
+                user_role: "waiterWaitress",
+                user_name: "Kofi Resilient",
+                user_email: "kofi@kumbi.com",
+                position: "Waiter",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+              },
+            ],
+          };
+        }
+        if (text.includes("COALESCE(s.updated_at, s.created_at)")) {
+          primaryAttempted = true;
+          throw new Error('column s.updated_at does not exist');
+        }
+        if (text.includes("FROM work_schedules s")) {
+          fallbackSucceeded = true;
+          return {
+            rows: [
+              {
+                schedule_id: "sched-fallback-sync",
+                schedule_name: "Waiters/ Waitress",
+                job_classification: "Waiter/Waitress",
+                department: "Restaurant",
+                shift_period: "standard",
+                start_time: "01:00:00",
+                end_time: "23:59:00",
+                reminder_minutes: 20,
+                assignment_status: "default",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      };
+
+      const schedule = await resolveWorkforceSchedule("u-waiter-no-col", undefined, mockExecutor);
+      expect(primaryAttempted).toBe(true);
+      expect(fallbackSucceeded).toBe(true);
+      expect(schedule.start_time).toBe("01:00");
+      expect(schedule.end_time).toBe("23:59");
+    });
   });
 });

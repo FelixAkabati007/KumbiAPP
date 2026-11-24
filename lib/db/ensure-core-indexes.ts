@@ -1,11 +1,12 @@
 import { query } from "@/lib/db";
 import { ALL_USER_ROLES } from "@/lib/roles";
+import { ensureWorkforceScheduleTables } from "@/lib/workforce-schedule";
 
 let coreSchemaEnsuredPromise: Promise<void> | null = null;
 
 /**
  * Idempotently ensures all canonical user_role enum values, reservation columns,
- * and high-throughput composite indexes exist in PostgreSQL.
+ * workforce tables, and high-throughput composite indexes exist in PostgreSQL.
  * Executed once per server instance lifecycle.
  */
 export async function ensureCoreSchemaAndIndexes(): Promise<void> {
@@ -24,7 +25,10 @@ export async function ensureCoreSchemaAndIndexes(): Promise<void> {
           ).catch(() => undefined);
         }
 
-        // 2. Ensure hot-path composite indexes exist for attendance, ledger, movements, and orders
+        // 2. Ensure workforce tables and columns exist
+        await ensureWorkforceScheduleTables(query).catch(() => undefined);
+
+        // 3. Ensure hot-path composite indexes exist for attendance, ledger, movements, and orders
         await query(`
           CREATE INDEX IF NOT EXISTS idx_attendance_user_status_created
             ON attendance_records (user_id, verification_status, created_at DESC);
