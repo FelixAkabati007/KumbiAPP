@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         console.error("[attendance] unexpected attendance registration failure", cause);
       }
       const errorMessage = code.startsWith("CHECKOUT_TOO_EARLY:")
-        ? `Check-out is only available at or after your scheduled end time (${code.split(":")[1]}).`
+        ? `Check-out is only available at or after your scheduled end time (${code.slice("CHECKOUT_TOO_EARLY:".length)}).`
         : messages[code] ?? "Unable to update attendance";
       return NextResponse.json({ error: errorMessage, code }, { status: isKnownRule ? 409 : 500 });
     }

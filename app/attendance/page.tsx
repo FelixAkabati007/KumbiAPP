@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { enqueueOfflineAttendance } from "@/lib/offline-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
   Clock3,
-  Filter,
   LogIn,
   LogOut,
   Search,
@@ -16,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { LogoDisplay } from "@/components/logo-display";
+import { useRealtime } from "@/components/realtime-provider";
 import { FeaturePermissionsModal } from "@/components/attendance/feature-permissions-modal";
 import {
   BulkFeaturePermissions,
@@ -34,6 +34,11 @@ interface RecordRow {
   staff_role?: string;
   check_in_at?: string;
   check_out_at?: string;
+  late_minutes?: number | null;
+  early_checkout_minutes?: number | null;
+  schedule_name?: string | null;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
   status: string;
   verification_status: string;
   lifecycleStatus?: string;
@@ -41,15 +46,10 @@ interface RecordRow {
   shift_period?: string;
 }
 
-interface AttendanceStatus {
-  record: RecordRow | null;
-  canCheckIn?: boolean;
-  nextAction?: string;
-}
-
 interface ManagerData {
   pending: RecordRow[];
-  summary?: { present: string; pending: string; absent: string };
+  todayRecords?: RecordRow[];
+  summary?: { present: string; pending: string; absent: string; checkedOut?: string };
   frequency: { staff_id: string; verified_days: string; recorded_days: string }[];
 }
 
@@ -110,8 +110,14 @@ function formatLifecycleStatus(value?: string) {
       waiting_for_approval: "Waiting for approval",
       approved: "Approved",
       approved_late: "Approved (late)",
+      verified: "Verified",
+      late: "Late",
       rejected: "Rejected",
       completed: "Completed",
+      checked_out: "Checked out",
+      checked_out_early: "Checked out (early)",
+      auto_checked_out: "Auto checked out",
+      manager_corrected: "Checked out (manager)",
       not_checked_in: "Not checked in",
     } as Record<string, string>)[value ?? ""] ??
     value ??
@@ -120,6 +126,7 @@ function formatLifecycleStatus(value?: string) {
 }
 
 export default function AttendancePage() {
+  const { lastEvent } = useRealtime();
   const [record, setRecord] = useState<RecordRow | null>(null);
   const [canCheckIn, setCanCheckIn] = useState(true);
   const [manager, setManager] = useState<ManagerData | null>(null);
@@ -141,63 +148,89 @@ export default function AttendancePage() {
   const [individualDeptFilter, setIndividualDeptFilter] = useState("all");
   const [individualSearch, setIndividualSearch] = useState("");
 
-  async function load() {
-    setLoading(true);
-    const statusResponse = await fetch("/api/v2/attendance");
-    if (statusResponse.status === 401 || statusResponse.status === 403) {
-      setAccessDenied(true);
-      setMessage("Sign in to record your attendance for today.");
-      setLoading(false);
-      return;
-    }
-    const status = statusResponse.ok ? await statusResponse.json() : null;
-    setAccessDenied(false);
-    setRecord(status?.record ?? null);
-    setCanCheckIn(status?.canCheckIn !== false);
-
-    const review = await fetch("/api/v2/attendance/manager");
-    if (review.ok) {
-      const managerJson = await review.json();
-      setManager(managerJson);
-
-      const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
-      if (staffResponse.ok) {
-        const staffData = await staffResponse.json();
-        const rows = (staffData.permissions ?? []).filter(
-          (item: { staff_id?: string }) => item.staff_id,
-        ) as StaffPermissionRow[];
-        setPermissionRows(rows);
-        setStaffAccounts(
-          rows.map((item) => ({
-            id: item.staff_id,
-            name: item.staff_name || "Staff member",
-            department: item.department || "Restaurant",
-            job_classification: item.job_classification || item.position || item.role || "Staff",
-            position: item.position || "",
-            role: item.role || "",
-            leave: item.leave_requests_enabled !== false,
-            planned: item.planned_absence_enabled !== false,
-            exceptions: item.attendance_exceptions_enabled !== false,
-          })),
-        );
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const statusResponse = await fetch("/api/v2/attendance", { cache: "no-store" });
+      if (statusResponse.status === 401 || statusResponse.status === 403) {
+        setAccessDenied(true);
+        setMessage("Sign in to record your attendance for today.");
+        setLoading(false);
+        return;
       }
+      const status = statusResponse.ok ? await statusResponse.json() : null;
+      setAccessDenied(false);
+      setRecord(status?.record ?? null);
+      setCanCheckIn(status?.canCheckIn !== false);
+
+      const review = await fetch("/api/v2/attendance/manager", { cache: "no-store" });
+      if (review.ok) {
+        const managerJson = await review.json();
+        setManager(managerJson);
+
+        const staffResponse = await fetch("/api/attendance/feature-permissions", { cache: "no-store" });
+        if (staffResponse.ok) {
+          const staffData = await staffResponse.json();
+          const rows = (staffData.permissions ?? []).filter(
+            (item: { staff_id?: string }) => item.staff_id,
+          ) as StaffPermissionRow[];
+          setPermissionRows(rows);
+          setStaffAccounts(
+            rows.map((item) => ({
+              id: item.staff_id,
+              name: item.staff_name || "Staff member",
+              department: item.department || "Restaurant",
+              job_classification: item.job_classification || item.position || item.role || "Staff",
+              position: item.position || "",
+              role: item.role || "",
+              leave: item.leave_requests_enabled !== false,
+              planned: item.planned_absence_enabled !== false,
+              exceptions: item.attendance_exceptions_enabled !== false,
+            })),
+          );
+        }
+      }
+
+      const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
+      if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
+
+      const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
+      if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
+
+      const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
+      if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
+    } finally {
+      setLoading(false);
     }
-
-    const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
-    if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
-
-    const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
-    if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
-
-    const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
-    if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
-
-    setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load(false);
+  }, [load]);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (lastEvent.topic === "attendance.updated" || lastEvent.topic === "staff.updated") {
+      void load(true);
+    }
+  }, [lastEvent, load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refresh = () => {
+      if (!document.hidden) void load(true);
+    };
+    window.addEventListener("kumbi:offline-synced", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const interval = setInterval(refresh, 20_000);
+    return () => {
+      window.removeEventListener("kumbi:offline-synced", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      clearInterval(interval);
+    };
+  }, [load]);
 
   async function register(action: "check_in" | "check_out") {
     setBusy(true);
@@ -222,6 +255,7 @@ export default function AttendancePage() {
       const response = await fetch("/api/v2/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ action }),
       });
       const data = await response.json();
@@ -236,7 +270,7 @@ export default function AttendancePage() {
       );
       setAccessDenied(response.status === 401 || response.status === 403);
       setBusy(false);
-      if (response.ok) void load();
+      if (response.ok) void load(true);
     } catch {
       enqueueOfflineAttendance({
         id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -256,7 +290,16 @@ export default function AttendancePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    void load();
+    void load(true);
+  }
+
+  async function markCheckedOut(attendanceId: string) {
+    await fetch("/api/v2/attendance/manager/override", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attendanceId, action: "correct_checkout" }),
+    });
+    void load(true);
   }
 
   async function decideLeave(id: string, status: "approved" | "denied") {
@@ -265,7 +308,7 @@ export default function AttendancePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    void load();
+    void load(true);
   }
 
   async function decidePermission(id: string, status: "approved" | "denied") {
@@ -274,7 +317,7 @@ export default function AttendancePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    void load();
+    void load(true);
   }
 
   async function decideException(id: string, status: "approved" | "denied" | "resumed") {
@@ -283,7 +326,7 @@ export default function AttendancePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    void load();
+    void load(true);
   }
 
   async function toggleSingleFeature(
@@ -525,10 +568,11 @@ export default function AttendancePage() {
                 <CheckCircle2 className="h-4 w-4 text-primary" /> Open approved report
               </Link>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Metric label="Present today" value={manager.summary?.present ?? "0"} icon={<CheckCircle2 />} />
+              <Metric label="Checked out" value={manager.summary?.checkedOut ?? "0"} icon={<LogOut />} />
               <Metric label="Pending review" value={manager.summary?.pending ?? "0"} icon={<Clock3 />} />
-              <Metric label="Absent records" value={manager.summary?.absent ?? "0"} icon={<Users />} />
+              <Metric label="Absent / unrecorded" value={manager.summary?.absent ?? "0"} icon={<Users />} />
             </div>
             <div className="rounded-2xl border bg-background p-5 shadow-sm">
               <h3 className="font-semibold text-foreground">Pending confirmations ({manager.pending.length})</h3>
@@ -548,11 +592,22 @@ export default function AttendancePage() {
                           {item.staff_role || "Staff"}
                           {item.department ? ` · Department: ${item.department}` : ""} · Checked in at{" "}
                           {formatTime(item.check_in_at)}
+                          {item.check_out_at ? ` · Checked out at ${formatTime(item.check_out_at)}` : ""}
                         </p>
                         {item.staff_email && <p className="mt-1 text-xs text-muted-foreground">{item.staff_email}</p>}
-                        <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                          {item.shift_period || "Unscheduled"} shift
-                        </span>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                            {item.shift_period || "Unscheduled"} shift
+                            {item.scheduled_start && item.scheduled_end
+                              ? ` (${item.scheduled_start}–${item.scheduled_end})`
+                              : ""}
+                          </span>
+                          {Number(item.late_minutes ?? 0) > 0 && (
+                            <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                              +{item.late_minutes}m late
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -578,6 +633,115 @@ export default function AttendancePage() {
                   ))
                 ) : (
                   <p className="py-4 text-sm text-muted-foreground">No pending confirmations.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Today's Live Staff Register (all captured check-ins & check-outs) */}
+            <div className="rounded-2xl border bg-background p-5 shadow-sm">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    Today&apos;s live staff register ({(manager.todayRecords ?? []).length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Tracks every staff check-in, scheduled shift window, verification status, and check-out time in real time.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 overflow-x-auto">
+                {(manager.todayRecords ?? []).length ? (
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2.5">Staff</th>
+                        <th className="px-3 py-2.5">Schedule</th>
+                        <th className="px-3 py-2.5">Check-In</th>
+                        <th className="px-3 py-2.5">Check-Out</th>
+                        <th className="px-3 py-2.5">Status</th>
+                        <th className="px-3 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {(manager.todayRecords ?? []).map((item) => {
+                        const isOpenShift = Boolean(item.check_in_at && !item.check_out_at);
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-3">
+                              <p className="font-semibold text-foreground">
+                                {item.staff_name || item.staff_email || item.staff_id || "Staff member"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.position || item.job_classification || item.staff_role || "Staff"}
+                                {item.department ? ` · ${item.department}` : ""}
+                              </p>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+                                {item.scheduled_start && item.scheduled_end
+                                  ? `${item.scheduled_start}–${item.scheduled_end}`
+                                  : item.shift_period || "Unscheduled"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span>{formatTime(item.check_in_at)}</span>
+                              {Number(item.late_minutes ?? 0) > 0 && (
+                                <span className="ml-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                  +{item.late_minutes}m
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              {item.check_out_at ? (
+                                <>
+                                  <span className="font-medium text-foreground">{formatTime(item.check_out_at)}</span>
+                                  {Number(item.early_checkout_minutes ?? 0) > 0 && (
+                                    <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                      (-{item.early_checkout_minutes}m early)
+                                    </span>
+                                  )}
+                                </>
+                              ) : item.check_in_at ? (
+                                <span className="text-xs font-medium text-primary">On shift</span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                  item.check_out_at
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                    : item.verification_status === "pending"
+                                    ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+                                    : item.verification_status === "rejected" || item.verification_status === "absent"
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                                }`}
+                              >
+                                {formatLifecycleStatus(item.lifecycleStatus ?? item.verification_status)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {isOpenShift ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void markCheckedOut(item.id)}
+                                  className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-orange-300 bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-900 transition hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-200"
+                                >
+                                  <LogOut className="h-3.5 w-3.5" /> Mark Checked Out
+                                </button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="py-4 text-sm text-muted-foreground">No attendance records captured yet today.</p>
                 )}
               </div>
             </div>

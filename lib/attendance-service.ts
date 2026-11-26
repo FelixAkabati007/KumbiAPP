@@ -59,6 +59,8 @@ export async function ensureAttendanceSchema(
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS shift_id UUID`,
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS check_in_at TIMESTAMP WITH TIME ZONE`,
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS check_out_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0`,
+    `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS early_checkout_minutes INTEGER DEFAULT 0`,
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending_verification'`,
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS verification_status VARCHAR(50) DEFAULT 'pending'`,
     `ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS verified_by UUID`,
@@ -99,6 +101,30 @@ export async function ensureAttendanceSchema(
        last_error TEXT,
        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
      )`,
+    `CREATE TABLE IF NOT EXISTS performance_events (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       staff_id UUID NOT NULL,
+       source_type VARCHAR(100) NOT NULL,
+       source_id VARCHAR(255),
+       points INTEGER NOT NULL DEFAULT 1,
+       verification_status VARCHAR(50) DEFAULT 'verified',
+       verified_by UUID,
+       metadata JSONB DEFAULT '{}'::jsonb,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+     )`,
+    `ALTER TABLE performance_events DROP CONSTRAINT IF EXISTS performance_events_staff_id_fkey`,
+    `ALTER TABLE performance_events DROP CONSTRAINT IF EXISTS performance_events_verified_by_fkey`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       recipient_user_id VARCHAR(255),
+       title VARCHAR(255) NOT NULL,
+       message TEXT NOT NULL,
+       type VARCHAR(100) NOT NULL DEFAULT 'info',
+       metadata JSONB DEFAULT '{}'::jsonb,
+       read BOOLEAN NOT NULL DEFAULT false,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+     )`,
+    `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_recipient_user_id_fkey`,
   ];
 
   for (const stmt of statements) {
@@ -120,6 +146,16 @@ interface StaffIdentityRow {
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getAccraDateString(timestamp: string | Date): string {
+  const dt = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Accra",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(dt);
+}
 
 function defaultDepartmentForClassification(classification: string): string {
   if (classification === "Reception" || classification === "Housekeeping") return "Hotel";
@@ -276,6 +312,8 @@ export interface AttendanceRecordRow {
   staff_id: string;
   check_in_at?: string | null;
   check_out_at?: string | null;
+  late_minutes?: number | null;
+  early_checkout_minutes?: number | null;
   status: string;
   verification_status: string;
   verified_at?: string | null;
@@ -287,7 +325,9 @@ export interface AttendanceRecordRow {
 /**
  * Authoritative read for today's attendance record across /api/v2/attendance, /api/attendance,
  * and API permission gates. Matches by user_id, resolved DB user_id, or staff_profiles.id using
- * the canonical Africa/Accra operational day on COALESCE(check_in_at, created_at).
+ * the canonical Africa/Accra operational day on COALESCE(check_in_at, created_at), and also
+ * surfaces any still-open overnight shift started within the last 18 hours so late/night staff
+ * can check out smoothly after midnight.
  */
 export async function getTodayAttendanceRecord(
   session: Pick<ApiSession, "id" | "email">,
@@ -301,7 +341,7 @@ export async function getTodayAttendanceRecord(
   const resolvedStaffId = identity?.staff_id || "";
 
   const result = await executor<AttendanceRecordRow>(
-    `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
+    `SELECT id, user_id, staff_id, check_in_at, check_out_at, late_minutes, early_checkout_minutes, status, verification_status, verified_at
      FROM attendance_records ar
      WHERE (
        ar.user_id::text = $1::text
@@ -310,8 +350,18 @@ export async function getTodayAttendanceRecord(
        OR ar.staff_id::text = $2::text
        OR ($3::text <> '' AND ar.staff_id::text = $3::text)
      )
-       AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}
-     ORDER BY COALESCE(ar.check_in_at, ar.created_at) DESC
+       AND (
+         ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}
+         OR (
+           ar.check_in_at IS NOT NULL
+           AND ar.check_out_at IS NULL
+           AND ar.check_in_at >= ($4::timestamptz - interval '16 hours')
+           AND ar.check_in_at <= $4::timestamptz
+         )
+       )
+     ORDER BY
+       (${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}) DESC,
+       COALESCE(ar.check_in_at, ar.created_at) DESC
      LIMIT 1`,
     [session.id, resolvedUserId, resolvedStaffId, canonicalNow],
   );
@@ -356,15 +406,17 @@ export async function registerAttendance(
   const canonicalNow = options?.canonicalNow ?? (await getCanonicalTransactionTimestamp());
   const { userId, staffId } = await resolveAttendanceStaffIdentity(session, poolExecutor);
 
-  // Resolve schedule BEFORE opening the DB transaction when checking out so schedule queries never taint BEGIN
-  const schedule =
-    action === "check_out"
-      ? await resolveWorkforceSchedule(userId, canonicalNow, poolExecutor as unknown as WorkforceQueryExecutor, session.role)
-      : null;
+  // Resolve schedule BEFORE opening the DB transaction so schedule queries never taint BEGIN
+  const schedule = await resolveWorkforceSchedule(
+    userId,
+    canonicalNow,
+    poolExecutor as unknown as WorkforceQueryExecutor,
+    session.role,
+  );
 
   return runTx(async (client) => {
     const current = await client.query<AttendanceRecordRow>(
-      `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
+      `SELECT id, user_id, staff_id, check_in_at, check_out_at, late_minutes, early_checkout_minutes, status, verification_status, verified_at
        FROM attendance_records ar
        WHERE (
          ar.staff_id::text = $1::text
@@ -372,11 +424,22 @@ export async function registerAttendance(
          OR ar.user_id::text = $3::text
          OR ar.staff_id::text = $2::text
        )
-         AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}
-       ORDER BY COALESCE(ar.check_in_at, ar.created_at) DESC
+         AND (
+           ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}
+           OR (
+             $5::text = 'check_out'
+             AND ar.check_in_at IS NOT NULL
+             AND ar.check_out_at IS NULL
+             AND ar.check_in_at >= ($4::timestamptz - interval '24 hours')
+             AND ar.check_in_at <= $4::timestamptz
+           )
+         )
+       ORDER BY
+         (${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$4::timestamptz")}) DESC,
+         COALESCE(ar.check_in_at, ar.created_at) DESC
        LIMIT 1
        FOR UPDATE`,
-      [staffId, userId, session.id, canonicalNow],
+      [staffId, userId, session.id, canonicalNow, action],
     );
     const record = current.rows[0];
 
@@ -390,11 +453,19 @@ export async function registerAttendance(
         throw new Error("ALREADY_CHECKED_IN");
       }
 
+      let lateMinutes = 0;
+      const startSec = parseTimeToSeconds(schedule?.startTime || "");
+      const endSec = parseTimeToSeconds(schedule?.endTime || "");
+      const nowSec = getPropertySecondsOfDay(canonicalNow);
+      if (startSec !== null && (endSec === null || endSec > startSec) && nowSec > startSec) {
+        lateMinutes = Math.max(0, Math.floor((nowSec - startSec) / 60));
+      }
+
       const inserted = await client.query<AttendanceRecordRow>(
-        `INSERT INTO attendance_records (user_id, staff_id, check_in_at, status, verification_status, notes, created_at, updated_at)
-         VALUES ($1::uuid, $2::uuid, $3::timestamptz, 'pending_verification', 'pending', $4, $3::timestamptz, $3::timestamptz)
+        `INSERT INTO attendance_records (user_id, staff_id, check_in_at, late_minutes, early_checkout_minutes, status, verification_status, notes, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3::timestamptz, $4::int, 0, 'pending_verification', 'pending', $5, $3::timestamptz, $3::timestamptz)
          RETURNING *`,
-        [userId, staffId, canonicalNow, notes?.slice(0, 500) || null],
+        [userId, staffId, canonicalNow, lateMinutes, notes?.slice(0, 500) || null],
       );
       const row = inserted.rows[0];
 
@@ -411,7 +482,13 @@ export async function registerAttendance(
             staffId,
             userId,
             idempotencyKey,
-            JSON.stringify({ source: "attendance_service", clock: "canonical_property" }),
+            JSON.stringify({
+              source: "attendance_service",
+              clock: "canonical_property",
+              scheduledStart: schedule?.startTime,
+              scheduledEnd: schedule?.endTime,
+              lateMinutes,
+            }),
             idempotencyKey,
           ],
         );
@@ -432,27 +509,48 @@ export async function registerAttendance(
       return { record: row, nextAction: "check_out" as const };
     }
 
-    if (!record?.check_in_at || record.check_out_at) throw new Error("CHECK_IN_REQUIRED");
+    if (!record?.check_in_at) throw new Error("CHECK_IN_REQUIRED");
+    if (record.check_out_at) throw new Error("ALREADY_CHECKED_OUT");
 
-    // Strictly enforce the rule from Settings -> Staff time schedules
+    // Calculate early_checkout_minutes against the resolved schedule end_time
+    // WITHOUT hard-blocking check-out, so shifts ending at 23:59 or closing early always record check_out_at cleanly.
+    let earlyCheckoutMinutes = 0;
     const scheduledEnd = schedule?.endTime;
+    const scheduledStart = schedule?.startTime;
     if (scheduledEnd) {
       const endSec = parseTimeToSeconds(scheduledEnd);
+      const startSec = scheduledStart ? parseTimeToSeconds(scheduledStart) : null;
       const nowSec = getPropertySecondsOfDay(canonicalNow);
-      if (endSec !== null && nowSec < endSec) {
-        throw new Error(`CHECKOUT_TOO_EARLY:${scheduledEnd.slice(0, 5)}`);
+      const checkInDay = getAccraDateString(record.check_in_at);
+      const nowDay = getAccraDateString(canonicalNow);
+
+      if (endSec !== null) {
+        if (startSec !== null && endSec <= startSec) {
+          // Overnight shift (crosses midnight): scheduled end is on (checkInDay + 1)
+          const checkInMidnightUtc = new Date(`${checkInDay}T00:00:00.000Z`).getTime();
+          const scheduledEndUtcMs = checkInMidnightUtc + 86_400_000 + endSec * 1000;
+          const nowMs = new Date(canonicalNow).getTime();
+          if (Number.isFinite(scheduledEndUtcMs) && Number.isFinite(nowMs) && nowMs < scheduledEndUtcMs) {
+            earlyCheckoutMinutes = Math.max(0, Math.floor((scheduledEndUtcMs - nowMs) / 60_000));
+          }
+        } else if (checkInDay === nowDay && nowSec < endSec) {
+          earlyCheckoutMinutes = Math.max(0, Math.floor((endSec - nowSec) / 60));
+        }
       }
     }
+
+    const checkoutStatus = earlyCheckoutMinutes > 0 ? "checked_out_early" : "checked_out";
 
     const updated = await client.query<AttendanceRecordRow>(
       `UPDATE attendance_records
        SET check_out_at = $2::timestamptz,
-           status = 'checked_out',
+           early_checkout_minutes = $4::int,
+           status = $5::varchar,
            updated_at = $2::timestamptz,
            user_id = COALESCE(user_id, $3::uuid)
        WHERE id = $1::uuid AND check_out_at IS NULL
        RETURNING *`,
-      [record.id, canonicalNow, userId],
+      [record.id, canonicalNow, userId, earlyCheckoutMinutes, checkoutStatus],
     );
     if (!updated.rows[0]) throw new Error("ALREADY_CHECKED_OUT");
     const row = updated.rows[0];
@@ -470,7 +568,12 @@ export async function registerAttendance(
           staffId,
           userId,
           idempotencyKey,
-          JSON.stringify({ source: "attendance_service", clock: "canonical_property" }),
+          JSON.stringify({
+            source: "attendance_service",
+            clock: "canonical_property",
+            scheduledEnd: schedule?.endTime,
+            earlyCheckoutMinutes,
+          }),
           idempotencyKey,
         ],
       );
@@ -484,17 +587,27 @@ export async function registerAttendance(
          WHERE NOT EXISTS (
            SELECT 1 FROM operational_outbox WHERE idempotency_key = $2::text
          )`,
-        [row.id, outboxKey, JSON.stringify({ attendanceRecordId: row.id, staffId, clock: "canonical_property" })],
+        [
+          row.id,
+          outboxKey,
+          JSON.stringify({
+            attendanceRecordId: row.id,
+            staffId,
+            earlyCheckoutMinutes,
+            clock: "canonical_property",
+          }),
+        ],
       );
     });
 
-    return { record: row, nextAction: "complete" as const };
+    return { record: row, nextAction: "complete" as const, earlyCheckoutMinutes };
   });
 }
 
 /**
  * Automatically checks out open attendance records whose resolved Admin schedule end_time
- * has been reached in Africa/Accra property time (without any hardcoded 18:00 fallback).
+ * has been reached in Africa/Accra property time (including unclosed shifts from prior days
+ * such as 23:59 shifts when the cron runs after midnight, and overnight shifts).
  */
 export async function runScheduledAutoCheckout(
   canonicalNow: string,
@@ -507,18 +620,20 @@ export async function runScheduledAutoCheckout(
     user_id?: string | null;
     staff_id: string;
     user_role?: string | null;
+    check_in_at: string;
   }>(
     `SELECT
        ar.id::text AS id,
        COALESCE(ar.user_id, sp.user_id)::text AS user_id,
        ar.staff_id::text AS staff_id,
-       u.role::text AS user_role
+       u.role::text AS user_role,
+       COALESCE(ar.check_in_at, ar.created_at)::text AS check_in_at
      FROM attendance_records ar
      LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id OR sp.user_id = ar.staff_id
      LEFT JOIN users u ON u.id = COALESCE(ar.user_id, sp.user_id, ar.staff_id)
      WHERE ar.check_in_at IS NOT NULL
        AND ar.check_out_at IS NULL
-       AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$1::timestamptz")}`,
+       AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} <= ${propertyDayExpression("$1::timestamptz")}`,
     [canonicalNow],
   );
 
@@ -527,18 +642,32 @@ export async function runScheduledAutoCheckout(
   }
 
   const nowSeconds = getPropertySecondsOfDay(canonicalNow);
+  const nowDay = getAccraDateString(canonicalNow);
+  const nowMs = new Date(canonicalNow).getTime();
   const dueIds: string[] = [];
 
   for (const row of openRes.rows) {
     const lookupKey = row.user_id || row.staff_id;
     const schedule = await resolveWorkforceSchedule(
       lookupKey,
-      canonicalNow,
+      row.check_in_at || canonicalNow,
       executor as unknown as WorkforceQueryExecutor,
       row.user_role ?? undefined,
     );
+    const startSeconds = parseTimeToSeconds(schedule.start_time);
     const endSeconds = parseTimeToSeconds(schedule.end_time);
-    if (endSeconds !== null && nowSeconds >= endSeconds) {
+    if (endSeconds === null) continue;
+
+    const checkInDay = getAccraDateString(row.check_in_at);
+    const isOvernight = startSeconds !== null && endSeconds <= startSeconds;
+
+    if (isOvernight) {
+      const checkInMidnightUtc = new Date(`${checkInDay}T00:00:00.000Z`).getTime();
+      const scheduledEndUtcMs = checkInMidnightUtc + 86_400_000 + endSeconds * 1000;
+      if (Number.isFinite(scheduledEndUtcMs) && nowMs >= scheduledEndUtcMs) {
+        dueIds.push(row.id);
+      }
+    } else if (checkInDay < nowDay || (checkInDay === nowDay && nowSeconds >= endSeconds)) {
       dueIds.push(row.id);
     }
   }

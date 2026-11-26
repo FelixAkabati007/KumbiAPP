@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LogoDisplay } from "@/components/logo-display";
 import { PropertyClock } from "@/components/property-clock";
+import { useRealtime } from "@/components/realtime-provider";
 import { enqueueOfflineAttendance } from "@/lib/offline-storage";
 import { getRoleDisplayName, managementRoles, type UserRole } from "@/lib/roles";
 
@@ -13,6 +14,9 @@ interface AttendanceRecord {
   check_in_at?: string;
   check_out_at?: string;
   verification_status?: string;
+  status?: string;
+  late_minutes?: number | null;
+  early_checkout_minutes?: number | null;
 }
 interface AttendanceException { id: string; attendance_date: string; status: string; manager_message?: string; staff_reply?: string }
 interface PermissionRequest { id: string; start_date: string; end_date: string; reason: string; handover_notes?: string; status: string; reviewer_message?: string }
@@ -44,6 +48,7 @@ function attendanceStatus(record: AttendanceRecord | null, nextAction: "check_in
 
 export default function StaffPage() {
   const { user, isLoading } = useAuth();
+  const { lastEvent } = useRealtime();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
   const [exceptions, setExceptions] = useState<AttendanceException[]>([]);
@@ -60,7 +65,7 @@ export default function StaffPage() {
   const [nextAction, setNextAction] = useState<"check_in" | "check_out" | "complete">("check_in");
   const [featurePermissions, setFeaturePermissions] = useState<FeaturePermissions>({ leave_requests_enabled: true, planned_absence_enabled: true, attendance_exceptions_enabled: true });
 
-  async function load() {
+  const load = useCallback(async () => {
     const [attendanceResponse, scheduleResponse, featureResponse] = await Promise.all([
       fetch("/api/v2/attendance", { cache: "no-store" }),
       fetch("/api/workforce/schedule", { cache: "no-store" }),
@@ -79,22 +84,35 @@ export default function StaffPage() {
     if (permissionResponse.ok) setPermissionRequests((await permissionResponse.json()).requests ?? []);
     const leaveResponse = await fetch("/api/attendance/leave", { cache: "no-store" });
     if (leaveResponse.ok) setLeaveRequests((await leaveResponse.json()).requests ?? []);
-  }
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) window.location.assign("/login");
     if (!isLoading && user && managementRoles.includes(user.role as UserRole)) window.location.assign("/attendance");
     if (!isLoading && user && !managementRoles.includes(user.role as UserRole)) void load();
-  }, [isLoading, user]);
+  }, [isLoading, user, load]);
+
+  useEffect(() => {
+    if (!lastEvent || !user || managementRoles.includes(user.role as UserRole)) return;
+    if (lastEvent.topic === "attendance.updated" || lastEvent.topic === "staff.updated") {
+      void load();
+    }
+  }, [lastEvent, user, load]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user || managementRoles.includes(user.role as UserRole)) return;
-    const onOfflineSynced = () => {
-      void load();
+    const refresh = () => {
+      if (!document.hidden) void load();
     };
-    window.addEventListener("kumbi:offline-synced", onOfflineSynced);
-    return () => window.removeEventListener("kumbi:offline-synced", onOfflineSynced);
-  }, [user]);
+    window.addEventListener("kumbi:offline-synced", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("kumbi:offline-synced", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [user, load]);
 
   async function submitPermission(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -153,7 +171,13 @@ export default function StaffPage() {
         body: JSON.stringify({ action }),
       });
       const data = await response.json().catch(() => ({}));
-      const successMessage = action === "check_in" ? "Check-in successful" : "Check-out successful";
+      const earlyMins = Number(data?.record?.early_checkout_minutes ?? 0);
+      const successMessage =
+        action === "check_in"
+          ? "Check-in successful"
+          : earlyMins > 0
+          ? `Check-out successful (recorded ${earlyMins}m before scheduled close)`
+          : "Check-out successful";
       setMessage(response.ok ? successMessage : data.error ?? `Check-${action === "check_in" ? "in" : "out"} failed`);
       setMessageTone(response.ok ? "success" : "error");
       if (response.ok) {

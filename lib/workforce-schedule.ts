@@ -535,7 +535,19 @@ export async function resolveWorkforceSchedulesForActiveStaff(
        WHERE sp.user_id IS NOT NULL
          AND COALESCE(sp.employment_status, 'active') = 'active'
          AND COALESCE(sp.is_active, true) = true
-         AND COALESCE(u.is_active, true) = true`,
+         AND COALESCE(u.is_active, true) = true
+       UNION ALL
+       SELECT
+         u.id::text AS user_id,
+         u.role::text AS user_role,
+         sp.id::text AS staff_id,
+         sp.position AS position,
+         sp.job_classification AS job_classification,
+         sp.department AS department
+       FROM users u
+       LEFT JOIN staff_profiles sp ON LOWER(sp.business_email) = LOWER(u.email)
+       WHERE COALESCE(u.is_active, true) = true
+         AND NOT EXISTS (SELECT 1 FROM staff_profiles sp2 WHERE sp2.user_id = u.id)`,
     );
     staffRows = res.rows ?? [];
   } catch {
@@ -827,6 +839,25 @@ export function rankWorkSchedules(rows: WorkforceDbRow[], ctx: ScheduleMatchCont
         stamp(y.r) - stamp(x.r),
     )
     .map((x) => x.r);
+}
+
+/**
+ * Returns the canonical YYYY-MM-DD date string in Africa/Accra (or specified timezone).
+ */
+export function getAccraDateKey(referenceTimestamp?: string | Date, timeZone = "Africa/Accra"): string {
+  const date = referenceTimestamp
+    ? referenceTimestamp instanceof Date
+      ? referenceTimestamp
+      : new Date(referenceTimestamp)
+    : new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 /**

@@ -93,7 +93,30 @@ export async function GET() {
       directInventoryId: r.direct_inventory_id ?? undefined,
       directUnitsPerSale: Number(r.direct_units_per_sale),
       directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
-      ...(() => { const availability = calculateMenuAvailability({ inventoryMode: r.inventory_mode, availabilityMode: r.availability_mode, isAvailable: r.is_available, directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity), directUnitsPerSale: Number(r.direct_units_per_sale), ingredients: r.recipe_ingredients ?? [], legacyQuantity: r.legacy_inventory_quantity == null ? null : Number(r.legacy_inventory_quantity) }); return { inStock: availability.inStock, stockStatus: availability.stockStatus, stockShortages: availability.stockShortages, shortageDetails: availability.shortageDetails }; })(),
+      ...(() => {
+        const fallbackLegacyQty =
+          r.legacy_inventory_quantity != null
+            ? Number(r.legacy_inventory_quantity)
+            : r.direct_inventory_quantity != null
+              ? Number(r.direct_inventory_quantity)
+              : null;
+        const availability = calculateMenuAvailability({
+          inventoryMode: r.inventory_mode,
+          availabilityMode: r.availability_mode,
+          isAvailable: r.is_available,
+          directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity),
+          directUnitsPerSale: Number(r.direct_units_per_sale),
+          ingredients: r.recipe_ingredients ?? [],
+          legacyQuantity: fallbackLegacyQty,
+        });
+        return {
+          inStock: availability.inStock,
+          availableUnits: availability.availableUnits,
+          stockStatus: availability.stockStatus,
+          stockShortages: availability.stockShortages,
+          shortageDetails: availability.shortageDetails,
+        };
+      })(),
       image: r.image_url ?? undefined,
       category: (r.category_slug || "ghanaian") as
         | "ghanaian"

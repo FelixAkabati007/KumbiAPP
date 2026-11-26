@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { getTodayAttendanceRecord, registerAttendance } from "@/lib/attendance-service";
+import { publishRealtime } from "@/lib/realtime";
 import { managementRoles } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
 const headers = { "X-API-Version": "2", "Cache-Control": "no-store, no-cache, must-revalidate" };
 
-function statusLabel(value?: string | null) {
-  return ({ pending: "waiting_for_approval", verified: "approved", rejected: "rejected", late: "approved_late" } as Record<string, string>)[value ?? ""] ?? value ?? "not_checked_in";
+function statusLabel(value?: string | null, checkedOut?: boolean) {
+  if (checkedOut && value !== "rejected") return "completed";
+  return (
+    ({
+      pending: "waiting_for_approval",
+      verified: "approved",
+      approved: "approved",
+      rejected: "rejected",
+      late: "approved_late",
+      approved_late: "approved_late",
+    } as Record<string, string>)[value ?? ""] ??
+    value ??
+    "not_checked_in"
+  );
 }
 
 export async function GET() {
@@ -19,7 +32,12 @@ export async function GET() {
     return NextResponse.json(
       {
         apiVersion: "2",
-        record: record ? { ...record, lifecycleStatus: statusLabel(record.verification_status) } : null,
+        record: record
+          ? {
+              ...record,
+              lifecycleStatus: statusLabel(record.verification_status, Boolean(record.check_out_at)),
+            }
+          : null,
         nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete",
         canCheckIn: !managementRoles.includes(session.role),
       },
@@ -38,7 +56,11 @@ export async function POST(request: Request) {
   const action = body.action === "check_out" ? "check_out" : "check_in";
   try {
     const result = await registerAttendance(session, action, String(body.notes ?? ""));
-    const lifecycleStatus = action === "check_in" ? "waiting_for_approval" : "completed";
+    const lifecycleStatus =
+      action === "check_in"
+        ? statusLabel(result.record?.verification_status, false)
+        : "completed";
+    await publishRealtime("attendance.updated", String(result.record?.id || session.id)).catch(() => undefined);
     return NextResponse.json(
       {
         apiVersion: "2",
@@ -63,7 +85,7 @@ export async function POST(request: Request) {
       console.error("[v2/attendance] unexpected attendance registration failure", cause);
     }
     const errorMessage = code.startsWith("CHECKOUT_TOO_EARLY:")
-      ? `Check-out is only available at or after your scheduled end time (${code.split(":")[1]}).`
+      ? `Check-out is only available at or after your scheduled end time (${code.slice("CHECKOUT_TOO_EARLY:".length)}).`
       : messages[code] ?? "Unable to update attendance";
     return NextResponse.json({ apiVersion: "2", error: errorMessage, code }, { status: isKnownRule ? 409 : 500, headers });
   }

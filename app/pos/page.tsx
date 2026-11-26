@@ -343,9 +343,30 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     setBarcodeInput("");
   };
 
+  const getItemUnitsLeft = (item: MenuItem): number | null => {
+    const perSale = Number(item.directUnitsPerSale ?? 1) > 0 ? Number(item.directUnitsPerSale ?? 1) : 1;
+    if (
+      item.inventoryMode === "direct" &&
+      item.directInventoryId &&
+      inventoryAvailability[item.directInventoryId] !== undefined
+    ) {
+      const liveQty = Math.max(0, Number(inventoryAvailability[item.directInventoryId]) || 0);
+      return Math.max(0, Math.floor((liveQty + 1e-9) / perSale));
+    }
+    if (typeof item.availableUnits === "number" && Number.isFinite(item.availableUnits)) {
+      return Math.max(0, Math.floor(item.availableUnits));
+    }
+    if (typeof item.directInventoryQuantity === "number" && Number.isFinite(item.directInventoryQuantity)) {
+      return Math.max(0, Math.floor((Math.max(0, item.directInventoryQuantity) + 1e-9) / perSale));
+    }
+    return item.inStock === false ? 0 : null;
+  };
+
   // Add item to current order
   const isItemAvailable = (item: MenuItem) => {
     if (item.isAvailable === false) return false;
+    const unitsLeft = getItemUnitsLeft(item);
+    if (unitsLeft !== null && unitsLeft <= 0) return false;
     // Recipe items: the menu API evaluates every ingredient with the shared unit engine,
     // so its verdict is authoritative for all roles (cashiers and managers alike).
     if (item.inventoryMode !== "direct" || !item.directInventoryId) return item.inStock !== false;
@@ -359,6 +380,16 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
   const addItemToOrder = (item: MenuItem) => {
     if (!isItemAvailable(item)) {
       toast({ title: "Out of Stock", description: `${item.name} is unavailable until it is restocked.`, variant: "destructive" });
+      return;
+    }
+    const unitsLeft = getItemUnitsLeft(item);
+    const inCartQty = currentOrder.find((orderItem) => orderItem.id === item.id)?.quantity ?? 0;
+    if (unitsLeft !== null && inCartQty >= unitsLeft) {
+      toast({
+        title: "Stock Limit Reached",
+        description: `Only ${unitsLeft} ${unitsLeft === 1 ? "unit" : "units"} of ${item.name} available in inventory.`,
+        variant: "destructive",
+      });
       return;
     }
     // Do not automatically display the checkout pane on item addition.
@@ -617,6 +648,38 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
             createdAt: new Date().toISOString(),
             status: "pending",
             retryCount: 0,
+          });
+          const soldQtyById = new Map(currentOrder.map((ci) => [String(ci.id), ci.quantity]));
+          setMenuItems((prev) =>
+            prev.map((mi) => {
+              const sold = soldQtyById.get(String(mi.id));
+              if (!sold) return mi;
+              const perSale = Number(mi.directUnitsPerSale ?? 1) > 0 ? Number(mi.directUnitsPerSale ?? 1) : 1;
+              const nextUnits =
+                typeof mi.availableUnits === "number"
+                  ? Math.max(0, mi.availableUnits - sold)
+                  : mi.availableUnits;
+              const nextDirectQty =
+                typeof mi.directInventoryQuantity === "number"
+                  ? Math.max(0, mi.directInventoryQuantity - sold * perSale)
+                  : mi.directInventoryQuantity;
+              return {
+                ...mi,
+                availableUnits: nextUnits,
+                directInventoryQuantity: nextDirectQty,
+                inStock: typeof nextUnits === "number" ? nextUnits > 0 : mi.inStock,
+              };
+            }),
+          );
+          setInventoryAvailability((prev) => {
+            const next = { ...prev };
+            for (const ci of currentOrder) {
+              if (ci.directInventoryId && next[ci.directInventoryId] !== undefined) {
+                const perSale = Number(ci.directUnitsPerSale ?? 1) > 0 ? Number(ci.directUnitsPerSale ?? 1) : 1;
+                next[ci.directInventoryId] = Math.max(0, Number(next[ci.directInventoryId]) - ci.quantity * perSale);
+              }
+            }
+            return next;
           });
           toast({
             title: "Saved Offline",
@@ -1164,16 +1227,47 @@ className="hidden text-xs border-orange-200 dark:border-orange-700 text-orange-7
                       {item.description}
                     </p>
                   </CardContent>
-                  <CardFooter className="p-3 pt-0 flex justify-between items-center relative z-10">
-                    <Badge
-                      variant="secondary"
-                      className="text-xs rounded-full bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-800/50 dark:via-amber-800/50 dark:to-yellow-800/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700"
-                    >
-                      {item.category}
-                    </Badge>
-                    <span className="font-bold text-lg text-orange-600 dark:text-orange-400">
-                      ₵{item.price.toFixed(2)}
-                    </span>
+                  <CardFooter className="p-3 pt-0 flex flex-col items-stretch gap-1.5 relative z-10 mt-auto">
+                    <div className="flex justify-between items-center w-full">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs rounded-full bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 dark:from-orange-800/50 dark:via-amber-800/50 dark:to-yellow-800/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700"
+                      >
+                        {item.category}
+                      </Badge>
+                      <span className="font-bold text-lg text-orange-600 dark:text-orange-400">
+                        ₵{item.price.toFixed(2)}
+                      </span>
+                    </div>
+                    {(() => {
+                      const unitsLeft = getItemUnitsLeft(item);
+                      const displayUnits = unitsLeft ?? 0;
+                      const inCart = currentOrder.find((ci) => ci.id === item.id)?.quantity ?? 0;
+                      const remainingAfterCart = Math.max(0, displayUnits - inCart);
+                      return (
+                        <div
+                          data-testid={`pos-item-units-${item.id}`}
+                          className={`flex items-center justify-between rounded-lg border px-2 py-0.5 text-[11px] font-medium tabular-nums ${
+                            unitsLeft === null
+                              ? "border-orange-200/70 bg-orange-50/60 text-orange-800 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-200"
+                              : remainingAfterCart <= 0
+                                ? "border-red-200 bg-red-50/90 text-red-700 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-300"
+                                : remainingAfterCart <= 5
+                                  ? "border-amber-200 bg-amber-50/90 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300"
+                                  : "border-emerald-200 bg-emerald-50/90 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          }`}
+                        >
+                          <span>
+                            {unitsLeft === null
+                              ? "In stock"
+                              : `${remainingAfterCart} ${remainingAfterCart === 1 ? "unit" : "units"} left`}
+                          </span>
+                          {inCart > 0 && unitsLeft !== null && (
+                            <span className="text-[10px] opacity-80">({inCart} in cart)</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </CardFooter>
                 </Card>
               ))}

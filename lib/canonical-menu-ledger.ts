@@ -14,6 +14,7 @@ export type CanonicalMenuItem = {
   inventoryMode: "recipe" | "direct";
   category: string;
   inStock: boolean;
+  availableUnits: number;
   stockStatus: string;
   stockShortages: string[];
   shortageDetails: unknown[];
@@ -96,6 +97,7 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
       inventoryMode: row.inventory_mode,
       category: row.category_slug ?? "ghanaian",
       inStock: availability.inStock,
+      availableUnits: availability.availableUnits,
       stockStatus: availability.stockStatus,
       stockShortages: availability.stockShortages,
       shortageDetails: availability.shortageDetails,

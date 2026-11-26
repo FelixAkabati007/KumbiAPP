@@ -15,6 +15,7 @@ export interface MenuItem {
   directInventoryId?: string;
   directUnitsPerSale?: number;
   directInventoryQuantity?: number;
+  availableUnits?: number | null;
 }
 
 export interface OrderItem extends MenuItem {
