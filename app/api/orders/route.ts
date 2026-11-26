@@ -6,6 +6,13 @@ import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 import { getCanonicalMenuLedger } from "@/lib/canonical-menu-ledger";
+import {
+  deductSingleOrderItemInventory,
+  ensurePosOrderSchema,
+  lockAndValidateDirectPosStock,
+  normalizePosPaymentMethod,
+  toSafeUuid,
+} from "@/lib/pos-order-inventory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +87,8 @@ export async function POST(req: Request) {
     const { session, error } = await requirePermission("pos");
     if (error) return error;
 
+    await ensurePosOrderSchema();
+
     const canonicalNow = await getCanonicalTransactionTimestamp();
     const body = await req.json();
     const idempotencyKey = req.headers.get("idempotency-key")?.trim() || (typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "");
@@ -136,35 +145,91 @@ export async function POST(req: Request) {
     const subtotal = Math.max(0, netSubtotal);
     const taxes = calculateTaxes(subtotal, await getTaxConfiguration(), "pos");
     const billableTotal = roundMoney(taxes.total);
+    const safePerformedByUuid = toSafeUuid(session.id);
+    const normalizedPaymentMethod = normalizePosPaymentMethod(paymentMethod);
+    const normalizedItems = Array.isArray(items) ? items : [];
+
     const orderId = await transaction(async (client) => {
       if (idempotencyKey) {
-        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [idempotencyKey]);
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [idempotencyKey]);
         const existing = await client.query(
           `SELECT order_id FROM order_idempotency_keys WHERE idempotency_key = $1 AND actor_id = $2`,
-          [idempotencyKey, session.id],
+          [idempotencyKey, String(session.id)],
         );
         if (existing.rows[0]?.order_id) return existing.rows[0].order_id;
       }
 
-      const orderResult = await client.query(
-        `INSERT INTO kitchenorders (
-          ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10::timestamptz, $10::timestamptz) RETURNING id`,
-        [orderNumber, billableTotal, orderType, tableNumber, customerName, paymentMethod, priority || "normal", estimatedTime, session.id, canonicalNow]
+      const preparedStock = await lockAndValidateDirectPosStock(client, normalizedItems);
+
+      const itemsColCheck = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'kitchenorders' AND column_name = 'items'`,
       );
+      const hasItemsColumn = (itemsColCheck.rows?.length ?? 0) > 0;
+      const orderResult = hasItemsColumn
+        ? await client.query(
+            `INSERT INTO kitchenorders (
+              ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items, performed_by, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9::jsonb, $10, $11::timestamptz, $11::timestamptz) RETURNING id`,
+            [
+              orderNumber,
+              billableTotal,
+              orderType || "dine-in",
+              tableNumber || null,
+              customerName || null,
+              normalizedPaymentMethod,
+              priority || "normal",
+              estimatedTime || null,
+              JSON.stringify(normalizedItems),
+              safePerformedByUuid,
+              canonicalNow,
+            ],
+          )
+        : await client.query(
+            `INSERT INTO kitchenorders (
+              ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10::timestamptz, $10::timestamptz) RETURNING id`,
+            [
+              orderNumber,
+              billableTotal,
+              orderType || "dine-in",
+              tableNumber || null,
+              customerName || null,
+              normalizedPaymentMethod,
+              priority || "normal",
+              estimatedTime || null,
+              safePerformedByUuid,
+              canonicalNow,
+            ],
+          );
       const createdOrderId = orderResult.rows[0].id;
 
-      for (const item of items ?? []) {
+      for (const item of normalizedItems) {
         await client.query(
           `INSERT INTO kitchen_orderitems (kitchenorderid, name, price, category, quantity, status, preptime, notes)
            VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)`,
-          [createdOrderId, item.name, item.price, item.category, item.quantity, item.prepTime, item.notes]
+          [createdOrderId, item.name, item.price, item.category || "other", item.quantity, item.prepTime || 0, item.notes || null]
+        );
+        await deductSingleOrderItemInventory(
+          client,
+          {
+            id: item.id,
+            name: item.name,
+            quantity: Number(item.quantity || 1),
+            barcode: item.barcode,
+          },
+          {
+            preparedStock,
+            orderNumber: String(orderNumber || createdOrderId),
+            orderId: String(createdOrderId),
+            actorId: session.id,
+            sourceType: "pos_order",
+          },
         );
       }
       if (idempotencyKey) {
         await client.query(
-          `INSERT INTO order_idempotency_keys (idempotency_key, actor_id, order_id) VALUES ($1, $2, $3)`,
-          [idempotencyKey, session.id, createdOrderId],
+          `INSERT INTO order_idempotency_keys (idempotency_key, actor_id, order_id, order_number) VALUES ($1, $2, $3, $4) ON CONFLICT (idempotency_key) DO NOTHING`,
+          [idempotencyKey, String(session.id), createdOrderId, String(orderNumber || "")],
         );
       }
       return createdOrderId;
@@ -172,12 +237,15 @@ export async function POST(req: Request) {
 
     await publishRealtime("orders.updated", String(orderId));
     await publishRealtime("pos.updated", String(orderId));
+    await publishRealtime("inventory.updated", String(orderId));
     return NextResponse.json({ success: true, id: orderId });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to create order";
+    const status = message.toLowerCase().includes("out of stock") ? 409 : 500;
     console.error("Failed to create order:", error);
     return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
+      { error: message },
+      { status }
     );
   }
 }

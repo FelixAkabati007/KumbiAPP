@@ -8,19 +8,38 @@ export async function GET() {
     const { error } = await requirePermission("pos");
     if (error) return error;
 
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Count orders from kitchenorders for today to generate sequential number
-    const res = await query(
-      `SELECT COUNT(*) as count FROM kitchenorders WHERE DATE(createdat) = CURRENT_DATE`
+    const accraDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Accra",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const dateStr = accraDate.replace(/-/g, "");
+    const prefix = `ORD-${dateStr}-`;
+
+    // Derive next sequential number from existing ORD-YYYYMMDD-XXXX records (schema-safe across created_at/createdat)
+    const res = await query<{ max_seq: string | null; total_matching: string | null }>(
+      `SELECT
+         MAX(
+           CASE
+             WHEN SUBSTRING(ordernumber FROM '^ORD-[0-9]{8}-([0-9]+)') IS NOT NULL
+             THEN SUBSTRING(ordernumber FROM '^ORD-[0-9]{8}-([0-9]+)')::bigint
+             ELSE 0
+           END
+         )::text AS max_seq,
+         COUNT(*)::text AS total_matching
+       FROM kitchenorders
+       WHERE ordernumber LIKE $1`,
+      [`${prefix}%`],
     );
-    
-    const count = parseInt((res.rows[0]?.count as string) || "0") + 1;
-    const dateStr = today.replace(/-/g, "");
-    
+
+    const maxSeq = Number(res.rows[0]?.max_seq || 0);
+    const totalMatching = Number(res.rows[0]?.total_matching || 0);
+    const nextSeq = Math.max(maxSeq, totalMatching) + 1;
+
     // Format: ORD-YYYYMMDD-XXXX
-    const orderNumber = `ORD-${dateStr}-${count.toString().padStart(4, "0")}`;
-    
+    const orderNumber = `${prefix}${nextSeq.toString().padStart(4, "0")}`;
+
     return NextResponse.json({ orderNumber });
   } catch (error) {
     console.error("Failed to generate order number:", error);

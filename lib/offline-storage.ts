@@ -15,21 +15,34 @@ export interface QueuedOfflineOrder {
   payload: {
     orderNumber: string;
     total: number;
+    tax?: number;
     orderType: string;
     tableNumber?: string;
     customerName?: string;
     paymentMethod: string;
+    priority?: string;
+    orderDiscount?: {
+      type: "percent" | "fixed";
+      value: number;
+      reason: string;
+      approvedBy?: string;
+    };
     items: Array<{
       id?: string;
       name: string;
       price: number;
+      originalPrice?: number;
+      barcode?: string;
       category?: string;
       quantity: number;
       discountPercent?: number;
+      discountReason?: string;
+      approvedBy?: string;
       notes?: string;
       prepTime?: number;
     }>;
     estimatedTime?: number;
+    offlineSync?: boolean;
   };
   createdAt: string;
   status: "pending" | "syncing" | "failed";
@@ -407,56 +420,7 @@ export async function processOfflineQueue(): Promise<SyncResult> {
   };
 
   try {
-    // 1. Process Queued Orders
-    const orders = getQueuedOrders();
-    for (const order of orders) {
-      try {
-        updateQueuedOrder(order.id, { status: "syncing" });
-        const res = await fetch("/api/orders/complete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": order.id,
-          },
-          body: JSON.stringify(order.payload),
-        });
-
-        if (res.ok) {
-          removeQueuedOrder(order.id);
-          result.syncedOrders++;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = String(errData?.error || "").toLowerCase();
-          // If already saved or duplicate, consider it reconciled
-          if (
-            (res.status === 400 || res.status === 409) &&
-            (errMsg.includes("already exists") || errMsg.includes("duplicate") || errMsg.includes("idempotent"))
-          ) {
-            removeQueuedOrder(order.id);
-            result.syncedOrders++;
-          } else {
-            updateQueuedOrder(order.id, {
-              status: "failed",
-              retryCount: (order.retryCount || 0) + 1,
-              lastError: errData?.error || `Server responded with ${res.status}`,
-            });
-            result.failedCount++;
-            result.errors.push(`Order #${order.orderNumber}: ${errData?.error || res.status}`);
-          }
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        updateQueuedOrder(order.id, {
-          status: "failed",
-          retryCount: (order.retryCount || 0) + 1,
-          lastError: msg,
-        });
-        result.failedCount++;
-        result.errors.push(`Order #${order.orderNumber}: ${msg}`);
-      }
-    }
-
-    // 2. Process Queued Attendance
+    // 1. Process Queued Attendance first so operational POS attendance gates are satisfied before order sync
     const attendanceQueue = getQueuedAttendance();
     for (const att of attendanceQueue) {
       try {
@@ -477,6 +441,63 @@ export async function processOfflineQueue(): Promise<SyncResult> {
       } catch (err: unknown) {
         result.failedCount++;
         result.errors.push(`Attendance sync: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // 2. Process Queued Orders
+    const orders = getQueuedOrders();
+    for (const order of orders) {
+      try {
+        updateQueuedOrder(order.id, { status: "syncing" });
+        const res = await fetch("/api/orders/complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": order.id,
+            "X-Offline-Sync": "true",
+          },
+          body: JSON.stringify({
+            ...order.payload,
+            idempotencyKey: order.id,
+            offlineSync: true,
+          }),
+        });
+
+        if (res.ok) {
+          removeQueuedOrder(order.id);
+          result.syncedOrders++;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = String(errData?.error || "").toLowerCase();
+          // If already saved or duplicate, consider it reconciled
+          if (
+            (res.status === 400 || res.status === 409) &&
+            (errMsg.includes("already exists") || errMsg.includes("duplicate") || errMsg.includes("idempotent"))
+          ) {
+            removeQueuedOrder(order.id);
+            result.syncedOrders++;
+          } else {
+            updateQueuedOrder(order.id, {
+              status: res.status === 401 ? "pending" : "failed",
+              retryCount: (order.retryCount || 0) + 1,
+              lastError:
+                res.status === 401
+                  ? "Sign in required to sync queued order"
+                  : errData?.error || `Server responded with ${res.status}`,
+            });
+            result.failedCount++;
+            result.errors.push(`Order #${order.orderNumber}: ${errData?.error || res.status}`);
+          }
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        updateQueuedOrder(order.id, {
+          status: "failed",
+          retryCount: (order.retryCount || 0) + 1,
+          lastError: msg,
+        });
+        result.failedCount++;
+        result.errors.push(`Order #${order.orderNumber}: ${msg}`);
       }
     }
 

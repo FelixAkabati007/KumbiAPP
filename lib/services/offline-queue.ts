@@ -152,19 +152,39 @@ export class OfflineQueueService {
       try {
         const response = await fetch(req.url, {
           method: req.method,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": req.id,
+            "X-Offline-Sync": "true",
+          },
           body: req.body ? JSON.stringify(req.body) : undefined,
         });
 
-        if (response.ok || response.status === 409) {
+        if (response.ok) {
           processedCount++;
+        } else if (response.status === 409) {
+          const errPayload = await response.json().catch(() => null);
+          const errText = String(errPayload?.error || errPayload?.code || "").toLowerCase();
+          const isOrderEndpoint = req.url.includes("/api/orders");
+          if (
+            !isOrderEndpoint ||
+            errText.includes("already exists") ||
+            errText.includes("duplicate") ||
+            errText.includes("idempotent")
+          ) {
+            processedCount++;
+          } else {
+            throw new Error(errPayload?.error || `Conflict 409 on ${req.url}`);
+          }
         } else {
-          throw new Error(`Server returned ${response.status}`);
+          const errPayload = await response.json().catch(() => null);
+          throw new Error(errPayload?.error || `Server returned ${response.status}`);
         }
       } catch (error) {
         console.error(`[OfflineQueueService] Failed request ${req.id} to ${req.url}:`, error);
         req.retryCount++;
-        if (req.retryCount < MAX_RETRIES) {
+        const isCriticalOrder = req.url.includes("/api/orders") || req.url.includes("/api/transactions");
+        if (isCriticalOrder || req.retryCount < MAX_RETRIES) {
           remainingQueue.push(req);
         } else {
           console.error(`[OfflineQueueService] Request ${req.id} exceeded max retries, dropping.`);

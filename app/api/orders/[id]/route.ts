@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { transaction } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
+import { toSafeUuid } from "@/lib/pos-order-inventory";
 
 export async function PATCH(
   req: Request,
@@ -68,11 +69,11 @@ export async function PATCH(
         const movementsRes = await client.query(
           `SELECT id, inventory_id, menu_item_id, quantity_delta
            FROM inventory_movements
-           WHERE (order_id::text = $1::text OR source_id = $2)
+           WHERE (order_id::text = $1::text OR source_id = $2::text)
              AND LOWER(movement_type) = 'sale'
              AND NOT EXISTS (
                SELECT 1 FROM inventory_movements rev
-               WHERE (rev.order_id::text = $1::text OR rev.source_id = $2)
+               WHERE (rev.order_id::text = $1::text OR rev.source_id = $2::text)
                  AND LOWER(rev.movement_type) IN ('return', 'reversal', 'cancellation_reversal')
              )`,
           [id, previousOrder.ordernumber || ""],
@@ -83,7 +84,12 @@ export async function PATCH(
           if (restoreQty > 0 && mov.inventory_id) {
             await client.query(
               `UPDATE inventory
-               SET quantity = quantity + $1, last_updated = NOW()
+               SET quantity = quantity + $1,
+                   container_count = CASE
+                     WHEN COALESCE(quantity_per_container, 0) > 0 THEN ROUND((quantity + $1::numeric) / quantity_per_container, 4)
+                     ELSE container_count
+                   END,
+                   last_updated = NOW()
                WHERE id = $2`,
               [restoreQty, mov.inventory_id],
             );
@@ -94,12 +100,12 @@ export async function PATCH(
                ) VALUES ($1, $2, $3, 'return', 'order_cancellation', $4, $5, $6, $7)`,
               [
                 mov.inventory_id,
-                mov.menu_item_id || null,
+                toSafeUuid(mov.menu_item_id),
                 restoreQty,
                 previousOrder.ordernumber || String(id),
                 id,
                 `Automatic stock restoration for cancelled order ${previousOrder.ordernumber || id}`,
-                session.id,
+                toSafeUuid(session.id),
               ],
             );
             inventoryReversed = true;

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, type ApiSession } from "@/lib/api-auth";
 import { publishRealtime } from "@/lib/realtime";
-import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
 import { recordFinancialLedgerEntry } from "@/lib/financial-ledger";
 import { calculateTaxes, getTaxConfiguration } from "@/lib/tax";
-
-const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
+import {
+  deductSingleOrderItemInventory,
+  ensurePosOrderSchema,
+  lockAndValidateDirectPosStock,
+  normalizePosPaymentMethod,
+  toSafeUuid,
+} from "@/lib/pos-order-inventory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +19,7 @@ type OrderItem = {
   id?: string;
   name: string;
   price: number;
+  barcode?: string;
   category?: string;
   quantity: number;
   notes?: string;
@@ -34,8 +39,37 @@ type OrderDiscount = {
 
 export async function POST(req: Request) {
   try {
-    const { session, error } = await requirePermission("pos");
-    if (error) return error;
+    const headerIdempotencyKey = req.headers.get("idempotency-key")?.trim() || "";
+    const offlineSyncHeader = req.headers.get("x-offline-sync") === "true";
+
+    const authResult = await requirePermission("pos");
+    let session: ApiSession | null = authResult.session;
+    if (authResult.error) {
+      let allowedOfflineBypass = false;
+      if ((offlineSyncHeader || Boolean(headerIdempotencyKey)) && authResult.error.status === 403) {
+        const errPayload = await authResult.error
+          .clone()
+          .json()
+          .catch(() => null);
+        if (errPayload?.code === "ATTENDANCE_APPROVAL_REQUIRED") {
+          const [{ getSession }, { hasPermission }] = await Promise.all([
+            import("@/lib/auth"),
+            import("@/lib/roles"),
+          ]);
+          const rawSession = await getSession();
+          if (rawSession && hasPermission(rawSession.role, "pos")) {
+            session = rawSession as ApiSession;
+            allowedOfflineBypass = true;
+          }
+        }
+      }
+      if (!allowedOfflineBypass || !session) {
+        return authResult.error;
+      }
+    }
+
+    await ensurePosOrderSchema();
+
     const body = await req.json();
     const {
       orderNumber,
@@ -49,6 +83,8 @@ export async function POST(req: Request) {
       priority = "normal",
       estimatedTime,
       orderDiscount,
+      idempotencyKey: bodyIdempotencyKey,
+      offlineSync,
     } = body as {
       orderNumber: string;
       total: number;
@@ -61,7 +97,16 @@ export async function POST(req: Request) {
       priority?: string;
       estimatedTime?: number;
       orderDiscount?: OrderDiscount;
+      idempotencyKey?: string;
+      offlineSync?: boolean;
     };
+
+    const effectiveIdempotencyKey =
+      headerIdempotencyKey || (typeof bodyIdempotencyKey === "string" ? bodyIdempotencyKey.trim() : "");
+    if (effectiveIdempotencyKey.length > 160) {
+      return NextResponse.json({ error: "Invalid idempotency key" }, { status: 400 });
+    }
+    const isOfflineSync = Boolean(offlineSyncHeader || offlineSync || effectiveIdempotencyKey);
 
     if (!orderNumber || !Number.isFinite(Number(total)) || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -112,73 +157,210 @@ export async function POST(req: Request) {
     }
     const computedSubtotal = rawSubtotal;
 
-    // Support both tax-exclusive totals and tax-inclusive POS totals
+    // Support both tax-exclusive totals, tax-inclusive POS totals, and offline-queued historical tax rates
     const numericTotal = Number(total);
+    const roundingTolerance = Math.max(0.05, items.length * 0.01);
     const explicitTax = Number.isFinite(Number(tax)) && Number(tax) >= 0 ? Number(tax) : 0;
-    const matchesSubtotal = Math.abs(computedSubtotal - numericTotal) <= 0.02;
+    const matchesSubtotal = Math.abs(computedSubtotal - numericTotal) <= roundingTolerance;
     const matchesExplicitTax =
-      explicitTax > 0 && Math.abs(computedSubtotal + explicitTax - numericTotal) <= 0.02;
+      explicitTax > 0 && Math.abs(computedSubtotal + explicitTax - numericTotal) <= roundingTolerance;
 
     let matchesConfiguredTax = false;
     if (!matchesSubtotal && !matchesExplicitTax) {
       try {
         const taxConfig = await getTaxConfiguration();
         const taxResult = calculateTaxes(computedSubtotal, taxConfig, "pos");
-        matchesConfiguredTax = Math.abs(taxResult.total - numericTotal) <= 0.02;
+        matchesConfiguredTax = Math.abs(taxResult.total - numericTotal) <= roundingTolerance;
       } catch {
         matchesConfiguredTax = false;
       }
     }
 
-    if (!matchesSubtotal && !matchesExplicitTax && !matchesConfiguredTax) {
+    const matchesOfflineHistoricalTax =
+      isOfflineSync &&
+      numericTotal >= computedSubtotal - roundingTolerance &&
+      numericTotal <= computedSubtotal * 1.5 + 1;
+
+    if (!matchesSubtotal && !matchesExplicitTax && !matchesConfiguredTax && !matchesOfflineHistoricalTax) {
       return NextResponse.json(
         { error: "Order total does not match discounted line items" },
         { status: 400 },
       );
     }
 
-    const result = await transaction(async (client) => {
-      const existing = await client.query(
-        "SELECT id FROM kitchenorders WHERE ordernumber = $1 LIMIT 1",
-        [orderNumber],
-      );
-      if (existing.rowCount) return { id: existing.rows[0].id, idempotent: true };
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const activeSession: ApiSession = session;
+    const safePerformedByUuid = toSafeUuid(activeSession.id);
+    const normalizedPaymentMethod = normalizePosPaymentMethod(paymentMethod);
 
-      const menuIds = items.map((item) => item.id).filter(Boolean);
-      const stock = await client.query(
-        `SELECT mi.id, mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity
-         FROM menu_items mi LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-         WHERE mi.id = ANY($1::uuid[])
-         FOR UPDATE OF di`,
-        [menuIds],
-      );
-      const byId = new Map(stock.rows.map((row) => [String(row.id), row]));
-      for (const item of pricedItems) {
-        const row = byId.get(String(item.id));
-        if (row?.inventory_mode === "direct") {
-          const required = Number(row.direct_units_per_sale || 1) * Number(item.quantity);
-          if (!row.direct_inventory_id || Number(row.quantity) < required) {
-            throw new Error(`${item.name} is out of stock`);
-          }
+    const result = await transaction(async (client) => {
+      if (effectiveIdempotencyKey) {
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [effectiveIdempotencyKey]);
+        const existingByKey = await client.query(
+          `SELECT order_id, order_number FROM order_idempotency_keys WHERE idempotency_key = $1::text LIMIT 1`,
+          [effectiveIdempotencyKey],
+        );
+        if (existingByKey.rows[0]?.order_id) {
+          return {
+            id: existingByKey.rows[0].order_id,
+            orderNumber: String(existingByKey.rows[0].order_number || orderNumber),
+            idempotent: true,
+          };
         }
       }
 
-      const order = await client.query(
-        `INSERT INTO kitchenorders (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING id`,
-        [
-          orderNumber,
-          numericTotal,
-          orderType,
-          tableNumber || null,
-          customerName || null,
-          paymentMethod,
-          priority,
-          estimatedTime || null,
-          session.id,
-        ],
+      let resolvedOrderNumber = orderNumber;
+      const existing = await client.query(
+        "SELECT id FROM kitchenorders WHERE ordernumber = $1 LIMIT 1",
+        [resolvedOrderNumber],
       );
+      if ((existing.rows?.length ?? existing.rowCount ?? 0) > 0 && existing.rows[0]?.id) {
+        if (!isOfflineSync || !effectiveIdempotencyKey) {
+          return { id: existing.rows[0].id, orderNumber: resolvedOrderNumber, idempotent: true };
+        }
+        const existingDetails = await client.query(
+          `SELECT total, customername, tablenumber FROM kitchenorders WHERE id = $1 LIMIT 1`,
+          [existing.rows[0].id],
+        );
+        const detail = existingDetails.rows[0];
+        const sameTotal = detail ? Math.abs(Number(detail.total ?? 0) - numericTotal) <= 0.05 : true;
+        const sameCustomer = detail
+          ? String(detail.customername || "") === String(customerName || "")
+          : true;
+        const sameTable = detail
+          ? String(detail.tablenumber || "") === String(tableNumber || "")
+          : true;
+
+        if (sameTotal && sameCustomer && sameTable) {
+          await client.query(
+            `INSERT INTO order_idempotency_keys (idempotency_key, actor_id, order_id, order_number)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (idempotency_key) DO NOTHING`,
+            [effectiveIdempotencyKey, String(activeSession.id), existing.rows[0].id, resolvedOrderNumber],
+          );
+          return { id: existing.rows[0].id, orderNumber: resolvedOrderNumber, idempotent: true };
+        }
+
+        const keySuffix = (
+          effectiveIdempotencyKey.replace(/[^a-zA-Z0-9]/g, "").slice(-4) ||
+          Math.random().toString(36).slice(2, 6)
+        ).toUpperCase();
+        resolvedOrderNumber = `${orderNumber}-${keySuffix}`;
+      }
+
+      const preparedStock = await lockAndValidateDirectPosStock(client, pricedItems, {
+        allowZeroClamp: isOfflineSync,
+      });
+
+      const itemsColCheck = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'kitchenorders' AND column_name = 'items'`,
+      );
+      const hasItemsColumn = (itemsColCheck.rows?.length ?? 0) > 0;
+      const serializedItems = JSON.stringify(
+        pricedItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category || "other",
+          quantity: item.quantity,
+          notes: item.notes || null,
+          prepTime: item.prepTime || 0,
+        })),
+      );
+
+      const order = hasItemsColumn
+        ? await client.query(
+            `INSERT INTO kitchenorders (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, items, performed_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9::jsonb,$10) RETURNING id`,
+            [
+              resolvedOrderNumber,
+              numericTotal,
+              orderType,
+              tableNumber || null,
+              customerName || null,
+              normalizedPaymentMethod,
+              priority,
+              estimatedTime || null,
+              serializedItems,
+              safePerformedByUuid,
+            ],
+          )
+        : await client.query(
+            `INSERT INTO kitchenorders (ordernumber, total, ordertype, tablenumber, customername, paymentmethod, priority, estimatedtime, status, performed_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING id`,
+            [
+              resolvedOrderNumber,
+              numericTotal,
+              orderType,
+              tableNumber || null,
+              customerName || null,
+              normalizedPaymentMethod,
+              priority,
+              estimatedTime || null,
+              safePerformedByUuid,
+            ],
+          );
       const orderId = order.rows[0].id;
+
+      const recordDiscountSafely = async (params: {
+        itemName: string;
+        originalUnitPrice: number;
+        discountedUnitPrice: number;
+        discountPercent: number;
+        quantity: number;
+        approvedBy?: string;
+        reason: string;
+      }) => {
+        const approverLabel = String(
+          params.approvedBy || activeSession.name || activeSession.email || activeSession.id,
+        );
+        const enrichedReason =
+          params.approvedBy && !toSafeUuid(params.approvedBy)
+            ? `${params.reason} (Approved by: ${params.approvedBy})`
+            : params.reason;
+        await client.query(`SAVEPOINT sp_discount_insert`);
+        try {
+          await client.query(
+            `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [
+              orderId,
+              params.itemName,
+              params.originalUnitPrice,
+              params.discountedUnitPrice,
+              params.discountPercent,
+              params.quantity,
+              approverLabel,
+              enrichedReason,
+            ],
+          );
+          await client.query(`RELEASE SAVEPOINT sp_discount_insert`);
+        } catch {
+          await client.query(`ROLLBACK TO SAVEPOINT sp_discount_insert`);
+          await client.query(`SAVEPOINT sp_discount_uuid_fallback`);
+          try {
+            await client.query(
+              `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              [
+                orderId,
+                params.itemName,
+                params.originalUnitPrice,
+                params.discountedUnitPrice,
+                params.discountPercent,
+                params.quantity,
+                toSafeUuid(params.approvedBy) || safePerformedByUuid,
+                enrichedReason,
+              ],
+            );
+            await client.query(`RELEASE SAVEPOINT sp_discount_uuid_fallback`);
+          } catch {
+            await client.query(`ROLLBACK TO SAVEPOINT sp_discount_uuid_fallback`);
+          }
+        }
+      };
 
       for (const item of pricedItems) {
         await client.query(
@@ -196,105 +378,34 @@ export async function POST(req: Request) {
         );
         if (item.discountPercent > 0) {
           const originalUnitPrice = item.price / (1 - item.discountPercent / 100);
-          await client.query(
-            `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [
-              orderId,
-              item.name,
-              originalUnitPrice,
-              item.price,
-              item.discountPercent,
-              item.quantity,
-              item.approvedBy || session.id,
-              item.discountReason || "POS item discount",
-            ],
-          );
+          await recordDiscountSafely({
+            itemName: item.name,
+            originalUnitPrice,
+            discountedUnitPrice: item.price,
+            discountPercent: item.discountPercent,
+            quantity: item.quantity,
+            approvedBy: item.approvedBy,
+            reason: item.discountReason || "POS item discount",
+          });
         }
-        const row = byId.get(String(item.id));
-        if (row?.inventory_mode === "direct" && row.direct_inventory_id) {
-          const deduction = Number(row.direct_units_per_sale || 1) * Number(item.quantity);
-          const updated = await client.query(
-            `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
-            [deduction, row.direct_inventory_id],
-          );
-          if (updated.rowCount !== 1) throw new Error(`${item.name} is out of stock`);
-          await client.query(
-            `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
-             VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
-            [
-              row.direct_inventory_id,
-              item.id,
-              -deduction,
-              orderNumber,
-              orderId,
-              `Direct sale deduction for ${item.name}`,
-              session.id,
-            ],
-          );
-        } else if (item.id) {
-          const ingredients = await client.query(
-            `SELECT r.inventory_item_id, r.quantity, r.unit, i.quantity AS inventory_quantity,
-                    i.unit AS inventory_unit,
-                    i.recipe_unit AS inventory_recipe_unit,
-                    COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS inventory_conversion_ratio,
-                    i.conversion_type AS inventory_conversion_type, i.density_g_per_ml AS inventory_density, i.name
-             FROM recipe_ingredients r
-             JOIN inventory i ON i.id = r.inventory_item_id
-             LEFT JOIN LATERAL (
-               SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
-               FROM inventory_item_uoms u
-               WHERE u.inventory_id = i.id
-                 AND u.purchase_unit = ${inventoryUnitSql}
-                 AND u.is_active = true
-                 AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
-               ORDER BY u.effective_from DESC
-               LIMIT 1
-             ) active_uom ON true
-             WHERE r.menu_item_id = $1
-             FOR UPDATE OF i`,
-            [item.id],
-          );
-          for (const ingredient of ingredients.rows) {
-            const requiredQuantity = Number(ingredient.quantity) * Number(item.quantity);
-            const density =
-              ingredient.inventory_density !== null && ingredient.inventory_density !== undefined
-                ? Number(ingredient.inventory_density)
-                : null;
-            const deduction = getRecipeDeductionQuantity(
-              requiredQuantity,
-              ingredient.unit,
-              ingredient.inventory_unit,
-              ingredient.inventory_conversion_ratio,
-              density,
-            );
-            if (deduction === null) {
-              throw new Error(
-                `${ingredient.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit}); configure a compatible unit or density before selling ${item.name}`,
-              );
-            }
-            const updated = await client.query(
-              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW() WHERE id = $2 AND quantity >= $1`,
-              [deduction, ingredient.inventory_item_id],
-            );
-            if (updated.rowCount !== 1) {
-              throw new Error(`${item.name} is out of stock: ${ingredient.name}`);
-            }
-            await client.query(
-              `INSERT INTO inventory_movements (inventory_id, menu_item_id, quantity_delta, movement_type, source_type, source_id, order_id, reason, actor_id)
-               VALUES ($1, $2, $3, 'sale', 'pos_order', $4, $5, $6, $7)`,
-              [
-                ingredient.inventory_item_id,
-                item.id,
-                -deduction,
-                orderNumber,
-                orderId,
-                `Recipe deduction for ${item.name}`,
-                session.id,
-              ],
-            );
-          }
-        }
+
+        await deductSingleOrderItemInventory(
+          client,
+          {
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            barcode: item.barcode,
+          },
+          {
+            preparedStock,
+            orderNumber: resolvedOrderNumber,
+            orderId: String(orderId),
+            actorId: activeSession.id,
+            sourceType: "pos_order",
+            allowZeroClamp: isOfflineSync,
+          },
+        );
       }
 
       if (orderDiscount && Number(orderDiscount.value) > 0) {
@@ -302,39 +413,39 @@ export async function POST(req: Request) {
         const concessionAmount = orderDiscount.type === "fixed"
           ? Math.min(rawGross, Number(orderDiscount.value))
           : (rawGross * Math.min(100, Number(orderDiscount.value))) / 100;
-        await client.query(
-          `INSERT INTO discount_applications (order_id, item_name, original_unit_price, discounted_unit_price, discount_percent, quantity, applied_by, reason)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [
-            orderId,
-            "Ticket Concession",
-            rawGross,
-            Math.max(0, rawGross - concessionAmount),
-            orderDiscount.type === "percent" ? orderDiscount.value : Number(((concessionAmount / (rawGross || 1)) * 100).toFixed(2)),
-            1,
-            orderDiscount.approvedBy || session.id,
-            orderDiscount.reason || "Ticket concession",
-          ],
-        );
+        await recordDiscountSafely({
+          itemName: "Ticket Concession",
+          originalUnitPrice: rawGross,
+          discountedUnitPrice: Math.max(0, rawGross - concessionAmount),
+          discountPercent:
+            orderDiscount.type === "percent"
+              ? orderDiscount.value
+              : Number(((concessionAmount / (rawGross || 1)) * 100).toFixed(2)),
+          quantity: 1,
+          approvedBy: orderDiscount.approvedBy,
+          reason: orderDiscount.reason || "Ticket concession",
+        });
       }
 
       const finance = await client.query(
         "SELECT id FROM transactions WHERE transaction_reference = $1 LIMIT 1",
-        [orderNumber],
+        [resolvedOrderNumber],
       );
       if (!finance.rowCount) {
         await client.query(
           `INSERT INTO transactions (order_id, transaction_reference, amount, currency, method, status, metadata, performed_by)
            VALUES (NULL,$1,$2,'GHS',$3,'completed',$4,$5)`,
           [
-            orderNumber,
+            resolvedOrderNumber,
             numericTotal,
-            paymentMethod,
+            normalizedPaymentMethod,
             JSON.stringify({
               source: "pos-order-completion",
               department: "restaurant",
               departmentLabel: "Restaurant",
-              orderNumber,
+              orderNumber: resolvedOrderNumber,
+              originalOrderNumber: resolvedOrderNumber !== orderNumber ? orderNumber : undefined,
+              offlineSynced: isOfflineSync || undefined,
               orderType,
               tableNumber: tableNumber || undefined,
               customerName: customerName || undefined,
@@ -352,45 +463,57 @@ export async function POST(req: Request) {
                 })),
               kitchenOrderId: orderId,
               performedBy: {
-                id: session.id,
-                accountName: session.name,
-                name: session.name,
-                email: session.email,
-                role: session.role,
+                id: activeSession.id,
+                accountName: activeSession.name,
+                name: activeSession.name,
+                email: activeSession.email,
+                role: activeSession.role,
               },
             }),
-            session.id,
+            safePerformedByUuid,
           ],
         );
       }
       await recordFinancialLedgerEntry(client, {
-        eventKey: `pos-order:${orderNumber}`,
+        eventKey: `pos-order:${resolvedOrderNumber}`,
         amount: numericTotal,
         direction: "credit",
         status: "posted",
         source: "pos-order-completion",
-        paymentMethod,
+        paymentMethod: normalizedPaymentMethod,
         entityType: "restaurant_order",
         entityId: String(orderId),
         metadata: {
           department: "restaurant",
           departmentLabel: "Restaurant",
-          orderNumber,
+          orderNumber: resolvedOrderNumber,
+          originalOrderNumber: resolvedOrderNumber !== orderNumber ? orderNumber : undefined,
+          offlineSynced: isOfflineSync || undefined,
           orderType,
           tableNumber: tableNumber || null,
           customerName: customerName || null,
           kitchenOrderId: orderId,
           items,
           performedBy: {
-            id: session.id,
-            accountName: session.name,
-            name: session.name,
-            email: session.email,
-            role: session.role,
+            id: activeSession.id,
+            accountName: activeSession.name,
+            name: activeSession.name,
+            email: activeSession.email,
+            role: activeSession.role,
           },
         },
       });
-      return { id: orderId, idempotent: false };
+
+      if (effectiveIdempotencyKey) {
+        await client.query(
+          `INSERT INTO order_idempotency_keys (idempotency_key, actor_id, order_id, order_number)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (idempotency_key) DO NOTHING`,
+          [effectiveIdempotencyKey, String(activeSession.id), orderId, resolvedOrderNumber],
+        );
+      }
+
+      return { id: orderId, orderNumber: resolvedOrderNumber, idempotent: false };
     });
 
     if (!result.idempotent) {
@@ -402,6 +525,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       orderId: result.id,
+      orderNumber: result.orderNumber,
       idempotent: result.idempotent,
     });
   } catch (error) {

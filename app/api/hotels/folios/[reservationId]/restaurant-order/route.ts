@@ -4,9 +4,11 @@ import { requirePermission } from "@/lib/api-auth";
 import { transaction } from "@/lib/db";
 import { publishRealtime } from "@/lib/realtime";
 import { calculateTaxes, getTaxConfiguration, roundMoney } from "@/lib/tax";
-import { getInventoryUnitSqlExpression, getRecipeDeductionQuantity } from "@/lib/inventory-units";
-
-const inventoryUnitSql = `COALESCE(${getInventoryUnitSqlExpression("i.container_unit")}, ${getInventoryUnitSqlExpression("i.unit")})`;
+import {
+  deductSingleOrderItemInventory,
+  lockAndValidateDirectPosStock,
+  toSafeUuid,
+} from "@/lib/pos-order-inventory";
 
 const paramsSchema = z.object({ reservationId: z.string().uuid() });
 const orderSchema = z.object({
@@ -43,7 +45,7 @@ export async function POST(
         if (existing.rowCount) return { orderId: existing.rows[0].id, orderNumber: existing.rows[0].ordernumber, total: Number(existing.rows[0].total), folio: existing.rows[0], idempotent: true };
       }
       const menuResult = await client.query(
-        `SELECT mi.id, mi.name, mi.price, c.slug AS category_slug,
+        `SELECT mi.id, mi.name, mi.price, mi.barcode, c.slug AS category_slug,
                 mi.inventory_mode, mi.direct_inventory_id, mi.direct_units_per_sale
          FROM menu_items mi
          LEFT JOIN categories c ON c.id = mi.category_id
@@ -80,62 +82,23 @@ export async function POST(
       if (!folioDetails) throw new Error("Reservation not found");
       if (folioDetails.status !== "checked_in") throw new Error("Restaurant orders are only available while the guest is checked in");
 
-      for (const item of selected) {
-        const mode = item.menuItem.inventory_mode ?? "recipe";
-        if (mode === "direct") {
-          if (!item.menuItem.direct_inventory_id) throw new Error(`${item.menuItem.name} has no direct inventory item configured`);
-          const deduction = Number(item.menuItem.direct_units_per_sale ?? 1) * item.quantity;
-          const directUpdate = await client.query(
-            `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
-             WHERE id = $2 AND quantity >= $1 RETURNING id`,
-            [deduction, item.menuItem.direct_inventory_id]
-          );
-          if (directUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} is out of stock`);
-          await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [item.menuItem.direct_inventory_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Room-service sale: ${item.menuItem.name}`]);
-          continue;
-        }
+      const deductibleItems = selected.map((item) => ({
+        id: String(item.menuItem.id),
+        name: String(item.menuItem.name),
+        quantity: item.quantity,
+        barcode: item.menuItem.barcode ? String(item.menuItem.barcode) : undefined,
+        unitsPerSale: Number(item.menuItem.direct_units_per_sale ?? 1),
+      }));
+      const preparedStock = await lockAndValidateDirectPosStock(client, deductibleItems);
 
-        const recipeResult = await client.query(
-          `SELECT r.inventory_item_id, r.quantity, r.unit,
-                  i.unit AS inventory_unit,
-                  COALESCE(i.chef_yield_per_stock_unit, active_uom.conversion_factor_to_base * active_uom.yield_factor, i.conversion_ratio) AS conversion_ratio,
-                  i.density_g_per_ml
-           FROM recipe_ingredients r
-           JOIN inventory i ON i.id = r.inventory_item_id
-           LEFT JOIN LATERAL (
-             SELECT u.base_unit, u.conversion_factor_to_base, u.yield_factor
-             FROM inventory_item_uoms u
-             WHERE u.inventory_id = i.id
-               AND u.purchase_unit = ${inventoryUnitSql}
-               AND u.is_active = true
-               AND (u.effective_to IS NULL OR u.effective_to > CURRENT_TIMESTAMP)
-             ORDER BY u.effective_from DESC LIMIT 1
-           ) active_uom ON true
-           WHERE r.menu_item_id = $1
-           FOR UPDATE OF i`,
-          [item.menuItem.id]
-        );
-        if (recipeResult.rowCount) {
-          for (const ingredient of recipeResult.rows) {
-            const deduction = getRecipeDeductionQuantity(
-              Number(ingredient.quantity) * item.quantity,
-              ingredient.unit,
-              ingredient.inventory_unit,
-              ingredient.conversion_ratio,
-              ingredient.density_g_per_ml,
-            );
-            if (deduction === null) {
-              throw new Error(`${item.menuItem.name} uses incompatible units (${ingredient.unit} and ${ingredient.inventory_unit})`);
-            }
-            const ingredientUpdate = await client.query(
-              `UPDATE inventory SET quantity = quantity - $1, last_updated = NOW()
-               WHERE id = $2 AND quantity >= $1 RETURNING id`,
-              [deduction, ingredient.inventory_item_id]
-            );
-            if (ingredientUpdate.rowCount !== 1) throw new Error(`${item.menuItem.name} cannot be prepared because an ingredient is out of stock`);
-            await client.query(`INSERT INTO inventory_movements (inventory_id, quantity_delta, movement_type, source_type, source_id, menu_item_id, actor_id, reason) VALUES ($1, $2, 'sale', 'hotel_restaurant_order', $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [ingredient.inventory_item_id, -deduction, requestId || orderNumberForMovement, item.menuItem.id, session.id, `Recipe sale: ${item.menuItem.name}`]);
-          }
-        }
+      for (const item of deductibleItems) {
+        await deductSingleOrderItemInventory(client, item, {
+          preparedStock,
+          orderNumber: requestId || orderNumberForMovement,
+          orderId: String(folio.id),
+          actorId: toSafeUuid(session.id),
+          sourceType: "hotel_restaurant_order",
+        });
       }
 
       const total = selected.reduce((sum, item) => sum + Number(item.menuItem.price) * item.quantity, 0);

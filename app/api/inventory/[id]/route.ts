@@ -129,7 +129,7 @@ export async function PUT(
     if (hasChefYield && (!Number.isFinite(Number(normalizedChefYield)) || Number(normalizedChefYield) <= 0)) return NextResponse.json({ error: "Chef yield must be greater than zero" }, { status: 400 });
 
     const beforeResult = await query(
-      "SELECT id, name, sku, category, quantity, unit, supplier, cost_price, cost_per_container, quantity_per_container, cost_per_item, recipe_unit, density_g_per_ml, chef_yield_per_stock_unit FROM inventory WHERE id = $1",
+      "SELECT id, name, sku, category, quantity, unit, container_unit, container_count, supplier, cost_price, cost_per_container, quantity_per_container, cost_per_item, recipe_unit, density_g_per_ml, chef_yield_per_stock_unit FROM inventory WHERE id = $1",
       [id],
     );
     const before = beforeResult.rows[0];
@@ -189,7 +189,9 @@ export async function PUT(
     const effectiveContainerCount =
       containerCount !== undefined
         ? Number(containerCount)
-        : Number(before.container_count ?? 0);
+        : quantity !== undefined && effectiveQuantityPerContainer > 0
+          ? Number((Math.max(0, Number(quantity)) / effectiveQuantityPerContainer).toFixed(4))
+          : Number(before.container_count ?? 0);
 
     const resolvedQuantity =
       quantity !== undefined && Number(quantity) > 0

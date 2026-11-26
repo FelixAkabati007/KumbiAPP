@@ -20,6 +20,7 @@ import {
   subscribeOfflineQueue,
   processOfflineQueue,
   clearAllQueues,
+  removeQueuedOrder,
   type OfflineQueueStats,
   getQueuedOrders,
   getQueuedAttendance,
@@ -224,15 +225,48 @@ export function OfflineSyncIndicator() {
 
           {/* Pending items preview list if any */}
           {stats.total > 0 && (
-            <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-orange-100 bg-gray-50/50 p-2 text-xs dark:border-gray-800 dark:bg-gray-900/50">
+            <div className="max-h-44 space-y-2 overflow-y-auto rounded-xl border border-orange-100 bg-gray-50/50 p-2 text-xs dark:border-gray-800 dark:bg-gray-900/50">
               {queuedOrders.slice(0, 3).map((o) => (
-                <div key={o.id} className="flex items-center justify-between border-b border-gray-200/50 pb-1 last:border-0 dark:border-gray-800">
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    Order #{o.orderNumber}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    GHS {Number(o.payload?.total || 0).toFixed(2)} ({o.status})
-                  </span>
+                <div key={o.id} className="space-y-0.5 border-b border-gray-200/50 pb-1.5 last:border-0 dark:border-gray-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      Order #{o.orderNumber}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-[10px] ${
+                          o.status === "failed"
+                            ? "font-medium text-red-600 dark:text-red-400"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        GHS {Number(o.payload?.total || 0).toFixed(2)} ({o.status})
+                      </span>
+                      {o.status === "failed" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              typeof window === "undefined" ||
+                              window.confirm(`Remove stuck Order #${o.orderNumber} from local offline queue?`)
+                            ) {
+                              removeQueuedOrder(o.id);
+                              toast.info(`Removed Order #${o.orderNumber} from local queue.`);
+                            }
+                          }}
+                          className="rounded p-0.5 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40"
+                          title={`Discard Order #${o.orderNumber}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {o.status === "failed" && o.lastError && (
+                    <p className="truncate text-[10px] text-red-600/90 dark:text-red-400/90" title={o.lastError}>
+                      {o.lastError}
+                    </p>
+                  )}
                 </div>
               ))}
               {queuedAttendance.slice(0, 2).map((a) => (

@@ -65,7 +65,17 @@ export async function GET() {
         ORDER BY u.effective_from DESC LIMIT 1
       ) active_uom ON true
       LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-      LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
+      LEFT JOIN LATERAL (
+        SELECT inv.quantity
+        FROM inventory inv
+        WHERE mi.inventory_mode = 'recipe'
+          AND (
+            inv.menu_item_id = mi.id
+            OR LOWER(TRIM(COALESCE(inv.name, ''))) = LOWER(TRIM(mi.name))
+          )
+        ORDER BY (inv.menu_item_id = mi.id) DESC NULLS LAST, inv.quantity DESC
+        LIMIT 1
+      ) legacy_i ON true
       GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity, active_uom.base_unit, active_uom.conversion_factor_to_base, active_uom.yield_factor
       ORDER BY mi.created_at DESC
       `

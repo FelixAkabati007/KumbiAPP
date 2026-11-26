@@ -31,19 +31,20 @@ export async function GET() {
     if (process.env.NODE_ENV !== "test") {
       await query(`
         UPDATE inventory
-        SET container_count = CASE WHEN (container_count = 0 OR container_count IS NULL) AND quantity_per_container > 0 AND (cost_per_container > 0 OR cost_price > 0) THEN 1 ELSE container_count END,
-            quantity = CASE WHEN (quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0 THEN ROUND(COALESCE(NULLIF(container_count, 0), 1) * quantity_per_container, 4) ELSE quantity END,
+        SET container_count = CASE WHEN (container_count = 0 OR container_count IS NULL) AND quantity_per_container > 0 AND (cost_per_container > 0 OR cost_price > 0) AND NOT EXISTS (SELECT 1 FROM inventory_movements im WHERE im.inventory_id = inventory.id) THEN 1 ELSE container_count END,
+            quantity = CASE WHEN (quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0 AND NOT EXISTS (SELECT 1 FROM inventory_movements im WHERE im.inventory_id = inventory.id) THEN ROUND(COALESCE(NULLIF(container_count, 0), 1) * quantity_per_container, 4) ELSE quantity END,
             cost_price = CASE WHEN (cost_price = 0 OR cost_price IS NULL) AND cost_per_container > 0 THEN ROUND(cost_per_container * COALESCE(NULLIF(container_count, 0), 1), 2) ELSE cost_price END,
             cost_per_item = CASE WHEN (cost_per_item = 0 OR cost_per_item IS NULL) AND cost_per_container > 0 AND quantity_per_container > 0 THEN ROUND(cost_per_container / quantity_per_container, 4) ELSE cost_per_item END,
             last_updated = NOW()
-        WHERE ((quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0)
+        WHERE (((quantity = 0 OR quantity IS NULL) AND quantity_per_container > 0 AND NOT EXISTS (SELECT 1 FROM inventory_movements im WHERE im.inventory_id = inventory.id))
            OR ((cost_price = 0 OR cost_price IS NULL) AND cost_per_container > 0)
-           OR ((cost_per_item = 0 OR cost_per_item IS NULL) AND cost_per_container > 0 AND quantity_per_container > 0)
+           OR ((cost_per_item = 0 OR cost_per_item IS NULL) AND cost_per_container > 0 AND quantity_per_container > 0))
       `).catch((err) => console.error("Auto-heal inventory items failed:", err));
     }
 
     const res = await query(
       `SELECT i.*, mi.name as menu_item_name, mi.barcode as menu_item_barcode,
+        EXISTS (SELECT 1 FROM inventory_movements im WHERE im.inventory_id = i.id) AS has_movements,
         active_uom.base_unit AS active_uom_base_unit,
         active_uom.conversion_factor_to_base AS active_uom_factor,
         CASE WHEN LOWER(COALESCE(i.unit, '')) = LOWER(COALESCE(i.base_unit, '')) THEN false
@@ -69,7 +70,8 @@ export async function GET() {
         const containerCnt = Number(r.container_count ?? 0);
         const costPerCont = Number(r.cost_per_container ?? 0);
         const rawCostPrice = Number(r.cost_price ?? 0);
-        const effectiveContainerCount = containerCnt > 0 ? containerCnt : ((qtyPerContainer > 0 && (costPerCont > 0 || rawCostPrice > 0)) ? 1 : 0);
+        const hasMovements = Boolean(r.has_movements);
+        const effectiveContainerCount = containerCnt > 0 ? containerCnt : ((!hasMovements && qtyPerContainer > 0 && (costPerCont > 0 || rawCostPrice > 0)) ? 1 : 0);
         const effectiveQuantity = rawQty > 0 ? rawQty : (effectiveContainerCount > 0 && qtyPerContainer > 0 ? effectiveContainerCount * qtyPerContainer : rawQty);
         const effectiveCostPrice = rawCostPrice > 0 ? rawCostPrice : (costPerCont > 0 && effectiveContainerCount > 0 ? costPerCont * effectiveContainerCount : costPerCont);
         const effectiveCostPerItem = Number(r.cost_per_item ?? 0) > 0 ? Number(r.cost_per_item) : (costPerCont > 0 && qtyPerContainer > 0 ? costPerCont / qtyPerContainer : 0);
@@ -311,6 +313,19 @@ export async function POST(req: Request) {
           (inventory_id, purchase_unit, base_unit, conversion_factor_to_base, density_g_per_ml, yield_factor, is_active, effective_from)
          VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
         [res.rows[0].id, purchaseUnit, activeBaseUnit, resolvedConversionRatio, resolvedDensity, chefYield ?? 1],
+      );
+    }
+
+    if (menuItemId && res.rows[0]?.id) {
+      await client.query(
+        `UPDATE menu_items
+         SET direct_inventory_id = COALESCE(direct_inventory_id, $1),
+             inventory_mode = CASE
+               WHEN NOT EXISTS (SELECT 1 FROM recipe_ingredients ri WHERE ri.menu_item_id = menu_items.id) THEN 'direct'
+               ELSE inventory_mode
+             END
+         WHERE id = $2`,
+        [res.rows[0].id, menuItemId],
       );
     }
 

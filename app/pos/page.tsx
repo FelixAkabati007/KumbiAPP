@@ -280,6 +280,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
     document.addEventListener("visibilitychange", loadAvailability);
     window.addEventListener("online", loadAvailability);
     window.addEventListener("kumbi:offline-synced", loadAvailability);
+    window.addEventListener("kumbi:pos-inventory-refresh", loadAvailability);
     return () => {
       cancelled = true;
       controller.abort();
@@ -287,6 +288,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       document.removeEventListener("visibilitychange", loadAvailability);
       window.removeEventListener("online", loadAvailability);
       window.removeEventListener("kumbi:offline-synced", loadAvailability);
+      window.removeEventListener("kumbi:pos-inventory-refresh", loadAvailability);
     };
   }, [user]);
 
@@ -520,6 +522,11 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       const taxResult = calculateTaxes(taxableSubtotal, appSettings.system.taxConfiguration, "pos");
       const finalPayableTotal = taxResult.total;
 
+      const clientOrderKey = `pos-${orderId || Date.now()}-${orderNumber}`;
+      const menuBarcodeById = new Map(
+        menuItems.map((mi) => [String(mi.id), mi.barcode]),
+      );
+
       const orderPayload = {
         orderNumber,
         total: finalPayableTotal,
@@ -534,6 +541,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
           name: item.name,
           price: item.price,
           originalPrice: item.price,
+          barcode: menuBarcodeById.get(String(item.id)) || undefined,
           category: item.category,
           quantity: item.quantity,
           discountPercent: getItemDiscountPercent(item),
@@ -551,25 +559,31 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
         if (typeof navigator === "undefined" || navigator.onLine) {
           const completionResponse = await fetch("/api/orders/complete", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": clientOrderKey,
+            },
             body: JSON.stringify(orderPayload),
           });
           if (completionResponse.ok) {
             savedRemotely = true;
           } else {
             const completionError = await completionResponse.json().catch(() => null);
-            if (completionResponse.status >= 500) {
-              // Server 5xx error, will fallback to local offline queue
+            const isGatewayOutage = [502, 503, 504].includes(completionResponse.status);
+            if (isGatewayOutage || (typeof navigator !== "undefined" && !navigator.onLine)) {
+              // Transient gateway outage or lost connectivity — fallback to local offline queue
               savedRemotely = false;
             } else {
-              throw new Error(completionError?.error || "Order could not be saved");
+              throw new Error(
+                completionError?.error || `Order could not be completed (HTTP ${completionResponse.status})`,
+              );
             }
           }
         }
       } catch (netErr: unknown) {
         const errName = netErr instanceof Error ? netErr.name : "";
         const errMsg = netErr instanceof Error ? netErr.message : String(netErr);
-        if ((typeof navigator !== "undefined" && !navigator.onLine) || errName === "TypeError" || errMsg.includes("fetch")) {
+        if ((typeof navigator !== "undefined" && !navigator.onLine) || errName === "TypeError" || errMsg.toLowerCase().includes("failed to fetch") || errMsg.toLowerCase().includes("networkerror")) {
           savedRemotely = false;
         } else {
           throw netErr;
@@ -592,7 +606,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       if (success) {
         if (!savedRemotely) {
           enqueueOfflineOrder({
-            id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: clientOrderKey,
             orderNumber,
             payload: orderPayload,
             createdAt: new Date().toISOString(),
@@ -603,6 +617,14 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
             title: "Saved Offline",
             description: `Order #${orderNumber} queued locally and will sync when online.`,
           });
+        } else {
+          // Refresh menu & inventory stock state immediately after remote checkout
+          void getMenuItems().then((items) => {
+            if (items.length > 0) setMenuItems(items);
+          });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("kumbi:pos-inventory-refresh"));
+          }
         }
 
   // Keep payment completion independent from printing, then open the browser
@@ -633,6 +655,7 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
 
         // Start a fresh order only after payment and order completion both succeed.
         setCurrentOrder([]);
+        setOrderDiscount(null);
         setSessionItemQuantities({});
         setCustomerName("");
         setCustomerNameRefused(false);
@@ -670,7 +693,10 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       console.error("Payment processing error:", error);
       toast({
         title: "Payment Error",
-        description: "An error occurred during payment processing",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "An error occurred during payment processing",
         variant: "destructive",
       });
     }

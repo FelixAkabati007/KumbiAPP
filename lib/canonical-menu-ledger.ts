@@ -49,7 +49,17 @@ export async function getCanonicalMenuLedger(options?: { activeOnly?: boolean })
     FROM menu_items mi
     LEFT JOIN categories c ON c.id = mi.category_id
     LEFT JOIN inventory di ON di.id = mi.direct_inventory_id
-    LEFT JOIN inventory legacy_i ON legacy_i.name = mi.name AND mi.inventory_mode = 'recipe'
+    LEFT JOIN LATERAL (
+      SELECT inv.quantity
+      FROM inventory inv
+      WHERE mi.inventory_mode = 'recipe'
+        AND (
+          inv.menu_item_id = mi.id
+          OR LOWER(TRIM(COALESCE(inv.name, ''))) = LOWER(TRIM(mi.name))
+        )
+      ORDER BY (inv.menu_item_id = mi.id) DESC NULLS LAST, inv.quantity DESC
+      LIMIT 1
+    ) legacy_i ON true
     LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id
     LEFT JOIN inventory i ON i.id = ri.inventory_item_id
     LEFT JOIN LATERAL (
