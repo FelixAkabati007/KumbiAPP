@@ -21,6 +21,10 @@ interface RawReceiptItem {
   description?: string;
   quantity?: number;
   price?: number;
+  originalPrice?: number;
+  original_unit_price?: number;
+  discountPercent?: number;
+  discount_percent?: number;
   unit_amount?: number;
   total?: number;
   total_amount?: number;
@@ -34,17 +38,38 @@ function normalizeItems(items: unknown): OrderItem[] {
     const qty = Number(raw.quantity ?? 1) || 1;
     const name = String(raw.name ?? raw.description ?? raw.label ?? `Item ${index + 1}`);
     const totalAmount = Number(raw.total_amount ?? raw.total ?? raw.amount);
-    const unitPrice = Number(raw.price ?? raw.unit_amount ?? (Number.isFinite(totalAmount) ? totalAmount / qty : 0));
+    const rawUnitPrice = Number(
+      raw.price ?? raw.unit_amount ?? (Number.isFinite(totalAmount) ? totalAmount / qty : 0),
+    );
+    const pct = Number(raw.discountPercent ?? raw.discount_percent ?? 0);
+    const explicitOriginal = Number(raw.originalPrice ?? raw.original_unit_price);
+    const hasDistinctOriginal =
+      pct > 0 && Number.isFinite(explicitOriginal) && explicitOriginal > 0;
+
     return {
       id: String(raw.id ?? `item-${index}`),
       name,
       description: name,
-      price: unitPrice,
+      price: hasDistinctOriginal ? explicitOriginal : rawUnitPrice,
+      discountPercent: hasDistinctOriginal ? pct : undefined,
       quantity: qty,
       category: "beverages",
       inStock: true,
     };
   });
+}
+
+function pushUniqueRecent(
+  target: Array<{ id: string; label: string; amount: number; source: string; date: string }>,
+  seen: Set<string>,
+  entry: { id: string; label: string; amount: number; source: string; date: string },
+) {
+  const cleanId = String(entry.id || "").trim();
+  if (!cleanId) return;
+  const dedupKey = `${entry.source}:${cleanId.toUpperCase()}`;
+  if (seen.has(dedupKey)) return;
+  seen.add(dedupKey);
+  target.push({ ...entry, id: cleanId });
 }
 
 export async function GET(request: NextRequest) {
@@ -61,6 +86,7 @@ export async function GET(request: NextRequest) {
     // 1. RECENT RECEIPTS LOOKUP (for quick-search filter chips)
     if (isRecent) {
       const recentList: Array<{ id: string; label: string; amount: number; source: string; date: string }> = [];
+      const seenKeys = new Set<string>();
 
       if (source === "hotel" || source === "all") {
         try {
@@ -75,61 +101,100 @@ export async function GET(request: NextRequest) {
             [limit]
           );
           for (const row of res.rows) {
-            recentList.push({
-              id: row.order_number || String(row.id),
-              label: `${row.order_number || "Res"} (${row.guest_name ? row.guest_name.split(" ")[0] : "Guest"})`,
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.order_number || row.id),
+              label: `${row.order_number || "Res"} (${row.guest_name ? String(row.guest_name).split(" ")[0] : "Guest"})`,
               amount: Number(row.total || 0),
               source: "hotel",
-              date: row.created_at,
+              date: String(row.created_at || new Date().toISOString()),
             });
-          }
-
-          // If no hotel receipts yet, fetch from active reservations
-          if (recentList.length === 0) {
-            const fallbackRes = await query(
-              `SELECT r.id, r.reservation_number, r.total_price, r.created_at,
-                      concat_ws(' ', g.first_name, g.last_name) as guest_name
-               FROM reservations r
-               JOIN guests g ON g.id = r.guest_id
-               ORDER BY r.created_at DESC
-               LIMIT $1`,
-              [limit]
-            );
-            for (const row of fallbackRes.rows) {
-              recentList.push({
-                id: row.reservation_number,
-                label: `${row.reservation_number} (${row.guest_name ? row.guest_name.split(" ")[0] : "Guest"})`,
-                amount: Number(row.total_price || 0),
-                source: "hotel",
-                date: row.created_at,
-              });
-            }
           }
         } catch (err) {
           console.warn("Failed fetching recent hotel receipts:", err);
+        }
+
+        try {
+          const fallbackRes = await query(
+            `SELECT r.id, r.reservation_number, r.total_price, r.created_at,
+                    concat_ws(' ', g.first_name, g.last_name) as guest_name
+             FROM reservations r
+             JOIN guests g ON g.id = r.guest_id
+             ORDER BY r.created_at DESC
+             LIMIT $1`,
+            [limit]
+          );
+          for (const row of fallbackRes.rows) {
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.reservation_number || row.id),
+              label: `${row.reservation_number} (${row.guest_name ? String(row.guest_name).split(" ")[0] : "Guest"})`,
+              amount: Number(row.total_price || 0),
+              source: "hotel",
+              date: String(row.created_at || new Date().toISOString()),
+            });
+          }
+        } catch (err) {
+          console.warn("Failed fetching recent hotel reservations:", err);
         }
       }
 
       if (source === "restaurant" || source === "all") {
         try {
           const res = await query(
-            `SELECT ordernumber, total, customername, createdat
-             FROM kitchenorders
-             ORDER BY createdat DESC
+            `SELECT
+               k.ordernumber,
+               k.total,
+               k.customername,
+               COALESCE(
+                 NULLIF(to_jsonb(k)->>'created_at', '')::timestamptz,
+                 NULLIF(to_jsonb(k)->>'createdat', '')::timestamptz,
+                 CURRENT_TIMESTAMP
+               ) AS resolved_created_at
+             FROM kitchenorders k
+             WHERE LOWER(COALESCE(k.status, '')) NOT IN ('cancelled', 'void')
+             ORDER BY resolved_created_at DESC
              LIMIT $1`,
             [limit]
           );
           for (const row of res.rows) {
-            recentList.push({
-              id: row.ordernumber,
-              label: row.ordernumber,
+            const rawDate = row.resolved_created_at ?? row.created_at ?? row.createdat ?? new Date().toISOString();
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.ordernumber),
+              label: String(row.ordernumber),
               amount: Number(row.total || 0),
               source: "restaurant",
-              date: row.createdat,
+              date: String(rawDate),
             });
           }
         } catch (err) {
-          console.warn("Failed fetching recent restaurant receipts:", err);
+          console.warn("Failed fetching recent restaurant receipts from kitchenorders:", err);
+        }
+
+        try {
+          const txRes = await query(
+            `SELECT
+               COALESCE(NULLIF(t.metadata->>'orderNumber', ''), t.transaction_reference) AS order_ref,
+               t.amount,
+               t.created_at
+             FROM transactions t
+             WHERE COALESCE(t.metadata->>'department', t.metadata->>'source', '') ILIKE '%restaurant%'
+                OR COALESCE(t.metadata->>'source', '') ILIKE '%pos%'
+                OR COALESCE(t.transaction_reference, '') LIKE 'ORD-%'
+             ORDER BY t.created_at DESC
+             LIMIT $1`,
+            [limit]
+          );
+          for (const row of txRes.rows) {
+            if (!row.order_ref) continue;
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.order_ref),
+              label: String(row.order_ref),
+              amount: Number(row.amount || 0),
+              source: "restaurant",
+              date: String(row.created_at || new Date().toISOString()),
+            });
+          }
+        } catch (err) {
+          console.warn("Failed fetching recent restaurant receipts from transactions:", err);
         }
       }
 
@@ -147,18 +212,46 @@ export async function GET(request: NextRequest) {
             [limit]
           );
           for (const row of res.rows) {
-            recentList.push({
-              id: row.order_number,
-              label: row.order_number,
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.order_number),
+              label: String(row.order_number),
               amount: Number(row.total || 0),
               source: "event",
-              date: row.created_at,
+              date: String(row.created_at || new Date().toISOString()),
             });
           }
         } catch (err) {
           console.warn("Failed fetching recent event receipts:", err);
         }
+
+        try {
+          const evFallback = await query(
+            `SELECT e.id, e.name, e.total_invoiced, e.created_at
+             FROM events e
+             ORDER BY e.created_at DESC
+             LIMIT $1`,
+            [limit]
+          );
+          for (const row of evFallback.rows) {
+            const evRef = `EVENT-${String(row.id).slice(0, 8).toUpperCase()}`;
+            pushUniqueRecent(recentList, seenKeys, {
+              id: evRef,
+              label: evRef,
+              amount: Number(row.total_invoiced || 0),
+              source: "event",
+              date: String(row.created_at || new Date().toISOString()),
+            });
+          }
+        } catch (err) {
+          console.warn("Failed fetching recent events:", err);
+        }
       }
+
+      recentList.sort((a, b) => {
+        const ta = new Date(a.date).getTime();
+        const tb = new Date(b.date).getTime();
+        return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+      });
 
       return NextResponse.json({ recentReceipts: recentList.slice(0, limit) });
     }
@@ -301,16 +394,33 @@ export async function GET(request: NextRequest) {
 
     // B. SEARCH RESTAURANT POS ORDERS
     if (source === "restaurant" || source === "all") {
-      // 1. Check kitchenorders
+      // 1. Check kitchenorders (schema-safe across created_at / createdat and optional items column)
       try {
         const koRes = await query(
-          `SELECT k.id, k.ordernumber, k.total, k.ordertype, k.tablenumber, k.customername,
-                  k.paymentmethod, k.status, k.createdat, k.items,
-                  u.name as performed_by_name, u.email as performed_by_email, u.role as performed_by_role
+          `SELECT
+             k.id,
+             k.ordernumber,
+             k.total,
+             k.ordertype,
+             k.tablenumber,
+             k.customername,
+             k.paymentmethod,
+             k.status,
+             COALESCE(
+               NULLIF(to_jsonb(k)->>'created_at', '')::timestamptz,
+               NULLIF(to_jsonb(k)->>'createdat', '')::timestamptz,
+               CURRENT_TIMESTAMP
+             ) AS resolved_created_at,
+             to_jsonb(k)->'items' AS raw_items,
+             u.name as performed_by_name,
+             u.email as performed_by_email,
+             u.role as performed_by_role
            FROM kitchenorders k
            LEFT JOIN users u ON u.id = k.performed_by
-           WHERE k.ordernumber ILIKE $1 OR k.id::text = $1
-           ORDER BY k.createdat DESC
+           WHERE k.ordernumber ILIKE $1
+              OR k.id::text = $1
+              OR k.ordernumber ILIKE ('%' || $1 || '%')
+           ORDER BY (LOWER(COALESCE(k.ordernumber, '')) = LOWER($1)) DESC, resolved_created_at DESC
            LIMIT 1`,
           [q]
         );
@@ -319,13 +429,35 @@ export async function GET(request: NextRequest) {
           const ko = koRes.rows[0];
 
           // Check for line items in kitchen_orderitems if JSON items is empty
-          let items = normalizeItems(ko.items);
+          let items = normalizeItems(ko.raw_items ?? ko.items);
           if (items.length === 0) {
             const koiRes = await query(
               `SELECT id, name, price, quantity FROM kitchen_orderitems WHERE kitchenorderid = $1`,
               [ko.id]
-            );
+            ).catch(() => ({ rows: [] }));
             items = normalizeItems(koiRes.rows);
+          }
+
+          let txPerformedBy: SalesData["performedBy"] | undefined;
+          let txCustomerRefused: boolean | undefined;
+          try {
+            const txMetaRes = await query(
+              `SELECT metadata FROM transactions
+               WHERE transaction_reference = $1 OR (metadata->>'orderNumber')::text = $1
+               ORDER BY created_at DESC LIMIT 1`,
+              [String(ko.ordernumber)],
+            );
+            const txMeta = (txMetaRes.rows[0]?.metadata || null) as Record<string, unknown> | null;
+            if (txMeta) {
+              if (txMeta.performedBy && typeof txMeta.performedBy === "object") {
+                txPerformedBy = txMeta.performedBy as SalesData["performedBy"];
+              }
+              if (typeof txMeta.customerRefused === "boolean") {
+                txCustomerRefused = txMeta.customerRefused;
+              }
+            }
+          } catch {
+            // Optional metadata enrichment
           }
 
           const total = Number(ko.total || 0);
@@ -344,14 +476,19 @@ export async function GET(request: NextRequest) {
             ];
           }
 
-          const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          const subtotal = items.reduce((sum, item) => {
+            const pct = Number(item.discountPercent || 0);
+            const unit = pct > 0 ? item.price * (1 - pct / 100) : item.price;
+            return sum + unit * item.quantity;
+          }, 0);
           const tax = Math.max(0, total - subtotal);
+          const resolvedDate = ko.resolved_created_at ?? ko.created_at ?? ko.createdat ?? new Date().toISOString();
 
           const result: SalesData = {
             id: String(ko.id),
             orderNumber: String(ko.ordernumber),
             orderId: String(ko.id),
-            date: String(ko.createdat),
+            date: String(resolvedDate),
             items,
             subtotal: subtotal || total,
             tax,
@@ -359,11 +496,12 @@ export async function GET(request: NextRequest) {
             orderType: String(ko.ordertype || "dine-in"),
             tableNumber: ko.tablenumber ? String(ko.tablenumber) : undefined,
             customerName: ko.customername ? String(ko.customername) : undefined,
+            customerRefused: txCustomerRefused,
             paymentMethod: String(ko.paymentmethod || "cash"),
             source: "restaurant",
             performedBy: ko.performed_by_name
               ? { name: ko.performed_by_name, email: ko.performed_by_email, role: ko.performed_by_role }
-              : undefined,
+              : txPerformedBy,
           };
           return NextResponse.json({ receipt: result });
         }
@@ -371,7 +509,70 @@ export async function GET(request: NextRequest) {
         console.warn("kitchenorders table lookup failed:", err);
       }
 
-      // 2. Check transaction_logs
+      // 2. Check transactions table (POS completion & restaurant payments)
+      try {
+        const txRes = await query(
+          `SELECT id, transaction_reference, amount, method, metadata, created_at
+           FROM transactions
+           WHERE transaction_reference ILIKE $1
+              OR (metadata->>'orderNumber')::text ILIKE $1
+              OR (metadata->>'originalOrderNumber')::text ILIKE $1
+              OR id::text = $1
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [q]
+        );
+
+        if (txRes.rows[0]) {
+          const tx = txRes.rows[0];
+          const meta = (tx.metadata || {}) as Record<string, unknown>;
+          let items = normalizeItems(meta.items);
+          const total = Number(tx.amount || 0);
+          const subtotal = items.reduce((sum, item) => {
+            const pct = Number(item.discountPercent || 0);
+            const unit = pct > 0 ? item.price * (1 - pct / 100) : item.price;
+            return sum + unit * item.quantity;
+          }, 0);
+          const resolvedOrderNumber = String(meta.orderNumber ?? tx.transaction_reference ?? tx.id);
+
+          if (items.length === 0) {
+            items = [
+              {
+                id: `tx-${tx.id}`,
+                name: `Restaurant Order #${resolvedOrderNumber}`,
+                description: `Restaurant Order #${resolvedOrderNumber}`,
+                price: total,
+                quantity: 1,
+                category: "beverages",
+                inStock: true,
+              },
+            ];
+          }
+
+          const result: SalesData = {
+            id: String(tx.id),
+            orderNumber: resolvedOrderNumber,
+            orderId: meta.kitchenOrderId ? String(meta.kitchenOrderId) : undefined,
+            date: String(tx.created_at),
+            items,
+            subtotal: subtotal || total,
+            tax: Math.max(0, total - subtotal),
+            total,
+            orderType: String(meta.orderType || "dine-in"),
+            tableNumber: meta.tableNumber ? String(meta.tableNumber) : undefined,
+            customerName: meta.customerName ? String(meta.customerName) : undefined,
+            customerRefused: typeof meta.customerRefused === "boolean" ? meta.customerRefused : undefined,
+            paymentMethod: String(tx.method || "cash"),
+            source: "restaurant",
+            performedBy: meta.performedBy as SalesData["performedBy"],
+          };
+          return NextResponse.json({ receipt: result });
+        }
+      } catch (err) {
+        console.warn("transactions table lookup failed:", err);
+      }
+
+      // 3. Check transaction_logs
       try {
         const tlRes = await query(
           `SELECT transaction_id, amount, payment_method, items, metadata, created_at
@@ -384,10 +585,10 @@ export async function GET(request: NextRequest) {
 
         if (tlRes.rows[0]) {
           const tl = tlRes.rows[0];
-          let items = normalizeItems(tl.items);
+          const meta = (tl.metadata || {}) as Record<string, unknown>;
+          let items = normalizeItems(tl.items ?? meta.items);
           const total = Number(tl.amount || 0);
           const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-          const meta = (tl.metadata || {}) as Record<string, unknown>;
           if (items.length === 0) {
             items = [
               {
@@ -411,6 +612,7 @@ export async function GET(request: NextRequest) {
             tax: Math.max(0, total - subtotal),
             total,
             orderType: String(meta.orderType || "dine-in"),
+            tableNumber: meta.tableNumber ? String(meta.tableNumber) : undefined,
             customerName: meta.customerName ? String(meta.customerName) : undefined,
             paymentMethod: String(tl.payment_method || "cash"),
             source: "restaurant",

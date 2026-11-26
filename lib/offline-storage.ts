@@ -1,4 +1,4 @@
-import type { MenuItem } from "@/lib/types";
+import type { MenuItem, OrderItem, SalesData } from "@/lib/types";
 
 export interface CachedAuthUser {
   id: string;
@@ -95,6 +95,8 @@ const STORAGE_KEYS = {
   ATTENDANCE_QUEUE: "kumbi_offline_attendance_queue",
   MUTATIONS_QUEUE: "kumbi_offline_mutations_queue",
   LAST_SYNC: "kumbi_offline_last_sync",
+  RECENT_RECEIPTS: "kumbi_offline_recent_receipts_v1",
+  RECEIPT_STATS_SNAPSHOT: "kumbi_offline_receipt_stats_v1",
 } as const;
 
 // In-memory fallback if localStorage is disabled or fails
@@ -287,7 +289,11 @@ export function enqueueOfflineOrder(order: QueuedOfflineOrder): void {
     orders.push(order);
   }
   safeSetItem(STORAGE_KEYS.ORDERS_QUEUE, JSON.stringify(orders));
+  cacheRecentReceipt(queuedOrderToSalesData(order), false);
   broadcastQueueChanged();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("kumbi:receipts-updated"));
+  }
 }
 
 export function removeQueuedOrder(id: string): void {
@@ -380,10 +386,252 @@ export function getOfflineQueueStats(): OfflineQueueStats {
   };
 }
 
+export interface LocalRecentReceiptSummary {
+  id: string;
+  label: string;
+  amount: number;
+  source: string;
+  date: string;
+  isOfflinePending?: boolean;
+}
+
+export interface CachedReceiptStatsSnapshot {
+  today: number;
+  week: number;
+  month: number;
+  total: number;
+  cachedAt: string;
+}
+
+export function queuedOrderToSalesData(order: QueuedOfflineOrder): SalesData {
+  const payload = order.payload;
+  const cachedUser = getOfflineCachedUser();
+  const items: OrderItem[] = Array.isArray(payload?.items)
+    ? payload.items.map((item, idx) => ({
+        id: String(item.id || `offline-item-${idx}`),
+        name: String(item.name || `Item ${idx + 1}`),
+        description: String(item.name || `Item ${idx + 1}`),
+        price: Number(item.originalPrice ?? item.price ?? 0),
+        discountPercent:
+          Number(item.discountPercent ?? 0) > 0 ? Number(item.discountPercent) : undefined,
+        discountReason: item.discountReason,
+        approvedBy: item.approvedBy,
+        barcode: item.barcode,
+        quantity: Number(item.quantity || 1),
+        category: (item.category as OrderItem["category"]) || "beverages",
+        inStock: true,
+        notes: item.notes,
+      }))
+    : [];
+
+  let computedSubtotal = items.reduce((sum, item) => {
+    const pct = Number(item.discountPercent || 0);
+    const unit = pct > 0 ? item.price * (1 - pct / 100) : item.price;
+    return sum + unit * item.quantity;
+  }, 0);
+
+  if (payload?.orderDiscount && Number(payload.orderDiscount.value) > 0) {
+    if (payload.orderDiscount.type === "fixed") {
+      computedSubtotal = Math.max(0, computedSubtotal - Number(payload.orderDiscount.value));
+    } else if (payload.orderDiscount.type === "percent") {
+      computedSubtotal = Math.max(
+        0,
+        computedSubtotal * (1 - Math.min(100, Number(payload.orderDiscount.value)) / 100),
+      );
+    }
+  }
+
+  const total = Number(payload?.total ?? computedSubtotal);
+  const tax =
+    payload?.tax !== undefined && Number.isFinite(Number(payload.tax))
+      ? Number(payload.tax)
+      : Math.max(0, total - computedSubtotal);
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber || payload?.orderNumber || order.id,
+    orderId: order.id,
+    date: order.createdAt || new Date().toISOString(),
+    items,
+    subtotal: computedSubtotal || total,
+    tax,
+    total,
+    orderType: payload?.orderType || "dine-in",
+    tableNumber: payload?.tableNumber || undefined,
+    customerName: payload?.customerName || undefined,
+    customerRefused: !payload?.customerName,
+    paymentMethod: payload?.paymentMethod || "cash",
+    source: "restaurant",
+    performedBy: cachedUser
+      ? {
+          id: cachedUser.id,
+          name: cachedUser.name,
+          email: cachedUser.email,
+          role: cachedUser.role,
+        }
+      : undefined,
+  };
+}
+
+export function getCachedRecentReceipts(): SalesData[] {
+  const raw = safeGetItem(STORAGE_KEYS.RECENT_RECEIPTS);
+  return parseJson<SalesData[]>(raw, []);
+}
+
+export function cacheRecentReceipt(sale: SalesData, emitEvent = true): void {
+  if (!sale || !sale.orderNumber) return;
+  const normalizedSource = sale.source || "restaurant";
+  const normalizedSale: SalesData = {
+    ...sale,
+    source: normalizedSource,
+    date: sale.date || new Date().toISOString(),
+  };
+
+  const existing = getCachedRecentReceipts();
+  const key = `${normalizedSource}:${String(normalizedSale.orderNumber).trim().toUpperCase()}`;
+  const filtered = existing.filter(
+    (r) => `${r.source || "restaurant"}:${String(r.orderNumber || "").trim().toUpperCase()}` !== key,
+  );
+  const next = [normalizedSale, ...filtered].slice(0, 50);
+  safeSetItem(STORAGE_KEYS.RECENT_RECEIPTS, JSON.stringify(next));
+
+  if (emitEvent && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("kumbi:receipts-updated"));
+  }
+}
+
+export function getLocalRecentReceiptSummaries(
+  source = "all",
+  limit = 8,
+): LocalRecentReceiptSummary[] {
+  const normalizedSource = source.toLowerCase();
+  const summaries: LocalRecentReceiptSummary[] = [];
+  const seen = new Set<string>();
+
+  if (normalizedSource === "restaurant" || normalizedSource === "all") {
+    for (const queued of getQueuedOrders()) {
+      const cleanId = String(queued.orderNumber || queued.id).trim();
+      if (!cleanId) continue;
+      const key = `restaurant:${cleanId.toUpperCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      summaries.push({
+        id: cleanId,
+        label: `${cleanId} (offline)`,
+        amount: Number(queued.payload?.total || 0),
+        source: "restaurant",
+        date: queued.createdAt || new Date().toISOString(),
+        isOfflinePending: true,
+      });
+    }
+  }
+
+  for (const cached of getCachedRecentReceipts()) {
+    const recSource = (cached.source || "restaurant").toLowerCase();
+    if (normalizedSource !== "all" && recSource !== normalizedSource) continue;
+    const cleanId = String(cached.orderNumber || cached.id).trim();
+    if (!cleanId) continue;
+    const key = `${recSource}:${cleanId.toUpperCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    summaries.push({
+      id: cleanId,
+      label:
+        recSource === "hotel" && cached.customerName
+          ? `${cleanId} (${String(cached.customerName).split(" ")[0]})`
+          : cleanId,
+      amount: Number(cached.total || 0),
+      source: recSource,
+      date: cached.date || new Date().toISOString(),
+      isOfflinePending: false,
+    });
+  }
+
+  summaries.sort((a, b) => {
+    const ta = new Date(a.date).getTime();
+    const tb = new Date(b.date).getTime();
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+  });
+
+  return summaries.slice(0, limit);
+}
+
+export function findLocalReceiptByQuery(
+  rawQuery: string,
+  source = "all",
+): SalesData | null {
+  const q = String(rawQuery || "").trim().toLowerCase();
+  if (!q) return null;
+  const normalizedSource = source.toLowerCase();
+
+  if (normalizedSource === "restaurant" || normalizedSource === "all") {
+    const queuedOrders = getQueuedOrders();
+    const exactQueued = queuedOrders.find(
+      (o) =>
+        o.orderNumber.toLowerCase() === q ||
+        o.id.toLowerCase() === q ||
+        String(o.payload?.orderNumber || "").toLowerCase() === q,
+    );
+    if (exactQueued) return queuedOrderToSalesData(exactQueued);
+
+    const partialQueued = queuedOrders.find(
+      (o) =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        String(o.payload?.customerName || "").toLowerCase().includes(q) ||
+        String(o.payload?.tableNumber || "").toLowerCase() === q,
+    );
+    if (partialQueued) return queuedOrderToSalesData(partialQueued);
+  }
+
+  const cachedList = getCachedRecentReceipts().filter((r) => {
+    const recSource = (r.source || "restaurant").toLowerCase();
+    return normalizedSource === "all" || recSource === normalizedSource;
+  });
+
+  const exactCached = cachedList.find(
+    (r) =>
+      String(r.orderNumber || "").toLowerCase() === q ||
+      String(r.orderId || "").toLowerCase() === q ||
+      String(r.id || "").toLowerCase() === q,
+  );
+  if (exactCached) return exactCached;
+
+  const partialCached = cachedList.find(
+    (r) =>
+      String(r.orderNumber || "").toLowerCase().includes(q) ||
+      String(r.customerName || "").toLowerCase().includes(q) ||
+      String(r.tableNumber || "").toLowerCase() === q,
+  );
+  return partialCached || null;
+}
+
+export function setCachedReceiptStats(stats: {
+  today: number;
+  week: number;
+  month: number;
+  total: number;
+}): void {
+  const snapshot: CachedReceiptStatsSnapshot = {
+    today: Number(stats.today || 0),
+    week: Number(stats.week || 0),
+    month: Number(stats.month || 0),
+    total: Number(stats.total || 0),
+    cachedAt: new Date().toISOString(),
+  };
+  safeSetItem(STORAGE_KEYS.RECEIPT_STATS_SNAPSHOT, JSON.stringify(snapshot));
+}
+
+export function getCachedReceiptStats(): CachedReceiptStatsSnapshot | null {
+  const raw = safeGetItem(STORAGE_KEYS.RECEIPT_STATS_SNAPSHOT);
+  return parseJson<CachedReceiptStatsSnapshot | null>(raw, null);
+}
+
 export function clearAllQueues(): void {
   safeRemoveItem(STORAGE_KEYS.ORDERS_QUEUE);
   safeRemoveItem(STORAGE_KEYS.ATTENDANCE_QUEUE);
   safeRemoveItem(STORAGE_KEYS.MUTATIONS_QUEUE);
+  safeRemoveItem(STORAGE_KEYS.RECENT_RECEIPTS);
+  safeRemoveItem(STORAGE_KEYS.RECEIPT_STATS_SNAPSHOT);
   broadcastQueueChanged();
 }
 
@@ -464,6 +712,15 @@ export async function processOfflineQueue(): Promise<SyncResult> {
         });
 
         if (res.ok) {
+          const okData = await res.json().catch(() => null);
+          const syncedSale = queuedOrderToSalesData(order);
+          if (okData?.orderNumber) {
+            syncedSale.orderNumber = String(okData.orderNumber);
+          }
+          if (okData?.orderId) {
+            syncedSale.orderId = String(okData.orderId);
+          }
+          cacheRecentReceipt(syncedSale, false);
           removeQueuedOrder(order.id);
           result.syncedOrders++;
         } else {

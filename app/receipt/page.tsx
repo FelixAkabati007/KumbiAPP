@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { LogoDisplay } from "@/components/logo-display";
 import { useReceiptSettings } from "@/components/receipt-settings-provider";
 import { useSettings } from "@/components/settings-provider";
+import { useRealtime } from "@/components/realtime-provider";
 import type { SalesData, OrderItem } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
-import { findSaleByOrderNumber } from "@/lib/data";
 import { RoleGuard } from "@/components/role-guard";
 import { useReceiptStats } from "@/hooks/use-receipt-stats";
 import { useAuth } from "@/components/auth-provider";
@@ -21,10 +21,15 @@ import { calculateTaxes } from "@/lib/tax";
 import {
   levyRows,
   STATUTORY_LEVIES_HEADER,
-  graFiscalHeaderHtml,
-  graFiscalFooterHtml,
 } from "@/lib/levy-presentation";
 import { canonicalizeReceipt } from "@/lib/canonical-receipts";
+import {
+  cacheRecentReceipt,
+  enqueueOfflineMutation,
+  findLocalReceiptByQuery,
+  getLocalRecentReceiptSummaries,
+  subscribeOfflineQueue,
+} from "@/lib/offline-storage";
 
 interface ReceiptData {
   orderNumber: string;
@@ -54,6 +59,7 @@ export default function ReceiptPage() {
 function ReceiptContent() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { lastEvent } = useRealtime();
   const { stats } = useReceiptStats();
   const { settings: receiptSettings, updateSettings: updateReceiptSettings } = useReceiptSettings();
   const { settings: appSettings } = useSettings();
@@ -75,8 +81,7 @@ function ReceiptContent() {
     updateReceiptSettings({ paperSize: size });
   };
 
-  // receiptData is used to store data from URL params, but the UI currently relies on foundSale.
-  // Kept for potential future use or fixing the redirect logic.
+  // receiptData is used to store data from URL params, and synced with foundSale when ?order= is provided.
   const [receiptData, setReceiptData] = useState<ReceiptData>({
     orderNumber: "",
     date: new Date().toLocaleDateString(),
@@ -94,54 +99,155 @@ function ReceiptContent() {
   );
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
-  const [recentLookupIds, setRecentLookupIds] = useState<Array<{ id: string; label: string; amount: number; source?: string }>>([]);
+  const [recentLookupIds, setRecentLookupIds] = useState<
+    Array<{ id: string; label: string; amount: number; source?: string; date?: string }>
+  >([]);
+
+  const loadRecentReceipts = useCallback(async () => {
+    const localRecent = getLocalRecentReceiptSummaries(receiptSource, 8);
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setRecentLookupIds(localRecent.slice(0, 8));
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/receipts/lookup?recent=true&source=${receiptSource}&limit=8`,
+        { cache: "no-store" },
+      );
+      const data = res.ok ? await res.json() : null;
+      const serverList: Array<{ id: string; label: string; amount: number; source?: string; date?: string }> =
+        data?.recentReceipts && Array.isArray(data.recentReceipts) ? data.recentReceipts : [];
+
+      const merged: Array<{ id: string; label: string; amount: number; source?: string; date?: string }> = [];
+      const seen = new Set<string>();
+
+      // Keep unsynced offline orders visible at the top until synced; deduplicate synced orders with server records
+      for (const item of localRecent) {
+        if (!item.isOfflinePending) continue;
+        const key = String(item.id || "").trim().toUpperCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+
+      for (const item of serverList) {
+        const key = String(item.id || "").trim().toUpperCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+
+      // Include any just-completed local receipts not yet returned by the server query
+      for (const item of localRecent) {
+        const key = String(item.id || "").trim().toUpperCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+
+      merged.sort((a, b) => {
+        const ta = a.date ? new Date(a.date).getTime() : 0;
+        const tb = b.date ? new Date(b.date).getTime() : 0;
+        return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+      });
+
+      setRecentLookupIds(merged.slice(0, 8));
+    } catch {
+      setRecentLookupIds(localRecent.slice(0, 8));
+    }
+  }, [receiptSource]);
 
   useEffect(() => {
-    let active = true;
-    const loadRecentReceipts = async () => {
-      try {
-        const res = await fetch(`/api/receipts/lookup?recent=true&source=${receiptSource}&limit=6`, { cache: "no-store" });
-        const data = res.ok ? await res.json() : null;
-        if (active && data?.recentReceipts && Array.isArray(data.recentReceipts)) {
-          setRecentLookupIds(data.recentReceipts);
-        } else if (active) {
-          setRecentLookupIds([]);
-        }
-      } catch {
-        if (active) setRecentLookupIds([]);
+    void loadRecentReceipts();
+  }, [loadRecentReceipts]);
+
+  // Live updates from realtime SSE/broadcasts, offline queue changes, sync completion, and tab focus
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (
+      lastEvent.topic === "orders.updated" ||
+      lastEvent.topic === "pos.updated" ||
+      lastEvent.topic === "finance.updated" ||
+      lastEvent.topic === "hotels.updated" ||
+      lastEvent.topic === "events.updated"
+    ) {
+      void loadRecentReceipts();
+    }
+  }, [lastEvent, loadRecentReceipts]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (typeof document === "undefined" || !document.hidden) {
+        void loadRecentReceipts();
       }
     };
-    void loadRecentReceipts();
+    const unsubscribeOffline = subscribeOfflineQueue(() => {
+      void loadRecentReceipts();
+    });
+    const pollInterval = window.setInterval(refresh, 15000);
+
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("kumbi:offline-synced", refresh);
+    window.addEventListener("kumbi:receipts-updated", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
     return () => {
-      active = false;
+      unsubscribeOffline();
+      window.clearInterval(pollInterval);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("kumbi:offline-synced", refresh);
+      window.removeEventListener("kumbi:receipts-updated", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
-  }, [receiptSource]);
+  }, [loadRecentReceipts]);
 
   useEffect(() => {
     if (user?.role === "frontDesk") setReceiptSource("hotel");
   }, [user?.role]);
 
-  const executeSearch = async (term: string, source: "restaurant" | "hotel" | "event" = receiptSource) => {
-    setSearchTouched(true);
-    const cleanTerm = term.trim();
-    if (!cleanTerm) {
-      setFoundSale(null);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/receipts/lookup?query=${encodeURIComponent(cleanTerm)}&source=${source}`);
-      const data = res.ok ? await res.json() : null;
-      if (data?.receipt) {
-        setFoundSale(data.receipt);
-      } else {
+  const executeSearch = useCallback(
+    async (term: string, source: "restaurant" | "hotel" | "event" = receiptSource) => {
+      setSearchTouched(true);
+      const cleanTerm = term.trim();
+      if (!cleanTerm) {
         setFoundSale(null);
+        return;
       }
-    } catch (err) {
-      console.error("Receipt lookup error:", err);
-      setFoundSale(null);
-    }
-  };
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const localMatch = findLocalReceiptByQuery(cleanTerm, source);
+        setFoundSale(localMatch);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/receipts/lookup?query=${encodeURIComponent(cleanTerm)}&source=${source}`,
+          { cache: "no-store" },
+        );
+        const data = res.ok ? await res.json() : null;
+        if (data?.receipt) {
+          cacheRecentReceipt(data.receipt, false);
+          setFoundSale(data.receipt);
+        } else {
+          // Fallback to local offline queue / local recent receipts cache if not yet synced to Neon
+          const localMatch = findLocalReceiptByQuery(cleanTerm, source);
+          setFoundSale(localMatch);
+        }
+      } catch (err) {
+        console.error("Receipt lookup error:", err);
+        const localMatch = findLocalReceiptByQuery(cleanTerm, source);
+        setFoundSale(localMatch);
+      }
+    },
+    [receiptSource],
+  );
 
   useEffect(() => {
     const orderParam = searchParams.get("order");
@@ -160,18 +266,37 @@ function ReceiptContent() {
           ) as number) || 0;
         const tax = parsed.tax ?? +(subtotal * 0.125).toFixed(2);
         const total = parsed.total ?? +(subtotal + tax).toFixed(2);
+        const isoDate = parsed.date || new Date().toISOString();
         setReceiptData({
           ...parsed,
           subtotal,
           tax,
           total,
-          date: parsed.date
-            ? new Date(parsed.date).toLocaleDateString()
-            : new Date().toLocaleDateString(),
-          time: parsed.date
-            ? new Date(parsed.date).toLocaleTimeString()
-            : new Date().toLocaleTimeString(),
+          date: new Date(isoDate).toLocaleDateString(),
+          time: new Date(isoDate).toLocaleTimeString(),
         });
+        if (parsed.orderNumber && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          const saleFromUrl: SalesData = {
+            id: parsed.orderId || parsed.orderNumber,
+            orderId: parsed.orderId,
+            orderNumber: parsed.orderNumber,
+            date: isoDate,
+            items: parsed.items,
+            subtotal,
+            tax,
+            total,
+            orderType: parsed.orderType || "dine-in",
+            tableNumber: parsed.tableNumber,
+            customerName: parsed.customerName,
+            customerRefused: parsed.customerRefused,
+            paymentMethod: parsed.paymentMethod || "cash",
+            source: parsed.source || receiptSource,
+            performedBy: parsed.performedBy,
+          };
+          setSearchOrderNumber(parsed.orderNumber);
+          setFoundSale(saleFromUrl);
+          cacheRecentReceipt(saleFromUrl, false);
+        }
       } catch {
         // fallback to default
       }
@@ -185,7 +310,7 @@ function ReceiptContent() {
         orderNumber: `ORD-${Date.now()}`,
       }));
     }
-  }, [searchParams, receiptSource]);
+  }, [searchParams, receiptSource, executeSearch]);
 
   // Search handler
   const handleSearch = () => {
@@ -259,15 +384,43 @@ function ReceiptContent() {
       printMethod: "browser",
       payload: foundSale ?? receiptData,
     });
-    const persistence = await fetch("/api/canonical-receipts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(receipt),
-    });
-    if (!persistence.ok) {
-      toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
-      return;
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOfflineMutation({
+        id: `canonical-receipt-${entityId}-${Date.now()}`,
+        type: "canonical_receipt",
+        url: "/api/canonical-receipts",
+        method: "POST",
+        payload: receipt,
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        retryCount: 0,
+      });
+    } else {
+      try {
+        const persistence = await fetch("/api/canonical-receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(receipt),
+        });
+        if (!persistence.ok) {
+          toast({ title: "Receipt not recorded", description: "Printing was cancelled because the canonical receipt could not be saved.", variant: "destructive" });
+          return;
+        }
+      } catch {
+        enqueueOfflineMutation({
+          id: `canonical-receipt-${entityId}-${Date.now()}`,
+          type: "canonical_receipt",
+          url: "/api/canonical-receipts",
+          method: "POST",
+          payload: receipt,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          retryCount: 0,
+        });
+      }
     }
+
     // Inject dynamic print page size rule so browser/printer spooler adopts the device paper format
     const styleId = "receipt-print-device-size";
     let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;

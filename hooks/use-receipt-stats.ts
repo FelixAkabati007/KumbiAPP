@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSystemSync } from "./use-system-sync";
 import { useAuth } from "@/components/auth-provider";
+import { useRealtime } from "@/components/realtime-provider";
 import { apiFetch, ApiError, isExpectedRequestError } from "@/lib/api-client";
+import {
+  getCachedReceiptStats,
+  getQueuedOrders,
+  setCachedReceiptStats,
+  subscribeOfflineQueue,
+} from "@/lib/offline-storage";
 
 interface ReceiptStats {
   today: number;
@@ -10,8 +17,38 @@ interface ReceiptStats {
   total: number;
 }
 
+function addPendingOfflineCounts(base: ReceiptStats): ReceiptStats {
+  const queued = getQueuedOrders();
+  if (queued.length === 0) return base;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayOfWeek = (now.getDay() + 6) % 7; // Monday = 0
+  const weekStart = todayStart - dayOfWeek * 86_400_000;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let extraToday = 0;
+  let extraWeek = 0;
+  let extraMonth = 0;
+  for (const order of queued) {
+    const createdMs = new Date(order.createdAt || now.toISOString()).getTime();
+    const ts = Number.isFinite(createdMs) ? createdMs : now.getTime();
+    if (ts >= todayStart) extraToday++;
+    if (ts >= weekStart) extraWeek++;
+    if (ts >= monthStart) extraMonth++;
+  }
+
+  return {
+    today: base.today + extraToday,
+    week: base.week + extraWeek,
+    month: base.month + extraMonth,
+    total: base.total + queued.length,
+  };
+}
+
 export function useReceiptStats() {
   const { user } = useAuth();
+  const { lastEvent } = useRealtime();
   const [stats, setStats] = useState<ReceiptStats>({
     today: 0,
     week: 0,
@@ -22,8 +59,6 @@ export function useReceiptStats() {
   const [error, setError] = useState<string | null>(null);
 
   const { versions } = useSystemSync();
-  // Listen for changes in "orders" key from system state
-  // This ensures we re-fetch stats when a new order/transaction is logged
   const ordersVersion = versions["orders"];
 
   const fetchStats = useCallback(async () => {
@@ -33,20 +68,37 @@ export function useReceiptStats() {
       return;
     }
 
-    try {
-      // Don't set loading to true on background updates to avoid flicker
-      // only set if we don't have data yet?
-      // Actually, keeping it simple:
-      // setLoading(true);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const cached = getCachedReceiptStats();
+      const base = cached
+        ? { today: cached.today, week: cached.week, month: cached.month, total: cached.total }
+        : { today: 0, week: 0, month: 0, total: 0 };
+      setStats(addPendingOfflineCounts(base));
+      setLoading(false);
+      return;
+    }
 
+    try {
       const data = await apiFetch<ReceiptStats>("/api/receipts/stats");
-      setStats(data);
+      setCachedReceiptStats(data);
+      setStats(addPendingOfflineCounts(data));
       setError(null);
     } catch (err: unknown) {
       if (isExpectedRequestError(err)) return;
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setStats({ today: 0, week: 0, month: 0, total: 0 });
+        setStats(addPendingOfflineCounts({ today: 0, week: 0, month: 0, total: 0 }));
         return;
+      }
+      const cached = getCachedReceiptStats();
+      if (cached) {
+        setStats(
+          addPendingOfflineCounts({
+            today: cached.today,
+            week: cached.week,
+            month: cached.month,
+            total: cached.total,
+          }),
+        );
       }
       if (err instanceof Error) {
         setError(err.message);
@@ -64,11 +116,25 @@ export function useReceiptStats() {
   // Initial fetch
   useEffect(() => {
     if (user) {
-      fetchStats();
+      void fetchStats();
     }
   }, [fetchStats, user]);
 
-  // Refetch when version changes and keep the dashboard current when another terminal creates a receipt.
+  // Refresh immediately on realtime POS/order/finance/hotel/event events
+  useEffect(() => {
+    if (!user || !lastEvent) return;
+    if (
+      lastEvent.topic === "orders.updated" ||
+      lastEvent.topic === "pos.updated" ||
+      lastEvent.topic === "finance.updated" ||
+      lastEvent.topic === "hotels.updated" ||
+      lastEvent.topic === "events.updated"
+    ) {
+      void fetchStats();
+    }
+  }, [lastEvent, fetchStats, user]);
+
+  // Refetch when version changes, offline queue changes, or online status recovers
   useEffect(() => {
     if (!user) return;
     let timer: number | null = null;
@@ -87,13 +153,30 @@ export function useReceiptStats() {
     if (ordersVersion && !document.hidden) void fetchStats();
     const handleVisibilityChange = () => {
       if (document.hidden) stop();
-      else start();
+      else {
+        void fetchStats();
+        start();
+      }
     };
+    const handleImmediateRefresh = () => {
+      void fetchStats();
+    };
+    const unsubscribeOffline = subscribeOfflineQueue(() => {
+      void fetchStats();
+    });
+
     start();
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleImmediateRefresh);
+    window.addEventListener("kumbi:offline-synced", handleImmediateRefresh);
+    window.addEventListener("kumbi:receipts-updated", handleImmediateRefresh);
     return () => {
       stop();
+      unsubscribeOffline();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleImmediateRefresh);
+      window.removeEventListener("kumbi:offline-synced", handleImmediateRefresh);
+      window.removeEventListener("kumbi:receipts-updated", handleImmediateRefresh);
     };
   }, [ordersVersion, fetchStats, user]);
 

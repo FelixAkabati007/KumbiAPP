@@ -66,7 +66,7 @@ import {
   processBarcodeWithIntegration,
 } from "@/lib/integration-service";
 import { hasPermission, UserRole } from "@/lib/roles";
-import { enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
+import { cacheRecentReceipt, enqueueOfflineOrder, getOfflineInventory, setOfflineInventory } from "@/lib/offline-storage";
 import { calculateTaxes } from "@/lib/tax";
 import {
   levyRows,
@@ -555,6 +555,8 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
 
       // 1. Validate stock & persist order first before logging payment/sale
       let savedRemotely = false;
+      let remoteOrderId: string | undefined;
+      let remoteOrderNumber: string | undefined;
       try {
         if (typeof navigator === "undefined" || navigator.onLine) {
           const completionResponse = await fetch("/api/orders/complete", {
@@ -566,6 +568,9 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
             body: JSON.stringify(orderPayload),
           });
           if (completionResponse.ok) {
+            const completionData = await completionResponse.json().catch(() => null);
+            remoteOrderId = completionData?.orderId ? String(completionData.orderId) : undefined;
+            remoteOrderNumber = completionData?.orderNumber ? String(completionData.orderNumber) : undefined;
             savedRemotely = true;
           } else {
             const completionError = await completionResponse.json().catch(() => null);
@@ -594,8 +599,8 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
       const paymentData = {
         amount: finalPayableTotal,
         method: paymentMethod,
-        orderNumber,
-        orderId,
+        orderNumber: remoteOrderNumber || orderNumber,
+        orderId: remoteOrderId || orderId,
         items: currentOrder,
         customerName,
         customerRefused: customerNameRefused,
@@ -618,6 +623,25 @@ const ORDER_TYPES = ["dine-in", "takeout", "delivery"] as const;
             description: `Order #${orderNumber} queued locally and will sync when online.`,
           });
         } else {
+          cacheRecentReceipt({
+            id: remoteOrderId || orderId || remoteOrderNumber || orderNumber,
+            orderId: remoteOrderId || orderId,
+            orderNumber: remoteOrderNumber || orderNumber,
+            date: new Date().toISOString(),
+            items: currentOrder,
+            subtotal: taxableSubtotal,
+            tax: taxResult.tax,
+            total: finalPayableTotal,
+            orderType,
+            tableNumber: tableNumber || undefined,
+            customerName: customerNameRefused ? undefined : customerName || undefined,
+            customerRefused: customerNameRefused,
+            paymentMethod,
+            source: "restaurant",
+            performedBy: user
+              ? { id: user.id, name: user.name, email: user.email, role: user.role }
+              : undefined,
+          });
           // Refresh menu & inventory stock state immediately after remote checkout
           void getMenuItems().then((items) => {
             if (items.length > 0) setMenuItems(items);
