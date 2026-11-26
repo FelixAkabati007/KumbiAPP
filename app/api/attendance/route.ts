@@ -1,24 +1,18 @@
 import { NextResponse } from "next/server";
 import { requirePermission, requireSession } from "@/lib/api-auth";
 import { query } from "@/lib/db";
-import { registerAttendance } from "@/lib/attendance-service";
-import { propertyDayExpression } from "@/lib/operational-day";
-import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { getTodayAttendanceRecord, registerAttendance } from "@/lib/attendance-service";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const sessionAccess = await requireSession();
   if (!sessionAccess.error && sessionAccess.session) {
-    const canonicalNow = await getCanonicalTransactionTimestamp();
-    const result = await query(
-      `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
-       FROM attendance_records
-       WHERE user_id = $1
-         AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
-       ORDER BY created_at DESC LIMIT 1`,
-      [sessionAccess.session.id, canonicalNow],
+    const record = await getTodayAttendanceRecord(sessionAccess.session);
+    return NextResponse.json(
+      { record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
     );
-    const record = result.rows[0] ?? null;
-    return NextResponse.json({ record, nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete" });
   }
   const { error } = await requirePermission("events");
   if (error) return error;
@@ -34,24 +28,29 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const sessionAccess = await requireSession();
   if (!sessionAccess.error && sessionAccess.session) {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const action = body.action === "check_out" ? "check_out" : "check_in";
     try {
       const result = await registerAttendance(sessionAccess.session, action, String(body.notes ?? ""));
-      return NextResponse.json(result, { status: 200 });
+      return NextResponse.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
       const messages: Record<string, string> = {
         STAFF_PROFILE_REQUIRED: "Your account is not linked to an active staff assignment. Contact a manager.",
+        MANAGERIAL_ROLE_CHECK_IN_FORBIDDEN: "Managerial roles do not check in as staff. Use the managerial attendance controls instead.",
         ALREADY_CHECKED_IN: "You are already checked in.",
         CHECK_IN_REQUIRED: "Check in before checking out.",
         CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
         ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
       };
+      const isKnownRule = code in messages || code.startsWith("CHECKOUT_TOO_EARLY:");
+      if (!isKnownRule) {
+        console.error("[attendance] unexpected attendance registration failure", cause);
+      }
       const errorMessage = code.startsWith("CHECKOUT_TOO_EARLY:")
         ? `Check-out is only available at or after your scheduled end time (${code.split(":")[1]}).`
         : messages[code] ?? "Unable to update attendance";
-      return NextResponse.json({ error: errorMessage, code }, { status: 409 });
+      return NextResponse.json({ error: errorMessage, code }, { status: isKnownRule ? 409 : 500 });
     }
   }
   const { session, error } = await requirePermission("events");

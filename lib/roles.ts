@@ -942,6 +942,7 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   "/api/hardware": [...ALL_USER_ROLES],
   "/api/attendance": [...ALL_USER_ROLES],
   "/api/workforce/schedule": [...ALL_USER_ROLES],
+  "/api/workforce/reminders": [...ALL_USER_ROLES],
   "/api/workforce": ["admin", "manager", "operationsManager"],
   "/api/complimentary-authorizations": ["admin", "manager"],
   "/api/canonical-receipts": rolesWithAnySection("receipt", "pos", "finance", "guestFolio"),

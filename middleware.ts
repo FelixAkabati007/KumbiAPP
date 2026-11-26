@@ -58,14 +58,15 @@ export async function middleware(req: NextRequest) {
 
   // 1. API Route processing (Auth, RBAC, Versioning & Rewrite)
   if (normalizedApiPath) {
-    // 1a. Exclude Public API Routes
+    // 1a. Exclude Public & Cron-Secret API Routes (route handlers enforce CRON_SECRET Bearer auth)
     const isPublicApi =
       (normalizedApiPath.startsWith("/api/auth") && normalizedApiPath !== "/api/auth/signup") ||
       normalizedApiPath.startsWith("/api/public") ||
       normalizedApiPath === "/api/health" ||
       normalizedApiPath === "/api/favicon" ||
       normalizedApiPath.startsWith("/api/theme") ||
-      normalizedApiPath.startsWith("/api/cron");
+      normalizedApiPath.startsWith("/api/cron") ||
+      normalizedApiPath === "/api/workforce/reminders/cron";
 
     if (isPublicApi) {
       if (isV1Api) {
@@ -89,7 +90,12 @@ export async function middleware(req: NextRequest) {
         internalKey &&
         internalKey === getJwtSecret();
 
-      if (!validInternalCall) {
+      const validCronCall =
+        normalizedApiPath === "/api/attendance/auto-checkout" &&
+        Boolean(process.env.CRON_SECRET) &&
+        req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
+      if (!validInternalCall && !validCronCall) {
         const token = req.cookies.get("auth_token")?.value;
         if (!token) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

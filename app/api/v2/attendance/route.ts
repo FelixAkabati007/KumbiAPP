@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { query } from "@/lib/db";
-import { registerAttendance } from "@/lib/attendance-service";
-import { propertyDayExpression } from "@/lib/operational-day";
-import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { getTodayAttendanceRecord, registerAttendance } from "@/lib/attendance-service";
 import { managementRoles } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
-const headers = { "X-API-Version": "2", "Cache-Control": "no-store" };
+const headers = { "X-API-Version": "2", "Cache-Control": "no-store, no-cache, must-revalidate" };
 
 function statusLabel(value?: string | null) {
   return ({ pending: "waiting_for_approval", verified: "approved", rejected: "rejected", late: "approved_late" } as Record<string, string>)[value ?? ""] ?? value ?? "not_checked_in";
@@ -17,32 +14,40 @@ function statusLabel(value?: string | null) {
 export async function GET() {
   const { session, error } = await requireSession();
   if (error) return error;
-  const canonicalNow = await getCanonicalTransactionTimestamp();
-  const result = await query(
-    `SELECT id, user_id, staff_id, check_in_at, check_out_at, status, verification_status, verified_at
-     FROM attendance_records
-     WHERE user_id = $1
-       AND created_at::date = ${propertyDayExpression("$2::timestamptz")}
-     ORDER BY created_at DESC LIMIT 1`,
-    [session.id, canonicalNow],
-  );
-  const record = result.rows[0] ?? null;
-  return NextResponse.json({
-    apiVersion: "2",
-    record: record ? { ...record, lifecycleStatus: statusLabel(record.verification_status) } : null,
-    nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete",
-    canCheckIn: !managementRoles.includes(session.role),
-  }, { headers });
+  try {
+    const record = await getTodayAttendanceRecord(session);
+    return NextResponse.json(
+      {
+        apiVersion: "2",
+        record: record ? { ...record, lifecycleStatus: statusLabel(record.verification_status) } : null,
+        nextAction: !record?.check_in_at ? "check_in" : !record.check_out_at ? "check_out" : "complete",
+        canCheckIn: !managementRoles.includes(session.role),
+      },
+      { headers },
+    );
+  } catch (cause) {
+    console.error("[v2/attendance] failed to load today's attendance", cause);
+    return NextResponse.json({ apiVersion: "2", error: "Unable to load attendance" }, { status: 500, headers });
+  }
 }
 
 export async function POST(request: Request) {
   const { session, error } = await requireSession();
   if (error) return error;
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const action = body.action === "check_out" ? "check_out" : "check_in";
   try {
     const result = await registerAttendance(session, action, String(body.notes ?? ""));
-    return NextResponse.json({ apiVersion: "2", ...result, lifecycleStatus: action === "check_in" ? "waiting_for_approval" : "completed" }, { headers });
+    const lifecycleStatus = action === "check_in" ? "waiting_for_approval" : "completed";
+    return NextResponse.json(
+      {
+        apiVersion: "2",
+        ...result,
+        record: result.record ? { ...result.record, lifecycleStatus } : null,
+        lifecycleStatus,
+      },
+      { headers },
+    );
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : "ATTENDANCE_FAILED";
     const messages: Record<string, string> = {
@@ -53,10 +58,14 @@ export async function POST(request: Request) {
       CHECKOUT_TOO_EARLY: "Check-out is only available at or after your scheduled end time.",
       ALREADY_CHECKED_OUT: "Attendance is already completed for today.",
     };
+    const isKnownRule = code in messages || code.startsWith("CHECKOUT_TOO_EARLY:");
+    if (!isKnownRule) {
+      console.error("[v2/attendance] unexpected attendance registration failure", cause);
+    }
     const errorMessage = code.startsWith("CHECKOUT_TOO_EARLY:")
       ? `Check-out is only available at or after your scheduled end time (${code.split(":")[1]}).`
       : messages[code] ?? "Unable to update attendance";
-    return NextResponse.json({ apiVersion: "2", error: errorMessage, code }, { status: 409, headers });
+    return NextResponse.json({ apiVersion: "2", error: errorMessage, code }, { status: isKnownRule ? 409 : 500, headers });
   }
 }
 

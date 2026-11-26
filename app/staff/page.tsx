@@ -87,6 +87,15 @@ export default function StaffPage() {
     if (!isLoading && user && !managementRoles.includes(user.role as UserRole)) void load();
   }, [isLoading, user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !user || managementRoles.includes(user.role as UserRole)) return;
+    const onOfflineSynced = () => {
+      void load();
+    };
+    window.addEventListener("kumbi:offline-synced", onOfflineSynced);
+    return () => window.removeEventListener("kumbi:offline-synced", onOfflineSynced);
+  }, [user]);
+
   async function submitPermission(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -137,17 +146,23 @@ export default function StaffPage() {
       return;
     }
     try {
-      const response = await fetch("/api/attendance", {
+      const response = await fetch("/api/v2/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ action }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       const successMessage = action === "check_in" ? "Check-in successful" : "Check-out successful";
       setMessage(response.ok ? successMessage : data.error ?? `Check-${action === "check_in" ? "in" : "out"} failed`);
       setMessageTone(response.ok ? "success" : "error");
       if (response.ok) {
+        if (data.record) {
+          setRecord(data.record);
+        }
         setNextAction(data.nextAction ?? (action === "check_in" ? "check_out" : "complete"));
+        await load();
+      } else if (data.code === "ALREADY_CHECKED_IN" || data.code === "ALREADY_CHECKED_OUT") {
         await load();
       }
       setBusy(false);

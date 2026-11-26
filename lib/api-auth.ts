@@ -45,11 +45,12 @@ async function hasApprovedAttendance(session: ApiSession) {
   if (managementRoles.includes(session.role)) return true;
   const result = await query(
     `SELECT 1
-     FROM attendance_records
-     WHERE user_id = $1
-       AND created_at::date = ${propertyDayExpression()}
-       AND verification_status IN ('verified', 'approved', 'approved_late', 'late')
-     ORDER BY created_at DESC
+     FROM attendance_records ar
+     LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id
+     WHERE (ar.user_id::text = $1::text OR ar.staff_id::text = $1::text OR sp.user_id::text = $1::text)
+       AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression()}
+       AND ar.verification_status IN ('verified', 'approved', 'approved_late', 'late')
+     ORDER BY COALESCE(ar.check_in_at, ar.created_at) DESC
      LIMIT 1`,
     [session.id],
   );

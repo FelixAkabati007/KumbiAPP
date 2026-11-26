@@ -311,10 +311,20 @@ export async function resolveWorkforceSchedule(
     try {
       const ins = await executor(
         `INSERT INTO staff_profiles (user_id, first_name, last_name, business_email, department, position, job_classification, password_hash, is_active)
-         VALUES ($1, $2, 'Staff', $3, $4, $5, $6, 'managed', true)
-         ON CONFLICT (user_id) DO UPDATE SET is_active = true
+         SELECT $1::uuid, $2::varchar, 'Staff', $3::varchar, $4::varchar, $5::varchar, $6::varchar, 'managed', true
+         WHERE NOT EXISTS (
+           SELECT 1 FROM staff_profiles WHERE user_id = $1::uuid OR LOWER(business_email) = LOWER($7::text)
+         )
          RETURNING id`,
-        [user.user_id, user.user_name || "Staff", user.user_email || `staff-${user.user_id.slice(0, 8)}@kumbisaly.com`, department, canonicalClassification, canonicalClassification],
+        [
+          user.user_id,
+          user.user_name || "Staff",
+          user.user_email || `staff-${user.user_id.slice(0, 8)}@kumbisaly.com`,
+          department,
+          canonicalClassification,
+          canonicalClassification,
+          user.user_email || `staff-${user.user_id.slice(0, 8)}@kumbisaly.com`,
+        ],
       );
       staffId = ins.rows[0]?.id;
     } catch {
@@ -323,6 +333,7 @@ export async function resolveWorkforceSchedule(
   }
 
   // 2. Daily individual staff assignment (isolated lookup, never blocks general schedules if table doesn't exist)
+  let assignRow: WorkforceDbRow | undefined;
   const effectiveStaffId = staffId || userIdOrStaffId;
   if (effectiveStaffId) {
     try {
@@ -346,29 +357,14 @@ export async function resolveWorkforceSchedule(
          LIMIT 1`,
         [effectiveStaffId, tsParam, canonicalClassification, department],
       );
-      const assignRow = assignRes.rows?.[0];
-      if (assignRow?.start_time && assignRow?.end_time) {
-        const startTimeFormatted = String(assignRow.start_time).slice(0, 5);
-        const endTimeFormatted = String(assignRow.end_time).slice(0, 5);
-        return {
-          scheduleId: assignRow.schedule_id,
-          schedule_name: assignRow.schedule_name || `${canonicalClassification} assigned`,
-          job_classification: assignRow.job_classification || canonicalClassification,
-          department: assignRow.department || department,
-          shift_period: assignRow.shift_period || "standard",
-          start_time: startTimeFormatted,
-          end_time: endTimeFormatted,
-          reminder_minutes: Number(assignRow.reminder_minutes) || 20,
-          assignment_status: assignRow.assignment_status || "assigned",
-          source: "assignment",
-          startTime: startTimeFormatted,
-          endTime: endTimeFormatted,
-          reminderMinutes: Number(assignRow.reminder_minutes) || 20,
-        };
-      }
+      assignRow = assignRes.rows?.[0];
     } catch (err) {
       console.warn("[workforce-schedule] Daily assignment check skipped:", err);
     }
+  }
+
+  if (assignRow?.start_time && assignRow?.end_time) {
+    return buildScheduleFromAssignment(assignRow, canonicalClassification, department);
   }
 
   // 3. Load every active rule configured by the Admin in Settings -> Staff management -> Staff time schedules.
@@ -377,6 +373,43 @@ export async function resolveWorkforceSchedule(
   //    statement with `42P18 could not determine data type of parameter $4`. That error was swallowed and the
   //    resolver silently fell back to the hardcoded 08:00-21:00 Waiter/Waitress default. Ranking now happens in
   //    TypeScript (see rankWorkSchedules) where it is unit-testable and cannot trigger a SQL type-inference error.
+  const { candidates, lookupError } = await loadActiveWorkSchedules(executor);
+
+  return buildResolvedScheduleFromCandidates(
+    { role, canonicalClassification, rawClassification, department },
+    candidates,
+    lookupError,
+  );
+}
+
+function buildScheduleFromAssignment(
+  assignRow: WorkforceDbRow,
+  canonicalClassification: string,
+  department: string,
+): WorkforceSchedule {
+  const startTimeFormatted = String(assignRow.start_time).slice(0, 5);
+  const endTimeFormatted = String(assignRow.end_time).slice(0, 5);
+  const reminder = Number(assignRow.reminder_minutes) || 20;
+  return {
+    scheduleId: assignRow.schedule_id,
+    schedule_name: assignRow.schedule_name || `${canonicalClassification} assigned`,
+    job_classification: assignRow.job_classification || canonicalClassification,
+    department: assignRow.department || department,
+    shift_period: assignRow.shift_period || "standard",
+    start_time: startTimeFormatted,
+    end_time: endTimeFormatted,
+    reminder_minutes: reminder,
+    assignment_status: assignRow.assignment_status || "assigned",
+    source: "assignment",
+    startTime: startTimeFormatted,
+    endTime: endTimeFormatted,
+    reminderMinutes: reminder,
+  };
+}
+
+async function loadActiveWorkSchedules(
+  executor: WorkforceQueryExecutor,
+): Promise<{ candidates: WorkforceDbRow[] | null; lookupError: unknown }> {
   const scheduleSql = (includeUpdatedAt: boolean) => `
     SELECT
       s.id AS schedule_id,
@@ -394,53 +427,56 @@ export async function resolveWorkforceSchedule(
     WHERE COALESCE(s.is_active, true) = true
   `;
 
-  let candidates: WorkforceDbRow[] | null = null;
-  let lookupError: unknown = null;
   try {
-    candidates = (await executor(scheduleSql(true))).rows;
+    const res = await executor(scheduleSql(true));
+    return { candidates: res.rows, lookupError: null };
   } catch (err) {
     console.warn("[workforce-schedule] Schedule lookup with updated_at failed, retrying without it:", err);
     try {
-      candidates = (await executor(scheduleSql(false))).rows;
+      const res2 = await executor(scheduleSql(false));
+      return { candidates: res2.rows, lookupError: null };
     } catch (err2) {
-      lookupError = err2;
       console.error("[workforce-schedule] Schedule lookup FAILED - the hardcoded fallback will be shown:", err2);
+      return { candidates: null, lookupError: err2 };
     }
   }
+}
 
-  const row = candidates
-    ? rankWorkSchedules(candidates, { role, canonicalClassification, rawClassification, department })[0]
-    : undefined;
+function buildResolvedScheduleFromCandidates(
+  ctx: ScheduleMatchContext,
+  candidates: WorkforceDbRow[] | null,
+  lookupError: unknown,
+): WorkforceSchedule {
+  const row = candidates ? rankWorkSchedules(candidates, ctx)[0] : undefined;
 
-  // 4. If an Admin-configured rule matched, return it exactly as configured.
   if (row?.start_time && row?.end_time) {
     const startTimeFormatted = String(row.start_time).slice(0, 5);
     const endTimeFormatted = String(row.end_time).slice(0, 5);
+    const reminder = Number(row.reminder_minutes) || 20;
     return {
       scheduleId: row.schedule_id,
-      schedule_name: row.schedule_name || `${canonicalClassification} standard`,
-      job_classification: row.job_classification || canonicalClassification,
-      department: row.department || department,
+      schedule_name: row.schedule_name || `${ctx.canonicalClassification} standard`,
+      job_classification: row.job_classification || ctx.canonicalClassification,
+      department: row.department || ctx.department,
       shift_period: row.shift_period || "standard",
       start_time: startTimeFormatted,
       end_time: endTimeFormatted,
-      reminder_minutes: Number(row.reminder_minutes) || 20,
+      reminder_minutes: reminder,
       assignment_status: row.assignment_status || "default",
       source: "schedule",
       startTime: startTimeFormatted,
       endTime: endTimeFormatted,
-      reminderMinutes: Number(row.reminder_minutes) || 20,
+      reminderMinutes: reminder,
     };
   }
 
-  // 5. Last resort only: nothing in work_schedules matched (or the database was unreachable).
-  //    The result is explicitly flagged `source: "fallback"` so the UI can tell the user instead of
-  //    pretending these are the Admin's times.
   if (!lookupError) {
-    console.warn(`[workforce-schedule] No active work_schedules row matches role="${role}" classification="${canonicalClassification}" department="${department}"`);
+    console.warn(
+      `[workforce-schedule] No active work_schedules row matches role="${ctx.role}" classification="${ctx.canonicalClassification}" department="${ctx.department}"`,
+    );
   }
   const defaultMatch =
-    DEFAULT_WORKFORCE_SCHEDULES.find((d) => d.jobClassification.toLowerCase() === canonicalClassification.toLowerCase()) ||
+    DEFAULT_WORKFORCE_SCHEDULES.find((d) => d.jobClassification.toLowerCase() === ctx.canonicalClassification.toLowerCase()) ||
     DEFAULT_WORKFORCE_SCHEDULES.find((d) => d.jobClassification === "Staff") ||
     DEFAULT_WORKFORCE_SCHEDULES[0];
 
@@ -458,6 +494,275 @@ export async function resolveWorkforceSchedule(
     endTime: defaultMatch.endTime,
     reminderMinutes: defaultMatch.reminderMinutes,
   };
+}
+
+export interface ResolvedStaffScheduleEntry {
+  userId: string;
+  staffId?: string;
+  role: string;
+  schedule: WorkforceSchedule;
+}
+
+/**
+ * Batch-resolves effective schedules for all active operational workforce staff using the
+ * exact same precedence (daily assignment -> ranked Admin work_schedules -> role default)
+ * as resolveWorkforceSchedule, in O(1) database round-trips.
+ */
+export async function resolveWorkforceSchedulesForActiveStaff(
+  referenceTimestamp?: string | Date,
+  executor: WorkforceQueryExecutor = query as unknown as WorkforceQueryExecutor,
+): Promise<ResolvedStaffScheduleEntry[]> {
+  await ensureWorkforceScheduleTables(executor as unknown as (text: string, params?: unknown[]) => Promise<unknown>).catch(() => undefined);
+
+  const tsParam = referenceTimestamp
+    ? typeof referenceTimestamp === "string"
+      ? referenceTimestamp
+      : referenceTimestamp.toISOString()
+    : new Date().toISOString();
+
+  let staffRows: WorkforceDbRow[] = [];
+  try {
+    const res = await executor(
+      `SELECT
+         COALESCE(u.id, sp.user_id)::text AS user_id,
+         u.role::text AS user_role,
+         sp.id::text AS staff_id,
+         sp.position AS position,
+         sp.job_classification AS job_classification,
+         sp.department AS department
+       FROM staff_profiles sp
+       LEFT JOIN users u ON u.id = sp.user_id
+       WHERE sp.user_id IS NOT NULL
+         AND COALESCE(sp.employment_status, 'active') = 'active'
+         AND COALESCE(sp.is_active, true) = true
+         AND COALESCE(u.is_active, true) = true`,
+    );
+    staffRows = res.rows ?? [];
+  } catch {
+    const fallbackRes = await executor(
+      `SELECT
+         sp.user_id::text AS user_id,
+         u.role::text AS user_role,
+         sp.id::text AS staff_id,
+         sp.position AS position,
+         sp.job_classification AS job_classification,
+         sp.department AS department
+       FROM staff_profiles sp
+       LEFT JOIN users u ON u.id = sp.user_id
+       WHERE sp.user_id IS NOT NULL`,
+    );
+    staffRows = fallbackRes.rows ?? [];
+  }
+
+  const assignmentsByStaffId = new Map<string, WorkforceDbRow>();
+  try {
+    const assignRes = await executor(
+      `SELECT
+         a.staff_id::text AS staff_id,
+         s.id AS schedule_id,
+         COALESCE(s.name, 'Assigned Shift') AS schedule_name,
+         s.job_classification AS job_classification,
+         s.department AS department,
+         COALESCE(s.shift_period, 'standard') AS shift_period,
+         s.start_time::text AS start_time,
+         s.end_time::text AS end_time,
+         COALESCE(s.reminder_minutes, 20) AS reminder_minutes,
+         a.status AS assignment_status
+       FROM staff_schedule_assignments a
+       JOIN work_schedules s ON s.id = a.schedule_id
+       WHERE a.work_date = ${propertyDayExpression("$1::timestamptz")}
+         AND a.status <> 'cancelled'
+         AND COALESCE(s.is_active, true) = true`,
+      [tsParam],
+    );
+    for (const r of assignRes.rows ?? []) {
+      if (r.staff_id && !assignmentsByStaffId.has(r.staff_id)) {
+        assignmentsByStaffId.set(r.staff_id, r);
+      }
+    }
+  } catch (err) {
+    console.warn("[workforce-schedule] Batch daily assignment lookup skipped:", err);
+  }
+
+  const { candidates, lookupError } = await loadActiveWorkSchedules(executor);
+
+  const entries: ResolvedStaffScheduleEntry[] = [];
+  const seenUserIds = new Set<string>();
+
+  for (const row of staffRows) {
+    const userId = row.user_id;
+    if (!userId || seenUserIds.has(userId)) continue;
+
+    const role = (row.user_role as UserRole) || "staff";
+    if (row.user_role && !isWorkforceRole(role)) continue;
+
+    seenUserIds.add(userId);
+    const rawClassification = row.job_classification || row.position || role;
+    const canonicalClassification = normalizeScheduleClassification(rawClassification);
+    const department =
+      row.department ||
+      (canonicalClassification === "Reception" || canonicalClassification === "Housekeeping" ? "Hotel" : "Restaurant");
+
+    const assignRow =
+      (row.staff_id ? assignmentsByStaffId.get(row.staff_id) : undefined) || assignmentsByStaffId.get(userId);
+
+    const schedule =
+      assignRow?.start_time && assignRow?.end_time
+        ? buildScheduleFromAssignment(assignRow, canonicalClassification, department)
+        : buildResolvedScheduleFromCandidates(
+            { role, canonicalClassification, rawClassification, department },
+            candidates,
+            lookupError,
+          );
+
+    entries.push({
+      userId,
+      staffId: row.staff_id,
+      role,
+      schedule,
+    });
+  }
+
+  return entries;
+}
+
+export function parseTimeToSeconds(hhmm: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(hhmm ?? "").trim());
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  const s = Number(match[3] ?? 0);
+  if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+  return h * 3600 + m * 60 + s;
+}
+
+export function getPropertySecondsOfDay(referenceTimestamp?: string | Date, timeZone = "Africa/Accra"): number {
+  const date = referenceTimestamp
+    ? referenceTimestamp instanceof Date
+      ? referenceTimestamp
+      : new Date(referenceTimestamp)
+    : new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return get("hour") * 3600 + get("minute") * 60 + get("second");
+}
+
+/**
+ * Returns true if `nowSecondsOfDay` falls within `[trigger, trigger + windowSeconds]`
+ * where `trigger = start_time - reminder_minutes` (wrapping cleanly across midnight).
+ */
+export function isWithinShiftReminderWindow(
+  nowSecondsOfDay: number,
+  startTimeHHMM: string,
+  reminderMinutes: number,
+  windowSeconds = 120,
+): boolean {
+  const startSec = parseTimeToSeconds(startTimeHHMM);
+  if (startSec === null) return false;
+  const DAY = 86400;
+  const reminderSec = Math.max(0, Math.round(reminderMinutes * 60));
+  const triggerSec = (((startSec - reminderSec) % DAY) + DAY) % DAY;
+  const elapsed = (((nowSecondsOfDay - triggerSec) % DAY) + DAY) % DAY;
+  return elapsed >= 0 && elapsed <= windowSeconds;
+}
+
+export function formatScheduleTime12h(hhmm: string): string {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(hhmm ?? "").trim());
+  if (!match) return hhmm;
+  const h24 = Number(match[1]);
+  const mins = match[2];
+  const suffix = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${String(h12).padStart(2, "0")}:${mins} ${suffix}`;
+}
+
+/**
+ * Evaluates and inserts shift reminders using the canonical schedule resolver
+ * (either for a single staff/user ID or for all active workforce staff).
+ */
+export async function dispatchWorkforceShiftReminders(options?: {
+  referenceTimestamp?: string | Date;
+  staffOrUserId?: string;
+  fallbackRole?: string;
+  executor?: WorkforceQueryExecutor;
+}): Promise<{ created: number; evaluated: number }> {
+  const executor = options?.executor ?? (query as unknown as WorkforceQueryExecutor);
+  const tsIso = options?.referenceTimestamp
+    ? typeof options.referenceTimestamp === "string"
+      ? options.referenceTimestamp
+      : options.referenceTimestamp.toISOString()
+    : new Date().toISOString();
+
+  await executor(
+    `CREATE TABLE IF NOT EXISTS notifications (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       recipient_user_id VARCHAR(255),
+       title VARCHAR(255) NOT NULL,
+       message TEXT NOT NULL,
+       type VARCHAR(100) NOT NULL DEFAULT 'info',
+       metadata JSONB DEFAULT '{}'::jsonb,
+       read BOOLEAN NOT NULL DEFAULT false,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+     )`,
+  ).catch(() => undefined);
+
+  let targets: ResolvedStaffScheduleEntry[] = [];
+  if (options?.staffOrUserId) {
+    const profileRes = await executor(
+      `SELECT COALESCE(u.id, sp.user_id)::text AS user_id, u.role::text AS user_role, sp.id::text AS staff_id
+       FROM staff_profiles sp
+       FULL OUTER JOIN users u ON u.id = sp.user_id
+       WHERE u.id::text = $1::text OR sp.id::text = $1::text OR sp.user_id::text = $1::text
+       ORDER BY CASE WHEN sp.user_id::text = $1::text THEN 0 WHEN u.id::text = $1::text THEN 1 ELSE 2 END
+       LIMIT 1`,
+      [options.staffOrUserId],
+    ).catch(() => ({ rows: [] as WorkforceDbRow[] }));
+
+    const p = profileRes.rows[0];
+    const resolvedUserId = p?.user_id || options.staffOrUserId;
+    const role = p?.user_role || options.fallbackRole || "staff";
+    if (resolvedUserId && isWorkforceRole(role)) {
+      const schedule = await resolveWorkforceSchedule(resolvedUserId, tsIso, executor, role);
+      targets = [{ userId: resolvedUserId, staffId: p?.staff_id, role, schedule }];
+    }
+  } else {
+    targets = await resolveWorkforceSchedulesForActiveStaff(tsIso, executor);
+  }
+
+  const nowSeconds = getPropertySecondsOfDay(tsIso);
+  let created = 0;
+
+  for (const target of targets) {
+    const { schedule, userId } = target;
+    if (!isWithinShiftReminderWindow(nowSeconds, schedule.start_time, schedule.reminder_minutes)) {
+      continue;
+    }
+
+    const message = `${schedule.schedule_name} starts in ${schedule.reminder_minutes} minutes. Reporting time is ${formatScheduleTime12h(schedule.start_time)}.`;
+    const ins = await executor(
+      `INSERT INTO notifications (recipient_user_id, title, message, type, created_at)
+       SELECT $1, 'Shift reminder', $2::text, 'shift_reminder', $4::timestamptz
+       WHERE NOT EXISTS (
+         SELECT 1 FROM notifications n
+         WHERE n.recipient_user_id::text = $3::text
+           AND n.type = 'shift_reminder'
+           AND ${propertyDayExpression("n.created_at")} = ${propertyDayExpression("$4::timestamptz")}
+       )
+       RETURNING id`,
+      [userId, message, userId, tsIso],
+    );
+    if ((ins.rowCount ?? ins.rows.length) > 0) {
+      created += 1;
+    }
+  }
+
+  return { created, evaluated: targets.length };
 }
 
 const alnum = (value?: string | null) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");

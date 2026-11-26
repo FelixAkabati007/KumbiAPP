@@ -53,9 +53,9 @@ async function provisionDefaultAccountInDb(
          user_id, first_name, last_name, business_email, department, position,
          job_classification, password_hash, employment_status, is_active
        )
-       SELECT $1, $2, $3, $4, $5, $6, $7, $8, 'active', TRUE
+       SELECT $1::uuid, $2::varchar, $3::varchar, $4::varchar, $5::varchar, $6::varchar, $7::varchar, $8::varchar, 'active', TRUE
        WHERE NOT EXISTS (
-         SELECT 1 FROM staff_profiles WHERE user_id = $1 OR LOWER(business_email) = LOWER($4)
+         SELECT 1 FROM staff_profiles WHERE user_id = $1::uuid OR LOWER(business_email) = LOWER($9::text)
        )`,
       [
         dbUser.id,
@@ -66,8 +66,11 @@ async function provisionDefaultAccountInDb(
         spec.position,
         spec.jobClassification,
         passwordHash,
+        dbUser.email,
       ],
-    ).catch(() => undefined);
+    ).catch((err) => {
+      console.warn("[login] Default staff_profile provision skipped:", err);
+    });
 
     return {
       id: String(dbUser.id),
