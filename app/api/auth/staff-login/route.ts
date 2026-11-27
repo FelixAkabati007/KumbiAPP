@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        path: "/",
         maxAge: 24 * 60 * 60, // 1 day
       });
 
@@ -186,6 +187,7 @@ export async function POST(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        path: "/",
         maxAge: 24 * 60 * 60, // 1 day
       });
 
@@ -207,6 +209,17 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("Error during staff login:", error);
+    const msg = error instanceof Error ? error.message.toLowerCase() : String(error ?? "").toLowerCase();
+    if (msg.includes("exceeded the quota") || msg.includes("compute time limit")) {
+      return NextResponse.json(
+        {
+          error:
+            "Neon PostgreSQL project quota has been exceeded. Please upgrade or reset your Neon database plan in Vercel/Neon.",
+          code: "database_quota_exceeded",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Login failed. Please try again." },
       { status: 500 }

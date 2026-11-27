@@ -26,6 +26,7 @@ export function SignInForm() {
   const { showLoading, hideLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -37,15 +38,28 @@ export function SignInForm() {
 
   const onSubmit = async (data: LoginInput) => {
     setError("");
+    setErrorCode(undefined);
     showLoading("Signing in...");
 
     try {
       const result = await login(data.email, data.password);
 
       if (result.success) {
+        let targetPath = "/";
+        if (typeof window !== "undefined") {
+          const fromParam = new URLSearchParams(window.location.search).get("from") || "";
+          if (
+            fromParam.startsWith("/") &&
+            !fromParam.startsWith("//") &&
+            !fromParam.startsWith("/login")
+          ) {
+            targetPath = fromParam;
+          }
+        }
         // Replace the login document so the new auth cookie is read by middleware and server components.
-        window.location.replace("/");
+        window.location.replace(targetPath);
       } else {
+        setErrorCode(result.code);
         setError(result.error || "Invalid email or password. Please try again.");
       }
     } catch (err) {
@@ -55,6 +69,9 @@ export function SignInForm() {
       hideLoading();
     }
   };
+
+  const isDatabaseOutage =
+    errorCode === "database_quota_exceeded" || errorCode === "database_unavailable";
 
   return (
     <AuthShell
@@ -71,8 +88,20 @@ export function SignInForm() {
       }
     >
       {error && (
-        <Alert className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl">
-          <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
+        <Alert
+          className={
+            isDatabaseOutage
+              ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded-2xl"
+              : "border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-2xl"
+          }
+        >
+          <AlertDescription
+            className={
+              isDatabaseOutage
+                ? "text-amber-900 dark:text-amber-200 text-sm"
+                : "text-red-700 dark:text-red-300 text-sm"
+            }
+          >
             {error}
           </AlertDescription>
         </Alert>

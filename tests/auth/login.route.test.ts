@@ -178,4 +178,37 @@ describe("Auth Login Route", () => {
     expect(chefJson.success).toBe(true);
     expect(chefJson.user.role).toBe("kitchen");
   });
+
+  test("handles Neon quota exceeded gracefully: 503 for custom accounts, 401 for wrong default password, 200 for valid default account", async () => {
+    const { query } = await import("../../lib/db");
+    const quotaError = new Error(
+      "Your account or project has exceeded the quota. Upgrade your plan to increase limits."
+    );
+    // @ts-expect-error: mocking
+    query.mockRejectedValue(quotaError);
+
+    // 1. Custom DB-backed staff account -> 503 database_quota_exceeded (instead of opaque 500)
+    const customRes = await loginPost(
+      makeReq({ email: "custom.staff@kumbisaly.com", password: "Password123!" })
+    );
+    const customJson = await customRes.json();
+    expect(customRes.status).toBe(503);
+    expect(customJson.code).toBe("database_quota_exceeded");
+
+    // 2. Default role email with wrong password -> 401 invalid_credentials (instead of 500)
+    const wrongAdminRes = await loginPost(
+      makeReq({ email: "admin@kumbisaly.com", password: "WrongPassword123!" })
+    );
+    const wrongAdminJson = await wrongAdminRes.json();
+    expect(wrongAdminRes.status).toBe(401);
+    expect(wrongAdminJson.code).toBe("invalid_credentials");
+
+    // 3. Default role email with valid password -> 200 OK emergency access
+    const okAdminRes = await loginPost(
+      makeReq({ email: "admin@kumbisaly.com", password: "Admin@123456!" })
+    );
+    const okAdminJson = await okAdminRes.json();
+    expect(okAdminRes.status).toBe(200);
+    expect(okAdminJson.success).toBe(true);
+  });
 });

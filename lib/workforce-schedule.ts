@@ -722,16 +722,18 @@ export function formatScheduleTime12h(hhmm: string): string {
 }
 
 let lastGlobalReminderSweepMs = 0;
+let reminderNotificationsSchemaEnsured = false;
+let workforceDefaultAccountsSeeded = false;
 
 /**
  * Throttled background sweep safe to call from high-frequency endpoints (e.g. GET /api/notifications).
- * Evaluates due 20-minute shift reminders for all workforce roles at most once every 25 seconds.
+ * Evaluates due 20-minute shift reminders for all workforce roles at most once every 60 seconds.
  */
 export async function maybeDispatchDueWorkforceReminders(
   referenceTimestamp?: string | Date,
 ): Promise<void> {
   const nowMs = Date.now();
-  if (nowMs - lastGlobalReminderSweepMs < 25_000) {
+  if (nowMs - lastGlobalReminderSweepMs < 60_000) {
     return;
   }
   lastGlobalReminderSweepMs = nowMs;
@@ -758,38 +760,43 @@ export async function dispatchWorkforceShiftReminders(options?: {
       : options.referenceTimestamp.toISOString()
     : new Date().toISOString();
 
-  const schemaStatements = [
-    `CREATE TABLE IF NOT EXISTS notifications (
-       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-       recipient_user_id VARCHAR(255),
-       title VARCHAR(255) NOT NULL,
-       message TEXT NOT NULL,
-       type VARCHAR(100) NOT NULL DEFAULT 'info',
-       metadata JSONB DEFAULT '{}'::jsonb,
-       read BOOLEAN NOT NULL DEFAULT false,
-       read_at TIMESTAMP WITH TIME ZONE,
-       opened_at TIMESTAMP WITH TIME ZONE,
-       expires_at TIMESTAMP WITH TIME ZONE,
-       archived_at TIMESTAMP WITH TIME ZONE,
-       archived_reason VARCHAR(255),
-       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-     )`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read BOOLEAN NOT NULL DEFAULT false`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE`,
-    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_reason VARCHAR(255)`,
-    `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_recipient_user_id_fkey`,
-  ];
-  for (const stmt of schemaStatements) {
-    await executor(stmt).catch(() => undefined);
+  if (!isDefaultExecutor || !reminderNotificationsSchemaEnsured) {
+    const schemaStatements = [
+      `CREATE TABLE IF NOT EXISTS notifications (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         recipient_user_id VARCHAR(255),
+         title VARCHAR(255) NOT NULL,
+         message TEXT NOT NULL,
+         type VARCHAR(100) NOT NULL DEFAULT 'info',
+         metadata JSONB DEFAULT '{}'::jsonb,
+         read BOOLEAN NOT NULL DEFAULT false,
+         read_at TIMESTAMP WITH TIME ZONE,
+         opened_at TIMESTAMP WITH TIME ZONE,
+         expires_at TIMESTAMP WITH TIME ZONE,
+         archived_at TIMESTAMP WITH TIME ZONE,
+         archived_reason VARCHAR(255),
+         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+       )`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_reason VARCHAR(255)`,
+      `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_recipient_user_id_fkey`,
+    ];
+    for (const stmt of schemaStatements) {
+      await executor(stmt).catch(() => undefined);
+    }
+    if (isDefaultExecutor) {
+      reminderNotificationsSchemaEnsured = true;
+    }
   }
 
-  // On live Neon DB, ensure canonical default workforce role accounts exist in `users`
+  // On live Neon DB, ensure canonical default workforce role accounts exist in `users` once per instance
   // so Web Push / background sweeps can deliver reminders even before manual staff creation.
-  if (isDefaultExecutor && !options?.staffOrUserId) {
+  if (isDefaultExecutor && !options?.staffOrUserId && !workforceDefaultAccountsSeeded) {
     try {
       const { DEFAULT_ROLE_ACCOUNTS } = await import("@/lib/default-accounts");
       for (const acct of DEFAULT_ROLE_ACCOUNTS) {
@@ -803,6 +810,7 @@ export async function dispatchWorkforceShiftReminders(options?: {
           [acct.id, acct.email, acct.name, acct.role, acct.email],
         ).catch(() => undefined);
       }
+      workforceDefaultAccountsSeeded = true;
     } catch {
       // Non-fatal
     }

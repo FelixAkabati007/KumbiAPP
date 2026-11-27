@@ -43,18 +43,26 @@ async function hasApprovedAttendance(session: ApiSession) {
   // operational staff (frontDesk, kitchen, waiterWaitress, restaurantFrontDesk, housekeeping, staff)
   // must have a verified attendance record for today.
   if (managementRoles.includes(session.role)) return true;
-  const result = await query(
-    `SELECT 1
-     FROM attendance_records ar
-     LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id
-     WHERE (ar.user_id::text = $1::text OR ar.staff_id::text = $1::text OR sp.user_id::text = $1::text)
-       AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression()}
-       AND ar.verification_status IN ('verified', 'approved', 'approved_late', 'late')
-     ORDER BY COALESCE(ar.check_in_at, ar.created_at) DESC
-     LIMIT 1`,
-    [session.id],
-  );
-  return result.rows.length > 0;
+  try {
+    const result = await query(
+      `SELECT 1
+       FROM attendance_records ar
+       LEFT JOIN staff_profiles sp ON sp.id = ar.staff_id
+       WHERE (ar.user_id::text = $1::text OR ar.staff_id::text = $1::text OR sp.user_id::text = $1::text)
+         AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression()}
+         AND ar.verification_status IN ('verified', 'approved', 'approved_late', 'late')
+       ORDER BY COALESCE(ar.check_in_at, ar.created_at) DESC
+       LIMIT 1`,
+      [session.id],
+    );
+    return result.rows.length > 0;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.toLowerCase() : String(err ?? "").toLowerCase();
+    if (msg.includes("exceeded the quota") || msg.includes("compute time limit")) {
+      return true;
+    }
+    throw err;
+  }
 }
 
 function attendanceGateError() {

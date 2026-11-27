@@ -15,6 +15,7 @@ import {
   type SystemStatus,
   type IntegrationEvent,
 } from "@/lib/integration-service";
+import { usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 interface IntegrationContextType {
@@ -29,15 +30,21 @@ const IntegrationContext = createContext<IntegrationContextType | undefined>(
   undefined,
 );
 
+const AUTH_PATHS = ["/login", "/signup", "/sign-up", "/forgot-password", "/reset-password"];
+
 export function IntegrationProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [isInitialized, setIsInitialized] = useState(false);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [events, setEvents] = useState<IntegrationEvent[]>([]);
   const { toast } = useToast();
+  const isAuthPage = Boolean(
+    pathname && AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)),
+  );
 
   const initialize = useCallback(
     async (options?: { notifyOnFailure?: boolean }): Promise<boolean> => {
@@ -75,7 +82,7 @@ export function IntegrationProvider({
   };
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isAuthPage) return;
 
     // Background initialize on mount without disruptive global toast
     initialize({ notifyOnFailure: false });
@@ -97,7 +104,7 @@ export function IntegrationProvider({
       unsubscribeStatus();
       unsubscribeEvents();
     };
-  }, [initialize]);
+  }, [initialize, isAuthPage]);
 
   const value: IntegrationContextType = {
     isInitialized,

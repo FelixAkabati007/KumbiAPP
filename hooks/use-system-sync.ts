@@ -1,25 +1,32 @@
 import { useState, useEffect, useRef } from "react";
+import { useOptionalRealtime } from "@/components/realtime-provider";
 
 interface SystemState {
   [key: string]: string;
 }
 
-const POLL_INTERVAL = 30000; // Realtime handles immediate updates; polling is a background fallback
+const POLL_INTERVAL = 180_000; // SSE handles instant updates; 3m fallback conserves Neon compute hours
 
 export function useSystemSync() {
+  const realtime = useOptionalRealtime();
+  const isSseConnected = Boolean(realtime?.connected);
   const [versions, setVersions] = useState<SystemState>({});
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
 
   // Use a ref to keep track of mounted state to avoid setting state on unmounted component
   const isMounted = useRef(true);
+  const sseConnectedRef = useRef(isSseConnected);
+  sseConnectedRef.current = isSseConnected;
 
   useEffect(() => {
     isMounted.current = true;
     const controller = new AbortController();
     let requestInFlight = false;
 
-    const fetchState = async () => {
+    const fetchState = async (isIntervalPoll = false) => {
       if (requestInFlight || document.hidden || !navigator.onLine) return;
+      // When SSE stream is connected, skip background timer polls so Neon can suspend when idle
+      if (isIntervalPoll && sseConnectedRef.current) return;
       requestInFlight = true;
       try {
         const res = await fetch("/api/system/sync", { cache: "no-store", signal: controller.signal });
@@ -44,20 +51,25 @@ export function useSystemSync() {
     };
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) fetchState();
+      if (!document.hidden) void fetchState(false);
+    };
+    const handleOnline = () => {
+      void fetchState(false);
     };
 
-    fetchState();
-    const interval = setInterval(fetchState, POLL_INTERVAL);
+    void fetchState(false);
+    const interval = setInterval(() => {
+      void fetchState(true);
+    }, POLL_INTERVAL);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("online", fetchState);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       isMounted.current = false;
       controller.abort();
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("online", fetchState);
+      window.removeEventListener("online", handleOnline);
     };
   }, []);
 

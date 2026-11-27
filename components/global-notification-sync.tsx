@@ -59,10 +59,11 @@ export function GlobalNotificationSync() {
     user ? "/api/notifications" : null,
     fetcher,
     {
-      refreshInterval: 15000,
+      refreshInterval: 45_000,
+      refreshWhenHidden: false,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      shouldRetryOnError: true,
+      shouldRetryOnError: false,
     }
   );
 
@@ -84,12 +85,12 @@ export function GlobalNotificationSync() {
     void syncAppIconBadge(unreadCount);
   }, [user, unreadCount]);
 
-  // Periodic shift-reminder heartbeat for authenticated workforce & property sessions
+  // Periodic shift-reminder heartbeat for visible authenticated sessions (90s interval preserves 20m window while reducing Neon compute usage)
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
 
     const triggerReminderCheck = () => {
-      if (!navigator.onLine) return;
+      if (!navigator.onLine || document.hidden) return;
       fetch("/api/workforce/reminders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,8 +105,8 @@ export function GlobalNotificationSync() {
         .catch(() => undefined);
     };
 
-    const initialTimer = setTimeout(triggerReminderCheck, 1500);
-    const interval = setInterval(triggerReminderCheck, 45_000);
+    const initialTimer = setTimeout(triggerReminderCheck, 2000);
+    const interval = setInterval(triggerReminderCheck, 90_000);
 
     return () => {
       clearTimeout(initialTimer);

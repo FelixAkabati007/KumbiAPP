@@ -10,6 +10,39 @@ import {
   type DefaultAccountSpec,
 } from "@/lib/default-accounts";
 
+function checkQuotaError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message.toLowerCase()
+      : String((err as { message?: unknown })?.message ?? err ?? "").toLowerCase();
+  return (
+    msg.includes("exceeded the quota") ||
+    msg.includes("exceeded the compute time quota") ||
+    msg.includes("exceeded the data transfer quota") ||
+    msg.includes("compute time limit") ||
+    msg.includes("project size limit")
+  );
+}
+
+function checkUnavailableError(err: unknown): boolean {
+  if (checkQuotaError(err)) return true;
+  const pgErr = err as { code?: string; message?: string };
+  const msg = String(pgErr?.message ?? "").toLowerCase();
+  return (
+    pgErr?.code === "57P01" ||
+    pgErr?.code === "57P02" ||
+    pgErr?.code === "57P03" ||
+    pgErr?.code === "08001" ||
+    pgErr?.code === "08003" ||
+    pgErr?.code === "08006" ||
+    msg.includes("neon database connection string is not defined") ||
+    msg.includes("econnrefused") ||
+    msg.includes("enotfound") ||
+    msg.includes("connection terminated") ||
+    msg.includes("timeout")
+  );
+}
+
 async function provisionDefaultAccountInDb(
   spec: DefaultAccountSpec,
   plainPassword: string,
@@ -151,8 +184,21 @@ export async function POST(req: Request) {
         result = dbRes;
       }
     } catch (dbErr) {
-      // If DB is temporarily unavailable or unconfigured, allow canonical default role accounts to sign in
-      if (!isDefaultPasswordMatch) {
+      // If DB is temporarily unavailable or over quota:
+      // 1) Allow canonical default role accounts with valid password to sign in
+      // 2) Return 401 Invalid credentials if a default role email was entered with a wrong password
+      if (isDefaultPasswordMatch) {
+        // Proceed to provisionDefaultAccountInDb fallback below
+      } else if (defaultAccount && checkUnavailableError(dbErr)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid email or password. Please try again.",
+            code: "invalid_credentials",
+          },
+          { status: 401 },
+        );
+      } else {
         throw dbErr;
       }
     }
@@ -351,6 +397,28 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Login error:", error);
+    if (checkQuotaError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Neon PostgreSQL project quota has been exceeded. Upgrade or reset your Neon database plan in Vercel/Neon to sign in with custom staff accounts, or use a built-in role account.",
+          code: "database_quota_exceeded",
+        },
+        { status: 503 },
+      );
+    }
+    if (checkUnavailableError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Database connection is temporarily unavailable. Please verify Neon database connectivity or try again shortly.",
+          code: "database_unavailable",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { success: false, error: "Login failed", code: "server_error" },
       { status: 500 },

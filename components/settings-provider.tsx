@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { fetchSettings, getSettings, saveSettings, type AppSettings } from "@/lib/settings";
 
 interface SettingsContextType {
@@ -12,10 +13,16 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(() => getSettings(true));
+const PUBLIC_AUTH_PATHS = ["/login", "/signup", "/sign-up", "/forgot-password", "/reset-password"];
 
-  // Load settings from server on mount — children always render defaultSettings on initial render for SSR consistency
+export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [settings, setSettings] = useState<AppSettings>(() => getSettings(true));
+  const isAuthPage = Boolean(
+    pathname && PUBLIC_AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)),
+  );
+
+  // Load settings from server on mount (skipping unauthenticated auth routes to preserve Neon scale-to-zero)
   useEffect(() => {
     let cancelled = false;
 
@@ -34,11 +41,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    if (isAuthPage) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
     fetchSettings().then((saved) => {
       if (!cancelled) setSettings(saved);
     });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthPage]);
 
   // Re-fetch settings whenever they're saved elsewhere (e.g. the Settings page),
   // so any already-mounted consumer (Receipt, Kitchen, header logo, etc.) picks up

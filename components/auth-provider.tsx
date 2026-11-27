@@ -20,7 +20,10 @@ interface AppUser {
 
 interface AuthContextType {
   user: AppUser | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string; code?: string }>;
   signup: (
     email: string,
     password: string,
@@ -103,7 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuth]);
 
   useEffect(() => {
-    const isPublicAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/sign-up";
+    const isPublicAuthPage =
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname === "/sign-up" ||
+      pathname === "/forgot-password" ||
+      pathname === "/reset-password";
     if (isPublicAuthPage) {
       setUser(null);
       setIsLoading(false);
@@ -120,33 +128,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await checkAuth();
   }, [checkAuth]);
 
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        body: JSON.stringify({ email, password }),
-      });
+  const login = useCallback(
+    async (
+      email: string,
+      password: string
+    ): Promise<{ success: boolean; error?: string; code?: string }> => {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+          body: JSON.stringify({ email, password }),
+        });
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        setUser(data.user);
-        if (data.user) {
-          setOfflineCachedUser(data.user);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          setUser(data.user);
+          if (data.user) {
+            setOfflineCachedUser(data.user);
+          }
+          return { success: true };
         }
-        return { success: true };
+        return {
+          success: false,
+          error: data.error || "Invalid email or password. Please try again.",
+          code: typeof data.code === "string" ? data.code : undefined,
+        };
+      } catch (error) {
+        console.error("Login failed:", error);
+        return {
+          success: false,
+          error: "Sign in is temporarily unavailable. Please check your network connection and try again.",
+          code: "network_error",
+        };
+      } finally {
+        setIsLoading(false);
       }
-      return { success: false, error: data.error || "Invalid email or password. Please try again." };
-    } catch (error) {
-      console.error("Login failed:", error);
-      return { success: false, error: "Sign in is temporarily unavailable. Please try again." };
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   const signup = useCallback(async (
     email: string,

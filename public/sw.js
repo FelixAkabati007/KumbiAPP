@@ -1,7 +1,6 @@
-const CACHE_NAME = "kumbi-offline-v5";
+const CACHE_NAME = "kumbi-offline-v6";
 const APP_SHELL = [
   "/",
-  "/login",
   "/pos",
   "/inventory",
   "/attendance",
@@ -44,8 +43,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Never cache notifications API - always live network
-  if (url.pathname.startsWith("/api/notifications")) {
+  // Never intercept or cache auth, session, realtime SSE, or notifications endpoints
+  if (
+    url.pathname.startsWith("/api/auth") ||
+    url.pathname.startsWith("/api/notifications") ||
+    url.pathname.startsWith("/api/realtime") ||
+    url.pathname === "/login"
+  ) {
     return;
   }
 

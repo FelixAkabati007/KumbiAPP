@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkConnection, query } from "@/lib/db";
+import { getDatabaseConnectionCandidates, isDatabaseQuotaExceededError, query } from "@/lib/db";
 import { requireRole } from "@/lib/api-auth";
 
 export async function GET() {
@@ -7,11 +7,9 @@ export async function GET() {
     const { error } = await requireRole("admin");
     if (error) return error;
 
-    // 1. Check basic connectivity
-    const isConnected = await checkConnection();
-    if (!isConnected) {
+    if (getDatabaseConnectionCandidates().length === 0) {
       return NextResponse.json(
-        { success: false, error: "Failed to connect to Neon database" },
+        { success: false, error: "No PostgreSQL connection string is configured in environment variables" },
         { status: 500 },
       );
     }
@@ -42,10 +40,10 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        quotaExceeded: isDatabaseQuotaExceededError(error),
         error: error instanceof Error ? error.message : "Unknown error",
-        details: error,
       },
-      { status: 500 },
+      { status: isDatabaseQuotaExceededError(error) ? 503 : 500 },
     );
   }
 }
