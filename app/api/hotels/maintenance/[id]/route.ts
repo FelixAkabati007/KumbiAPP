@@ -97,6 +97,22 @@ export async function PATCH(
       );
     }
 
+    if (status === "resolved" || status === "completed") {
+      const creditActor = updatedTicket.assigned_to || session.id;
+      if (creditActor && session.role !== "admin") {
+        const { recordWorkforcePerformanceEvent } = await import("@/lib/performance-service");
+        await recordWorkforcePerformanceEvent({
+          staffOrUserId: String(creditActor),
+          sourceType: "maintenance_ticket_resolved",
+          sourceId: String(updatedTicket.id || id),
+          points: 2,
+          verifiedBy: session.id,
+          category: "Maintenance",
+          reason: `Resolved maintenance ticket ${updatedTicket.ticket_number || id}`,
+        }).catch(() => undefined);
+      }
+    }
+
     publishRealtime("maintenance.updated", String(id));
     if (status || assignedTo !== undefined) {
       publishRealtime("notifications.updated", String(id));

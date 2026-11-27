@@ -6,7 +6,7 @@ import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
 
 const sourceSchema = z.object({
   transactionId: z.string().trim().min(1),
-  source: z.enum(["hotel", "restaurant", "event", "shared"]),
+  source: z.enum(["hotel", "restaurant", "event", "gym", "shared"]),
   reason: z.string().trim().min(10).max(500),
 });
 

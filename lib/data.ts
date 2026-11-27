@@ -25,11 +25,23 @@ type TransactionLog = {
 
 // --- Menu Items ---
 
+function dedupeMenuItemsById(items: MenuItem[]): MenuItem[] {
+  const seen = new Map<string, MenuItem>();
+  for (const item of items) {
+    if (!item?.id) continue;
+    if (!seen.has(item.id)) {
+      seen.set(item.id, item);
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export async function getMenuItems(): Promise<MenuItem[]> {
   if (typeof window === "undefined") return [];
   try {
-    const items = await apiFetch<MenuItem[]>("/api/menu");
-    if (Array.isArray(items) && items.length > 0) {
+    const rawItems = await apiFetch<MenuItem[]>("/api/menu");
+    const items = Array.isArray(rawItems) ? dedupeMenuItemsById(rawItems) : [];
+    if (items.length > 0) {
       setOfflineMenuCatalog(items);
     }
     return items;
@@ -39,31 +51,31 @@ export async function getMenuItems(): Promise<MenuItem[]> {
     }
     const cached = getOfflineMenuCatalog();
     if (cached && cached.length > 0) {
-      return cached;
+      return dedupeMenuItemsById(cached);
     }
     return [];
   }
 }
 
 export async function createMenuItem(
-  item: Omit<MenuItem, "id">
+  item: Omit<MenuItem, "id">,
+  options?: { idempotencyKey?: string }
 ): Promise<MenuItem | null> {
-  try {
-    const res = await fetch("/api/menu", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(data?.error || `Failed to create menu item (${res.status})`);
-    }
-    const data = await res.json();
-    return { ...item, id: data.id } as MenuItem;
-  } catch (error) {
-    console.error("Error creating menu item:", error);
-    return null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options?.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
   }
+  const res = await fetch("/api/menu", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(item),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(data?.error || `Failed to create menu item (${res.status})`);
+  }
+  const data = await res.json();
+  return { ...item, id: data.id } as MenuItem;
 }
 
 export async function updateMenuItem(item: MenuItem): Promise<boolean> {
@@ -147,14 +159,51 @@ export async function updateInventoryItem(item: InventoryItem): Promise<Inventor
   return { ...item, ...(data.item ?? data) } as InventoryItem;
 }
 
-export async function deleteInventoryItem(id: string): Promise<boolean> {
+export interface DeleteInventoryResult {
+  ok: boolean;
+  status: number;
+  code?: string;
+  error?: string;
+  linkedMenuItems?: Array<{ id: string; name: string; link_type: string }>;
+  unlinkedMenuCount?: number;
+}
+
+export async function deleteInventoryItemDetailed(
+  id: string,
+  options?: { force?: boolean }
+): Promise<DeleteInventoryResult> {
   try {
-    const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
-    return res.ok;
+    const suffix = options?.force ? "?force=true" : "";
+    const res = await fetch(`/api/inventory/${encodeURIComponent(id)}${suffix}`, {
+      method: "DELETE",
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+      linkedMenuItems?: Array<{ id: string; name: string; link_type: string }>;
+      unlinkedMenuCount?: number;
+    };
+    return {
+      ok: res.ok,
+      status: res.status,
+      code: body.code,
+      error: body.error,
+      linkedMenuItems: body.linkedMenuItems,
+      unlinkedMenuCount: body.unlinkedMenuCount,
+    };
   } catch (error) {
     console.error("Error deleting inventory item:", error);
-    return false;
+    return {
+      ok: false,
+      status: 0,
+      error: "Could not reach the server. Check your internet connection and try again.",
+    };
   }
+}
+
+export async function deleteInventoryItem(id: string): Promise<boolean> {
+  const result = await deleteInventoryItemDetailed(id);
+  return result.ok;
 }
 
 // Deprecated - do not use

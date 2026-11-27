@@ -29,6 +29,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { StaffRewardsPanel } from "@/components/finance/staff-rewards-panel";
+import { GymFinanceQueuePanel } from "@/components/finance/gym-finance-queue-panel";
 import { LogoDisplay } from "@/components/logo-display";
 
 type Transaction = {
@@ -54,7 +55,7 @@ type Transaction = {
 };
 
 type DepartmentResult = {
-  department: "hotel" | "restaurant" | "event" | "shared_event" | "shared";
+  department: "hotel" | "restaurant" | "event" | "gym" | "shared_event" | "shared";
   revenue: number;
   grossRevenue: number;
   refundAmount: number;
@@ -99,6 +100,7 @@ const departmentLabels = {
   hotel: "Hotel",
   restaurant: "Restaurant",
   event: "Event Organization",
+  gym: "Gym & Fitness",
   shared_event: "Shared Event",
   shared: "Shared / Corporate",
 } as const;
@@ -106,11 +108,12 @@ const departmentLabels = {
 function classifyTransaction(item: Pick<Transaction, "transaction_id" | "metadata" | "source">) {
   const metadata = item.metadata ?? {};
   const raw = [item.transaction_id, item.source, metadata.source, metadata.department, metadata.businessUnit]
-    .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:)/i.test(value))
+    .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:|gym[-_:])/i.test(value))
     ?.toLowerCase()
     .replaceAll("_", "-") ?? String(metadata.department ?? metadata.businessUnit ?? metadata.source ?? item.source ?? "shared").toLowerCase().replaceAll("_", "-");
   if (raw.startsWith("f0-") || raw.startsWith("fo-")) return "shared";
   if (raw.startsWith("vip-authorization")) return "shared_event";
+  if (raw.startsWith("gym-") || raw.startsWith("gym:") || ["gym", "fitness", "wellness", "gym & fitness"].includes(raw)) return "gym";
   if (raw.startsWith("event-payment:")) return "event";
   if (raw === "event-booking" || raw.includes("event")) {
     return raw.includes("shared") ? "shared_event" : "event";
@@ -469,6 +472,7 @@ export default function FinancePage() {
                 <SelectItem value="hotel">Hotel activity</SelectItem>
                 <SelectItem value="restaurant">Restaurant sales</SelectItem>
                 <SelectItem value="event">Event organization</SelectItem>
+                <SelectItem value="gym">Gym &amp; Fitness</SelectItem>
                 <SelectItem value="shared_event">Shared Event</SelectItem>
                 <SelectItem value="shared">Shared Operations</SelectItem>
                 <SelectItem value="refund">Refunds</SelectItem>
@@ -486,6 +490,7 @@ export default function FinancePage() {
                 <SelectItem value="hotel">Hotel</SelectItem>
                 <SelectItem value="restaurant">Restaurant</SelectItem>
                 <SelectItem value="event">Event Organization</SelectItem>
+                <SelectItem value="gym">Gym &amp; Fitness</SelectItem>
                 <SelectItem value="shared_event">Shared Event</SelectItem>
                 <SelectItem value="shared">Shared / Corporate</SelectItem>
               </SelectContent>
@@ -785,6 +790,9 @@ export default function FinancePage() {
                             <SelectItem value="event">
                               Event Organization
                             </SelectItem>
+                            <SelectItem value="gym">
+                              Gym &amp; Fitness
+                            </SelectItem>
                             <SelectItem value="shared">
                               Shared / Corporate
                             </SelectItem>
@@ -831,6 +839,7 @@ export default function FinancePage() {
               </div>
             </Alert>
           )}
+          <GymFinanceQueuePanel onUpdated={() => void loadTransactions()} />
           <Card aria-labelledby="exception-history-heading">
             <CardHeader>
               <CardTitle id="exception-history-heading">
@@ -858,6 +867,7 @@ export default function FinancePage() {
                     <SelectItem value="hotel">Hotel</SelectItem>
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                     <SelectItem value="event">Event Organization</SelectItem>
+                    <SelectItem value="gym">Gym &amp; Fitness</SelectItem>
                     <SelectItem value="shared">Shared / Corporate</SelectItem>
                   </SelectContent>
                 </Select>

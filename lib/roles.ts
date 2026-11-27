@@ -152,7 +152,9 @@ export type AppSection =
   | "operations"
   | "guestFolio"
   | "events"
-  | "eventPricing";
+  | "eventPricing"
+  | "gym"
+  | "gymPricing";
 
 export type CrudAction = "view" | "create" | "edit" | "delete" | "manage" | "approve" | "administer";
 export type OperationalScope = "hotel" | "restaurant" | "general" | "events" | "staff" | "operations";
@@ -445,6 +447,8 @@ export const rolePermissions = {
     guestFolio: true,
     events: true,
     eventPricing: true,
+    gym: true,
+    gymPricing: true,
   },
   operationsManager: {
     pos: false,
@@ -468,6 +472,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: true,
     eventPricing: true,
+    gym: true,
+    gymPricing: true,
   },
   finance: {
     pos: false,
@@ -491,6 +497,8 @@ export const rolePermissions = {
     guestFolio: true,
     events: true,
     eventPricing: false,
+    gym: true,
+    gymPricing: false,
   },
   manager: {
   pos: true,
@@ -514,6 +522,8 @@ export const rolePermissions = {
     guestFolio: true,
     events: true,
     eventPricing: true,
+    gym: true,
+    gymPricing: true,
   },
   kitchen: {
     pos: false,
@@ -537,6 +547,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: false,
     eventPricing: false,
+    gym: false,
+    gymPricing: false,
   },
   staff: {
     pos: true,
@@ -560,6 +572,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: false,
     eventPricing: false,
+    gym: false,
+    gymPricing: false,
   },
   frontDesk: {
     pos: false,
@@ -583,6 +597,8 @@ export const rolePermissions = {
     guestFolio: true,
     events: true,
     eventPricing: false,
+    gym: true,
+    gymPricing: false,
   },
   restaurantFrontDesk: {
     pos: true,
@@ -606,6 +622,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: true,
     eventPricing: false,
+    gym: false,
+    gymPricing: false,
   },
   waiterWaitress: {
     pos: true,
@@ -629,6 +647,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: false,
     eventPricing: false,
+    gym: false,
+    gymPricing: false,
   },
   housekeeping: {
     pos: false,
@@ -652,6 +672,8 @@ export const rolePermissions = {
     guestFolio: false,
     events: false,
     eventPricing: false,
+    gym: false,
+    gymPricing: false,
   },
 } as Record<UserRole, Record<AppSection, boolean>>;
 
@@ -678,6 +700,8 @@ rolePermissions.hotelManager = {
   guestFolio: true,
   events: false,
   eventPricing: false,
+  gym: true,
+  gymPricing: true,
 };
 
 rolePermissions.restaurantManager = {
@@ -691,9 +715,11 @@ rolePermissions.restaurantManager = {
   guestFolio: false,
   events: false,
   eventPricing: false,
+  gym: false,
+  gymPricing: false,
 };
 
-export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration" | "events";
+export type DashboardCategory = "hotel" | "restaurant" | "finance" | "technical" | "administration" | "events" | "gym";
 
 export type RoleDashboardConfig = {
   summary: string;
@@ -710,7 +736,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Monitor the whole property, access audit tools, and keep permissions safe.",
     primaryAction: "Open system controls",
     primaryHref: "/system",
-    categories: ["administration", "hotel", "restaurant", "finance", "technical", "events"],
+    categories: ["administration", "hotel", "restaurant", "finance", "technical", "events", "gym"],
     visibilityNote: "Full operational visibility with audited configuration access.",
   },
   manager: {
@@ -718,7 +744,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Review today’s operations, attendance, approvals, and department performance.",
     primaryAction: "Review operations",
     primaryHref: "/operations",
-    categories: ["hotel", "restaurant", "technical", "finance", "events"],
+    categories: ["hotel", "restaurant", "technical", "finance", "events", "gym"],
     visibilityNote: "Cross-department visibility; sensitive changes remain approval-controlled.",
   },
   hotelManager: {
@@ -726,7 +752,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Coordinate rooms, reservations, reception, housekeeping, and hotel performance.",
     primaryAction: "Open hotel operations",
     primaryHref: "/hotels/rooms",
-    categories: ["hotel", "technical"],
+    categories: ["hotel", "technical", "gym"],
     visibilityNote: "Hotel operations and approved workforce data only.",
   },
   restaurantManager: {
@@ -742,7 +768,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Resolve maintenance issues, coordinate teams, and keep daily operations moving.",
     primaryAction: "Open operations",
     primaryHref: "/operations",
-    categories: ["technical", "events"],
+    categories: ["technical", "events", "gym"],
     visibilityNote: "Operational and maintenance data only; payroll remains restricted.",
   },
   finance: {
@@ -750,7 +776,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Review approved performance, reconcile payments, and prepare payroll decisions.",
     primaryAction: "Open finance",
     primaryHref: "/finance",
-    categories: ["finance"],
+    categories: ["finance", "gym"],
     visibilityNote: "Financial data and approved performance inputs; no operational editing.",
   },
   staff: {
@@ -774,7 +800,7 @@ export const roleDashboardConfig: Record<UserRole, RoleDashboardConfig> = {
     focus: "Manage arrivals, departures, reservations, rooms, and guest folios.",
     primaryAction: "Open check-in",
     primaryHref: "/hotels/check-in",
-    categories: ["hotel"],
+    categories: ["hotel", "gym"],
     visibilityNote: "Guest-service information needed for the current shift.",
   },
   restaurantFrontDesk: {
@@ -901,6 +927,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/hotels/check-out": rolesWithAnySection("checkOut"),
   "/hotels/housekeeping": rolesWithAnySection("housekeeping"),
   "/hotels/maintenance": rolesWithAnySection("maintenance"),
+  "/gym": rolesWithAnySection("gym"),
 };
 
 /**
@@ -938,15 +965,16 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   "/api/hotels/maintenance": rolesWithAnySection("maintenance", "operations"),
   "/api/complaints": [...ALL_USER_ROLES],
   "/api/events": rolesWithAnySection("events"),
-  "/api/settings": ["admin", "manager"],
+  "/api/gym": rolesWithAnySection("gym", "finance"),
+  "/api/settings": [...ALL_USER_ROLES],
   "/api/hardware": [...ALL_USER_ROLES],
   "/api/attendance": [...ALL_USER_ROLES],
   "/api/workforce/schedule": [...ALL_USER_ROLES],
   "/api/workforce/reminders": [...ALL_USER_ROLES],
   "/api/workforce": ["admin", "manager", "operationsManager"],
   "/api/complimentary-authorizations": ["admin", "manager"],
-  "/api/canonical-receipts": rolesWithAnySection("receipt", "pos", "finance", "guestFolio"),
-  "/api/feature-toggles": ["admin"],
+  "/api/canonical-receipts": rolesWithAnySection("receipt", "pos", "finance", "guestFolio", "gym"),
+  "/api/feature-toggles": [...ALL_USER_ROLES],
   "/api/chef": ["kitchen", "restaurantManager", "admin"],
   "/api/hotel-activity": rolesWithAnySection("reservations", "checkIn", "checkOut"),
   "/api/user/avatar": [...ALL_USER_ROLES],
@@ -955,7 +983,7 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   "/api/units": rolesWithAnySection("inventory", "kitchen"),
   "/api/blob": ["admin", "manager", "hotelManager", "restaurantManager"],
   "/api/metrics": ["admin", "manager"],
-  "/api/performance": ["admin", "manager", "finance"],
+  "/api/performance": [...ALL_USER_ROLES],
   "/api/notifications": [...ALL_USER_ROLES],
   "/api/print": rolesWithAnySection("pos", "receipt"),
   "/api/init-db": ["admin"],

@@ -1,4 +1,4 @@
-export const RECEIPT_SOURCES = ["restaurant", "hotel", "event"] as const;
+export const RECEIPT_SOURCES = ["restaurant", "hotel", "event", "gym"] as const;
 export type ReceiptSource = (typeof RECEIPT_SOURCES)[number];
 
 export const PRINT_METHODS = ["thermal", "browser", "bridge"] as const;
@@ -14,6 +14,11 @@ const sourceAliases: Record<string, ReceiptSource> = {
   event: "event",
   catering: "event",
   cateringevent: "event",
+  gym: "gym",
+  fitness: "gym",
+  wellness: "gym",
+  gymbooking: "gym",
+  gymmembership: "gym",
 };
 
 const printMethodAliases: Record<string, CanonicalPrintMethod> = {

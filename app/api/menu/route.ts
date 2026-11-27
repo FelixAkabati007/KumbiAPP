@@ -76,55 +76,62 @@ export async function GET() {
         ORDER BY (inv.menu_item_id = mi.id) DESC NULLS LAST, inv.quantity DESC
         LIMIT 1
       ) legacy_i ON true
-      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity, active_uom.base_unit, active_uom.conversion_factor_to_base, active_uom.yield_factor
+      GROUP BY mi.id, c.slug, mi.inventory_mode, mi.availability_mode, mi.direct_inventory_id, mi.direct_units_per_sale, di.quantity, di.category, legacy_i.quantity
       ORDER BY mi.created_at DESC
       `
     );
 
-    const items = res.rows.map((r) => ({
-      id: r.id,
-      isAvailable: r.is_available,
-      availabilityMode: r.availability_mode,
-      name: r.name,
-      description: r.description ?? "",
-      price: Number(r.price),
-      barcode: r.barcode ?? undefined,
-      inventoryMode: r.inventory_mode,
-      directInventoryId: r.direct_inventory_id ?? undefined,
-      directUnitsPerSale: Number(r.direct_units_per_sale),
-      directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
-      ...(() => {
-        const fallbackLegacyQty =
-          r.legacy_inventory_quantity != null
-            ? Number(r.legacy_inventory_quantity)
-            : r.direct_inventory_quantity != null
-              ? Number(r.direct_inventory_quantity)
-              : null;
-        const availability = calculateMenuAvailability({
-          inventoryMode: r.inventory_mode,
-          availabilityMode: r.availability_mode,
-          isAvailable: r.is_available,
-          directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity),
-          directUnitsPerSale: Number(r.direct_units_per_sale),
-          ingredients: r.recipe_ingredients ?? [],
-          legacyQuantity: fallbackLegacyQty,
-        });
-        return {
-          inStock: availability.inStock,
-          availableUnits: availability.availableUnits,
-          stockStatus: availability.stockStatus,
-          stockShortages: availability.stockShortages,
-          shortageDetails: availability.shortageDetails,
-        };
-      })(),
-      image: r.image_url ?? undefined,
-      category: (r.category_slug || "ghanaian") as
-        | "ghanaian"
-        | "continental"
-        | "beverages"
-        | "desserts"
-        | "sides",
-    }));
+    const seenIds = new Set<string>();
+    const items = res.rows
+      .filter((r) => {
+        if (!r.id || seenIds.has(r.id)) return false;
+        seenIds.add(r.id);
+        return true;
+      })
+      .map((r) => ({
+        id: r.id,
+        isAvailable: r.is_available,
+        availabilityMode: r.availability_mode,
+        name: r.name,
+        description: r.description ?? "",
+        price: Number(r.price),
+        barcode: r.barcode ?? undefined,
+        inventoryMode: r.inventory_mode,
+        directInventoryId: r.direct_inventory_id ?? undefined,
+        directUnitsPerSale: Number(r.direct_units_per_sale),
+        directInventoryQuantity: r.direct_inventory_quantity == null ? undefined : Number(r.direct_inventory_quantity),
+        ...(() => {
+          const fallbackLegacyQty =
+            r.legacy_inventory_quantity != null
+              ? Number(r.legacy_inventory_quantity)
+              : r.direct_inventory_quantity != null
+                ? Number(r.direct_inventory_quantity)
+                : null;
+          const availability = calculateMenuAvailability({
+            inventoryMode: r.inventory_mode,
+            availabilityMode: r.availability_mode,
+            isAvailable: r.is_available,
+            directQuantity: r.direct_inventory_quantity == null ? null : Number(r.direct_inventory_quantity),
+            directUnitsPerSale: Number(r.direct_units_per_sale),
+            ingredients: r.recipe_ingredients ?? [],
+            legacyQuantity: fallbackLegacyQty,
+          });
+          return {
+            inStock: availability.inStock,
+            availableUnits: availability.availableUnits,
+            stockStatus: availability.stockStatus,
+            stockShortages: availability.stockShortages,
+            shortageDetails: availability.shortageDetails,
+          };
+        })(),
+        image: r.image_url ?? undefined,
+        category: (r.category_slug || "ghanaian") as
+          | "ghanaian"
+          | "continental"
+          | "beverages"
+          | "desserts"
+          | "sides",
+      }));
     return NextResponse.json(items);
   } catch (error) {
     console.error("Menu GET failed:", error);
@@ -148,7 +155,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Direct-stock items require an inventory item" }, { status: 400 });
     }
 
-    if (!name || typeof price !== "number" || !category) {
+    const cleanName = typeof name === "string" ? name.trim() : "";
+    if (!cleanName || typeof price !== "number" || !category) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -156,6 +164,28 @@ export async function POST(req: Request) {
     }
 
     const categoryId = await ensureCategory(category);
+
+    // Prevent accidental duplicate menu item rows with the same name & category
+    const existingDuplicate = await query<{ id: string }>(
+      `SELECT id::text AS id
+       FROM menu_items
+       WHERE LOWER(TRIM(name)) = LOWER(TRIM($1::text))
+         AND category_id = $2
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [cleanName, categoryId],
+    ).catch(() => ({ rows: [] as Array<{ id: string }> }));
+
+    if (existingDuplicate.rows[0]?.id) {
+      return NextResponse.json(
+        {
+          error: `A menu item named "${cleanName}" already exists in this category. Edit the existing item instead of creating a duplicate.`,
+          existingId: existingDuplicate.rows[0].id,
+        },
+        { status: 409 },
+      );
+    }
+
     const result = await query<{ id: string }>(
       `
       INSERT INTO menu_items
@@ -164,7 +194,7 @@ export async function POST(req: Request) {
       RETURNING id
       `,
       [
-        name,
+        cleanName,
         description ?? null,
         price,
         categoryId,

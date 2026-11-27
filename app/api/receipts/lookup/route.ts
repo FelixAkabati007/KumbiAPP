@@ -247,6 +247,31 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      if (source === "gym" || source === "all") {
+        try {
+          const gymRecRes = await query(
+            `SELECT receipt_number, payload, created_at
+             FROM canonical_receipts
+             WHERE source = 'gym'
+             ORDER BY created_at DESC
+             LIMIT $1`,
+            [limit],
+          );
+          for (const row of gymRecRes.rows) {
+            const p = (row.payload || {}) as Record<string, unknown>;
+            pushUniqueRecent(recentList, seenKeys, {
+              id: String(row.receipt_number),
+              label: String(row.receipt_number),
+              amount: Number(p.total ?? 0),
+              source: "gym",
+              date: String(row.created_at || new Date().toISOString()),
+            });
+          }
+        } catch (err) {
+          console.warn("Failed fetching recent gym canonical receipts:", err);
+        }
+      }
+
       recentList.sort((a, b) => {
         const ta = new Date(a.date).getTime();
         const tb = new Date(b.date).getTime();
@@ -731,6 +756,60 @@ export async function GET(request: NextRequest) {
         }
       } catch (err) {
         console.warn("Events table lookup failed:", err);
+      }
+    }
+
+    // D. SEARCH GYM BOOKINGS & MEMBERSHIPS
+    if (source === "gym" || source === "all") {
+      try {
+        const crRes = await query(
+          `SELECT id, entity_id, receipt_number, payload, created_at
+           FROM canonical_receipts
+           WHERE source = 'gym'
+             AND (receipt_number ILIKE $1 OR entity_id = $1 OR id::text = $1)
+           ORDER BY updated_at DESC
+           LIMIT 1`,
+          [q],
+        );
+        if (crRes.rows[0]) {
+          const row = crRes.rows[0];
+          const p = (row.payload || {}) as Record<string, unknown>;
+          const items = normalizeItems(p.items);
+          const total = Number(p.total ?? 0);
+          const subtotal = Number(p.subtotal ?? total);
+          const tax = Number(p.tax ?? Math.max(0, total - subtotal));
+          const result: SalesData = {
+            id: String(row.id),
+            orderNumber: String(row.receipt_number),
+            orderId: String(row.entity_id),
+            date: String(p.date || row.created_at),
+            items:
+              items.length > 0
+                ? items
+                : [
+                    {
+                      id: String(row.entity_id),
+                      name: "Gym & Fitness Service",
+                      description: "Gym & Fitness Service",
+                      price: subtotal || total,
+                      quantity: 1,
+                      category: "beverages",
+                      inStock: true,
+                    },
+                  ],
+            subtotal,
+            tax,
+            total,
+            orderType: String(p.orderType || "gym session"),
+            customerName: p.customerName ? String(p.customerName) : undefined,
+            paymentMethod: String(p.paymentMethod || "cash"),
+            source: "gym",
+            performedBy: p.performedBy as SalesData["performedBy"],
+          };
+          return NextResponse.json({ receipt: result });
+        }
+      } catch (err) {
+        console.warn("Gym canonical_receipts lookup failed:", err);
       }
     }
 

@@ -27,10 +27,28 @@ interface NotificationsResponse {
 }
 
 const fetcher = async (url: string): Promise<NotificationsResponse> => {
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch notifications");
   return res.json();
 };
+
+function hasAlertedInSessionStorage(id: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage?.getItem(`kumbi_alerted_notif_${id}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markAlertedInSessionStorage(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage?.setItem(`kumbi_alerted_notif_${id}`, "1");
+  } catch {
+    // ignore
+  }
+}
 
 export function GlobalNotificationSync() {
   const { user } = useAuth();
@@ -66,6 +84,35 @@ export function GlobalNotificationSync() {
     void syncAppIconBadge(unreadCount);
   }, [user, unreadCount]);
 
+  // Periodic shift-reminder heartbeat for authenticated workforce & property sessions
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const triggerReminderCheck = () => {
+      if (!navigator.onLine) return;
+      fetch("/api/workforce/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (payload && Number(payload.created) > 0) {
+            void mutate();
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    const initialTimer = setTimeout(triggerReminderCheck, 1500);
+    const interval = setInterval(triggerReminderCheck, 45_000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [user, mutate]);
+
   // Revalidate notifications whenever realtime SSE broadcasts "notifications.updated"
   useEffect(() => {
     if (!lastEvent || !user) return;
@@ -95,24 +142,46 @@ export function GlobalNotificationSync() {
     if (!user || notifications.length === 0) return;
 
     if (!initialLoadDone.current) {
-      // First load: seed seen IDs so we don't alert on historical notifications
-      notifications.forEach((item) => seenNotificationIds.current.add(item.id));
+      const nowMs = Date.now();
+      notifications.forEach((item) => {
+        seenNotificationIds.current.add(item.id);
+        // Surface fresh unread 20-minute shift reminders even on initial page load
+        const createdMs = Date.parse(item.created_at);
+        const isFreshShiftReminder =
+          !item.read_at &&
+          item.type === "shift_reminder" &&
+          Number.isFinite(createdMs) &&
+          Math.abs(nowMs - createdMs) <= 30 * 60 * 1000 &&
+          !hasAlertedInSessionStorage(item.id);
+
+        if (isFreshShiftReminder) {
+          markAlertedInSessionStorage(item.id);
+          playNotificationSound();
+          toast({
+            title: item.title,
+            description: item.message,
+          });
+        }
+      });
       initialLoadDone.current = true;
       return;
     }
 
     const unreadNew = notifications.filter(
-      (item) => !item.read_at && !seenNotificationIds.current.has(item.id)
+      (item) =>
+        !item.read_at &&
+        !seenNotificationIds.current.has(item.id) &&
+        !hasAlertedInSessionStorage(item.id)
     );
 
     if (unreadNew.length > 0) {
-      // Mark as seen
-      unreadNew.forEach((item) => seenNotificationIds.current.add(item.id));
+      unreadNew.forEach((item) => {
+        seenNotificationIds.current.add(item.id);
+        markAlertedInSessionStorage(item.id);
+      });
 
-      // Play sound chime
       playNotificationSound();
 
-      // Show in-app toast for each new notification
       unreadNew.forEach((item) => {
         const isCheckInOut =
           item.type === "attendance_check_in" || item.type === "attendance_check_out";
@@ -122,7 +191,6 @@ export function GlobalNotificationSync() {
           variant: isCheckInOut ? "default" : undefined,
         });
 
-        // If tab is in background and permission is granted, ensure notification is visible
         if (
           typeof window !== "undefined" &&
           document.visibilityState === "hidden" &&

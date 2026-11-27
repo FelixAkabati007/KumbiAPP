@@ -3,7 +3,10 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-logger";
 import { updateSystemState } from "@/lib/system-sync";
+import { publishRealtime } from "@/lib/realtime";
 import { canManageFeatureToggles } from "@/lib/roles";
+
+export const dynamic = "force-dynamic";
 
 const TOGGLE_KEYS = ["kitchen_display", "order_board", "housekeeping_advanced"] as const;
 type ToggleKey = (typeof TOGGLE_KEYS)[number];
@@ -12,8 +15,42 @@ function isToggleKey(value: unknown): value is ToggleKey {
   return typeof value === "string" && TOGGLE_KEYS.includes(value as ToggleKey);
 }
 
-// GET - Any authenticated user can read the current toggle states so pages
-// and dashboard cards across the app can enforce them consistently.
+let featureTogglesEnsured = false;
+
+async function ensureFeatureTogglesSchema(): Promise<void> {
+  if (featureTogglesEnsured) return;
+  try {
+    await query(
+      `CREATE TABLE IF NOT EXISTS feature_toggles (
+         key VARCHAR(100) PRIMARY KEY,
+         enabled BOOLEAN NOT NULL DEFAULT true,
+         updated_by_id VARCHAR(255),
+         updated_by_name VARCHAR(255),
+         updated_by_role VARCHAR(100),
+         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+       )`
+    );
+    await query(
+      `ALTER TABLE feature_toggles ALTER COLUMN updated_by_id TYPE VARCHAR(255) USING updated_by_id::varchar`
+    ).catch(() => undefined);
+
+    for (const key of TOGGLE_KEYS) {
+      await query(
+        `INSERT INTO feature_toggles (key, enabled)
+         VALUES ($1::varchar, true)
+         ON CONFLICT (key) DO NOTHING`,
+        [key]
+      ).catch(() => undefined);
+    }
+    featureTogglesEnsured = true;
+  } catch {
+    // Non-fatal in mocked environments
+  }
+}
+
+// GET - Any authenticated user (Admin, Manager, and all Restaurant/Hotel roles)
+// can read current toggle states so pages and dashboard cards across all roles
+// stay 100% synchronized with Admin controls.
 export async function GET() {
   try {
     const session = await getSession();
@@ -21,20 +58,31 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const result = await query(
+    await ensureFeatureTogglesSchema();
+
+    const result = await query<{
+      key: string;
+      enabled: boolean;
+      updated_by_name?: string | null;
+      updated_by_role?: string | null;
+      updated_at?: string | null;
+    }>(
       `SELECT key, enabled, updated_by_name, updated_by_role, updated_at
        FROM feature_toggles`
     );
 
     const toggles: Record<string, boolean> = {};
     for (const key of TOGGLE_KEYS) {
-      toggles[key] = true; // default fallback if row is somehow missing
+      toggles[key] = true;
     }
     for (const row of result.rows) {
-      toggles[row.key as string] = row.enabled as boolean;
+      toggles[String(row.key)] = Boolean(row.enabled);
     }
 
-    return NextResponse.json({ toggles, rows: result.rows });
+    return NextResponse.json(
+      { toggles, rows: result.rows },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (error) {
     console.error("Error fetching feature toggles:", error);
     return NextResponse.json(
@@ -44,8 +92,8 @@ export async function GET() {
   }
 }
 
-// PATCH - Only admins may flip a toggle. Every change is audit logged
-// with the actor's identity and the before/after state.
+// PATCH - Only admins (or General Manager) may flip a toggle. Every change is
+// persisted in Neon, audit-logged, and broadcast in real time to all connected roles.
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession();
@@ -73,21 +121,24 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const currentResult = await query(
-      `SELECT enabled FROM feature_toggles WHERE key = $1`,
+    await ensureFeatureTogglesSchema();
+
+    const currentResult = await query<{ enabled: boolean }>(
+      `SELECT enabled FROM feature_toggles WHERE key = $1::varchar`,
       [key]
     );
     const previousEnabled = currentResult.rows[0]?.enabled ?? true;
 
-    // Fetch actor name for the audit trail
-    const userResult = await query(`SELECT name FROM users WHERE id = $1`, [
-      session.id,
-    ]);
-    const actorName = userResult.rows[0]?.name || session.email;
+    const userResult = await query<{ name: string | null }>(
+      `SELECT name FROM users WHERE id::text = $1::text LIMIT 1`,
+      [session.id]
+    ).catch(() => ({ rows: [] as Array<{ name: string | null }> }));
+    const sessionWithOptionalName = session as typeof session & { name?: string | null };
+    const actorName = userResult.rows[0]?.name || sessionWithOptionalName.name || session.email;
 
     await query(
       `INSERT INTO feature_toggles (key, enabled, updated_by_id, updated_by_name, updated_by_role, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
+       VALUES ($1::varchar, $2::boolean, $3::varchar, $4::varchar, $5::varchar, NOW())
        ON CONFLICT (key) DO UPDATE SET
          enabled = EXCLUDED.enabled,
          updated_by_id = EXCLUDED.updated_by_id,
@@ -99,10 +150,6 @@ export async function PATCH(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
 
-    // The toggle write above already succeeded, which is what matters for
-    // the feature itself. Audit logging is important but secondary — a
-    // logging failure should never roll back or block the actual toggle,
-    // so it's wrapped separately and only logged to the server console.
     try {
       await createAuditLog({
         actionType: "feature_toggle_changed",
@@ -122,6 +169,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     await updateSystemState("feature_toggles");
+    await publishRealtime("feature_toggles.updated", key);
 
     return NextResponse.json({ key, enabled });
   } catch (error) {

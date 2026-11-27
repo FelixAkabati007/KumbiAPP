@@ -27,6 +27,7 @@ export interface TaxConfiguration {
   appliesToPos: boolean;
   appliesToRooms: boolean;
   appliesToEvents: boolean;
+  appliesToGym?: boolean;
   tin?: string;
   graEVatRate?: number;
   vatRate: number;

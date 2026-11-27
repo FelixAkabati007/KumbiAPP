@@ -36,6 +36,7 @@ import {
   Wrench,
   Clock3,
   CalendarDays,
+  Dumbbell,
   SplitSquareHorizontal,
   ChevronDown,
 } from "lucide-react";
@@ -101,6 +102,7 @@ const DASHBOARD_CATEGORIES = [
   ["technical", "Technical Operations"],
   ["administration", "Administration"],
   ["events", "Event Organization"],
+  ["gym", "Gym & Fitness"],
 ] as const;
 
 const CATEGORY_META: Record<
@@ -114,7 +116,7 @@ const CATEGORY_META: Record<
   all: {
     title: "All Operational Workspaces",
     description:
-      "Complete operational visibility across hospitality, food & beverage, finance, technical operations, and administration.",
+      "Complete operational visibility across hospitality, food & beverage, finance, technical operations, fitness, and administration.",
     icon: Grid3X3,
   },
   hotel: {
@@ -153,6 +155,12 @@ const CATEGORY_META: Record<
       "Plan events, coordinate venues, manage guests, assign delivery teams, and generate quotations.",
     icon: CalendarDays,
   },
+  gym: {
+    title: "Gym & Fitness Operations",
+    description:
+      "Book workout sessions, enroll recurring memberships, check in gym members, and settle payments through Finance.",
+    icon: Dumbbell,
+  },
 };
 
 const CATEGORY_SECTION_MAP: Record<
@@ -173,6 +181,7 @@ const CATEGORY_SECTION_MAP: Record<
   technical: ["operations", "maintenance"],
   administration: ["system"],
   events: ["events"],
+  gym: ["gym"],
 };
 
 import { PropertyClock } from "@/components/property-clock";
@@ -486,6 +495,7 @@ function DashboardContent() {
       technical: [dashboardAccess.operations].filter(Boolean).length,
       administration: [dashboardAccess.system].filter(Boolean).length,
       events: [dashboardAccess.events].filter(Boolean).length,
+      gym: [dashboardAccess.gym].filter(Boolean).length,
     };
     counts.all =
       counts.hotel +
@@ -494,6 +504,7 @@ function DashboardContent() {
       counts.technical +
       counts.administration +
       counts.events +
+      counts.gym +
       2;
     return counts;
   }, [dashboardAccess, isHousekeeping]);
@@ -572,6 +583,14 @@ function DashboardContent() {
           href: "/hotels/reservations",
           icon: (
             <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          ),
+        },
+        dashboardAccess.gym && {
+          title: "Gym & Fitness Booking",
+          description: "Book workout sessions, memberships, and Finance settlements",
+          href: "/gym",
+          icon: (
+            <Dumbbell className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           ),
         },
         dashboardAccess.finance && {
@@ -1107,7 +1126,9 @@ function DashboardContent() {
                   {dashboardAccess.kitchen && (
                     <Card
                       data-dashboard-category="restaurant"
-                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                      className={`hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card ${
+                        !toggles.kitchen_display ? "opacity-75 grayscale-[25%]" : ""
+                      }`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
                       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -1136,7 +1157,7 @@ function DashboardContent() {
                                   ? toggles.kitchen_display
                                     ? "Disable Kitchen Display for all staff"
                                     : "Enable Kitchen Display for all staff"
-                                  : "Only admins or managers can change this"}
+                                  : "Synced with Administrator toggle"}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -1144,24 +1165,35 @@ function DashboardContent() {
                         </div>
                       </CardHeader>
                       <CardContent className="relative z-10">
-                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                          Orders
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                            Orders
+                          </div>
+                          {!toggles.kitchen_display && (
+                            <Badge variant="outline" className="text-[11px] border-red-300 text-red-700 dark:border-red-800 dark:text-red-300">
+                              Turned Off
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-base leading-6 text-muted-foreground">
                           {toggles.kitchen_display
                             ? "Manage kitchen operations"
-                            : "Disabled by administrator"}
+                            : "Disabled by administrator for all restaurant roles"}
                         </p>
                       </CardContent>
                       <CardFooter className="relative z-10">
-                        <DashboardLaunchButton href="/kitchen">View Kitchen</DashboardLaunchButton>
+                        <DashboardLaunchButton href="/kitchen">
+                          {toggles.kitchen_display ? "View Kitchen" : "Kitchen Disabled"}
+                        </DashboardLaunchButton>
                       </CardFooter>
                     </Card>
                   )}
                   {dashboardAccess.orderBoard && (
                     <Card
                       data-dashboard-category="restaurant"
-                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                      className={`hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card ${
+                        !toggles.order_board ? "opacity-75 grayscale-[25%]" : ""
+                      }`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20"></div>
                       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10 relative z-10">
@@ -1188,7 +1220,7 @@ function DashboardContent() {
                                   ? toggles.order_board
                                     ? "Disable Order Board for all staff"
                                     : "Enable Order Board for all staff"
-                                  : "Only admins or managers can change this"}
+                                  : "Synced with Administrator toggle"}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -1196,17 +1228,26 @@ function DashboardContent() {
                         </div>
                       </CardHeader>
                       <CardContent className="relative z-10">
-                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                          Live Grid
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                            Live Grid
+                          </div>
+                          {!toggles.order_board && (
+                            <Badge variant="outline" className="text-[11px] border-red-300 text-red-700 dark:border-red-800 dark:text-red-300">
+                              Turned Off
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-base leading-6 text-muted-foreground">
                           {toggles.order_board
                             ? "Real-time order tracking"
-                            : "Disabled by administrator"}
+                            : "Disabled by administrator for all restaurant roles"}
                         </p>
                       </CardContent>
                       <CardFooter className="relative z-10">
-                        <DashboardLaunchButton href="/order-display?mode=grid">View Orders</DashboardLaunchButton>
+                        <DashboardLaunchButton href="/order-display?mode=grid">
+                          {toggles.order_board ? "View Orders" : "Order Board Disabled"}
+                        </DashboardLaunchButton>
                       </CardFooter>
                     </Card>
                   )}
@@ -1477,6 +1518,48 @@ function DashboardContent() {
                           Open Event Organization
                         </DashboardLaunchButton>
                       </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Gym & Fitness Operations */}
+              {(activeDashboardCategory === "all" || activeDashboardCategory === "gym") && categoryCounts.gym > 0 && (
+                <>
+                  {activeDashboardCategory === "all" && (
+                    <CategoryGroupHeader
+                      title="Gym & Fitness Operations"
+                      count={categoryCounts.gym}
+                      icon={Dumbbell}
+                      description="Book workout sessions, enroll recurring memberships, check in gym members, and settle payments through Finance"
+                      onFocus={() => selectDashboardCategory("gym")}
+                    />
+                  )}
+                  {dashboardAccess.gym && (
+                    <Card
+                      data-dashboard-category="gym"
+                      className="hover:shadow-xl transition-all duration-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-orange-200 dark:border-orange-700 rounded-3xl md:hover:scale-105 relative overflow-hidden dashboard-launcher-card"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-100/20 via-amber-100/20 to-yellow-100/20 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20" />
+                      <CardHeader className="relative z-10 flex flex-row items-center justify-between rounded-t-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 pb-2 dark:from-orange-400/10 dark:via-amber-400/10 dark:to-yellow-400/10">
+                        <CardTitle className="text-base font-medium text-gray-800 dark:text-gray-200">
+                          Gym &amp; Fitness
+                        </CardTitle>
+                        <Dumbbell className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </CardHeader>
+                      <CardContent className="relative z-10">
+                        <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          Bookings
+                        </div>
+                        <p className="text-base leading-6 text-muted-foreground">
+                          Schedule gym sessions, manage recurring memberships, charge checked-in hotel rooms, and reconcile via Finance.
+                        </p>
+                      </CardContent>
+                      <CardFooter className="relative z-10">
+                        <DashboardLaunchButton href="/gym">
+                          Open Gym Booking
+                        </DashboardLaunchButton>
+                      </CardFooter>
                     </Card>
                   )}
                 </>

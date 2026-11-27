@@ -41,7 +41,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         }
       };
       source.onmessage = handleEvent;
-      ["attendance.updated", "dashboard.updated", "hotel.updated", "pos.updated", "orders.updated", "menu.updated", "inventory.updated", "finance.updated", "payments.updated", "refunds.updated", "staff.updated", "housekeeping.updated", "events.updated", "notifications.updated", "announcements.updated", "vip.updated"].forEach((topic) => source?.addEventListener(topic, handleEvent));
+      ["attendance.updated", "dashboard.updated", "hotel.updated", "pos.updated", "orders.updated", "menu.updated", "inventory.updated", "finance.updated", "payments.updated", "refunds.updated", "staff.updated", "housekeeping.updated", "events.updated", "notifications.updated", "announcements.updated", "vip.updated", "feature_toggles.updated", "performance.updated", "gym.updated"].forEach((topic) => source?.addEventListener(topic, handleEvent));
       source.onerror = () => {
         setConnected(false);
         source?.close();
@@ -82,4 +82,8 @@ export function useRealtime() {
   const value = useContext(RealtimeContext);
   if (!value) throw new Error("useRealtime must be used inside RealtimeProvider");
   return value;
+}
+
+export function useOptionalRealtime() {
+  return useContext(RealtimeContext);
 }

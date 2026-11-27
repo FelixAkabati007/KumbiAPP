@@ -8,13 +8,34 @@ import {
   dispatchNotificationsRealtimeAndPush,
   ensureNotificationsSchema,
 } from "@/lib/server-notifications";
+import { DEFAULT_ROLE_ACCOUNTS } from "@/lib/default-accounts";
+import { maybeDispatchDueWorkforceReminders } from "@/lib/workforce-schedule";
 
 export const dynamic = "force-dynamic";
 
-function getRecipientCandidateIds(session: { id: string; role: string }): string[] {
+async function getRecipientCandidateIds(session: { id: string; role: string; email?: string | null }): Promise<string[]> {
   const ids = new Set<string>([String(session.id)]);
   if (session.role === "admin") ids.add(DEFAULT_ADMIN_USER_ID);
   if (session.role === "manager") ids.add(DEFAULT_GENERAL_MANAGER_USER_ID);
+
+  const defaultForRole = DEFAULT_ROLE_ACCOUNTS.find((acct) => acct.role === session.role);
+  if (defaultForRole && (!session.email || session.email.toLowerCase() === defaultForRole.email.toLowerCase())) {
+    ids.add(defaultForRole.id);
+  }
+
+  const linkedStaff = await query<{ staff_id: string | null; user_id: string | null }>(
+    `SELECT id::text AS staff_id, user_id::text AS user_id
+     FROM staff_profiles
+     WHERE user_id::text = $1::text OR id::text = $1::text
+     LIMIT 2`,
+    [String(session.id)],
+  ).catch(() => ({ rows: [] as Array<{ staff_id: string | null; user_id: string | null }> }));
+
+  for (const row of linkedStaff.rows) {
+    if (row.staff_id) ids.add(row.staff_id);
+    if (row.user_id) ids.add(row.user_id);
+  }
+
   return Array.from(ids);
 }
 
@@ -22,8 +43,12 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await Promise.all([ensureNotificationsSchema(), ensureTopUpReviewSchema()]);
-  const candidateIds = getRecipientCandidateIds(session);
+  await Promise.all([
+    ensureNotificationsSchema(),
+    ensureTopUpReviewSchema(),
+    maybeDispatchDueWorkforceReminders(),
+  ]);
+  const candidateIds = await getRecipientCandidateIds(session);
 
   await query(
     `INSERT INTO notification_logs (notification_id, recipient_user_id, title, message, type, created_at, opened_at, archived_at, archived_reason)
@@ -91,7 +116,7 @@ export async function PATCH(request: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await ensureNotificationsSchema();
-  const candidateIds = getRecipientCandidateIds(session);
+  const candidateIds = await getRecipientCandidateIds(session);
 
   const body = (await request.json().catch(() => null)) as {
     id?: string;

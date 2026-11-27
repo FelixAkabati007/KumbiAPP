@@ -394,33 +394,119 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const access = await requireRole("admin");
+    const access = await requireRole("admin", "manager");
     if (access.error) return access.error;
     const session = access.session;
     const { id } = await params;
+    const url = new URL(req.url);
+    const forceUnlink = url.searchParams.get("force") === "true";
 
-    const res = await query("DELETE FROM inventory WHERE id = $1", [id]);
+    // Preserve immutable historical audit/variance/movement records while removing
+    // restrictive foreign keys that would otherwise block deleting obsolete inventory items.
+    const fkDetachStatements = [
+      `DROP TRIGGER IF EXISTS inventory_top_up_audit_immutable ON inventory_top_up_audit`,
+      `ALTER TABLE inventory_top_up_audit DROP CONSTRAINT IF EXISTS inventory_top_up_audit_inventory_item_id_fkey`,
+      `ALTER TABLE inventory_variances DROP CONSTRAINT IF EXISTS inventory_variances_inventory_item_id_fkey`,
+      `ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS inventory_movements_inventory_id_fkey`,
+      `ALTER TABLE inventory_events DROP CONSTRAINT IF EXISTS inventory_events_inventory_id_fkey`,
+      `ALTER TABLE inventory_item_uoms DROP CONSTRAINT IF EXISTS inventory_item_uoms_inventory_id_fkey`,
+      `ALTER TABLE menu_items DROP CONSTRAINT IF EXISTS menu_items_direct_inventory_id_fkey`,
+    ];
+    for (const stmt of fkDetachStatements) {
+      await query(stmt).catch(() => undefined);
+    }
 
-    if (res.rowCount === 0) {
+    const existingRes = await query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name FROM inventory WHERE id::text = $1::text LIMIT 1`,
+      [id],
+    );
+    if (existingRes.rows.length === 0) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+    const itemName = existingRes.rows[0].name;
+
+    // Check active menu links (recipe_ingredients and direct-stock menu_items)
+    const linkedMenuRes = await query<{ id: string; name: string; link_type: string }>(
+      `SELECT DISTINCT mi.id::text AS id, mi.name,
+              CASE WHEN mi.direct_inventory_id::text = $1::text THEN 'direct_stock' ELSE 'recipe_ingredient' END AS link_type
+       FROM menu_items mi
+       LEFT JOIN recipe_ingredients ri ON ri.menu_item_id = mi.id AND ri.inventory_item_id::text = $1::text
+       WHERE mi.direct_inventory_id::text = $1::text OR ri.id IS NOT NULL
+       ORDER BY mi.name ASC`,
+      [id],
+    ).catch(() => ({ rows: [] as Array<{ id: string; name: string; link_type: string }> }));
+
+    if (linkedMenuRes.rows.length > 0 && !forceUnlink) {
+      const names = linkedMenuRes.rows.map((r) => r.name);
+      return NextResponse.json(
+        {
+          error: `"${itemName}" is currently linked to ${names.length} menu item${names.length === 1 ? "" : "s"} (${names.slice(0, 5).join(", ")}${names.length > 5 ? "..." : ""}). Confirm unlink & delete to remove it from those menu items and delete permanently.`,
+          code: "LINKED_TO_MENU",
+          linkedMenuItems: linkedMenuRes.rows,
+        },
+        { status: 409 },
+      );
+    }
+
+    const deletedCount = await transaction(async (client) => {
+      if (linkedMenuRes.rows.length > 0) {
+        await client.query(
+          `DELETE FROM recipe_ingredients WHERE inventory_item_id::text = $1::text`,
+          [id],
+        );
+        await client.query(
+          `UPDATE menu_items
+           SET direct_inventory_id = NULL,
+               inventory_mode = CASE WHEN inventory_mode = 'direct' THEN 'recipe' ELSE inventory_mode END
+           WHERE direct_inventory_id::text = $1::text`,
+          [id],
+        );
+      }
+
+      await client
+        .query(`DELETE FROM inventory_item_uoms WHERE inventory_id::text = $1::text`, [id])
+        .catch(() => undefined);
+
+      const res = await client.query(`DELETE FROM inventory WHERE id::text = $1::text`, [id]);
+      return res.rowCount ?? 0;
+    });
+
+    if (deletedCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    await updateSystemState("inventory");
     await updateSystemState("menu");
     await publishRealtime("inventory.updated", id);
+    if (linkedMenuRes.rows.length > 0) {
+      await publishRealtime("menu.updated", id);
+    }
 
     await logAudit({
       action: "DELETE_INVENTORY",
       entityType: "INVENTORY",
       entityId: id,
       performedBy: session?.id,
+      details: {
+        name: itemName,
+        unlinkedMenuItems: linkedMenuRes.rows.map((r) => r.name),
+      },
       ipAddress: req.headers.get("x-forwarded-for") || "unknown",
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      unlinkedMenuCount: linkedMenuRes.rows.length,
+    });
   } catch (error) {
     console.error("Inventory Item DELETE failed:", error);
     return NextResponse.json(
-      { error: "Failed to delete item" },
+      {
+        error:
+          error instanceof Error && error.message
+            ? `Failed to delete item: ${error.message}`
+            : "Failed to delete item",
+      },
       { status: 500 },
     );
   }

@@ -105,14 +105,19 @@ export async function ensureAttendanceSchema(
     `CREATE TABLE IF NOT EXISTS performance_events (
        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
        staff_id UUID NOT NULL,
+       user_id UUID,
        source_type VARCHAR(100) NOT NULL,
        source_id VARCHAR(255),
-       points INTEGER NOT NULL DEFAULT 1,
+       points NUMERIC(10, 2) NOT NULL DEFAULT 1,
+       completed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
        verification_status VARCHAR(50) DEFAULT 'verified',
        verified_by UUID,
        metadata JSONB DEFAULT '{}'::jsonb,
        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
      )`,
+    `ALTER TABLE performance_events ADD COLUMN IF NOT EXISTS user_id UUID`,
+    `ALTER TABLE performance_events ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE performance_events ALTER COLUMN points TYPE NUMERIC(10, 2) USING points::numeric`,
     `ALTER TABLE performance_events DROP CONSTRAINT IF EXISTS performance_events_staff_id_fkey`,
     `ALTER TABLE performance_events DROP CONSTRAINT IF EXISTS performance_events_verified_by_fkey`,
     `CREATE TABLE IF NOT EXISTS notifications (

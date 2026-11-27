@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, ChevronsUpDown, Loader2, AlertCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { getInventoryUnitDimension } from "@/lib/inventory-units";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -23,6 +24,7 @@ export interface Unit {
   value: string;
   label: string;
   description?: string;
+  aliases?: string[];
 }
 
 export type UnitDimension = "mass" | "volume" | "count" | "unknown";
@@ -45,10 +47,22 @@ interface UnitSelectProps {
   helperText?: string;
 }
 
-// The unit list is static reference data (rarely, if ever, changes), so cache
-// it at the module level once fetched. This avoids re-fetching (and briefly
-// showing a "Loading units..." state) every time the Add/Edit Item dialog is
-// reopened within the same session.
+const EMPTY_EXCLUDE_VALUES: string[] = [];
+
+// Culinary yield & portion units can be paired with mass, volume, or count inventory items
+// via chef yield / culinary conversions (mirrors getCompatibleRecipeUnits in lib/inventory-units.ts).
+const UNIVERSAL_RECIPE_PORTION_UNITS = new Set([
+  "slice",
+  "ladle",
+  "scoop",
+  "pinch",
+  "tsp",
+  "tbsp",
+  "c",
+  "portion",
+  "serving",
+]);
+
 let cachedCategories: UnitCategory[] | null = null;
 let inFlightFetch: Promise<UnitCategory[]> | null = null;
 
@@ -57,42 +71,111 @@ export function resetUnitSelectCache() {
   inFlightFetch = null;
 }
 
-const MASS_UNITS = new Set(["g", "kg", "oz", "lb"]);
-const VOLUME_UNITS = new Set(["ml", "cl", "l", "fl_oz", "shot", "qt", "gal", "tsp", "tbsp", "cup", "pt"]);
-const COUNT_UNITS = new Set(["unit", "ea", "ct", "pc", "pcs", "piece", "pack", "box", "bag", "bottle", "can", "tray", "sack", "crate", "carton", "cs", "pk", "bx", "bg"]);
 function unitDimension(value: string): UnitDimension {
-  if (MASS_UNITS.has(value)) return "mass";
-  if (VOLUME_UNITS.has(value)) return "volume";
-  if (COUNT_UNITS.has(value)) return "count";
-  return "unknown";
+  return getInventoryUnitDimension(value);
+}
+
+export function isUnitCompatibleWithDimension(
+  unitValue: string,
+  compatibleDimension?: UnitDimension
+): boolean {
+  if (!compatibleDimension || compatibleDimension === "unknown") return true;
+  if (UNIVERSAL_RECIPE_PORTION_UNITS.has(unitValue.toLowerCase())) return true;
+  const dim = unitDimension(unitValue);
+  if (dim === "unknown") return true;
+  return dim === compatibleDimension;
+}
+
+function normalizeSearchToken(raw: string): string {
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/millilitres?/g, "milliliter")
+    .replace(/centilitres?/g, "centiliter")
+    .replace(/litres?/g, "liter")
+    .replace(/kilogrammes?/g, "kilogram")
+    .replace(/milligrammes?/g, "milligram")
+    .replace(/grammes?/g, "gram")
+    .replace(/[()/_#,.-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => {
+      if (word === "lbs") return "lb";
+      if (word === "pcs") return "pc";
+      if (word === "leaves") return "leaf";
+      if (word.length > 4 && word.endsWith("ches")) return word.slice(0, -2);
+      if (word.length > 4 && word.endsWith("xes")) return word.slice(0, -2);
+      if (word.length > 4 && word.endsWith("ses")) return word.slice(0, -2);
+      if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) {
+        return word.slice(0, -1);
+      }
+      return word;
+    })
+    .join(" ");
+}
+
+/**
+ * Deterministic, plural- & spelling-tolerant unit search scorer for cmdk.
+ * Returns score in [0, 1] (0 = hidden, >0 = shown and ranked).
+ */
+export function scoreUnitSearchMatch(
+  itemValue: string,
+  search: string,
+  keywords?: string[]
+): number {
+  const rawQuery = search.trim().toLowerCase();
+  if (!rawQuery) return 1;
+
+  const normalizedQuery = normalizeSearchToken(rawQuery);
+  if (!normalizedQuery) return 1;
+
+  const fullTextRaw = `${itemValue} ${(keywords ?? []).join(" ")}`.toLowerCase();
+  const normalizedHaystack = normalizeSearchToken(fullTextRaw);
+  const haystackWords = normalizedHaystack.split(" ").filter(Boolean);
+
+  // 1. Exact token match on unit code or normalized alias (highest priority)
+  if (haystackWords.includes(normalizedQuery) || haystackWords.includes(rawQuery)) {
+    return 1;
+  }
+
+  // 2. Prefix match on any word (e.g. "kilo" -> "kilogram", "lit" -> "liter", "tab" -> "tablespoon")
+  if (haystackWords.some((word) => word.startsWith(normalizedQuery) || word.startsWith(rawQuery))) {
+    return 0.92;
+  }
+
+  // 3. Contiguous phrase match across normalized text (e.g. "fluid ounce", "fl oz")
+  if (normalizedHaystack.includes(normalizedQuery) || fullTextRaw.includes(rawQuery)) {
+    return 0.85;
+  }
+
+  // 4. Multi-word token match (every query word matches at least one word in haystack)
+  const queryWords = normalizedQuery.split(" ").filter(Boolean);
+  if (
+    queryWords.length > 1 &&
+    queryWords.every((qw) =>
+      haystackWords.some((hw) => hw.includes(qw) || qw.includes(hw))
+    )
+  ) {
+    return 0.75;
+  }
+
+  return 0;
 }
 
 const LOCALIZATION: Record<string, Record<string, string>> = {
   en: {
     selectUnit: "Select unit...",
-    searchUnit: "Search unit...",
+    searchUnit: "Search unit (e.g. kg, litre, bottle, pcs, shot)...",
     noUnitFound: "No unit found.",
     loading: "Loading units...",
     error: "Failed to load units.",
     retry: "Retry",
   },
-  // Add other languages here
 };
 
-/**
- * UnitSelect Component
- *
- * A dropdown component for selecting measurement units, organized by categories.
- * Supports single and multi-select modes, search, and localization.
- *
- * @param value - The currently selected value(s). String for single, string[] for multi.
- * @param onChange - Callback when selection changes. Returns string or string[].
- * @param multi - Enable multiple selection mode. Defaults to false.
- * @param className - Additional CSS classes.
- * @param disabled - Disable the component.
- * @param placeholder - Placeholder text when no value is selected.
- * @param error - Error message to display (styles the border red).
- */
 export function UnitSelect({
   value,
   onChange,
@@ -101,7 +184,7 @@ export function UnitSelect({
   disabled = false,
   placeholder,
   error: externalError,
-  excludeValues = [],
+  excludeValues = EMPTY_EXCLUDE_VALUES,
   compatibleDimension,
   helperText,
 }: UnitSelectProps) {
@@ -111,7 +194,8 @@ export function UnitSelect({
   );
   const [loading, setLoading] = React.useState(!cachedCategories);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
-  const [locale] = React.useState("en"); // Default locale
+  const [locale] = React.useState("en");
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
 
   const t = LOCALIZATION[locale];
 
@@ -154,19 +238,24 @@ export function UnitSelect({
   }, [fetchUnits]);
 
   const visibleCategories = React.useMemo(
-    () => categories
-      .filter((category) => category.category !== "Operational Management Units")
-      .map((category) => ({
-        ...category,
-        units: category.units.filter((unit) => !excludeValues.includes(unit.value) && (!compatibleDimension || unitDimension(unit.value) === compatibleDimension)),
-      }))
-      .filter((category) => category.units.length > 0),
-    [categories, excludeValues]
+    () =>
+      categories
+        .filter((category) => category.category !== "Operational Management Units")
+        .map((category) => ({
+          ...category,
+          units: category.units.filter(
+            (unit) =>
+              !excludeValues.includes(unit.value) &&
+              isUnitCompatibleWithDimension(unit.value, compatibleDimension)
+          ),
+        }))
+        .filter((category) => category.units.length > 0),
+    [categories, excludeValues, compatibleDimension]
   );
 
-  const allUnits = React.useMemo(
-    () => visibleCategories.flatMap((c) => c.units),
-    [visibleCategories]
+  const allAllCategoriesUnits = React.useMemo(
+    () => categories.flatMap((c) => c.units),
+    [categories]
   );
 
   const handleSelect = (currentValue: string) => {
@@ -199,13 +288,13 @@ export function UnitSelect({
 
     if (multi && Array.isArray(value)) {
       if (value.length === 1) {
-        return allUnits.find((u) => u.value === value[0])?.label || value[0];
+        return allAllCategoriesUnits.find((u) => u.value === value[0])?.label || value[0];
       }
       return `${value.length} selected`;
     }
 
     if (typeof value === "string") {
-      return allUnits.find((u) => u.value === value)?.label || value;
+      return allAllCategoriesUnits.find((u) => u.value === value)?.label || value;
     }
 
     return placeholder || t.selectUnit;
@@ -213,7 +302,8 @@ export function UnitSelect({
 
   return (
     <div className="grid gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
+      {/* modal={true} registers PopoverContent as an active scroll-unlocked shard inside Radix Dialog's RemoveScroll */}
+      <Popover modal={true} open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -236,71 +326,99 @@ export function UnitSelect({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] max-h-[calc(100vh-1rem)] overflow-hidden p-0">
+        <PopoverContent
+          className="w-[min(22rem,calc(100vw-2rem))] max-h-[calc(100vh-1rem)] overflow-hidden p-0 z-[100]"
+          onWheel={(e) => {
+            // Prevent outer Dialog RemoveScroll from intercepting mouse wheel or two-finger trackpad scroll
+            e.stopPropagation();
+          }}
+          onTouchMove={(e) => {
+            e.stopPropagation();
+          }}
+        >
           <Command
             data-testid="unit-select-command"
             className="w-full overflow-hidden"
+            filter={scoreUnitSearchMatch}
           >
             <CommandInput placeholder={t.searchUnit} />
             <div
+              ref={viewportRef}
               data-testid="unit-select-scroll-viewport"
-              className="unit-selector-scroll-viewport h-60 max-h-60 w-full overflow-x-hidden overflow-y-auto overscroll-contain"
+              className="unit-selector-scroll-viewport h-64 max-h-64 w-full overflow-x-hidden overflow-y-auto overscroll-contain touch-pan-y"
+              onWheel={(e) => {
+                e.stopPropagation();
+              }}
+              onTouchMove={(e) => {
+                e.stopPropagation();
+              }}
             >
-            <CommandList
-              data-testid="unit-select-list"
-              className="!h-auto !max-h-none w-full overflow-visible"
-            >
-              {loading && (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />
-                  {t.loading}
-                </div>
-              )}
+              <CommandList
+                data-testid="unit-select-list"
+                className="!h-auto !max-h-none w-full overflow-visible"
+              >
+                {loading && (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />
+                    {t.loading}
+                  </div>
+                )}
 
-              {fetchError && (
-                <div className="py-6 text-center text-sm text-red-500">
-                  <AlertCircle className="mx-auto h-4 w-4 mb-2" />
-                  <p className="mb-2">{fetchError}</p>
-                  <Button variant="ghost" size="sm" onClick={fetchUnits}>
-                    {t.retry}
-                  </Button>
-                </div>
-              )}
+                {fetchError && (
+                  <div className="py-6 text-center text-sm text-red-500">
+                    <AlertCircle className="mx-auto h-4 w-4 mb-2" />
+                    <p className="mb-2">{fetchError}</p>
+                    <Button variant="ghost" size="sm" onClick={fetchUnits}>
+                      {t.retry}
+                    </Button>
+                  </div>
+                )}
 
-              {!loading && !fetchError && (
-                <>
-                  <CommandEmpty>{t.noUnitFound}</CommandEmpty>
-                  {visibleCategories.map((category) => (
-                    <CommandGroup key={category.category} heading={category.category}>
-                      {category.units.map((unit) => (
-                        <CommandItem
-                          key={unit.value}
-                          value={`${category.category} ${unit.label} ${unit.value}`}
-                          onSelect={() => handleSelect(unit.value)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              isSelected(unit.value) ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <span className="flex min-w-0 flex-col">
-                            <span>{unit.label}</span>
-                            {unit.description && <span className="text-xs text-muted-foreground">{unit.description}</span>}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))}
-                </>
-              )}
-            </CommandList>
+                {!loading && !fetchError && (
+                  <>
+                    <CommandEmpty>{t.noUnitFound}</CommandEmpty>
+                    {visibleCategories.map((category) => (
+                      <CommandGroup key={category.category} heading={category.category}>
+                        {category.units.map((unit) => (
+                          <CommandItem
+                            key={`${category.category}-${unit.value}`}
+                            value={`${unit.label} ${unit.value}`}
+                            keywords={[
+                              ...(unit.aliases ?? []),
+                              unit.description ?? "",
+                              category.category,
+                            ]}
+                            onSelect={() => handleSelect(unit.value)}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4 shrink-0",
+                                isSelected(unit.value) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="flex min-w-0 flex-col">
+                              <span>{unit.label}</span>
+                              {unit.description && (
+                                <span className="text-xs text-muted-foreground">
+                                  {unit.description}
+                                </span>
+                              )}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </>
+                )}
+              </CommandList>
             </div>
           </Command>
         </PopoverContent>
       </Popover>
       {externalError && <p className="text-sm text-red-500">{externalError}</p>}
-      {!externalError && helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+      {!externalError && helperText && (
+        <p className="text-xs text-muted-foreground">{helperText}</p>
+      )}
     </div>
   );
 }

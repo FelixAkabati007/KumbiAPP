@@ -71,7 +71,7 @@ export interface SalesData {
   customerName?: string;
   customerRefused?: boolean;
   paymentMethod: string;
-  source?: "hotel" | "restaurant" | "event" | "shared_event" | "shared";
+  source?: "hotel" | "restaurant" | "event" | "gym" | "shared_event" | "shared";
   performedBy?: { id?: string; name?: string | null; email?: string; role?: string };
   type?: "sale" | "refund";
   skipFinancialLedger?: boolean;

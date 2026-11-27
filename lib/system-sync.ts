@@ -6,25 +6,48 @@ export interface SystemState {
   version: string;
 }
 
+let systemStateTableEnsured = false;
+
+async function ensureSystemStateTable(): Promise<void> {
+  if (systemStateTableEnsured) return;
+  try {
+    await query(
+      `CREATE TABLE IF NOT EXISTS system_state (
+         key VARCHAR(100) PRIMARY KEY,
+         last_updated TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         version VARCHAR(100) NOT NULL DEFAULT gen_random_uuid()::text
+       )`
+    );
+    systemStateTableEnsured = true;
+  } catch {
+    // Non-fatal if running against mocked/read-only DB
+  }
+}
+
 /**
  * Updates the synchronization state for a given key.
  * Triggers a version change which clients can detect.
+ * Uses PostgreSQL native gen_random_uuid()::text so uuid-ossp is never required.
  */
 export async function updateSystemState(key: string): Promise<void> {
   try {
-    // Ensure the key exists first (though we seeded them, safe to upsert)
+    await ensureSystemStateTable();
+
     await query(
       `INSERT INTO system_state (key, last_updated, version)
-       VALUES ($1, NOW(), uuid_generate_v4())
-       ON CONFLICT (key) 
-       DO UPDATE SET last_updated = NOW(), version = uuid_generate_v4()`,
+       VALUES ($1::varchar, NOW(), gen_random_uuid()::text)
+       ON CONFLICT (key)
+       DO UPDATE SET last_updated = NOW(), version = gen_random_uuid()::text`,
       [key]
     );
 
     // Always update 'global' key when any specific key updates
     if (key !== "global") {
       await query(
-        `UPDATE system_state SET last_updated = NOW(), version = uuid_generate_v4() WHERE key = 'global'`
+        `INSERT INTO system_state (key, last_updated, version)
+         VALUES ('global', NOW(), gen_random_uuid()::text)
+         ON CONFLICT (key)
+         DO UPDATE SET last_updated = NOW(), version = gen_random_uuid()::text`
       );
     }
   } catch (error) {
@@ -37,10 +60,10 @@ export async function updateSystemState(key: string): Promise<void> {
  */
 export async function getSystemState(): Promise<Record<string, string>> {
   try {
+    await ensureSystemStateTable();
     const result = await query<SystemState>(
-      "SELECT key, version FROM system_state"
+      "SELECT key, version::text AS version FROM system_state"
     );
-    // console.log(`getSystemState: Found ${result.rowCount} rows.`, result.rows);
     const state: Record<string, string> = {};
     result.rows.forEach((row) => {
       state[row.key] = row.version;

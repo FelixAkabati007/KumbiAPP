@@ -128,6 +128,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
+    if ((status === "ready" || status === "completed") && session.role !== "admin") {
+      const { recordWorkforcePerformanceEvent } = await import("@/lib/performance-service");
+      await recordWorkforcePerformanceEvent({
+        staffOrUserId: String(session.id),
+        sourceType: "kitchen_order_prepared",
+        sourceId: String(id),
+        points: 1,
+        verifiedBy: session.id,
+        category: "Kitchen Production",
+        reason: `Prepared order #${updatedOrder.ordernumber || id}`,
+      }).catch(() => undefined);
+    }
+
     await publishRealtime("orders.updated", String(id));
     if (inventoryReversed) {
       await publishRealtime("inventory.updated", String(id));

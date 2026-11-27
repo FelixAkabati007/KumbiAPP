@@ -65,7 +65,7 @@ import {
   getInventoryItems,
   createInventoryItem,
   updateInventoryItem,
-  deleteInventoryItem,
+  deleteInventoryItemDetailed,
   exportInventoryData,
 } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
@@ -724,21 +724,37 @@ function InventoryContent() {
   };
 
   const handleDeleteItem = async (id: string) => {
-    if (confirm("Are you sure you want to delete this item?")) {
-      const success = await deleteInventoryItem(id);
-      if (success) {
-        setItems(items.filter((item) => item.id !== id));
-        toast({
-          title: "Item Deleted",
-          description: "Inventory item has been removed",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete item",
-          variant: "destructive",
-        });
-      }
+    if (!confirm("Are you sure you want to delete this item?")) return;
+
+    let result = await deleteInventoryItemDetailed(id);
+
+    if (!result.ok && result.status === 409 && result.code === "LINKED_TO_MENU") {
+      const linkedNames = (result.linkedMenuItems ?? []).map((m) => m.name).join(", ");
+      const confirmUnlink = confirm(
+        `This inventory item is currently linked to menu item(s): ${linkedNames || "active menu items"}.\n\nDo you want to unlink it from those menu items and delete it permanently?`,
+      );
+      if (!confirmUnlink) return;
+      result = await deleteInventoryItemDetailed(id, { force: true });
+    }
+
+    if (result.ok) {
+      setItems((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        setOfflineInventory(next);
+        return next;
+      });
+      toast({
+        title: "Item Deleted",
+        description: result.unlinkedMenuCount
+          ? `Inventory item removed and unlinked from ${result.unlinkedMenuCount} menu item(s).`
+          : "Inventory item has been removed.",
+      });
+    } else {
+      toast({
+        title: "Unable to Delete Item",
+        description: result.error || "Failed to delete item.",
+        variant: "destructive",
+      });
     }
   };
 

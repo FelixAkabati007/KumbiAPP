@@ -6,6 +6,7 @@ export const defaultTaxConfiguration: TaxConfiguration = {
   appliesToPos: true,
   appliesToRooms: true,
   appliesToEvents: true,
+  appliesToGym: true,
   tin: "C0029384756",
   graEVatRate: 0,
   vatRate: 15,
@@ -85,7 +86,7 @@ export async function getTaxConfiguration(): Promise<TaxConfiguration> {
 export function calculateTaxes(
   subtotal: number,
   config: Partial<TaxConfiguration> = defaultTaxConfiguration,
-  module: "pos" | "rooms" | "events" = "pos"
+  module: "pos" | "rooms" | "events" | "gym" = "pos"
 ): TaxCalculationResult {
   const mergedConfig: TaxConfiguration = { ...defaultTaxConfiguration, ...config };
   const applies =
@@ -94,7 +95,9 @@ export function calculateTaxes(
       ? mergedConfig.appliesToPos
       : module === "rooms"
       ? mergedConfig.appliesToRooms
-      : mergedConfig.appliesToEvents);
+      : module === "events"
+      ? mergedConfig.appliesToEvents
+      : mergedConfig.appliesToGym !== false);
 
   const emptyBreakdown: TaxBreakdown = {
     nhil: 0,

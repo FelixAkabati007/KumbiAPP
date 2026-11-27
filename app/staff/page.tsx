@@ -2,13 +2,26 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Award, CalendarDays, Clock3, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LogoDisplay } from "@/components/logo-display";
 import { PropertyClock } from "@/components/property-clock";
+import { NotificationBell } from "@/components/notification-bell";
 import { useRealtime } from "@/components/realtime-provider";
 import { enqueueOfflineAttendance } from "@/lib/offline-storage";
 import { getRoleDisplayName, managementRoles, type UserRole } from "@/lib/roles";
+
+interface PersonalPointsData {
+  totalPoints: number;
+  eventCount: number;
+  events: Array<{
+    id: string;
+    points: string | number;
+    source_type: string;
+    completed_at: string;
+    metadata?: { reason?: string; category?: string } | null;
+  }>;
+}
 
 interface AttendanceRecord {
   check_in_at?: string;
@@ -51,6 +64,7 @@ export default function StaffPage() {
   const { lastEvent } = useRealtime();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
+  const [personalPoints, setPersonalPoints] = useState<PersonalPointsData>({ totalPoints: 0, eventCount: 0, events: [] });
   const [exceptions, setExceptions] = useState<AttendanceException[]>([]);
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
   const [permissionForm, setPermissionForm] = useState({ startDate: "", endDate: "", reason: "", handoverNotes: "" });
@@ -66,10 +80,11 @@ export default function StaffPage() {
   const [featurePermissions, setFeaturePermissions] = useState<FeaturePermissions>({ leave_requests_enabled: true, planned_absence_enabled: true, attendance_exceptions_enabled: true });
 
   const load = useCallback(async () => {
-    const [attendanceResponse, scheduleResponse, featureResponse] = await Promise.all([
+    const [attendanceResponse, scheduleResponse, featureResponse, pointsResponse] = await Promise.all([
       fetch("/api/v2/attendance", { cache: "no-store" }),
       fetch("/api/workforce/schedule", { cache: "no-store" }),
       fetch("/api/attendance/feature-permissions", { cache: "no-store" }),
+      fetch("/api/performance?scope=me", { cache: "no-store" }),
     ]);
     if (attendanceResponse.ok) {
       const attendance = await attendanceResponse.json();
@@ -78,6 +93,14 @@ export default function StaffPage() {
     }
     if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()).schedule ?? null);
     if (featureResponse.ok) setFeaturePermissions((await featureResponse.json()).permissions ?? { leave_requests_enabled: true, planned_absence_enabled: true, attendance_exceptions_enabled: true });
+    if (pointsResponse.ok) {
+      const pts = await pointsResponse.json();
+      setPersonalPoints({
+        totalPoints: Number(pts.summary?.total_points ?? 0),
+        eventCount: Number(pts.summary?.event_count ?? 0),
+        events: Array.isArray(pts.events) ? pts.events.slice(0, 5) : [],
+      });
+    }
     const exceptionResponse = await fetch("/api/attendance/exceptions", { cache: "no-store" });
     if (exceptionResponse.ok) setExceptions((await exceptionResponse.json()).exceptions ?? []);
     const permissionResponse = await fetch("/api/attendance/permissions", { cache: "no-store" });
@@ -94,7 +117,11 @@ export default function StaffPage() {
 
   useEffect(() => {
     if (!lastEvent || !user || managementRoles.includes(user.role as UserRole)) return;
-    if (lastEvent.topic === "attendance.updated" || lastEvent.topic === "staff.updated") {
+    if (
+      lastEvent.topic === "attendance.updated" ||
+      lastEvent.topic === "staff.updated" ||
+      lastEvent.topic === "performance.updated"
+    ) {
       void load();
     }
   }, [lastEvent, user, load]);
@@ -225,6 +252,7 @@ export default function StaffPage() {
         </div>
         <div className="flex items-center gap-2">
           <PropertyClock compact />
+          <NotificationBell />
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
@@ -295,6 +323,46 @@ export default function StaffPage() {
             {nextAction === "complete" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-800">Attendance completed for today</div>}
           </div>
           {message && <p role="status" aria-live="polite" className={`mt-4 rounded-xl border p-3 text-sm font-semibold ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : messageTone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-border bg-muted"}`}>{message}</p>}
+        </section>
+
+        {/* Workforce Performance Points Summary */}
+        <section className="rounded-2xl border border-amber-200 bg-background p-5 shadow-sm sm:p-6 dark:border-amber-800">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-amber-500/15 p-3 text-amber-600 dark:text-amber-400">
+                <Award className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">My Performance Points</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Earned automatically from verified attendance, completed shifts, guest orders, and operational tasks.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-2 text-right dark:border-amber-800 dark:bg-amber-950/40">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Points</p>
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{personalPoints.totalPoints.toLocaleString()}</p>
+            </div>
+          </div>
+          {personalPoints.events.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              {personalPoints.events.map((ev) => (
+                <div key={ev.id} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{ev.metadata?.category || ev.source_type}</p>
+                    <p className="truncate text-xs text-muted-foreground">{ev.metadata?.reason || "Verified operational activity"}</p>
+                  </div>
+                  <span className={`shrink-0 font-semibold ${Number(ev.points) < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                    {Number(ev.points) > 0 ? "+" : ""}{Number(ev.points)} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+              Points appear here automatically as your attendance shifts and completed tasks are recorded.
+            </p>
+          )}
         </section>
         {featurePermissions.planned_absence_enabled && <section className="rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6"><h2 className="text-xl font-semibold">Request planned absence</h2><p className="mt-1 text-sm text-muted-foreground">Submit permission before your absence so it is recorded as excused instead of missing attendance.</p><form onSubmit={submitPermission} className="mt-4 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Start date<input required type="date" value={permissionForm.startDate} onChange={(event) => setPermissionForm((current) => ({ ...current, startDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium">End date<input required type="date" value={permissionForm.endDate} onChange={(event) => setPermissionForm((current) => ({ ...current, endDate: event.target.value }))} className="min-h-11 rounded-xl border border-border bg-background px-3" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Reason<textarea required value={permissionForm.reason} onChange={(event) => setPermissionForm((current) => ({ ...current, reason: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" placeholder="Why do you need permission?" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Handover notes<textarea value={permissionForm.handoverNotes} onChange={(event) => setPermissionForm((current) => ({ ...current, handoverNotes: event.target.value }))} className="min-h-20 rounded-xl border border-border bg-background p-3" placeholder="Optional arrangements with your replacement" /></label><button disabled={busy} type="submit" className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">Send permission request</button></form>{permissionRequests.length > 0 && <div className="mt-5 space-y-2">{permissionRequests.map((item) => <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-3 text-sm"><span className="font-semibold">{item.start_date} to {item.end_date}</span><span className="mx-2 text-muted-foreground">·</span>{item.status}{item.reviewer_message && <p className="mt-1 text-muted-foreground">{item.reviewer_message}</p>}</div>)}</div>}</section>
         }

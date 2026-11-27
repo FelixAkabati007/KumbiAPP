@@ -1,6 +1,6 @@
 import { updateSystemState } from "@/lib/system-sync";
 
-type SyncEntity = "inventory" | "menu" | "orders" | "settings";
+type SyncEntity = "inventory" | "menu" | "orders" | "settings" | "feature_toggles" | "gym";
 
 const encoder = new TextEncoder();
 
@@ -39,6 +39,12 @@ export function broadcastSSEPayload(topic: string, resource: string | null = nul
 
 function mapTopicToSyncEntity(topic: string, resource?: string): SyncEntity {
   const combined = `${topic} ${resource ?? ""}`.toLowerCase();
+  if (combined.includes("feature_toggles") || combined.includes("feature-toggles")) {
+    return "feature_toggles";
+  }
+  if (combined.includes("gym")) {
+    return "gym";
+  }
   if (combined.includes("inventory") || combined.includes("variance") || combined.includes("stock")) {
     return "inventory";
   }

@@ -42,7 +42,7 @@ export async function recordFinancialLedgerEntry(
   metadata.clockSource = "kumbi-property-authoritative-clock";
   metadata.timeZone = "Africa/Accra";
   const classificationSource = [entry.source, metadata.source, metadata.department, metadata.businessUnit]
-    .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:)/i.test(value))
+    .find((value): value is string => typeof value === "string" && /^(f0-|fo-|vip-authorization|event-payment:|gym[-_:])/i.test(value))
     ?? entry.source;
   const sourceClassification = financeClassificationMetadata(classificationSource, typeof metadata.department === "string" ? metadata.department : null);
   if (sourceClassification.classificationRule) {
@@ -84,7 +84,7 @@ export async function recordFinancialLedgerEntry(
 
 export async function recordPaymentLedgerEntry(
   entry: Omit<FinancialLedgerEntry, "direction" | "status" | "journalType"> & {
-    source: "pos" | "hotel_check_in" | "hotel_folio" | "event";
+    source: "pos" | "hotel_check_in" | "hotel_folio" | "event" | "gym";
     paymentMethod: NonNullable<FinancialLedgerEntry["paymentMethod"]>;
     status?: string;
   },
@@ -120,7 +120,7 @@ export async function getPostedEntityCredits(
     `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END), 0)::numeric AS credits
      FROM canonical_financial_ledger
      WHERE entity_type = $1 AND entity_id = $2 AND status = 'posted'
-       AND source IN ('event_payment', 'event_payment_reversal')`,
+       AND source IN ('event_payment', 'event_payment_reversal', 'gym_payment', 'gym_payment_reversal', 'gym_refund')`,
     [entityType, entityId],
   );
   return Number(result.rows[0]?.credits ?? 0);

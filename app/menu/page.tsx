@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -325,6 +325,8 @@ function MenuContent() {
     }
   }, [toast]);
 
+  const savingLockRef = useRef(false);
+
   const handleSaveItem = useCallback(
     async (options?: { openRecipeTab?: boolean }) => {
       console.debug("💾 [MenuPage] Saving item", {
@@ -333,11 +335,12 @@ function MenuContent() {
         itemName: editingItem.name || null,
       });
 
-      if (isSaving) {
+      if (isSaving || savingLockRef.current) {
         console.debug("⏳ [MenuPage] Save already in progress, ignoring");
         return;
       }
 
+      savingLockRef.current = true;
       try {
         if (!validateForm()) {
           console.error("❌ [MenuPage] Form validation failed");
@@ -350,9 +353,17 @@ function MenuContent() {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { id, ...itemData } = editingItem;
           console.debug("🆕 [MenuPage] Creating new item");
-          const savedItem = await createMenuItem(itemData);
+          const savedItem = await createMenuItem(itemData, {
+            idempotencyKey: crypto.randomUUID(),
+          });
           if (savedItem) {
-            setItems((prevItems) => [...prevItems, savedItem]);
+            setItems((prevItems) =>
+              prevItems.some((existing) => existing.id === savedItem.id)
+                ? prevItems.map((existing) =>
+                    existing.id === savedItem.id ? savedItem : existing
+                  )
+                : [savedItem, ...prevItems]
+            );
             console.debug("✅ [MenuPage] New item added", savedItem.id);
 
             if (options?.openRecipeTab) {
@@ -396,6 +407,7 @@ function MenuContent() {
           variant: "destructive",
         });
       } finally {
+        savingLockRef.current = false;
         setIsSaving(false);
       }
     },

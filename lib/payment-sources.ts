@@ -1,9 +1,10 @@
-export type PaymentSource = "hotel" | "restaurant" | "event" | "shared_event" | "shared"
+export type PaymentSource = "hotel" | "restaurant" | "event" | "gym" | "shared_event" | "shared"
 
 export const PAYMENT_SOURCE_LABELS: Record<PaymentSource, string> = {
   hotel: "Hotel Activity",
   restaurant: "Restaurant Sales",
   event: "Event",
+  gym: "Gym & Fitness",
   shared_event: "Shared Event",
   shared: "Shared Operations",
 }
@@ -113,6 +114,29 @@ export function normalizePaymentSource(input: {
     ["event", "event_booking", "event_payment"].includes(entityType)
   ) {
     return "event"
+  }
+
+  // Check gym & fitness indicators
+  const gymMatches = [
+    "gym",
+    "fitness",
+    "wellness",
+    "gym_booking",
+    "gym_membership",
+    "gym_payment",
+    "gym_refund",
+    "gym_and_fitness",
+  ]
+  if (
+    gymMatches.includes(source) ||
+    gymMatches.includes(metaSource) ||
+    gymMatches.includes(dept) ||
+    gymMatches.includes(bUnit) ||
+    source.startsWith("gym_") ||
+    metaSource.startsWith("gym_") ||
+    ["gym", "gym_booking", "gym_membership", "gym_payment"].includes(entityType)
+  ) {
+    return "gym"
   }
 
   return "shared"

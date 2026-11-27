@@ -606,9 +606,8 @@ export async function resolveWorkforceSchedulesForActiveStaff(
     if (!userId || seenUserIds.has(userId)) continue;
 
     const role = (row.user_role as UserRole) || "staff";
-    if (row.user_role && !isWorkforceRole(role)) continue;
+    if (role === "admin") continue;
 
-    seenUserIds.add(userId);
     const rawClassification = row.job_classification || row.position || role;
     const canonicalClassification = normalizeScheduleClassification(rawClassification);
     const department =
@@ -627,6 +626,13 @@ export async function resolveWorkforceSchedulesForActiveStaff(
             lookupError,
           );
 
+    // Operational workforce roles always receive reminders; management roles receive reminders
+    // only when Admin explicitly configured a Staff Time Schedule rule or daily assignment for them.
+    if (row.user_role && !isWorkforceRole(role) && schedule.source === "fallback") {
+      continue;
+    }
+
+    seenUserIds.add(userId);
     entries.push({
       userId,
       staffId: row.staff_id,
@@ -666,22 +672,43 @@ export function getPropertySecondsOfDay(referenceTimestamp?: string | Date, time
 }
 
 /**
- * Returns true if `nowSecondsOfDay` falls within `[trigger, trigger + windowSeconds]`
- * where `trigger = start_time - reminder_minutes` (wrapping cleanly across midnight).
+ * Returns true if `nowSecondsOfDay` falls within the active pre-shift reminder window
+ * `[start_time - reminder_minutes, start_time)` (or explicit `windowSeconds`), wrapping cleanly across midnight.
  */
 export function isWithinShiftReminderWindow(
   nowSecondsOfDay: number,
   startTimeHHMM: string,
   reminderMinutes: number,
-  windowSeconds = 120,
+  windowSeconds?: number,
 ): boolean {
   const startSec = parseTimeToSeconds(startTimeHHMM);
   if (startSec === null) return false;
   const DAY = 86400;
   const reminderSec = Math.max(0, Math.round(reminderMinutes * 60));
+  const effectiveWindow =
+    typeof windowSeconds === "number"
+      ? windowSeconds
+      : Math.max(120, reminderSec > 0 ? reminderSec - 1 : 120);
   const triggerSec = (((startSec - reminderSec) % DAY) + DAY) % DAY;
   const elapsed = (((nowSecondsOfDay - triggerSec) % DAY) + DAY) % DAY;
-  return elapsed >= 0 && elapsed <= windowSeconds;
+  return elapsed >= 0 && elapsed <= effectiveWindow;
+}
+
+function getEffectiveReminderMinutesRemaining(
+  nowSecondsOfDay: number,
+  startTimeHHMM: string,
+  reminderMinutes: number,
+): number {
+  const startSec = parseTimeToSeconds(startTimeHHMM);
+  if (startSec === null) return reminderMinutes;
+  const DAY = 86400;
+  const reminderSec = Math.max(0, Math.round(reminderMinutes * 60));
+  const triggerSec = (((startSec - reminderSec) % DAY) + DAY) % DAY;
+  const elapsed = (((nowSecondsOfDay - triggerSec) % DAY) + DAY) % DAY;
+  if (elapsed <= 90) {
+    return reminderMinutes;
+  }
+  return Math.max(1, Math.round((reminderSec - elapsed) / 60));
 }
 
 export function formatScheduleTime12h(hhmm: string): string {
@@ -692,6 +719,25 @@ export function formatScheduleTime12h(hhmm: string): string {
   const suffix = h24 >= 12 ? "PM" : "AM";
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${String(h12).padStart(2, "0")}:${mins} ${suffix}`;
+}
+
+let lastGlobalReminderSweepMs = 0;
+
+/**
+ * Throttled background sweep safe to call from high-frequency endpoints (e.g. GET /api/notifications).
+ * Evaluates due 20-minute shift reminders for all workforce roles at most once every 25 seconds.
+ */
+export async function maybeDispatchDueWorkforceReminders(
+  referenceTimestamp?: string | Date,
+): Promise<void> {
+  const nowMs = Date.now();
+  if (nowMs - lastGlobalReminderSweepMs < 25_000) {
+    return;
+  }
+  lastGlobalReminderSweepMs = nowMs;
+  await dispatchWorkforceShiftReminders({ referenceTimestamp }).catch((err) => {
+    console.warn("[workforce-schedule] Background shift reminder sweep warning:", err);
+  });
 }
 
 /**
@@ -705,13 +751,14 @@ export async function dispatchWorkforceShiftReminders(options?: {
   executor?: WorkforceQueryExecutor;
 }): Promise<{ created: number; evaluated: number }> {
   const executor = options?.executor ?? (query as unknown as WorkforceQueryExecutor);
+  const isDefaultExecutor = executor === (query as unknown as WorkforceQueryExecutor);
   const tsIso = options?.referenceTimestamp
     ? typeof options.referenceTimestamp === "string"
       ? options.referenceTimestamp
       : options.referenceTimestamp.toISOString()
     : new Date().toISOString();
 
-  await executor(
+  const schemaStatements = [
     `CREATE TABLE IF NOT EXISTS notifications (
        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
        recipient_user_id VARCHAR(255),
@@ -720,9 +767,46 @@ export async function dispatchWorkforceShiftReminders(options?: {
        type VARCHAR(100) NOT NULL DEFAULT 'info',
        metadata JSONB DEFAULT '{}'::jsonb,
        read BOOLEAN NOT NULL DEFAULT false,
+       read_at TIMESTAMP WITH TIME ZONE,
+       opened_at TIMESTAMP WITH TIME ZONE,
+       expires_at TIMESTAMP WITH TIME ZONE,
+       archived_at TIMESTAMP WITH TIME ZONE,
+       archived_reason VARCHAR(255),
        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
      )`,
-  ).catch(() => undefined);
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_reason VARCHAR(255)`,
+    `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_recipient_user_id_fkey`,
+  ];
+  for (const stmt of schemaStatements) {
+    await executor(stmt).catch(() => undefined);
+  }
+
+  // On live Neon DB, ensure canonical default workforce role accounts exist in `users`
+  // so Web Push / background sweeps can deliver reminders even before manual staff creation.
+  if (isDefaultExecutor && !options?.staffOrUserId) {
+    try {
+      const { DEFAULT_ROLE_ACCOUNTS } = await import("@/lib/default-accounts");
+      for (const acct of DEFAULT_ROLE_ACCOUNTS) {
+        if (!isWorkforceRole(acct.role)) continue;
+        await executor(
+          `INSERT INTO users (id, email, name, role, password_hash, is_active)
+           SELECT $1::uuid, $2::varchar, $3::varchar, $4, 'managed', true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM users WHERE id = $1::uuid OR LOWER(email) = LOWER($5::text)
+           )`,
+          [acct.id, acct.email, acct.name, acct.role, acct.email],
+        ).catch(() => undefined);
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
 
   let targets: ResolvedStaffScheduleEntry[] = [];
   if (options?.staffOrUserId) {
@@ -739,24 +823,51 @@ export async function dispatchWorkforceShiftReminders(options?: {
     const p = profileRes.rows[0];
     const resolvedUserId = p?.user_id || options.staffOrUserId;
     const role = p?.user_role || options.fallbackRole || "staff";
-    if (resolvedUserId && isWorkforceRole(role)) {
+    if (resolvedUserId && role !== "admin") {
       const schedule = await resolveWorkforceSchedule(resolvedUserId, tsIso, executor, role);
-      targets = [{ userId: resolvedUserId, staffId: p?.staff_id, role, schedule }];
+      if (isWorkforceRole(role) || schedule.source !== "fallback") {
+        targets = [{ userId: resolvedUserId, staffId: p?.staff_id, role, schedule }];
+      }
     }
   } else {
     targets = await resolveWorkforceSchedulesForActiveStaff(tsIso, executor);
   }
 
+  // Exclude staff who have already checked in on this Africa/Accra operational day
+  const checkedInIds = new Set<string>();
+  if (targets.length > 0) {
+    const attRes = await executor(
+      `SELECT ar.user_id::text AS user_id, ar.staff_id::text AS staff_id
+       FROM attendance_records ar
+       WHERE ar.check_in_at IS NOT NULL
+         AND ${propertyDayExpression("COALESCE(ar.check_in_at, ar.created_at)")} = ${propertyDayExpression("$1::timestamptz")}`,
+      [tsIso],
+    ).catch(() => ({ rows: [] as WorkforceDbRow[] }));
+    for (const r of attRes.rows) {
+      if (r.user_id) checkedInIds.add(String(r.user_id));
+      if (r.staff_id) checkedInIds.add(String(r.staff_id));
+    }
+  }
+
   const nowSeconds = getPropertySecondsOfDay(tsIso);
   let created = 0;
+  const notifiedDeliveries: Array<{ userId: string; id: string; message: string }> = [];
 
   for (const target of targets) {
-    const { schedule, userId } = target;
+    const { schedule, userId, staffId } = target;
+    if (checkedInIds.has(userId) || (staffId && checkedInIds.has(staffId))) {
+      continue;
+    }
     if (!isWithinShiftReminderWindow(nowSeconds, schedule.start_time, schedule.reminder_minutes)) {
       continue;
     }
 
-    const message = `${schedule.schedule_name} starts in ${schedule.reminder_minutes} minutes. Reporting time is ${formatScheduleTime12h(schedule.start_time)}.`;
+    const minsRemaining = getEffectiveReminderMinutesRemaining(
+      nowSeconds,
+      schedule.start_time,
+      schedule.reminder_minutes,
+    );
+    const message = `${schedule.schedule_name} starts in ${minsRemaining} minutes. Reporting time is ${formatScheduleTime12h(schedule.start_time)}.`;
     const ins = await executor(
       `INSERT INTO notifications (recipient_user_id, title, message, type, created_at)
        SELECT $1, 'Shift reminder', $2::text, 'shift_reminder', $4::timestamptz
@@ -766,17 +877,36 @@ export async function dispatchWorkforceShiftReminders(options?: {
            AND n.type = 'shift_reminder'
            AND ${propertyDayExpression("n.created_at")} = ${propertyDayExpression("$4::timestamptz")}
        )
-       RETURNING id`,
+       RETURNING id::text AS id`,
       [userId, message, userId, tsIso],
     );
     if ((ins.rowCount ?? ins.rows.length) > 0) {
       created += 1;
+      const insId = ins.rows[0]?.id ? String(ins.rows[0].id) : undefined;
+      if (insId) {
+        notifiedDeliveries.push({ userId, id: insId, message });
+      }
     }
   }
 
-  if (created > 0 && executor === (query as unknown as WorkforceQueryExecutor)) {
-    const { publishRealtime } = await import("@/lib/realtime");
-    await publishRealtime("notifications.updated", "shift_reminder").catch(() => undefined);
+  if (created > 0 && isDefaultExecutor) {
+    try {
+      const { dispatchNotificationsRealtimeAndPush } = await import("@/lib/server-notifications");
+      for (const item of notifiedDeliveries) {
+        await dispatchNotificationsRealtimeAndPush({
+          recipientUserIds: [item.userId],
+          notificationId: item.id,
+          title: "Shift reminder",
+          message: item.message,
+          type: "shift_reminder",
+          url: "/staff",
+          tag: `shift-reminder-${item.id}`,
+        }).catch(() => undefined);
+      }
+    } catch {
+      const { publishRealtime } = await import("@/lib/realtime");
+      await publishRealtime("notifications.updated", "shift_reminder").catch(() => undefined);
+    }
   }
 
   return { created, evaluated: targets.length };

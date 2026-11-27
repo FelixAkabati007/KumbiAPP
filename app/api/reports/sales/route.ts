@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       filters.push(`created_at < ($${params.length + 1}::date + INTERVAL '1 day')`);
       params.push(endDate);
     }
-    if (source && ["hotel", "restaurant", "event"].includes(source)) {
+    if (source && ["hotel", "restaurant", "event", "gym"].includes(source)) {
       filters.push(`source = $${params.length + 1}`);
       params.push(source);
     }
@@ -41,7 +41,10 @@ export async function GET(request: Request) {
     const result = await query(
       `WITH raw_sales AS (
         SELECT id::text AS source_id, transaction_id::text AS order_number, amount, status,
-          LOWER(COALESCE(metadata->>'source', CASE WHEN metadata->>'orderType' IS NOT NULL THEN 'restaurant' ELSE 'restaurant' END)) AS source,
+          CASE
+            WHEN LOWER(COALESCE(metadata->>'department', metadata->>'source', '')) LIKE 'gym%' THEN 'gym'
+            ELSE LOWER(COALESCE(metadata->>'source', CASE WHEN metadata->>'orderType' IS NOT NULL THEN 'restaurant' ELSE 'restaurant' END))
+          END AS source,
           LOWER(COALESCE(payment_method, 'unknown')) AS payment_method,
           COALESCE(metadata->>'customerName', metadata->>'guestName', customer_id::text) AS customer_name,
           items, created_at, 3 AS precedence
@@ -55,9 +58,17 @@ export async function GET(request: Request) {
         FROM hotel_activity_ledger WHERE COALESCE(amount, 0) <> 0
         UNION ALL
         SELECT id::text,
-          CASE WHEN entity_type = 'event' THEN 'EVENT-' || UPPER(LEFT(entity_id::text, 8)) ELSE event_key END,
+          CASE
+            WHEN entity_type = 'event' THEN 'EVENT-' || UPPER(LEFT(entity_id::text, 8))
+            WHEN entity_type IN ('gym_booking', 'gym_membership', 'gym_payment') THEN COALESCE(metadata->>'orderNumber', event_key)
+            ELSE event_key
+          END,
           amount, status,
-          CASE WHEN entity_type = 'event' THEN 'event' ELSE LOWER(COALESCE(source, 'restaurant')) END,
+          CASE
+            WHEN entity_type = 'event' THEN 'event'
+            WHEN entity_type IN ('gym_booking', 'gym_membership', 'gym_payment') OR LOWER(COALESCE(source, '')) LIKE 'gym%' THEN 'gym'
+            ELSE LOWER(COALESCE(source, 'restaurant'))
+          END,
           LOWER(COALESCE(payment_method, 'unknown')), metadata->>'customerName', NULL, occurred_at, 4
         FROM canonical_financial_ledger WHERE COALESCE(amount, 0) <> 0
         UNION ALL

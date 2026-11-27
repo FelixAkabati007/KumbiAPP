@@ -56,6 +56,11 @@ export async function PATCH(
       sql += `, priority = $${values.length}`;
     }
 
+    if (status === "completed" && assignedTo === undefined && /^[0-9a-f-]{36}$/i.test(auth.session.id)) {
+      values.push(auth.session.id);
+      sql += `, assigned_to = COALESCE(assigned_to, $${values.length}::uuid)`;
+    }
+
     values.push(id);
     sql += ` WHERE id = $${values.length} RETURNING *`;
 
@@ -69,6 +74,21 @@ export async function PATCH(
     }
 
     const task = result.rows[0];
+    if (status === "completed") {
+      const creditActor = task.assigned_to || auth.session.id;
+      if (creditActor) {
+        const { recordWorkforcePerformanceEvent } = await import("@/lib/performance-service");
+        await recordWorkforcePerformanceEvent({
+          staffOrUserId: String(creditActor),
+          sourceType: "housekeeping_task_completed",
+          sourceId: String(task.id),
+          points: 2,
+          verifiedBy: auth.session.id,
+          category: "Housekeeping",
+          reason: `Completed room housekeeping task (${task.task_type || "cleaning"})`,
+        }).catch(() => undefined);
+      }
+    }
     if (status === "completed" && task.task_type === "cleaning" && task.room_id) {
       await query(
         `UPDATE rooms

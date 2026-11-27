@@ -287,10 +287,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Attendance record is already resolved" }, { status: 409 });
     }
     const updatedRow = result.rows[0];
-    if (body.status === "verified") {
+    if (body.status === "verified" || body.status === "late") {
+      const awardedPoints = body.status === "late" ? 0.5 : 1;
+      const reasonText =
+        body.status === "late"
+          ? "Verified shift attendance (late arrival)"
+          : "Verified on-time shift attendance";
       await query(
-        `INSERT INTO performance_events (staff_id, source_type, source_id, points, verification_status, verified_by, metadata)
-         SELECT $1::uuid, 'attendance_verified', $2, 1, 'verified', $3::uuid, $4::jsonb
+        `INSERT INTO performance_events (staff_id, source_type, source_id, points, completed_at, verification_status, verified_by, metadata)
+         SELECT $1::uuid, 'attendance_verified', $2, $6::numeric, now(), 'verified', $3::uuid, $4::jsonb
          WHERE NOT EXISTS (
            SELECT 1 FROM performance_events
            WHERE source_id::text = $5::text
@@ -300,8 +305,9 @@ export async function PATCH(request: Request) {
           updatedRow.staff_id,
           body.id,
           verifiedBy,
-          JSON.stringify({ source: "attendance_approval" }),
+          JSON.stringify({ source: "attendance_approval", category: "Attendance", reason: reasonText }),
           String(body.id),
+          awardedPoints,
         ],
       ).catch((err) => console.warn("[attendance] performance_events insert skipped:", err));
     }

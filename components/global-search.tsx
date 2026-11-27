@@ -23,6 +23,7 @@ const destinations: Array<{ section: AppSection; label: string; description: str
   { section: "maintenance", label: "Maintenance", description: "Resolve maintenance issues", href: "/maintenance" },
   { section: "operations", label: "Operations", description: "Coordinate operational work", href: "/operations" },
   { section: "events", label: "Event Organization", description: "Plan and coordinate events", href: "/events" },
+  { section: "gym", label: "Gym & Fitness", description: "Book gym sessions, memberships, and settlements", href: "/gym" },
   { section: "system", label: "System Controls", description: "Manage application settings", href: "/system" },
 ];
 

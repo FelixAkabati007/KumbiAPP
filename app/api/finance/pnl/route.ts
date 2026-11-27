@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 import { requireFinanceAccess } from "@/lib/api-auth";
 import { financeDepartmentSql } from "@/lib/finance-classification";
 
-type Department = "hotel" | "restaurant" | "event" | "shared_event" | "shared";
+type Department = "hotel" | "restaurant" | "event" | "gym" | "shared_event" | "shared";
 
 const departmentSql = financeDepartmentSql;
 
@@ -18,22 +18,26 @@ export async function GET(request: Request) {
   const filters: string[] = ["LOWER(status) IN ('posted','completed','paid','succeeded','refunded','reversed','cancelled')"];
   if (startDate) { filters.push(`occurred_at >= $${params.length + 1}`); params.push(startDate); }
   if (endDate) { filters.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
-  if (requestedDepartment && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(requestedDepartment)) { filters.push(`${departmentSql} = $${params.length + 1}`); params.push(requestedDepartment); }
+  if (requestedDepartment && ["hotel", "restaurant", "event", "gym", "shared_event", "shared"].includes(requestedDepartment)) { filters.push(`${departmentSql} = $${params.length + 1}`); params.push(requestedDepartment); }
   try {
     await query(`UPDATE canonical_financial_ledger
       SET metadata = CASE
         WHEN LOWER(COALESCE(event_key, '')) LIKE 'f0-%' OR LOWER(COALESCE(event_key, '')) LIKE 'fo-%' OR LOWER(COALESCE(source, '')) LIKE 'f0-%' OR LOWER(COALESCE(source, '')) LIKE 'fo-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'fo-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'fo-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'f0-%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'fo-%' THEN metadata || jsonb_build_object('department','Shared','businessUnit','Corporate','classificationRule','f0-corporate','classificationResolvedAt',now())
         WHEN LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(source, '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'vip-authorization%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'vip-authorization%' THEN metadata || jsonb_build_object('department','Shared Event','businessUnit','Shared Event','classificationRule','vip-authorization-shared-event','classificationResolvedAt',now())
         WHEN LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(source, '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'source', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'department', '')) LIKE 'event-payment:%' OR LOWER(COALESCE(metadata->>'businessUnit', '')) LIKE 'event-payment:%' THEN metadata || jsonb_build_object('department','Event Organization','businessUnit','Event Organization','classificationRule','event-payment-event-organization','classificationResolvedAt',now())
+        WHEN LOWER(COALESCE(event_key, '')) LIKE 'gym-%' OR LOWER(COALESCE(event_key, '')) LIKE 'gym:%' OR LOWER(COALESCE(source, '')) LIKE 'gym%' THEN metadata || jsonb_build_object('department','Gym & Fitness','businessUnit','Gym & Fitness','classificationRule','gym-operations','classificationResolvedAt',now())
         ELSE metadata
       END,
       payment_method = CASE WHEN COALESCE((metadata->>'complimentary')::boolean, false) THEN 'complimentary-waived' ELSE payment_method END
       WHERE LOWER(COALESCE(event_key, '')) LIKE 'f0-%'
          OR LOWER(COALESCE(event_key, '')) LIKE 'vip-authorization%'
          OR LOWER(COALESCE(event_key, '')) LIKE 'event-payment:%'
+         OR LOWER(COALESCE(event_key, '')) LIKE 'gym-%'
+         OR LOWER(COALESCE(event_key, '')) LIKE 'gym:%'
          OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'f0-%'
          OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'vip-authorization%'
-         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%'`, []);
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'event-payment:%'
+         OR LOWER(COALESCE(metadata->>'source', source, '')) LIKE 'gym%'`, []);
     await query(`
       INSERT INTO canonical_financial_ledger
         (event_key, amount, currency, direction, status, source, payment_method, entity_type, entity_id, journal_type, metadata, occurred_at)
@@ -42,6 +46,7 @@ export async function GET(request: Request) {
         CASE
           WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('hotel','room','accommodation') THEN 'hotel-payment'
           WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion') THEN 'pos-order-completion'
+          WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('gym','fitness','wellness','gym_payment','gym-payment') THEN 'gym_payment'
           WHEN LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event-payment:%' THEN 'event-payment'
           ELSE COALESCE(t.metadata->>'source', 'legacy-transaction')
         END,
@@ -83,10 +88,10 @@ export async function GET(request: Request) {
         ROUND(revenue - expense, 2) profit,
         CASE WHEN revenue = 0 THEN 0 ELSE ROUND(((revenue - expense) / revenue) * 100, 2) END margin
       FROM grouped
-      ORDER BY CASE department WHEN 'hotel' THEN 1 WHEN 'restaurant' THEN 2 WHEN 'event' THEN 3 WHEN 'shared_event' THEN 4 ELSE 5 END`,
+      ORDER BY CASE department WHEN 'hotel' THEN 1 WHEN 'restaurant' THEN 2 WHEN 'event' THEN 3 WHEN 'gym' THEN 4 WHEN 'shared_event' THEN 5 ELSE 6 END`,
       params,
     );
-    const departments: Department[] = ["hotel", "restaurant", "event", "shared_event", "shared"];
+    const departments: Department[] = ["hotel", "restaurant", "event", "gym", "shared_event", "shared"];
     const rows = result.rows.map((row) => ({ department: row.department as Department, revenue: Number(row.revenue || 0), refundAmount: Number(row.refund_amount || 0), grossRevenue: Number(row.gross_revenue || 0), expense: Number(row.expense || 0), profit: Number(row.profit || 0), margin: Number(row.margin || 0) }));
     const byDepartment = departments.map((department) => rows.find((row) => row.department === department) ?? { department, revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0, margin: 0 });
     const totals = byDepartment.reduce((summary, row) => ({ revenue: summary.revenue + row.revenue, refundAmount: summary.refundAmount + row.refundAmount, grossRevenue: summary.grossRevenue + row.grossRevenue, expense: summary.expense + row.expense, profit: summary.profit + row.profit }), { revenue: 0, refundAmount: 0, grossRevenue: 0, expense: 0, profit: 0 });

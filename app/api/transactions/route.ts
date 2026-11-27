@@ -17,6 +17,7 @@ export async function GET(request: Request) {
           CASE
             WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('hotel','room','accommodation','hotel-checkout','hotel_checkout','hotel-pre-check-in','hotel-pre-checkin','hotel_folio','hotel-folio','guest-folio','guest_folio') THEN 'hotel-payment'
             WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('restaurant','pos','food_beverage','food_and_beverage','pos-order-completion','pos_order_completion','restaurant-order','restaurant_order') THEN 'pos-order-completion'
+            WHEN LOWER(COALESCE(t.metadata->>'department', t.metadata->>'businessUnit', t.metadata->>'source', '')) IN ('gym','fitness','wellness','gym_payment','gym-payment','gym_booking','gym_membership') THEN 'gym_payment'
             WHEN LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event-payment%' OR LOWER(COALESCE(t.metadata->>'source', '')) LIKE 'event_payment%' OR LOWER(COALESCE(t.metadata->>'source', '')) = 'event' THEN 'event-payment'
             ELSE COALESCE(t.metadata->>'source', 'legacy-transaction')
           END,
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
     if (startDate) { conditions.push(`occurred_at >= $${params.length + 1}`); params.push(startDate); }
     if (endDate) { conditions.push(`occurred_at < ($${params.length + 1}::date + INTERVAL '1 day')`); params.push(endDate); }
     if (status) { conditions.push(`status = $${params.length + 1}`); params.push(status); }
-    if (source && ["hotel", "restaurant", "event", "shared_event", "shared"].includes(source)) { conditions.push(`(${financeDepartmentSql}) = $${params.length + 1}`); params.push(source); }
+    if (source && ["hotel", "restaurant", "event", "gym", "shared_event", "shared"].includes(source)) { conditions.push(`(${financeDepartmentSql}) = $${params.length + 1}`); params.push(source); }
     if (orderId) { conditions.push(`(entity_id = $${params.length + 1} OR metadata->>'orderId' = $${params.length + 1})`); params.push(orderId); }
     if (orderNumber) { conditions.push(`(event_key = $${params.length + 1} OR metadata->>'orderNumber' = $${params.length + 1})`); params.push(orderNumber); }
     if (menuItem) { conditions.push(`EXISTS (SELECT 1 FROM discount_applications da_filter WHERE da_filter.order_id::text = l.entity_id::text AND da_filter.item_name ILIKE $${params.length + 1})`); params.push(`%${menuItem}%`); }

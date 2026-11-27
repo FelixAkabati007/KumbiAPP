@@ -94,8 +94,13 @@ function ReceiptContent() {
     orderType: "dine-in",
   });
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
-  const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel" | "event">(
-    user?.role === "frontDesk" ? "hotel" : "restaurant",
+  const initialUrlSource = searchParams.get("source");
+  const [receiptSource, setReceiptSource] = useState<"restaurant" | "hotel" | "event" | "gym">(
+    user?.role === "frontDesk"
+      ? "hotel"
+      : initialUrlSource === "gym" || initialUrlSource === "event" || initialUrlSource === "hotel"
+        ? initialUrlSource
+        : "restaurant",
   );
   const [foundSale, setFoundSale] = useState<SalesData | null>(null);
   const [searchTouched, setSearchTouched] = useState(false);
@@ -171,7 +176,8 @@ function ReceiptContent() {
       lastEvent.topic === "pos.updated" ||
       lastEvent.topic === "finance.updated" ||
       lastEvent.topic === "hotels.updated" ||
-      lastEvent.topic === "events.updated"
+      lastEvent.topic === "events.updated" ||
+      lastEvent.topic === "gym.updated"
     ) {
       void loadRecentReceipts();
     }
@@ -212,7 +218,7 @@ function ReceiptContent() {
   }, [user?.role]);
 
   const executeSearch = useCallback(
-    async (term: string, source: "restaurant" | "hotel" | "event" = receiptSource) => {
+    async (term: string, source: "restaurant" | "hotel" | "event" | "gym" = receiptSource) => {
       setSearchTouched(true);
       const cleanTerm = term.trim();
       if (!cleanTerm) {
@@ -375,7 +381,8 @@ function ReceiptContent() {
       return;
     }
 
-    const currentSource = (foundSale?.source as "restaurant" | "hotel" | "event") || receiptSource;
+    const currentSource =
+      (foundSale?.source as "restaurant" | "hotel" | "event" | "gym") || receiptSource;
     const entityId = String(foundSale?.orderId ?? foundSale?.id ?? foundSale?.orderNumber ?? searchOrderNumber);
     const receipt = canonicalizeReceipt({
       source: currentSource,
@@ -539,7 +546,7 @@ function ReceiptContent() {
                 value={receiptSource}
                 disabled={user?.role === "frontDesk"}
                 onChange={(event) => {
-                  const newSource = event.target.value as "restaurant" | "hotel" | "event";
+                  const newSource = event.target.value as "restaurant" | "hotel" | "event" | "gym";
                   setReceiptSource(newSource);
                   setFoundSale(null);
                 }}
@@ -547,8 +554,9 @@ function ReceiptContent() {
                 aria-label="Receipt source"
               >
                 <option value="restaurant">Restaurant order</option>
-                <option value="hotel">Hotel reservation & Guest folio</option>
+                <option value="hotel">Hotel reservation &amp; Guest folio</option>
                 <option value="event">Event booking</option>
+                <option value="gym">Gym &amp; Fitness</option>
               </select>
               <Input
                 placeholder={
@@ -556,7 +564,9 @@ function ReceiptContent() {
                     ? "Enter reservation #, folio ID, or room #"
                     : receiptSource === "event"
                       ? "Enter event receipt # or event name"
-                      : "Enter order number (e.g. ORD-...)"
+                      : receiptSource === "gym"
+                        ? "Enter GYM-BK-... or GYM-SUB-..."
+                        : "Enter order number (e.g. ORD-...)"
                 }
                 value={searchOrderNumber}
                 onChange={(e) => setSearchOrderNumber(e.target.value)}
