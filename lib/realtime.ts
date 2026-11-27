@@ -51,7 +51,11 @@ function mapTopicToSyncEntity(topic: string, resource?: string): SyncEntity {
   return "settings";
 }
 
-export async function publishRealtime(topic: string, resource: string) {
+export async function publishRealtime(
+  topic: string,
+  resource: string,
+  options?: { skipWebPush?: boolean },
+) {
   try {
     // 1. Immediate in-process SSE broadcast (zero network loopback latency)
     broadcastSSEPayload(topic, resource);
@@ -59,6 +63,12 @@ export async function publishRealtime(topic: string, resource: string) {
     // 2. Bump canonical PostgreSQL sync cursor so cross-instance/polling clients also sync
     const syncEntity = mapTopicToSyncEntity(topic, resource);
     await updateSystemState(syncEntity).catch(() => undefined);
+
+    // 3. When any route publishes notifications.updated directly, fan out Web Push + App Icon Badge counts
+    if (topic === "notifications.updated" && !options?.skipWebPush) {
+      const { pushRecentUnreadNotifications } = await import("@/lib/server-notifications");
+      await pushRecentUnreadNotifications(resource).catch(() => undefined);
+    }
   } catch {
     // Non-fatal in background notification path
   }

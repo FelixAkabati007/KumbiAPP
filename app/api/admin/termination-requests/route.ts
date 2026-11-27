@@ -28,5 +28,7 @@ export async function POST(request: Request) {
     return inserted.rows[0];
   });
   await createAuditLog({ actionType: "termination_requested", actorId: session.id, actorName: session.email, actorRole: session.role, reason, changeDetails: { staffIds, confidential: true } });
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(result?.id ?? "termination_request")).catch(() => undefined);
   return NextResponse.json({ request: result }, { status: 201 });
 }

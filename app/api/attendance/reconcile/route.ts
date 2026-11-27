@@ -129,6 +129,8 @@ export async function POST() {
          WHERE u.role IN ('admin', 'manager', 'operationsManager', 'restaurantManager', 'hotelManager')
            AND u.is_active = true`,
       ).catch(() => undefined);
+      const { publishRealtime } = await import("@/lib/realtime");
+      await publishRealtime("notifications.updated", "attendance_absence").catch(() => undefined);
     }
 
     return NextResponse.json({ created, reconciledDate: yesterdayAccra });

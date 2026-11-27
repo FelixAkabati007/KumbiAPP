@@ -4,17 +4,25 @@ import useSWR from "swr";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
+  BellRing,
   Check,
   CheckCheck,
   Clock,
   ImageIcon,
   Loader2,
+  LogIn,
+  LogOut,
   Package,
   PackagePlus,
   RefreshCw,
+  UserCheck,
   X,
 } from "lucide-react";
-import { playNotificationSound } from "@/lib/notifications";
+import {
+  playNotificationSound,
+  requestDeviceNotificationPermissionAndSubscribe,
+  syncAppIconBadge,
+} from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -73,17 +81,24 @@ const fetcher = (url: string) =>
 
 export function NotificationBell() {
   const { toast } = useToast();
-  const { data, error, isLoading, mutate } = useSWR<{ notifications: NotificationItem[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{
+    notifications: NotificationItem[];
+    unreadCount?: number;
+  }>(
     "/api/notifications",
     fetcher,
     { refreshInterval: 15000, revalidateOnFocus: true, shouldRetryOnError: true },
   );
 
   const notifications = useMemo(() => data?.notifications ?? [], [data?.notifications]);
-  const unreadCount = notifications.filter((item) => !item.read_at).length;
-  const previousUnreadCount = useRef(unreadCount);
+  const unreadCount = useMemo(() => {
+    if (typeof data?.unreadCount === "number") return data.unreadCount;
+    return notifications.filter((item) => !item.read_at).length;
+  }, [data?.unreadCount, notifications]);
 
-  const [filter, setFilter] = useState<"all" | "topup">("all");
+  const previousUnreadCount = useRef(unreadCount);
+  const [filter, setFilter] = useState<"all" | "topup" | "attendance">("all");
+  const [permissionNeeded, setPermissionNeeded] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [evidenceModalUrl, setEvidenceModalUrl] = useState<string | null>(null);
   const [disapproveModalItem, setDisapproveModalItem] = useState<NotificationItem | null>(null);
@@ -91,9 +106,24 @@ export function NotificationBell() {
   const [isSubmittingDisapproval, setIsSubmittingDisapproval] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermissionNeeded(Notification.permission === "default");
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncAppIconBadge(unreadCount);
+  }, [unreadCount]);
+
+  useEffect(() => {
     if (unreadCount > previousUnreadCount.current) {
       const newest = notifications.find((item) => !item.read_at);
-      if (newest?.type === "shift_reminder" || newest?.type === "inventory_topup") {
+      if (
+        newest?.type === "shift_reminder" ||
+        newest?.type === "inventory_topup" ||
+        newest?.type === "attendance_check_in" ||
+        newest?.type === "attendance_check_out"
+      ) {
         playNotificationSound();
       }
     }
@@ -113,9 +143,28 @@ export function NotificationBell() {
     [notifications]
   );
 
+  const attendanceCount = useMemo(
+    () =>
+      notifications.filter(
+        (n) =>
+          n.type.startsWith("attendance_") ||
+          n.type.startsWith("leave_") ||
+          n.type.startsWith("permission_")
+      ).length,
+    [notifications]
+  );
+
   const displayedNotifications = useMemo(() => {
     if (filter === "topup") {
       return notifications.filter((n) => n.type === "inventory_topup");
+    }
+    if (filter === "attendance") {
+      return notifications.filter(
+        (n) =>
+          n.type.startsWith("attendance_") ||
+          n.type.startsWith("leave_") ||
+          n.type.startsWith("permission_")
+      );
     }
     return notifications;
   }, [notifications, filter]);
@@ -176,11 +225,12 @@ export function NotificationBell() {
             size="icon"
             className="relative h-10 w-10 rounded-full"
             aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+            title={`Notifications (${unreadCount} unread)`}
           >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
             {unreadCount > 0 ? (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
-                {unreadCount > 9 ? "9+" : unreadCount}
+                {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             ) : null}
           </Button>
@@ -206,13 +256,39 @@ export function NotificationBell() {
               ) : null}
             </DropdownMenuLabel>
 
+            {/* Optional Device Alert / App Badge Banner */}
+            {permissionNeeded && (
+              <div className="flex items-center justify-between gap-2 border-b bg-primary/10 px-4 py-2 text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
+                  <BellRing className="h-3.5 w-3.5 text-primary" />
+                  Enable device alerts & badge?
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const granted = await requestDeviceNotificationPermissionAndSubscribe();
+                    if (granted) {
+                      setPermissionNeeded(false);
+                      toast({
+                        title: "Device Alerts Enabled",
+                        description: "You will receive real-time notifications and app icon badges on this device.",
+                      });
+                    }
+                  }}
+                  className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+                >
+                  Enable
+                </button>
+              </div>
+            )}
+
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 border-b bg-muted/40 text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 border-b bg-muted/40 text-xs overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setFilter("all")}
                 className={cn(
-                  "rounded-full px-3 py-1 font-medium transition-colors",
+                  "rounded-full px-3 py-1 font-medium transition-colors shrink-0",
                   filter === "all"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted"
@@ -222,9 +298,22 @@ export function NotificationBell() {
               </button>
               <button
                 type="button"
+                onClick={() => setFilter("attendance")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors shrink-0",
+                  filter === "attendance"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                Attendance ({attendanceCount})
+              </button>
+              <button
+                type="button"
                 onClick={() => setFilter("topup")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors shrink-0",
                   filter === "topup"
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-muted-foreground hover:bg-muted"
@@ -257,7 +346,11 @@ export function NotificationBell() {
                 </div>
               ) : displayedNotifications.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
-                  {filter === "topup" ? "No stock top-up notifications found." : "No notifications right now."}
+                  {filter === "topup"
+                    ? "No stock top-up notifications found."
+                    : filter === "attendance"
+                    ? "No attendance notifications found."
+                    : "No notifications right now."}
                 </div>
               ) : (
                 displayedNotifications.map((item, index) => {
@@ -267,6 +360,8 @@ export function NotificationBell() {
                   const previousGroup = previous?.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 
                   const isTopUp = item.type === "inventory_topup";
+                  const isCheckIn = item.type === "attendance_check_in";
+                  const isCheckOut = item.type === "attendance_check_out";
                   const status = item.metadata?.status ?? "pending_review";
                   const hasEvidence = Boolean(item.metadata?.evidencePathname);
 
@@ -285,7 +380,9 @@ export function NotificationBell() {
                         className={cn(
                           "relative p-3.5 transition-colors text-sm hover:bg-muted/40",
                           !item.read_at && "bg-muted/15 font-normal",
-                          isTopUp && "border-l-4 border-l-emerald-500"
+                          isTopUp && "border-l-4 border-l-emerald-500",
+                          isCheckIn && "border-l-4 border-l-emerald-500",
+                          isCheckOut && "border-l-4 border-l-blue-500"
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -293,6 +390,14 @@ export function NotificationBell() {
                             {isTopUp ? (
                               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                                 <Package className="h-3.5 w-3.5" />
+                              </div>
+                            ) : isCheckIn ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                <LogIn className="h-3.5 w-3.5" />
+                              </div>
+                            ) : isCheckOut ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                <LogOut className="h-3.5 w-3.5" />
                               </div>
                             ) : (
                               <span
@@ -308,8 +413,8 @@ export function NotificationBell() {
                             </span>
                           </div>
 
-                          {/* Status Badge for Top-Ups */}
-                          {isTopUp && (
+                          {/* Status Badge for Top-Ups and Attendance */}
+                          {isTopUp ? (
                             <div>
                               {status === "approved" ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -325,7 +430,15 @@ export function NotificationBell() {
                                 </span>
                               )}
                             </div>
-                          )}
+                          ) : isCheckIn ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              <LogIn className="h-3 w-3" /> Check-In
+                            </span>
+                          ) : isCheckOut ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                              <LogOut className="h-3 w-3" /> Check-Out
+                            </span>
+                          ) : null}
                         </div>
 
                         {/* Message */}

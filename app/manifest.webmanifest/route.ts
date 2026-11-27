@@ -17,8 +17,13 @@ export async function GET() {
     background_color: "#ffffff",
     theme_color: "#ffffff",
     icons: [
-      { src: icon, sizes: "64x64", type: "image/png", purpose: "any maskable" },
-      { src: icon, sizes: "32x32", type: "image/png", purpose: "any" },
+      { src: `${icon}?size=512`, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: `${icon}?size=512`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: `${icon}?size=192`, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: `${icon}?size=192`, sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: `${icon}?size=64`, sizes: "64x64", type: "image/png", purpose: "any" },
+      { src: `${icon}?size=32`, sizes: "32x32", type: "image/png", purpose: "any" },
+      { src: "/app-icon.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   }, { headers: { "Cache-Control": "no-store" } });
 }

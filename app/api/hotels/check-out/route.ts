@@ -246,10 +246,10 @@ export async function POST(request: NextRequest) {
         `INSERT INTO notifications (recipient_user_id, title, message, type)
          SELECT u.id, $1::text, $2::text, 'housekeeping'
          FROM users u
-         WHERE u.role = 'housekeeping' AND u.is_active = true
+         WHERE u.role IN ('housekeeping', 'admin', 'manager') AND u.is_active = true
            AND NOT EXISTS (
              SELECT 1 FROM notifications n
-             WHERE n.recipient_user_id = u.id AND n.type = 'housekeeping'
+             WHERE n.recipient_user_id::text = u.id::text AND n.type = 'housekeeping'
                AND n.title = $1::text AND n.created_at > NOW() - INTERVAL '10 minutes'
            )`,
         [
@@ -257,6 +257,8 @@ export async function POST(request: NextRequest) {
           `Room ${result.room_id} is dirty after checkout and is ready for cleaning.`,
         ],
       );
+      const { publishRealtime } = await import("@/lib/realtime");
+      await publishRealtime("notifications.updated", String(result.room_id)).catch(() => undefined);
     } catch (notificationError) {
       console.error("Checkout succeeded but housekeeping notification failed:", notificationError);
     }

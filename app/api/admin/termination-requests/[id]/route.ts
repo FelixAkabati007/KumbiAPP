@@ -36,6 +36,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     });
     if (!result) return NextResponse.json({ error: "Termination request not found" }, { status: 404 });
     await createAuditLog({ actionType: `termination_${action}` as AuditActionType, actorId: session.id, actorName: session.email, actorRole: session.role, reason: body?.note?.trim() || action, changeDetails: { terminationRequestId: id, confidential: true } });
+    const { publishRealtime } = await import("@/lib/realtime");
+    await publishRealtime("notifications.updated", String(id)).catch(() => undefined);
     return NextResponse.json({ ok: true, status: action });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "SELF_APPROVAL_FORBIDDEN") {

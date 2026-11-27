@@ -55,6 +55,8 @@ export async function POST(request: Request) {
     }
     return complaint.rows[0];
   });
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(result?.id ?? "complaint")).catch(() => undefined);
   return NextResponse.json({ complaint: result }, { status: 201 });
 }
 
@@ -78,5 +80,7 @@ export async function PATCH(request: Request) {
     return updated.rows[0];
   });
   if (!result) return NextResponse.json({ error: "Complaint not found or inaccessible" }, { status: 404 });
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(result.id)).catch(() => undefined);
   return NextResponse.json({ complaint: result });
 }

@@ -1,8 +1,9 @@
 import { query, transaction } from "@/lib/db";
 import type { ApiSession } from "@/lib/api-auth";
-import { managementRoles } from "@/lib/roles";
+import { getRoleDisplayName, managementRoles } from "@/lib/roles";
 import { propertyDayExpression } from "@/lib/operational-day";
 import { getCanonicalTransactionTimestamp } from "@/lib/property-time";
+import { notifyAdminsAndGeneralManagers } from "@/lib/server-notifications";
 import {
   getPropertySecondsOfDay,
   normalizeScheduleClassification,
@@ -122,8 +123,20 @@ export async function ensureAttendanceSchema(
        type VARCHAR(100) NOT NULL DEFAULT 'info',
        metadata JSONB DEFAULT '{}'::jsonb,
        read BOOLEAN NOT NULL DEFAULT false,
+       read_at TIMESTAMP WITH TIME ZONE,
+       opened_at TIMESTAMP WITH TIME ZONE,
+       expires_at TIMESTAMP WITH TIME ZONE,
+       archived_at TIMESTAMP WITH TIME ZONE,
+       archived_reason VARCHAR(255),
        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
      )`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE`,
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived_reason VARCHAR(255)`,
     `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_recipient_user_id_fkey`,
   ];
 
@@ -391,6 +404,7 @@ export async function registerAttendance(
     canonicalNow?: string;
     executor?: AttendanceQueryExecutor;
     runTransaction?: AttendanceTransactionRunner;
+    pushFetch?: typeof fetch;
   },
 ) {
   if (action === "check_in" && managementRoles.includes(session.role)) {
@@ -414,7 +428,7 @@ export async function registerAttendance(
     session.role,
   );
 
-  return runTx(async (client) => {
+  const txResult = await runTx(async (client) => {
     const current = await client.query<AttendanceRecordRow>(
       `SELECT id, user_id, staff_id, check_in_at, check_out_at, late_minutes, early_checkout_minutes, status, verification_status, verified_at
        FROM attendance_records ar
@@ -602,6 +616,97 @@ export async function registerAttendance(
 
     return { record: row, nextAction: "complete" as const, earlyCheckoutMinutes };
   });
+
+  try {
+    const nameRow = await poolExecutor<{ display_name: string | null }>(
+      `SELECT COALESCE(
+         NULLIF(NULLIF(TRIM(u.name), ''), 'Staff member'),
+         NULLIF(CONCAT_WS(' ', NULLIF(TRIM(sp.first_name), ''), NULLIF(TRIM(sp.last_name), '')), ''),
+         NULLIF(TRIM(u.email), '')
+       ) AS display_name
+       FROM users u
+       FULL OUTER JOIN staff_profiles sp ON sp.user_id = u.id
+       WHERE u.id::text = $1::text OR sp.id::text = $2::text OR sp.user_id::text = $1::text
+       LIMIT 1`,
+      [userId, staffId],
+    ).catch(() => ({ rows: [] as Array<{ display_name: string | null }> }));
+
+    const staffDisplayName =
+      nameRow.rows[0]?.display_name?.trim() ||
+      (session.name && session.name.trim() !== "Staff member" ? session.name.trim() : "") ||
+      session.email ||
+      "Staff member";
+
+    const roleLabel = schedule?.job_classification || getRoleDisplayName(session.role) || "Staff";
+    const deptLabel = schedule?.department ? `, ${schedule.department}` : "";
+    const formattedTime = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Accra",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
+      .format(new Date(canonicalNow))
+      .toUpperCase();
+
+    const row = txResult.record;
+    if (action === "check_in") {
+      const lateMins = Number(row.late_minutes ?? 0);
+      const lateNote = lateMins > 0 ? ` (${lateMins}m late)` : "";
+      await notifyAdminsAndGeneralManagers(
+        {
+          title: `Staff Check-In: ${staffDisplayName}`,
+          message: `${staffDisplayName} (${roleLabel}${deptLabel}) checked in at ${formattedTime}${lateNote}.`,
+          type: "attendance_check_in",
+          url: "/attendance",
+          dedupeKey: `attendance_check_in:${row.id}`,
+          excludeUserIds: [userId],
+          metadata: {
+            attendanceId: row.id,
+            staffId: row.staff_id,
+            userId,
+            staffName: staffDisplayName,
+            staffRole: session.role,
+            department: schedule?.department ?? null,
+            action: "check_in",
+            timestamp: canonicalNow,
+            lateMinutes: lateMins,
+          },
+          fetchImpl: options?.pushFetch,
+        },
+        poolExecutor,
+      );
+    } else {
+      const earlyMins = Number(row.early_checkout_minutes ?? 0);
+      const earlyNote = earlyMins > 0 ? ` (${earlyMins}m before scheduled close)` : "";
+      await notifyAdminsAndGeneralManagers(
+        {
+          title: `Staff Check-Out: ${staffDisplayName}`,
+          message: `${staffDisplayName} (${roleLabel}${deptLabel}) checked out at ${formattedTime}${earlyNote}.`,
+          type: "attendance_check_out",
+          url: "/attendance",
+          dedupeKey: `attendance_check_out:${row.id}`,
+          excludeUserIds: [userId],
+          metadata: {
+            attendanceId: row.id,
+            staffId: row.staff_id,
+            userId,
+            staffName: staffDisplayName,
+            staffRole: session.role,
+            department: schedule?.department ?? null,
+            action: "check_out",
+            timestamp: canonicalNow,
+            earlyCheckoutMinutes: earlyMins,
+          },
+          fetchImpl: options?.pushFetch,
+        },
+        poolExecutor,
+      );
+    }
+  } catch (notifyErr) {
+    console.warn("[attendance] Non-fatal Admin/GM notification dispatch warning:", notifyErr);
+  }
+
+  return txResult;
 }
 
 /**

@@ -70,6 +70,8 @@ export async function POST(request: Request) {
      FROM users WHERE role = ANY($2::text[])`,
     [`A staff member requested permission from ${body.startDate} to ${body.endDate}.`, managementRoles],
   );
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(result.rows[0]?.id ?? "permission_request")).catch(() => undefined);
   return NextResponse.json({ request: result.rows[0] }, { status: 201 });
 }
 
@@ -91,6 +93,8 @@ export async function PATCH(request: Request) {
     `INSERT INTO notifications (recipient_user_id, title, message, type) VALUES ($1, $2, $3, 'attendance_permission_decision')`,
     [row.staff_id, `Permission request ${body.status}`, body.message?.trim() || `Your planned absence request was ${body.status}.`],
   );
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(row.id)).catch(() => undefined);
   return NextResponse.json({ request: row });
 }
 

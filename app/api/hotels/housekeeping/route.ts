@@ -122,6 +122,8 @@ export async function POST(request: NextRequest) {
         assignedTo || null,
       ],
     );
+    const { publishRealtime } = await import("@/lib/realtime");
+    await publishRealtime("notifications.updated", String(task?.id ?? roomId)).catch(() => undefined);
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error("Error creating housekeeping task:", error);

@@ -22,6 +22,7 @@ import {
   PRESET_DEPARTMENTS,
   type StaffPermissionRow,
 } from "@/components/attendance/bulk-feature-permissions";
+import { NotificationBell } from "@/components/notification-bell";
 
 interface RecordRow {
   id: string;
@@ -416,14 +417,17 @@ export default function AttendancePage() {
             <span className="text-base font-semibold text-gray-800 dark:text-gray-200 sm:text-lg">Workforce Register</span>
           </div>
         </div>
-        {manager && (
-          <Link
-            href="/attendance/reports"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-sm font-semibold transition hover:bg-orange-50 dark:border-orange-700 dark:bg-gray-800/80"
-          >
-            <CheckCircle2 className="h-4 w-4 text-primary" /> Open approved report
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {manager && (
+            <Link
+              href="/attendance/reports"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-sm font-semibold transition hover:bg-orange-50 dark:border-orange-700 dark:bg-gray-800/80"
+            >
+              <CheckCircle2 className="h-4 w-4 text-primary" /> Open approved report
+            </Link>
+          )}
+          <NotificationBell />
+        </div>
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 p-3 sm:p-4 md:p-8">

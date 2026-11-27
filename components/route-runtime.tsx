@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { RealtimeProvider } from "@/components/realtime-provider";
 import { SystemSyncListener } from "@/components/system-sync-listener";
+import { GlobalNotificationSync } from "@/components/global-notification-sync";
 
 const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth"];
 
@@ -21,6 +22,7 @@ export function RouteRuntime({ children }: { children: ReactNode }) {
   return (
     <RealtimeProvider>
       <SystemSyncListener />
+      <GlobalNotificationSync />
       <div className="workspace-surface">{children}</div>
       <InstallAppPrompt />
     </RealtimeProvider>

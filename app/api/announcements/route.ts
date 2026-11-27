@@ -71,6 +71,10 @@ export async function POST(request: Request) {
     const delivered = await client.query(notificationSql, notificationParams);
     return { announcement: created.rows[0], recipientCount: delivered.rowCount ?? 0 };
   });
-  await fetch(new URL("/api/realtime", request.url), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: "announcements.updated", resource: announcement.announcement.id }) }).catch(() => undefined);
+  const { publishRealtime } = await import("@/lib/realtime");
+  await Promise.all([
+    publishRealtime("announcements.updated", String(announcement.announcement.id)),
+    publishRealtime("notifications.updated", String(announcement.announcement.id)),
+  ]).catch(() => undefined);
   return NextResponse.json(announcement, { status: 201 });
 }

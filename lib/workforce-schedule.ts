@@ -774,6 +774,11 @@ export async function dispatchWorkforceShiftReminders(options?: {
     }
   }
 
+  if (created > 0 && executor === (query as unknown as WorkforceQueryExecutor)) {
+    const { publishRealtime } = await import("@/lib/realtime");
+    await publishRealtime("notifications.updated", "shift_reminder").catch(() => undefined);
+  }
+
   return { created, evaluated: targets.length };
 }
 

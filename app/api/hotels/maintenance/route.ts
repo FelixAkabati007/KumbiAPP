@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
       return createdTicket;
     });
     publishRealtime("maintenance.updated", String(ticket.id));
+    publishRealtime("notifications.updated", String(ticket.id));
     if (roomId && shouldMarkRoomMaintenance) {
       publishRealtime("rooms.updated", String(roomId));
     }

@@ -25,6 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
       return { reservation: reservation.rows[0], notified: recipients.rowCount ?? 0 };
     });
+    const { publishRealtime } = await import("@/lib/realtime");
+    await publishRealtime("notifications.updated", String(id)).catch(() => undefined);
     return NextResponse.json({ ok: true, ...result });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Unable to cancel reservation";

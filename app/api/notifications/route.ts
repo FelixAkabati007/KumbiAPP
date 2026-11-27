@@ -2,65 +2,135 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ensureTopUpReviewSchema } from "@/lib/db/ensure-topup-schema";
+import {
+  DEFAULT_ADMIN_USER_ID,
+  DEFAULT_GENERAL_MANAGER_USER_ID,
+  dispatchNotificationsRealtimeAndPush,
+  ensureNotificationsSchema,
+} from "@/lib/server-notifications";
+
+export const dynamic = "force-dynamic";
+
+function getRecipientCandidateIds(session: { id: string; role: string }): string[] {
+  const ids = new Set<string>([String(session.id)]);
+  if (session.role === "admin") ids.add(DEFAULT_ADMIN_USER_ID);
+  if (session.role === "manager") ids.add(DEFAULT_GENERAL_MANAGER_USER_ID);
+  return Array.from(ids);
+}
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await ensureTopUpReviewSchema();
+  await Promise.all([ensureNotificationsSchema(), ensureTopUpReviewSchema()]);
+  const candidateIds = getRecipientCandidateIds(session);
 
   await query(
     `INSERT INTO notification_logs (notification_id, recipient_user_id, title, message, type, created_at, opened_at, archived_at, archived_reason)
      SELECT id, recipient_user_id, title, message, type, created_at, opened_at, CURRENT_TIMESTAMP, 'opened_notification_expired'
      FROM notifications n
-     WHERE n.recipient_user_id = $1 AND n.archived_at IS NULL AND n.expires_at IS NOT NULL AND n.expires_at <= CURRENT_TIMESTAMP
+     WHERE n.recipient_user_id::text = ANY($1::text[])
+       AND n.archived_at IS NULL
+       AND n.expires_at IS NOT NULL
+       AND n.expires_at <= CURRENT_TIMESTAMP
        AND NOT EXISTS (SELECT 1 FROM notification_logs l WHERE l.notification_id = n.id)`,
-    [session.id],
+    [candidateIds],
   ).catch(() => null);
+
   await query(
-    `UPDATE notifications SET archived_at = CURRENT_TIMESTAMP, archived_reason = 'opened_notification_expired'
-     WHERE recipient_user_id = $1 AND archived_at IS NULL AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP`,
-    [session.id],
+    `UPDATE notifications
+     SET archived_at = CURRENT_TIMESTAMP, archived_reason = 'opened_notification_expired'
+     WHERE recipient_user_id::text = ANY($1::text[])
+       AND archived_at IS NULL
+       AND expires_at IS NOT NULL
+       AND expires_at <= CURRENT_TIMESTAMP`,
+    [candidateIds],
   ).catch(() => null);
-  const result = await query(
-    `SELECT id, title, message, type, read_at, opened_at, created_at, metadata
-     FROM notifications
-     WHERE recipient_user_id = $1 AND archived_at IS NULL
-     ORDER BY created_at DESC
-     LIMIT 50`,
-    [session.id],
-  ).catch(async () => {
-    return query(
-      `SELECT id, title, message, type, read_at, opened_at, created_at
+
+  const [result, countResult] = await Promise.all([
+    query(
+      `SELECT id, title, message, type, read_at, opened_at, created_at, metadata
        FROM notifications
-       WHERE recipient_user_id = $1 AND archived_at IS NULL
+       WHERE recipient_user_id::text = ANY($1::text[])
+         AND archived_at IS NULL
        ORDER BY created_at DESC
-       LIMIT 50`,
-      [session.id],
-    );
-  });
-  return NextResponse.json({ notifications: result.rows });
+       LIMIT 100`,
+      [candidateIds],
+    ).catch(async () =>
+      query(
+        `SELECT id, title, message, type, read_at, opened_at, created_at
+         FROM notifications
+         WHERE recipient_user_id::text = ANY($1::text[])
+           AND archived_at IS NULL
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        [candidateIds],
+      ),
+    ),
+    query<{ unread_count: number }>(
+      `SELECT COUNT(*)::int AS unread_count
+       FROM notifications
+       WHERE recipient_user_id::text = ANY($1::text[])
+         AND read_at IS NULL
+         AND archived_at IS NULL`,
+      [candidateIds],
+    ).catch(() => ({ rows: [{ unread_count: 0 }] })),
+  ]);
+
+  const fallbackUnread = result.rows.filter((r) => !r.read_at).length;
+  const unreadCount = Math.max(Number(countResult.rows[0]?.unread_count ?? 0), fallbackUnread);
+
+  return NextResponse.json(
+    { notifications: result.rows, unreadCount },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 export async function PATCH(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { id?: string; markAllRead?: boolean; opened?: boolean } | null;
+  await ensureNotificationsSchema();
+  const candidateIds = getRecipientCandidateIds(session);
+
+  const body = (await request.json().catch(() => null)) as {
+    id?: string;
+    markAllRead?: boolean;
+    opened?: boolean;
+  } | null;
+
   if (body?.markAllRead) {
     await query(
-      "UPDATE notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP) WHERE recipient_user_id = $1 AND archived_at IS NULL",
-      [session.id],
+      `UPDATE notifications
+       SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP),
+           read = true
+       WHERE recipient_user_id::text = ANY($1::text[])
+         AND archived_at IS NULL`,
+      [candidateIds],
     );
   } else if (body?.id) {
     await query(
-      `UPDATE notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP), opened_at = COALESCE(opened_at, CURRENT_TIMESTAMP), expires_at = COALESCE(expires_at, CURRENT_TIMESTAMP + INTERVAL '30 days')
-       WHERE id = $1 AND recipient_user_id = $2 AND archived_at IS NULL`,
-      [body.id, session.id],
+      `UPDATE notifications
+       SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP),
+           read = true,
+           opened_at = COALESCE(opened_at, CURRENT_TIMESTAMP),
+           expires_at = COALESCE(expires_at, CURRENT_TIMESTAMP + INTERVAL '30 days')
+       WHERE id::text = $1::text
+         AND recipient_user_id::text = ANY($2::text[])
+         AND archived_at IS NULL`,
+      [body.id, candidateIds],
     );
   } else {
     return NextResponse.json({ error: "Provide id or markAllRead" }, { status: 400 });
   }
+
+  await dispatchNotificationsRealtimeAndPush({
+    recipientUserIds: candidateIds,
+    includeAdminAndGmRoles: session.role === "admin" || session.role === "manager",
+    silent: true,
+    type: "badge_sync",
+    resourceId: body?.id || session.id,
+  }).catch(() => undefined);
 
   return NextResponse.json({ ok: true });
 }
@@ -69,10 +139,13 @@ export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  await ensureNotificationsSchema();
+
   const body = (await request.json().catch(() => null)) as {
     title?: string;
     message?: string;
     type?: string;
+    notifyManagement?: boolean;
   } | null;
   const title = body?.title?.trim();
   const message = body?.message?.trim();
@@ -80,11 +153,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid notification payload" }, { status: 400 });
   }
 
-  const result = await query(
+  const notifType = body?.type?.trim().slice(0, 40) || "info";
+  const result = await query<{
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+    read_at: string | null;
+    opened_at: string | null;
+    created_at: string;
+  }>(
     `INSERT INTO notifications (recipient_user_id, title, message, type)
      VALUES ($1, $2, $3, $4)
      RETURNING id, title, message, type, read_at, opened_at, created_at`,
-    [session.id, title, message, body?.type?.trim().slice(0, 40) || "info"],
+    [session.id, title, message, notifType],
   );
-  return NextResponse.json({ notification: result.rows[0] }, { status: 201 });
+
+  const created = result.rows[0];
+  await dispatchNotificationsRealtimeAndPush({
+    recipientUserIds: [session.id],
+    notificationId: created?.id ? String(created.id) : undefined,
+    title,
+    message,
+    type: notifType,
+    url: "/",
+  }).catch(() => undefined);
+
+  return NextResponse.json({ notification: created }, { status: 201 });
 }

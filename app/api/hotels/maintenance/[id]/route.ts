@@ -98,6 +98,9 @@ export async function PATCH(
     }
 
     publishRealtime("maintenance.updated", String(id));
+    if (status || assignedTo !== undefined) {
+      publishRealtime("notifications.updated", String(id));
+    }
     if (updatedTicket.room_id) {
       publishRealtime("rooms.updated", String(updatedTicket.room_id));
     }

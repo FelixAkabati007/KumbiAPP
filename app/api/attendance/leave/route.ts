@@ -71,6 +71,8 @@ export async function POST(request: Request) {
      FROM users WHERE role = ANY($2::text[])`,
     [`A staff member submitted a ${body.leaveType} leave request from ${body.startDate} to ${body.endDate}.`, managementRoles],
   );
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(result.rows[0]?.id ?? "leave_request")).catch(() => undefined);
   return NextResponse.json({ request: result.rows[0] }, { status: 201 });
 }
 
@@ -92,5 +94,7 @@ export async function PATCH(request: Request) {
     `INSERT INTO notifications (recipient_user_id, title, message, type) VALUES ($1, $2, $3, 'leave_decision')`,
     [row.staff_id, `Leave request ${body.status}`, body.message?.trim() || `Your ${row.leave_type} leave request was ${body.status}.`],
   );
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(row.id)).catch(() => undefined);
   return NextResponse.json({ request: row });
 }

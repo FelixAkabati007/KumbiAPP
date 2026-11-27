@@ -8,6 +8,7 @@ import {
   clearOfflineCachedUser,
   initOfflineSyncListeners,
 } from "@/lib/offline-storage";
+import { unsubscribeDevicePushOnLogout } from "@/lib/notifications";
 
 interface AppUser {
   id: string;
@@ -185,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
+      await unsubscribeDevicePushOnLogout().catch(() => {});
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (error) {
       console.error("Logout failed:", error);

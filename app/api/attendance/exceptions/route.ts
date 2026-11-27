@@ -40,6 +40,14 @@ export async function POST(request: Request) {
     [body.id, body.message.trim().slice(0, 2000), session.id],
   );
   if (!result.rowCount) return NextResponse.json({ error: "Exception is no longer awaiting a reply" }, { status: 409 });
+  const { notifyAdminsAndGeneralManagers } = await import("@/lib/server-notifications");
+  await notifyAdminsAndGeneralManagers({
+    title: "Attendance exception reply",
+    message: `${session.email} submitted an absence explanation: "${body.message.trim().slice(0, 200)}"`,
+    type: "attendance_exception_reply",
+    url: "/attendance",
+    dedupeKey: `attendance_exception_reply:${result.rows[0].id}`,
+  }).catch(() => undefined);
   return NextResponse.json({ exception: result.rows[0] });
 }
 
@@ -61,5 +69,7 @@ export async function PATCH(request: Request) {
     `INSERT INTO notifications (recipient_user_id, title, message, type) VALUES ($1, $2, $3, 'attendance_exception_decision')`,
     [row.staff_id, `Attendance exception ${body.status}`, body.message?.trim() || `Your attendance exception was ${body.status}.`],
   );
+  const { publishRealtime } = await import("@/lib/realtime");
+  await publishRealtime("notifications.updated", String(row.id)).catch(() => undefined);
   return NextResponse.json({ exception: row });
 }

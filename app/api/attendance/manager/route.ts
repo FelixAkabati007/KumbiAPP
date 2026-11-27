@@ -323,7 +323,10 @@ export async function PATCH(request: Request) {
       ],
     ).catch((err) => console.warn("[attendance] notification insert skipped:", err));
 
-    await publishRealtime("attendance.updated", String(updatedRow.id)).catch(() => undefined);
+    await Promise.all([
+      publishRealtime("attendance.updated", String(updatedRow.id)),
+      publishRealtime("notifications.updated", String(updatedRow.id)),
+    ]).catch(() => undefined);
     return NextResponse.json({ record: updatedRow });
   } catch (cause) {
     console.error("[attendance] manager decision failed", cause);
